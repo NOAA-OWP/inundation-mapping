@@ -42,7 +42,7 @@ class HucDirectory(object):
             'HUC8': str,
             'snap_distance': float,
         }
-        self.agg_usgs_elev_table = pd.DataFrame(columns=list(self.usgs_dtypes.keys()))
+        self.agg_usgs_elev_table = []
 
         self.hydrotable_dtypes = {
             'HydroID': int,
@@ -84,7 +84,7 @@ class HucDirectory(object):
             'subdiv_discharge_cms': float,
             'discharge_cms': float,
         }
-        self.agg_hydrotable = pd.DataFrame(columns=list(self.hydrotable_dtypes.keys()))
+        self.agg_hydrotable = []
 
         self.src_crosswalked_dtypes = {
             'branch_id': int,
@@ -132,7 +132,7 @@ class HucDirectory(object):
             'Velocity_obank (m/s)': float,
             'Discharge (m3s-1)_subdiv': float,
         }
-        self.agg_src_cross = pd.DataFrame(columns=list(self.src_crosswalked_dtypes.keys()))
+        self.agg_src_cross = []
 
         self.ras_dtypes = {
             'location_id': str,
@@ -147,7 +147,7 @@ class HucDirectory(object):
             'HUC8': str,
             'snap_distance': float,
         }
-        self.agg_ras_elev_table = pd.DataFrame(columns=list(self.ras_dtypes.keys()))
+        self.agg_ras_elev_table = []
 
         self.bridge_dtypes = {
             'osmid': int,
@@ -162,7 +162,7 @@ class HucDirectory(object):
             'mainstem': int,
             'geometry': object,
         }
-        self.agg_bridge_pnts = gpd.GeoDataFrame(columns=list(self.bridge_dtypes.keys()))
+        self.agg_bridge_pnts = []
 
         self.road_dtypes = {
             'osmid': str,
@@ -180,7 +180,7 @@ class HucDirectory(object):
             'threshold_discharge_cfs': float,
         }
 
-        self.agg_road_fimpact = pd.DataFrame(columns=list(self.road_dtypes.keys()))
+        self.agg_road_fimpact = []
 
     def iter_branches(self):
         if self.limit_branches:
@@ -197,7 +197,7 @@ class HucDirectory(object):
             return
 
         usgs_elev_table = pd.read_csv(usgs_elev_filename, dtype=self.usgs_dtypes)
-        self.agg_usgs_elev_table = pd.concat([self.agg_usgs_elev_table, usgs_elev_table])
+        self.agg_usgs_elev_table.append(usgs_elev_table)
 
     def aggregate_hydrotables(self, branch_path, branch_id):
         hydrotable_filename = join(branch_path, f'hydroTable_{branch_id}.csv')
@@ -207,7 +207,7 @@ class HucDirectory(object):
         hydrotable = pd.read_csv(hydrotable_filename, dtype=self.hydrotable_dtypes)
         hydrotable['branch_id'] = branch_id
         hydrotable[['calb_applied']] = hydrotable[['calb_applied']].fillna(value=False)
-        self.agg_hydrotable = pd.concat([self.agg_hydrotable, hydrotable])
+        self.agg_hydrotable.append(hydrotable)
 
     def aggregate_src_full_crosswalk(self, branch_path, branch_id):
         src_cross_filename = join(branch_path, f'src_full_crosswalked_{branch_id}.csv')
@@ -216,7 +216,7 @@ class HucDirectory(object):
 
         src_cross = pd.read_csv(src_cross_filename, dtype=self.src_crosswalked_dtypes)
         src_cross['branch_id'] = branch_id
-        self.agg_src_cross = pd.concat([self.agg_src_cross, src_cross])
+        self.agg_src_cross.append(src_cross)
 
     def aggregate_ras_elev_table(self, branch_path):
         ras_elev_filename = join(branch_path, 'ras_elev_table.csv')
@@ -224,7 +224,7 @@ class HucDirectory(object):
             return
 
         ras_elev_table = pd.read_csv(ras_elev_filename, dtype=self.ras_dtypes)
-        self.agg_ras_elev_table = pd.concat([self.agg_ras_elev_table, ras_elev_table])
+        self.agg_ras_elev_table.append(ras_elev_table)
 
     def aggregate_bridge_pnts(self, branch_path, branch_id):
         bridge_filename = join(branch_path, f'osm_bridge_centroids_{branch_id}.gpkg')
@@ -240,7 +240,7 @@ class HucDirectory(object):
         hydrotable = pd.read_csv(hydrotable_filename, dtype=self.hydrotable_dtypes)
         # Get the flows for each stage
         bridge_pnts = flows_from_hydrotable(bridge_pnts, hydrotable)
-        self.agg_bridge_pnts = pd.concat([self.agg_bridge_pnts, bridge_pnts])
+        self.agg_bridge_pnts.append(bridge_pnts)
 
     def aggregate_road_fimpacts(self, branch_path, branch_id):
         fimpact_filename = join(branch_path, f'osm_roads_fimpact_{branch_id}.csv')
@@ -267,7 +267,7 @@ class HucDirectory(object):
             fimpact_df['threshold_hand_ft'] = fimpact_df['threshold_hand'] * 3.28084
             fimpact_df['threshold_discharge_cfs'] = fimpact_df['threshold_discharge'] * 35.3147
 
-            self.agg_road_fimpact = pd.concat([self.agg_road_fimpact, fimpact_df])
+            self.agg_road_fimpact.append(fimpact_df)
 
     def agg_function(
         self, usgs_elev_flag, hydro_table_flag, src_cross_flag, ras_elev_flag, bridge_flag, road_flag, huc_id
@@ -296,8 +296,9 @@ class HucDirectory(object):
                 if os.path.isfile(usgs_elev_table_file):
                     os.remove(usgs_elev_table_file)
 
-                if not self.agg_usgs_elev_table.empty:
-                    self.agg_usgs_elev_table.to_csv(usgs_elev_table_file, index=False)
+                if self.agg_usgs_elev_table:
+                    agg_usgs = pd.concat(self.agg_usgs_elev_table, ignore_index=True)
+                    agg_usgs.to_csv(usgs_elev_table_file, index=False)
 
             if hydro_table_flag:
 
@@ -305,8 +306,8 @@ class HucDirectory(object):
                 if os.path.isfile(hydrotable_file):
                     os.remove(hydrotable_file)
 
-                if not self.agg_hydrotable.empty:
-                    self.agg_hydrotable.to_csv(hydrotable_file, index=False)
+                if self.agg_hydrotable:
+                    agg_hydrotable = pd.concat(self.agg_hydrotable, ignore_index=True)
 
                     # TODO: Jun 2025: Rename poorly named columns like SurfaceArea (m2)
                     # and go though all tools removing csv orfeather in favour of parquet
@@ -337,7 +338,8 @@ class HucDirectory(object):
                         "LakeID",
                         "Bathymetry_source",
                     ]
-                    temp_df = self.agg_hydrotable.reset_index()
+                    agg_hydrotable.to_csv(hydrotable_file, index=False)
+                    temp_df = agg_hydrotable.reset_index()
                     temp_df = temp_df[htable_req_cols].astype(dtype)
                     temp_df.to_feather(hydrotable_file.replace('.csv', '.feather'))
 
@@ -364,25 +366,27 @@ class HucDirectory(object):
                 if os.path.isfile(src_crosswalk_file):
                     os.remove(src_crosswalk_file)
 
-                if not self.agg_src_cross.empty:
-                    self.agg_src_cross.to_csv(src_crosswalk_file, index=False)
+                if self.agg_src_cross:
+                    agg_src_cross = pd.concat(self.agg_src_cross, ignore_index=True)
+                    agg_src_cross.to_csv(src_crosswalk_file, index=False)
 
             if ras_elev_flag:
                 ras_elev_table_file = join(self.huc_dir_path, 'ras_elev_table.csv')
                 if os.path.isfile(ras_elev_table_file):
                     os.remove(ras_elev_table_file)
 
-                if not self.agg_ras_elev_table.empty:
-                    self.agg_ras_elev_table.to_csv(ras_elev_table_file, index=False)
+                if self.agg_ras_elev_table:
+                    agg_ras_elev = pd.concat(self.agg_ras_elev_table, ignore_index=True)
+                    agg_ras_elev.to_csv(ras_elev_table_file, index=False)
 
             if bridge_flag:
                 bridge_pnts_file = join(self.huc_dir_path, 'osm_bridge_centroids.gpkg')
                 if os.path.isfile(bridge_pnts_file):
                     os.remove(bridge_pnts_file)
 
-                if not self.agg_bridge_pnts.empty:
+                if self.agg_bridge_pnts:
                     # Just making things shorter so they are easier to read
-                    bridge_pnts = self.agg_bridge_pnts
+                    bridge_pnts = pd.concat(self.agg_bridge_pnts, ignore_index=True)
                     # Use branch 0 to get the feature_id each bridge crosses
                     b0 = bridge_pnts.loc[bridge_pnts.branch == '0', ['osmid', 'feature_id']]
                     b0 = b0.rename(columns={'feature_id': 'crossing_feature_id'})
@@ -414,10 +418,11 @@ class HucDirectory(object):
                 if os.path.isfile(roads_fimpact_file):
                     os.remove(roads_fimpact_file)
 
-                if not self.agg_road_fimpact.empty:
-                    self.agg_road_fimpact = self.agg_road_fimpact.astype(self.road_dtypes, errors='raise')
+                if self.agg_road_fimpact:
+                    agg_road_fimpact = pd.concat(self.agg_road_fimpact, ignore_index=True)
+                    agg_road_fimpact = agg_road_fimpact.astype(self.road_dtypes, errors='raise')
 
-                    self.agg_road_fimpact.to_csv(roads_fimpact_file, index=False)
+                    agg_road_fimpact.to_csv(roads_fimpact_file, index=False)
 
         except Exception:
             errMsg = (
