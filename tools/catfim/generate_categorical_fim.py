@@ -820,7 +820,7 @@ def __roll_up_final_logs(gen_log_file_path, huc_list_rollup, output_folder):
 
             # Confirm that HUC folder exists
             huc_folder = os.path.join(output_folder, "hucs", huc)
-            if not os.path.exists(huc_folder):                
+            if not os.path.exists(huc_folder):
                 msgs.append(
                     f"{huc} - HUC folder not found at {huc_folder}, skipping adding HUC logs to final logs."
                 )

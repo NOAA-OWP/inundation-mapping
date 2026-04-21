@@ -1135,5 +1135,4 @@ def __get_segments(lid_metadata, nwm_flows_region_df):
         unfiltered_segments, desired_order, nwm_flows_region_df
     )
     # Previous input was nwm_flows_df, but now it is region specific df (9/25/25)
-
     return segments_lst

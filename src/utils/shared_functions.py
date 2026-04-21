@@ -131,7 +131,7 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(formatter)
     os.chmod(log_file_path, mode=permissions_code)
-    
+
     logger.handlers.clear()  # reset the custom logger settings below
     # order matters here
     logger.addHandler(err_file_handler)

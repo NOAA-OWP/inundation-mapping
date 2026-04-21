@@ -91,7 +91,7 @@ def process_mapping(
         logging.info("")
         logging.info(f"{huc} - Mapping - Loading mapping data for HUC")
 
-        sites_gdf, huc_library_df, huc_segments_df, fim_run_dir =  __load_validate_mapping_data(
+        sites_gdf, huc_library_df, huc_segments_df, fim_run_dir = __load_validate_mapping_data(
             huc, huc_path, sites_pre_mapping_file_path, library_pre_mapping_file_path
         )
 
@@ -132,7 +132,7 @@ def process_mapping(
 
             # Jan 26 - Renamed run_catfim_inundation() to run_fb_mapping()
             sites_gdf, huc_library_df = run_fb_mapping(
-                huc, huc_path, sites_gdf, huc_library_df, output_mapping_dir, fim_run_dir, output_temp_dir,
+                huc, huc_path, sites_gdf, huc_library_df, output_mapping_dir, fim_run_dir, output_temp_dir
             )
 
     except Exception as ex:
@@ -150,7 +150,7 @@ def process_mapping(
         logging.info("")
         logging.info(f"{huc} - Mapping - Post-processing HUC mapping")
         sites_gdf, huc_library_gdf = post_process_huc_mapping(
-            huc, catfim_type, sites_gdf, huc_library_df, output_mapping_dir,
+            huc, catfim_type, sites_gdf, huc_library_df, output_mapping_dir
         )
 
     except Exception as ex:
@@ -164,7 +164,7 @@ def process_mapping(
         logging.info(f"{huc} - Mapping - Saving HUC outputs post-mapping")
 
         __save_huc_outputs_post_mapping(
-            huc, sites_gdf, huc_library_gdf, sites_post_mapping_file_path, library_post_mapping_file_path,
+            huc, sites_gdf, huc_library_gdf, sites_post_mapping_file_path, library_post_mapping_file_path
         )
 
     except Exception as ex:
@@ -464,7 +464,7 @@ def run_fb_inundation(  # renamed from run_inundation
     # saved_extent_grid_filename = "{}_{}{}".format(base_file_path, huc, extension)
 
     if not os.path.exists(output_extent_tif):
-    # TODO: Doublecheck that this is the way we want to check for success
+        # TODO: Doublecheck that this is the way we want to check for success
         logging.critical(f"{huc} : {ahps_site} : {magnitude} - FAILURE: map failed to create")
     # TODO: maybe add a bool for critical error for the try catch if we keep it?
     return
@@ -552,7 +552,7 @@ def run_sb_mapping(
         id_vars=['nws_lid'],
         value_vars=['action', 'minor', 'moderate', 'major', 'record'],
         var_name='magnitude_type',
-        value_name='magnitude_value'
+        value_name='magnitude_value',
     )
 
     # Remove rows where magnitude_value is -1.0 # TODO: Update with a variable?
@@ -620,7 +620,6 @@ def run_sb_mapping(
             # TODO: Double check that this is correct variable to use here - lid_alt_ft
             lid_altitude = site_mag_library_df['lid_alt_ft'].iloc[0]
 
-
             # Calculate a portion of the file name which includes the category and
             # a formatted stage value (would include "i" if it were an interval file)
             category_key = __calculate_category_key(magnitude, stage_val, False)  # False = not an interval
@@ -645,12 +644,12 @@ def run_sb_mapping(
             # Update the huc_library_df with the new info from run_sb_inundation (datum_adj_wse, datum_adj_wse_m)
             huc_library_df.loc[
                 (huc_library_df['nws_lid'] == ahps_site) & (huc_library_df['magnitude'] == magnitude),
-                'datum_adj_wse_ft'
+                'datum_adj_wse_ft',
             ] = datum_adj_wse
 
             huc_library_df.loc[
                 (huc_library_df['nws_lid'] == ahps_site) & (huc_library_df['magnitude'] == magnitude),
-                'datum_adj_wse_m'
+                'datum_adj_wse_m',
             ] = datum_adj_wse_m
             # We aren't updating sites df with this info because I don't think it is needed? Add here if needed.
 
@@ -731,9 +730,7 @@ def run_sb_mapping(
                 )
 
         else:
-            logging.info(
-                f"{huc_lid_id}: Skipping intervals as there are not any 'non-record' stages"
-            )
+            logging.info(f"{huc_lid_id}: Skipping intervals as there are not any 'non-record' stages")
 
     logging.info(f"{huc} - Mapping - End inundating and mosaicing")
 
@@ -829,7 +826,6 @@ def run_sb_inundation(
     # Subtract HAND gage elevation from HAND WSE to get HAND stage.
     hand_stage_m = datum_adj_wse_m - lid_usgs_elev  # HAND stage in m
 
-
     logging.info("datum_adj_wse = stage_val + datum_adj_ft + lid_altitude")  # TEMP DEBUG
     logging.info(f"{datum_adj_wse} = {stage_val} + {datum_adj_ft} + {lid_altitude}")  # TEMP DEBUG
     logging.info("hand_stage_m = datum_adj_wse_m - lid_usgs_elev")  # TEMP DEBUG
@@ -889,7 +885,7 @@ def run_sb_inundation(
 
     # For now, we will just run it single-threaded and can implement multi-
     # threading later.
-    
+
     for branch in branches:
 
         # Prepare branch-specific file paths
@@ -999,7 +995,7 @@ def run_sb_inundation(
 
     # Note: Jan 2026 - Moved mosaic code into mosaic_sb_inundation() to match FB processing
     # mosaic_sb_inundation() in SB is analogous to Mosaic_inundation() function in FB
-    
+
     output_extent_tif = mosaic_sb_inundation(ahps_site, output_mapping_dir, category_key, huc_lid_cat_id)
 
     # Exit early if no output extent tif was created
@@ -1617,9 +1613,7 @@ def __calculate_category_key(category, stage_value, is_interval_stage):
     return category_key
 
 
-def __calc_sb_intervals(
-    non_rec_thresholds_df_site, past_major_interval_cap, huc_lid_id
-):
+def __calc_sb_intervals(non_rec_thresholds_df_site, past_major_interval_cap, huc_lid_id):
     '''
     Used in stage-based CatFIM.
 
@@ -1714,9 +1708,7 @@ def __calc_sb_intervals(
     return interval_recs
 
 
-def __load_validate_mapping_data(
-    huc, huc_path, sites_pre_mapping_file_path, library_pre_mapping_file_path
-):
+def __load_validate_mapping_data(huc, huc_path, sites_pre_mapping_file_path, library_pre_mapping_file_path):
     '''
     Used for both SB and FB.
 
