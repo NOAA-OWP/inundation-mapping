@@ -18,6 +18,8 @@ import pandas as pd
 # -------------------------------------------------------
 # Reseting stage column in SRCs for fixing thalweg notches
 def reset_stage(srcs_df):
+    # Re-inject grouping column for hydroid
+    srcs_df['HydroID'] = srcs_df.name
 
     stage_interval = 0.3048  # float(os.getenv('stage_interval_meters'))
 
@@ -30,7 +32,9 @@ def reset_stage(srcs_df):
 # -------------------------------------------------------
 # Extending src_df with linear_extrapolation for missing stages in thalweg notches
 def extend_src_linear_extrapolation(srcs_df, stages_full):
-
+    # Re-inject grouping column for hydroid
+    srcs_df['HydroID'] = srcs_df.name
+    
     # Number of the last rows of src to include in extrapolation
     num_rows = 3
     # Identify all value columns except 'Stage'
@@ -167,8 +171,8 @@ def correct_thalweg_notches(huc_dir, huc, stage_interval):
         if cond_ThalwegNRows.sum() > 0:
             src_df_skipTwNRows = src_df2[~cond_ThalwegNRows].copy()
             src_df_skipTwNRows_gb = (
-                src_df_skipTwNRows.groupby('HydroID', group_keys=False, include_groups=False)
-                .apply(reset_stage)
+                src_df_skipTwNRows.groupby('HydroID', group_keys=False)
+                .apply(reset_stage, include_groups=False)
                 .reset_index(drop=True)
             )
 
@@ -182,8 +186,8 @@ def correct_thalweg_notches(huc_dir, huc, stage_interval):
 
             # Apply extend_src_linear_extrapolation to each src_df
             src_df3 = (
-                src_df3.groupby('HydroID', group_keys=False, include_groups=False)
-                .apply(lambda src_g: extend_src_linear_extrapolation(src_g, stages_full))
+                src_df3.groupby('HydroID', group_keys=False)
+                .apply(lambda src_g: extend_src_linear_extrapolation(src_g, stages_full),include_groups=False)
                 .sort_values(['HydroID', 'Stage'])
                 .reset_index(drop=True)
             )
