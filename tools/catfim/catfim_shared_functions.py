@@ -20,6 +20,7 @@ MAX_STAGE_THRESHOLD = 250
 # A NoData value for the datum adjustment, used in multiple functions across the codebase
 ELEV_NODATA_VALUE = -9999.0
 
+
 def load_fim_global_env_values(env_file):
     '''
     Loads environment variables from a .env file.
@@ -386,6 +387,7 @@ def make_huc_mapping_filepaths(huc, catfim_type, huc_path):
         library_pre_mapping_file_path,
         library_post_mapping_file_path,
     )
+
 
 def finalize_sites_mapping_status(
     huc, catfim_type, sites_post_mapping_file_path, library_post_mapping_file_path, sites_input, library_input
@@ -874,7 +876,7 @@ def rename_output_columns(df):
     -------
     df_new - Pandas DataFrame or GeoDataFrame
         Dataframe or geodataframe with renamed columns.
-    
+
     '''
 
     df_new = df.copy()
