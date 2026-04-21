@@ -224,7 +224,6 @@ def process_generate_categorical_fim(
         log_file_path = sf.setup_file_logger(temp_folder, "gen_catfim")
         is_logging_loaded = True
 
-        
         # We will populate this later on, just need to define it here for the try except scope
         task_args_list = []
 
@@ -822,7 +821,9 @@ def __roll_up_final_logs(gen_log_file_path, huc_list_rollup, output_folder):
             # Confirm that HUC folder exists
             huc_folder = os.path.join(output_folder, "hucs", huc)
             if not os.path.exists(huc_folder):                
-                msgs.append(f"{huc} - HUC folder not found at {huc_folder}, skipping adding HUC logs to final logs.")
+                msgs.append(
+                    f"{huc} - HUC folder not found at {huc_folder}, skipping adding HUC logs to final logs."
+                )
                 # Means that the HUC was in the args list but we never got far enough to
                 # make a folder for it.
                 continue
@@ -874,7 +875,7 @@ def __roll_up_final_logs(gen_log_file_path, huc_list_rollup, output_folder):
 
                 msgs.append(
                     f'{huc} - Appending {os.path.basename(huc_log_path)} to {os.path.basename(final_log_path)}'
-                    )  # TODO: Verbose? TEMP DEBUG
+                )  # TODO: Verbose? TEMP DEBUG
 
                 # The HUC log folder doesn't get used until here, so if this isn't a CatFIM re-run then it
                 # probably needs to be made. We store the HUC logs in temp until this section because

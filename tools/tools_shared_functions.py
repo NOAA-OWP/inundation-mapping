@@ -88,7 +88,9 @@ def filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order, nwm_
                 filtered_segments.append(feature_id)
 
         except Exception as e:
-            print(f'WARNING: Exception occurred during filter_nwm_segments_by_stream_order(). FID: {feature_id}, Exception: {e}')
+            print(
+                f'WARNING: Exception occurred during filter_nwm_segments_by_stream_order(). FID: {feature_id}, Exception: {e}'
+            )
 
     return filtered_segments
 

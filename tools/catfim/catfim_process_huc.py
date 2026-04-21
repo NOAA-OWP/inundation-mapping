@@ -161,7 +161,6 @@ def process_huc(huc, output_folder):
         # - Note: later.. catfim post processing will look for only files starting with a huc number and
         #    either _sites.gpkg or _library.gpkg
 
-
         # Notes on file naming conventions:
         # - Not all intermediates will go to temp. It depends if we want to keep it long term or not.
         # - Make sure that only the final edition of the product ends in _sites.gpkg or _library.gpkg # TODO: Update, I think we've changed this
@@ -298,7 +297,6 @@ def process_huc(huc, output_folder):
                 )
                 continue_processing = False
 
-
             # Check for valid LIDs and abort processing if no valid sites remain
             # If there's no valid LIDs we won't have any library files, but we still need to finalize
             # sites.gdf because it will still be part of the final product rollup.
@@ -432,7 +430,7 @@ def process_huc(huc, output_folder):
                 library_pre_mapping_file_path,
                 library_post_mapping_file_path,
             )
-        
+
             # Currently we don't do any safety checks here because it
             # wouldn't change how we wrapped up processing and issues
             # will be checked for shortly.
@@ -440,7 +438,7 @@ def process_huc(huc, output_folder):
             # =========================================
             # Finalize all final sites and library files for this HUC
             # Assumes all logging or finalization was jumped to earlier.
-            
+
             # TODO: Decide if we want a separate final and post-mapping filepath....
             # We don't want mapping to ever change the copy coming in here as we need
             # to be able to re-run mapping as many times as it wants. It will be updating
@@ -632,7 +630,7 @@ def __process_elevations(
 
         # Get the site altitude from the USGS data
         # lid_altitude = lid_sites_gdf.iloc[0]['usgs_data_altitude'] # Previous method - elevation was pulled from the USGS columns (even if the datum and rating curve were from NRLDB)
-        
+
         # We need to be getting the elev that matches the rating curve that we're using, not just hard coding to USGS I think!!
         # New as of Spring '26
         rating_curve_source = lid_library_df.iloc[0]["q_src"]
@@ -672,7 +670,7 @@ def __process_elevations(
             lid_usgs_elev, err_msg = __adj_dem_elevation_val(acceptable_usgs_elev_df, lid, huc)
 
             # Exit and update the line status if an error was returned from adjust DEM elevation val
-            if err_msg != "":                
+            if err_msg != "":
                 sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, err_msg, set_mapped_to_no=True)
                 continue
 
@@ -740,7 +738,6 @@ def __process_elevations(
         logging.info(f'{lid} - lid_usgs_elev: {lid_usgs_elev}')  # TEMP DEBUG
         logging.info('')  # TEMP DEBUG
 
-
         # Calculate the elevation difference between the two elevation values
         elevation_diff_m = lid_usgs_elev - lid_altitude_m
         diff_rounded_m = round(elevation_diff_m, 2)
@@ -806,7 +803,6 @@ def __process_elevations(
             msg = 'Stage value stored as WSE detected, adjusted val by subtracting site elevation.'
             sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no=False)
 
-
         updated_huc_library_df = pd.concat([updated_huc_library_df, lid_library_df], ignore_index=True)
 
     if len(updated_huc_library_df) > 0:
@@ -837,7 +833,7 @@ def __create_acceptable_usgs_elev_df(usgs_elev_df):
     ----------
     usgs_elev_df - pd.DataFrame
         DataFrame containing USGS elevation data with required columns: usgs_data_alt_method_code, usgs_data_site_type, usgs_data_alt_accuracy_code
- 
+
     Returns
     ---------
     acceptable_usgs_elev_df - pd.DataFrame
@@ -1017,11 +1013,11 @@ def __adjust_datum_ft(lid_sites_gdf, lid_library_df, lid, datum_adj_nodata_value
         'stkn4',
         'wlln7',
     ]:
-        datum_data.update(crs='NAD83') # TODO: Double check hardcoded adjustments
+        datum_data.update(crs='NAD83')  # TODO: Double check hardcoded adjustments
         logging.info(f"{lid}: adjust_datum_ft - CRS manually set to NAD83")
 
     # SPECIAL CASE: Site BMBP1
-    if lid.lower() == 'bmbp1':  #TODO: Double check hardcoded adjustments
+    if lid.lower() == 'bmbp1':  # TODO: Double check hardcoded adjustments
         # SPECIAL CASE: Workaround for "bmbp1" where the only valid datum is from NRLDB (USGS datum is null).
         # Modifying rating curve source will influence the rating curve and
         #   datum retrieved for benchmark determinations.
@@ -1035,7 +1031,6 @@ def __adjust_datum_ft(lid_sites_gdf, lid_library_df, lid, datum_adj_nodata_value
         logging.info(
             f"{lid}: adjust_datum_ft - CRS manually set to NAD27, rating curve source manually set to NRLDB"
         )
-
 
     # SPECIAL CASE: Custom workaround these sites have poorly defined vcs from WRDS. VCS needed to ensure
     #   datum reported in NAVD88.
@@ -1225,7 +1220,7 @@ def __adjust_datum_ft(lid_sites_gdf, lid_library_df, lid, datum_adj_nodata_value
                     except Exception:
                         err_msg = ':NOAA VDatum adjustment error, possible API issue'
                         logging.error(f"{lid}: {err_msg}")
-        
+
                 elif 'Invalid projection' in ex:
                     err_msg = f'NOAA VDatum adjustment error, invalid projection: crs={crs}'
                     logging.error(f"{lid}: {err_msg}")
@@ -1493,7 +1488,7 @@ def __setup_sites_gdf(sites_gdf, catfim_type):
 
     sites_gdf = sites_gdf.drop(
         ['downstream_nwm_features', 'upstream_nwm_features'], axis=1, errors='ignore'
-    ) # TODO: maybe we don't drop this because then we wouldn't have to read the metadata json list in later when this data is needed...?
+    )  # TODO: maybe we don't drop this because then we wouldn't have to read the metadata json list in later when this data is needed...?
     sites_gdf = sites_gdf.astype(
         {
             'metadata_sources': str,

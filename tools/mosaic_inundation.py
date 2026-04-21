@@ -2,6 +2,7 @@
 # coding: utf-8
 
 import argparse
+import logging
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
@@ -10,7 +11,6 @@ from typing import Optional, Union
 import geopandas as gpd
 import numpy as np
 import pandas as pd
-import logging
 import rasterio
 import rioxarray as rxr
 import xarray as xr

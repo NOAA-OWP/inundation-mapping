@@ -670,7 +670,7 @@ def __create_fb_huc_library_data(
         List of metadata JSONs containing site information indexed by 'identifiers']['nws_lid'].
     nwm_flows_region_df - DataFrame
         NWM flow region data used for segment retrieval.
-    
+
     Returns
     -------
     sites_gdf - Geopandas GeoDataFrame
@@ -735,7 +735,7 @@ def __create_fb_huc_library_data(
             logging.warning(f"{huc} : {lid} - {msg}")
             sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no=False)
             # continue # TEMP DEBUG - maybe we don't want to exit if this happens?
-            # TODO: See if any sites with this warning make valid or invalid sites later on 
+            # TODO: See if any sites with this warning make valid or invalid sites later on
 
         # -------------------------
         # Create flows dictionary for the site
@@ -1137,6 +1137,3 @@ def __get_segments(lid_metadata, nwm_flows_region_df):
     # Previous input was nwm_flows_df, but now it is region specific df (9/25/25)
 
     return segments_lst
-
-
-# generate_categorical_fim_flows.py cannot be called from command line at this time.

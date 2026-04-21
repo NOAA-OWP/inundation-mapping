@@ -17,7 +17,8 @@ MAGNITUDES_TYPES = ['action', 'minor', 'moderate', 'major', 'record']
 
 MAX_STAGE_THRESHOLD = 250
 
-ELEV_NODATA_VALUE = -9999.0  # A NoData value for the datum adjustment, used in multiple functions across the codebase
+# A NoData value for the datum adjustment, used in multiple functions across the codebase
+ELEV_NODATA_VALUE = -9999.0
 
 def load_fim_global_env_values(env_file):
     '''
@@ -387,7 +388,7 @@ def make_huc_mapping_filepaths(huc, catfim_type, huc_path):
     )
 
 def finalize_sites_mapping_status(
-        huc, catfim_type, sites_post_mapping_file_path, library_post_mapping_file_path, sites_input, library_input
+    huc, catfim_type, sites_post_mapping_file_path, library_post_mapping_file_path, sites_input, library_input
 ):
     '''
     Used in both stage- and flow-based CatFIM.
@@ -587,7 +588,7 @@ def finalize_sites_mapping_status(
 
             lid_mapped_new = "no"
 
-            if lid_mapped == "yes": # Likely an error if mapped says 'yes' but we have no geoms for it.
+            if lid_mapped == "yes":  # Likely an error if mapped says 'yes' but we have no geoms for it.
                 logging.error(
                     f"{huc_function_tag} {lid} is not mapped but had a mapped val of 'yes' before post-processing; {site_status_error_message}"
                 )
@@ -616,7 +617,7 @@ def finalize_sites_mapping_status(
                         f"{huc_function_tag} {lid} had a mapped value of 'no' but no site status before post-processing. {site_status_error_message}"
                     )
 
-                elif mapping_completed is True:  # No status or warning val, inundation completed (possible error)
+                elif mapping_completed is True:  # No status/warning, inundation completed (error?)
                     lid_status_new = (
                         f"Mapping completed but no inundated files found; {site_status_error_message}"
                     )
@@ -636,7 +637,9 @@ def finalize_sites_mapping_status(
 
                 if lid_status != "not set":  # Status val available (possible error)
                     lid_status_new = f"{lid_status}; {site_status_error_message}"
-                    logging.error(f"{huc_function_tag} {lid} is not mapped but had a status before post-processing. {site_status_error_message}")
+                    logging.error(
+                        f"{huc_function_tag} {lid} is not mapped but had a status before post-processing. {site_status_error_message}"
+                    )
 
                 elif lid_warning != "":  # No status available, but a warning IS (expected)
                     lid_status_new = lid_warning
@@ -749,6 +752,7 @@ def feet_to_meters(feet):
     '''
     meters = feet * 0.3048
     return meters
+
 
 def get_huc_output_folder(huc, output_folder):
     '''
@@ -902,7 +906,7 @@ def rename_output_columns(df):
         # 'is_interval': '',
         # 'interval_stage': '',
         # 'lid_usgs_elev': '',
-        # 'datum_adj_ft': 'dtm_adj_ft', 
+        # 'datum_adj_ft': 'dtm_adj_ft',
         # 'dadj_w_ft': 'datum_adj_wse_ft',
         # 'dadj_w_m': 'dadj_w_m',
         # TODO: Decide. Removed the SB column name change for now because they're out of date and less clear than the current output names

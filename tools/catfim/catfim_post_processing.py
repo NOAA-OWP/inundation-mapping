@@ -84,8 +84,8 @@ def catfim_post_processing(output_folder):
         )
 
         # Create filepath names and delete any pre-existing output files
-        sites_gpkg_path, sites_csv_path, library_gpkg_path, library_csv_path, deleted_file_count = __set_start_files_folders(
-            output_folder, catfim_type_name
+        sites_gpkg_path, sites_csv_path, library_gpkg_path, library_csv_path, deleted_file_count = (
+            __set_start_files_folders(output_folder, catfim_type_name)
         )
 
         if deleted_file_count > 0:
@@ -222,7 +222,6 @@ def catfim_post_processing(output_folder):
 
         else:
             logging.info("No sites info to save, not saving sites GPKG or CSV")
-
 
         if len(compiled_library_gdf_list) > 0:
 
