@@ -83,13 +83,12 @@ def filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order, nwm_
 
         try:
             stream_order = nwm_flows_df.loc[nwm_flows_df['ID'] == int(feature_id), 'order_'].values[0]
-        except Exception as e:
-            print(f'WARNING: Exception occurred during filter_nwm_segments_by_stream_order():{e}')
 
-        if stream_order == desired_order:
-            filtered_segments.append(feature_id)
-        # else:
-        #     print(f'Stream order for {feature_id} did not match desired stream order...')
+            if stream_order == desired_order:
+                filtered_segments.append(feature_id)
+
+        except Exception as e:
+            print(f'WARNING: Exception occurred during filter_nwm_segments_by_stream_order(). FID: {feature_id}, Exception: {e}')
 
     return filtered_segments
 

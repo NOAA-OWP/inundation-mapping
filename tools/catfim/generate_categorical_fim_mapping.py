@@ -40,12 +40,6 @@ appropriate NWM reaches.
 
 gpd.options.io_engine = "pyogrio"
 
-# import warnings
-# # Suppress the "skipping source" warning for FB inundation
-# warnings.filterwarnings('ignore', message='.*Skipping source.*')
-# warnings.filterwarnings('ignore', message='.*CPLE_NotSupported*')
-
-
 
 # Main function for CatFIM mapping processing for a HUC
 def process_mapping(
@@ -640,9 +634,10 @@ def run_sb_mapping(
             ]
 
             stage_val = site_mag_library_df['stage'].iloc[0]
-            datum_adj_ft = site_mag_library_df['datum_adj_ft'].iloc[0]
-            lid_usgs_elev = site_mag_library_df['lid_usgs_elev'].iloc[0]
-            lid_altitude = site_mag_library_df['lid_alt_ft'].iloc[0] # TODO: Double check that this is correct variable
+            datum_adj_ft = site_mag_library_df['datum_adj_ft'].iloc[0]  # Datum adjustment in feet (could be zero), created using WRDS metadata
+            lid_usgs_elev = site_mag_library_df['lid_usgs_elev'].iloc[0]   # Site elevation in meters, from the hydroconditioned FIM DEMs (temp column for processing)
+            lid_altitude = site_mag_library_df['lid_alt_ft'].iloc[0]  # Site elevation (zero datum) in feet, from WRDS metadata
+            # TODO: Double check that this is correct variable to use here - lid_alt_ft
 
             # Calculate a portion of the file name which includes the category and
             # a formatted stage value (would include "i" if it were an interval file)
@@ -837,23 +832,49 @@ def run_sb_inundation(
     # Calculate HAND stage
 
     # Determine datum-offset water surface elevation
-    datum_adj_wse = stage_val + datum_adj_ft + lid_altitude
-    datum_adj_wse_m = datum_adj_wse * 0.3048  # Convert ft to m
+    datum_adj_wse = stage_val + datum_adj_ft + lid_altitude  # Calculate the WSE in ft
+    datum_adj_wse_m = csf.feet_to_meters(datum_adj_wse)  # Convert ft to m
 
     # Subtract HAND gage elevation from HAND WSE to get HAND stage.
-    hand_stage_m = datum_adj_wse_m - lid_usgs_elev
-    hand_stage = (
-        hand_stage_m if str(huc)[:2] == '19' else round(hand_stage_m * 1000)
-    )  # convert to mm to match HAND if it's NOT Alaska (HUC starts with 19)
+    hand_stage_m = datum_adj_wse_m - lid_usgs_elev  # HAND stage in m
+
+
+    logging.info("datum_adj_wse = stage_val + datum_adj_ft + lid_altitude") # TEMP DEBUG
+    logging.info(f"{datum_adj_wse} = {stage_val} + {datum_adj_ft} + {lid_altitude}") # TEMP DEBUG
+    logging.info("hand_stage_m = datum_adj_wse_m - lid_usgs_elev") # TEMP DEBUG
+    logging.info(f"{hand_stage_m} = {datum_adj_wse_m} - {lid_usgs_elev}") # TEMP DEBUG
+
+
+    # hand_stage = (
+    #     hand_stage_m if str(huc)[:2] == '19' else round(hand_stage_m * 1000)
+    # )  # convert to mm to match HAND if it's NOT Alaska (HUC starts with 19)
+
+
+    # Keep stage in meters if it's in Alaska (HUC starts with 19)
+    if str(huc)[:2] == '19':
+        hand_stage = hand_stage_m
+        hand_stage_units = 'm'
+
+    # otherwise convert to mm and round to nearest integer
+    else:
+        hand_stage = round(hand_stage * 1000)
+        hand_stage_units = 'mm'
 
     # Round the datum_adj_wse and datum_adj_wse_m values
     datum_adj_wse = round(datum_adj_wse, 2)
     datum_adj_wse_m = round(datum_adj_wse_m, 2)
 
+    logging.info(f"datum_adj_wse : {datum_adj_wse}")  # TEMP DEBUG
+    logging.info(f"datum_adj_wse_m : {datum_adj_wse_m}")  # TEMP DEBUG
+    logging.info(f"hand_stage : {hand_stage} {hand_stage_units}")  # TEMP DEBUG
+    logging.info("")  # TEMP DEBUG
+
+
     # If hand_stage is negative, write message and exit out
     if hand_stage < 0:
-        msg = f"Negative hand stage ({hand_stage} mm) detected, no inundation possible"
+        msg = f"Negative hand stage ({hand_stage} {hand_stage_units}) detected, no inundation possible"
         logging.warning(f"{huc_lid_cat_id} - {msg}")
+        
         return hand_stage, datum_adj_wse, datum_adj_wse_m
 
     # ---------------------

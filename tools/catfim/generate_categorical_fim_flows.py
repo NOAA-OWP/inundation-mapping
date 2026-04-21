@@ -70,7 +70,6 @@ Sites_gdf:
 # as "flows" is not descriptive enough. Note: Renaming it will maintian its history.
 
 
-# TODO: this function is only used in catfim_process_huc.py... should we move it there?
 def get_threshold_data(huc, huc_path, valid_nwm_lids):
     '''
     Gets the threshold data, either by downloading it from the WRDS API
@@ -89,8 +88,6 @@ def get_threshold_data(huc, huc_path, valid_nwm_lids):
     -------
     threshold_huc_df - Pandas DataFrame
         Dataframe of the thresholds for the HUC.
-    data_source - STR
-        Source of data, either "Manual_Input" or something from WRDS.
 
     '''
 
@@ -164,27 +161,6 @@ def get_threshold_data(huc, huc_path, valid_nwm_lids):
         # Load threshold pkl file (it is a pkl file even though it has a df in it, mainly
         # to keep things consistent with the metadata.pkl file handling)
         threshold_all_sites_df = pickle.load(p_handle)
-        source_list = threshold_all_sites_df['source']
-
-        # If manual input is in source list, set data source to manual input
-        # Assumes that if one is manual input, then all are manual input
-
-        data_source = ""
-
-        # If any manual input is detected, set data source to 'Manual_Input'
-        # Currently, manual input thresholds are not mixed with WRDS thresholds
-        if 'Manual_Input' in source_list:
-            logging.info("Manual input found in threshold source list, setting all sources to 'Manual_Input'.")
-            data_source = 'Manual_Input'
-
-        else:
-            # Compile unique sources into a comma-separated string
-            # source_list = list(threshold_all_sites_df['source'])
-            # TODO: Test and debug this functionality. In the meantime, the temp
-            # workaround below works fine.
-
-            # temp workaround
-            data_source = 'WRDS'
 
     # At this point, we have a threshold file in the HUC directory. If it was downloaded
     # from WRDS it will already be filtered to the HUC. If it was pre-loaded, it probably has threshold
@@ -205,10 +181,10 @@ def get_threshold_data(huc, huc_path, valid_nwm_lids):
 
     # If no valid LIDs remain, return a blank value
     if len(threshold_huc_df) == 0:
-        # TODO: make sure to updates the sites mapped and status for all lid records for this HUC
+        logging.warning(f"{huc} - No threshold data available for any valid sites in this HUC. Returning empty dataframe.")
         return []
 
-    # Ensure the mag type columns are floats and rounded to 2 decimals
+    # Ensure the mag type columns are floats and rounded to 2 decimals # TODO: Make the threshold NA val (-1) into a variable?
     stage_types = ['action', 'minor', 'moderate', 'major', 'record']
     threshold_huc_df[stage_types] = threshold_huc_df[stage_types].fillna(value=-1).astype(float).round(2)
 
@@ -226,7 +202,7 @@ def get_threshold_data(huc, huc_path, valid_nwm_lids):
     # Save a copy of the filtered threshold data
     threshold_huc_df.to_csv(huc_thresholds_file_path, index=False)
 
-    return threshold_huc_df, data_source
+    return threshold_huc_df
 
 
 def process_threshold_data(
@@ -275,7 +251,7 @@ def process_threshold_data(
     output_temp_dir - STR
         Filepath to the HUC-specific CatFIM temp directory.
     threshold_huc_df - Pandas DataFrame
-        Dataframe containing the river flow thresholds.
+        Dataframe containing the flow or stage thresholds.
     metadata_json - LIST of JSON
         List of JSONs containing the site metadata.
     
@@ -438,9 +414,7 @@ def __create_sb_huc_library_data(huc, valid_lids, sites_gdf, threshold_huc_df, m
       consistency with the status messaging. In the future, we can look into optimising this
       a bit more (aka making it into just one function for flow- and stage-based CatFIM).
   
-    - is this in the threshold_huc_df dataset? Maybe just do the Manual_input search here
-      TODO: hummm
-      data_source = threshold_huc_df["source_stage"]
+
   
     - TODO: of course, SB needs the data from the stage row, but down the road
       it also nees some data from the flow row. See __adjust_datum_ft.
@@ -450,8 +424,6 @@ def __create_sb_huc_library_data(huc, valid_lids, sites_gdf, threshold_huc_df, m
     SB will use the segments file, but segments will be created anyways as a checkpoint.
     TODO: Rob, do we mean that SB will NOT use the segments file? typo?
     '''
-
-    # messages = [] # TODO: Decide on messages system, clean up if needed 
 
     # Initialize output dataframes
     huc_library_df = pd.DataFrame()
@@ -467,22 +439,14 @@ def __create_sb_huc_library_data(huc, valid_lids, sites_gdf, threshold_huc_df, m
         # Processing data and tests at the site level before processing at the magnitude level
 
         # Check if the site is missing all threshold (stage, flow) data
+        # This means that there's no rows for the site in the threshold df (not even ones with the NA -1 val)
         lid_threshold_data = threshold_huc_df.loc[threshold_huc_df['nws_lid'] == lid].copy()
         if lid_threshold_data.empty:
-            msg = 'No thresholds for required categories found on WRDS API'
-            logging.warning(f"{huc} : {lid} - {msg}")
-
-            # messages.append(f"{lid}:{msg}")  # TODO: Decide on messages system, clean up if needed... 
-            # OR make below line into a function that enforces the rule where it's a status only if you're chanigng the mapped to no... otherwise its a warning?
-
-            # sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', msg]
+            msg = 'No flow or stage thresholds available for site' # was 'No thresholds for required categories found on WRDS API'
+            logging.warning(f"{huc} : {lid} - {msg}, no rows for this site in the threshold df")
             sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no = True)
-
             continue
     
-
-
-
         # TODO: Does this make sense? for FB, we say just:  'Missing all flow data'
         # msg FB version = 'No thresholds for required categories found on WRDS API'
 
@@ -505,7 +469,6 @@ def __create_sb_huc_library_data(huc, valid_lids, sites_gdf, threshold_huc_df, m
         if not segments_lst or len(segments_lst) == 0:
             err_msg = 'Missing nwm stream segments'
             logging.warning(f'{huc} : {lid} - {err_msg}')
-            # sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', err_msg] # TODO: Clean up once we've tested below
             sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, err_msg, set_mapped_to_no = True)
             continue
 
@@ -654,34 +617,24 @@ def __get_sb_library_data_per_lid(huc, lid, sites_gdf, lid_threshold_data):
             raise ex
 
     # -------------
-    # Give descriptive warnings if some or all stages are unavailable, update mapped and status columns accordingly
-
+    # Give an error if all stages are unavailable, update mapped and status columns accordingly
     if len(invalid_stages) == 5:
-        # msg = 'No valid flow values are available' # This is the message version in FB
-        msg = 'No thresholds for required categories found on WRDS API'
+        # msg = 'No valid flow values are available' # This was the message version in FB
+        msg = 'No stage thresholds available for required categories (only invalid or NA flow vals found)'
         logging.warning(f"{huc} : {lid} - {msg}")
-        # sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', msg] # TODO: Clean up after testing
         sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no = True)
 
-        return sites_gdf, pd.DataFrame() #, messages
+        return sites_gdf, lid_library_df
 
+    # Give warning if some stages are unavailable, update mapped and status columns accordingly
     elif len(invalid_stages) > 0:
         warning_mags = '; '.join(invalid_stages)
         warning_message = f"Missing stage data for {warning_mags}"
         logging.warning(f"{huc} : {lid} - {warning_message}")
-
         sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, warning_message, set_mapped_to_no = False)
 
-        # # Might have been a warning from something else by this point. TODO: Currently we are using the below logic to append multiple messages...
-        # prev_warning = sites_gdf.loc[sites_gdf["nws_lid"] == lid, 'warnings'].item()
-        # if prev_warning != "":
-        #     warning_message = f"{prev_warning}; {warning_message}"
-
-        # sites_gdf.loc[sites_gdf["nws_lid"] == lid, 'warnings'] = warning_message
-
-
     # Note: It is ok if lid_library_df goes back empty.
-    return sites_gdf, lid_library_df #, messages
+    return sites_gdf, lid_library_df
 
 
 # We are still talking about raw threshold data at this point
@@ -758,11 +711,11 @@ def __create_fb_huc_library_data(huc, valid_lids, sites_gdf, threshold_huc_df, m
         # Processing data and tests the lid level before processing at the magnitude level
 
         # Check the lid to see if it is missing all threshold (stage, flow) data.
+        # This means that there's no rows for the site in the threshold df (not even ones with the NA -1 val)
         lid_threshold_data = threshold_huc_df.loc[threshold_huc_df['nws_lid'] == lid].copy()
         if lid_threshold_data.empty:
-            msg = 'Missing all flow data'
-            logging.warning(f"{huc} : {lid} - {msg}")
-            # sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', msg] # TODO: Clean up after testing
+            msg = 'No flow or stage thresholds available for site' # was 'Missing all flow data'
+            logging.warning(f"{huc} : {lid} - {msg}, no rows for this site in the threshold df")
             sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no = True)
             continue
 
@@ -777,12 +730,12 @@ def __create_fb_huc_library_data(huc, valid_lids, sites_gdf, threshold_huc_df, m
 
         # If no stages are available for site, log a warning and move on to next site
         # We do want to reject if they are all missing which would indicate a code problem ?? TODO: Sanity check this logic
+        # TODO: Apr '26: adjusted wording and made it so that this is no longer unmapping a site...
         if all(stages.get(magnitude_type, None) is None for magnitude_type in csf.MAGNITUDES_TYPES):
-            msg = 'Error getting flows values from WRDS API'
+            msg = 'No stage thresholds available for required categories' # was 'Error getting flows values from WRDS API'
             logging.warning(f"{huc} : {lid} - {msg}")
-            # sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', msg] # TODO: Clean up after testing
-            sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no = True)
-            continue
+            sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no = False) #True)
+            # continue # TEMP DEBUG - maybe we don't want to exit if this happens? TODO: See if any sites with this warning make valid or invalid sites later on 
 
         # -------------------------
         # Create flows dictionary for the site
@@ -792,11 +745,9 @@ def __create_fb_huc_library_data(huc, valid_lids, sites_gdf, threshold_huc_df, m
 
         # If all flows are missing for site, log a warning and move on to next site
         if all(flows.get(magnitude_type, None) is None for magnitude_type in csf.MAGNITUDES_TYPES):
-            msg = "Missing all calculated flows for all stages"
-            logging.warning(f"{huc} : {lid} - {msg}")
-            # sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', msg] # TODO: Clean up after testing
+            msg = 'No flow thresholds available for required categories'  # was "Missing all calculated flows for all stages"
+            logging.warning(f"{huc} : {lid} - {msg}, rows for this site available in the threshold df but flow values for required categories are missing")
             sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no = True)
-
             continue
 
         # -------------------------
@@ -812,11 +763,9 @@ def __create_fb_huc_library_data(huc, valid_lids, sites_gdf, threshold_huc_df, m
 
         # Update the mapped and status columns of the sites_gdf if we are missing NWM stream segments
         if not segments_lst or len(segments_lst) == 0:
+            err_msg = 'No NWM stream segments affiliated with site'  # previously said: 'Missing nwm stream segments'
             logging.warning(f'{huc} : {lid} - {err_msg}')
-            err_msg = 'No NWM stream segments affiliated with site' # previously said: 'Missing nwm stream segments'
-            # sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', err_msg] # TODO: Clean up after testing
             sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, err_msg, set_mapped_to_no = True)
-
             continue
 
         elif len(segments_lst) > 0:
@@ -951,8 +900,7 @@ def __get_fb_discharge_and_library_data_per_lid(huc, lid, sites_gdf, lid_thresho
             # Get flow value (will be float type, rounded to 2 decimal points)
             flow_value = flows[magnitude_type]
 
-            # Exit if stage value is invalid (Value of -1 or nodata, -9999.0?) 
-            # TODO: What about nodata value? We changed that above to -9999 so change here? 
+            # Exit if stage value is invalid (Value of -1 or nodata) 
             if flow_value == -1 or flow_value == 0:
                 logging.warning(f"{huc} : {lid} : {magnitude_type} - Invalid or N/A flow value found: {flow_value}")
                 invalid_flows.append(magnitude_type)
@@ -978,8 +926,10 @@ def __get_fb_discharge_and_library_data_per_lid(huc, lid, sites_gdf, lid_thresho
             stage_value = stages[magnitude_type]
             if stage_value == -1 or stage_value == 0:
                 logging.warning(f"{huc} : {lid} : {magnitude_type} - Invalid or N/A stage value found: {stage_value}")
-                invalid_flows.append(magnitude_type)
-                continue
+                # invalid_flows.append(magnitude_type)
+                # continue # Jan '26: Removed this for now, because I think it should almost never even happen that we 
+                # would have a calc flow value but not a stage val (because the stage is used in WRDS to make the calc
+                # flow val). Keeping the warning because it could help us trace something weird in the future.
 
             # -------------
             # Create initial library record for the site/magnitude combination
@@ -1008,7 +958,7 @@ def __get_fb_discharge_and_library_data_per_lid(huc, lid, sites_gdf, lid_thresho
 
         except Exception as ex:
             msg = f'Error with flow/threshold processing of {flow_value} for {magnitude_type} stage'
-            logging.critical(f"{lid}:{magnitude_type}: {msg}")
+            logging.critical(f"{huc} : {lid} : {magnitude_type} - {msg}")
             logging.critical(traceback.format_exc())
             raise ex
 
@@ -1016,25 +966,17 @@ def __get_fb_discharge_and_library_data_per_lid(huc, lid, sites_gdf, lid_thresho
     # Give descriptive warnings if some or all flows are unavailable, update mapped and status columns accordingly
 
     if len(invalid_flows) == 5:
-        msg = 'No valid flow values are available'
-        logging.warning(f"{lid}: {msg}")
-        # sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', msg] # TODO: Clean up after testing
+        # This means there were rows for the site in the threshold df but all the flow values were invalid (ie -1 or 0)
+        msg = 'No flow thresholds available for required categories (only invalid or NA flow vals found)' # Was 'No valid flow values are available'
+        logging.warning(f"{huc} : {lid} - {msg}") 
         sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no = True)
         return  sites_gdf, lid_library_df, lid_discharges_df
 
     elif len(invalid_flows) > 0:
         warning_mags = ', '.join(invalid_flows)
         warning_message = f"Missing or invalid flow data for {warning_mags}"
-        logging.warning(f"{lid}: {warning_message}")
-
+        logging.warning(f"{huc} : {lid} - {warning_message}")
         sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, warning_message, set_mapped_to_no = False)
-
-        # # Might have been a warning from something else by this point. # TODO: Clean up after testing
-        # prev_warning = sites_gdf.loc[sites_gdf["nws_lid"] == lid, 'warnings'].item()
-        # if prev_warning != "":
-        #     warning_message = f"{prev_warning}; {warning_message}"
-
-        # sites_gdf.loc[sites_gdf["nws_lid"] == lid, 'warnings'] = warning_message
 
     # Note: It is ok if lid_library_df and/or lid_discharges_df goes back empty.
     return sites_gdf, lid_library_df, lid_discharges_df
@@ -1157,7 +1099,6 @@ def __get_segments(lid_metadata, nwm_flows_region_df):
     This will help keep mapping segregated so it can be run as a standalone
     tool if needed. We are trying to keep everything needed for inundation
     inside the mapping.py file and only need a huc and output path.
-    TODO: Rob, don't we mean the mapping folder in above text? not mapping.py?
     
     Arguments
     ---------
@@ -1172,8 +1113,6 @@ def __get_segments(lid_metadata, nwm_flows_region_df):
         List of feature IDs for the stream segments relevant to the site
 
     '''
-
-    # --------------
     # Get mainstem segments of LID by intersecting LID segments with known mainstem segments.
     unfiltered_segments = list(set(get_nwm_segs(lid_metadata)))
 

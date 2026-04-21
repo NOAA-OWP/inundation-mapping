@@ -14,6 +14,7 @@ from dotenv import load_dotenv
 # Global vars, shared by all related py files.
 MAGNITUDES_TYPES = ['action', 'minor', 'moderate', 'major', 'record']
 
+MAX_STAGE_THRESHOLD = 250
 
 def load_fim_global_env_values(env_file):
     '''
@@ -478,12 +479,12 @@ def finalize_sites_mapping_status(
         sites_gdf = gpd.read_file(sites_input, engine='fiona')
 
     elif isinstance(sites_input, gpd.GeoDataFrame):
-        logging.info(f"{huc_function_tag} Update Sites Mapping Status - sites_input is a GeoDataFrame") # TEMP DEBUG
+        logging.info(f"{huc_function_tag} sites_input is a GeoDataFrame") # TEMP DEBUG
         sites_gdf = sites_input
 
     else:
         # Error out if sites_input is not string or a gdf
-        msg = f"{huc_function_tag} Update Sites Mapping Status - Unable to finalize HUC, sites_input is not a GDF or string."
+        msg = f"{huc_function_tag} Unable to finalize HUC, sites_input is not a GDF or string."
         logging.error(msg)
         raise Exception(msg)
 
@@ -686,6 +687,23 @@ def finalize_sites_mapping_status(
 
     return
 
+def feet_to_meters(feet):
+    '''
+    Converts feet to meters.
+
+    Arguments
+    ---------
+    feet - FLOAT
+        Value in feet to be converted to meters.
+
+    Returns
+    -------
+    meters - FLOAT
+        Converted value in meters.
+    '''
+    meters = feet * 0.3048
+    return meters
+
 def get_huc_output_folder(huc, output_folder):
     '''
     Validates the output folder path and returns the normalized output folder path.
@@ -885,7 +903,6 @@ def update_line_status_or_warning(site, sites_gdf, message, set_mapped_to_no):
     all_huc_sites = sites_gdf["nws_lid"].tolist()
 
     logging.info(f"Updating site(s): {site} with message: {message}")  # TEMP DEBUG? Verbose
-    logging.info(f"All sites in HUC: {all_huc_sites}")  # TEMP DEBUG? Verbose
 
     if site == "all":
         site_list = all_huc_sites

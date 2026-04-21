@@ -646,14 +646,23 @@ def main(
 
         threshold_url = f'{API_BASE_URL}/nws_threshold'
 
+        # Get a dictionary of which sources have valid CRS's for each site
+        lid_source_dict = check_metadata_CRS_availability(output_meta_list)
+
+        output_lid_source_table_filename = 'lid_source_table.csv'
+        output_lid_source_table_filepath = os.path.join(output_folder, output_lid_source_table_filename)
+
+        lid_source_df = pd.DataFrame(lid_source_dict)
+        lid_source_df.to_csv(output_lid_source_table_filepath, index=False)
+
+        print(f'Site source table will be saved to {output_lid_source_table_filepath}')
+
         label_with_date = label_data_file(label, lst_hucs)
         output_thresholds_filename = f'thresholds{label_with_date}.pkl'
         thresholds_filepath = os.path.join(output_folder, output_thresholds_filename)
 
         print(f"Thresholds will be downloaded for sites in {len(huc_lid_dict)} HUCs")
-
-        # Get a dictionary of which sources have valid CRS's for each site
-        lid_source_dict = check_metadata_CRS_availability(output_meta_list)
+        print(f'Thresholds will be saved to {thresholds_filepath}')
 
         # Download thresholds
         messages = download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict, lid_source_dict)

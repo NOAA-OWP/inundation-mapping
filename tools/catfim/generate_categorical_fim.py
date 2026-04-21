@@ -9,9 +9,9 @@ import traceback
 import shutil
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import datetime, timezone
+import pandas as pd
 
 from dotenv import load_dotenv
-
 import data.wrds.download_process_wrds as dpw
 import src.utils.shared_functions as sf
 import tools.catfim.catfim_shared_functions as csf
@@ -304,21 +304,31 @@ def process_generate_categorical_fim(
         if len(huc_dictionary) == 0:
             raise Exception("The metadata pickle file does not have any applicable HUCs")
 
+
+        # Dictionary of {col_name: col_type}
+        colname_dict = {
+            'metadata_sources': 'str',
+            'downstream_nwm_features': 'str',
+            'upstream_nwm_features': 'str',
+            'nwm_feature_data_downstream_feature_id': 'str',
+            'nws_data_county_code': 'str',
+            'nwm_feature_data_nhd_waterbody_comid': 'str',
+            'nws_data_latitude': 'float',
+            'nws_data_longitude': 'float',
+            'nws_data_zero_datum': 'float',
+            'nwm_feature_data_stream_order': 'str',
+        }
+
         # Specify column data types to avoid issues when saving to gpkg
-        nwm_sites_all_gdf = nwm_sites_all_gdf.astype(
-            {
-                'metadata_sources': str,
-                'downstream_nwm_features': str,
-                'upstream_nwm_features': str,
-                'nwm_feature_data_downstream_feature_id': str,
-                'nws_data_county_code': str,
-                'nwm_feature_data_nhd_waterbody_comid': str,
-                'nws_data_latitude': float,
-                'nws_data_longitude': float,
-                'nws_data_zero_datum': float,
-                'nwm_feature_data_stream_order': str,
-            }
-        )
+        for col_name, col_type in colname_dict.items():
+            if col_name not in nwm_sites_all_gdf.columns:
+                # If column is missing, create it
+                nwm_sites_all_gdf[col_name] = None
+                logging.info(f"Column '{col_name}' was missing from nwm_sites_all_gdf and has been created with default empty values.")
+            
+            # Set/Update the column type
+            nwm_sites_all_gdf[col_name] = nwm_sites_all_gdf[col_name].astype(col_type)
+
         # NOTE: These fields throw errors when saving from gdf to gpkg, throwing Skipping field because of invalid value
         # but strangely not in all records. Likely bad records or nulls in key which get filtered out later.
 
@@ -358,6 +368,14 @@ def process_generate_categorical_fim(
             # Get a dictionary of which sources have valid CRS's for each site
             lid_source_dict = dpw.check_metadata_CRS_availability(metadata_json_list)
 
+            output_lid_source_table_filename = 'lid_source_table.csv'
+            output_lid_source_table_filepath = os.path.join(output_folder, output_lid_source_table_filename)
+
+            lid_source_df = pd.DataFrame(lid_source_dict)
+            lid_source_df.to_csv(output_lid_source_table_filepath, index=False)
+
+            logging.info(f'Site source table will be saved to {output_lid_source_table_filepath}')
+
             # Note: Currently we default to downloading all thresholds.
             # If we wanted to speed things up in the future, we could filter the
             # HUC dictionary to the HUC list and then it would only download
@@ -367,7 +385,7 @@ def process_generate_categorical_fim(
             # thresholds, we will want to implement dpw.label_data_file() here
             # too so the threshold data has an indicator that it is only a subset.
 
-            output_thresholds_filename = f'thresholds.pkl' # TODO: Add output filenames to a shared variables or env file?
+            output_thresholds_filename = 'thresholds.pkl' # TODO: Add output filenames to a shared variables or env file?
             thresholds_filepath = os.path.join(output_folder, output_thresholds_filename)
 
             logging.info(f'Threshold data will be saved to {thresholds_filepath}')

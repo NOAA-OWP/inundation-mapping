@@ -7,7 +7,6 @@ import random
 import shutil
 import time
 import traceback
-import pickle
 from datetime import datetime, timezone
 
 import catfim.generate_categorical_fim_flows as gcf
@@ -20,12 +19,10 @@ from dotenv import load_dotenv
 import src.utils.shared_functions as sf
 import tools.catfim.catfim_shared_functions as csf
 from src.utils.shared_variables import VIZ_PROJECTION
-from tools.tools_shared_functions import get_datum, ngvd_to_navd_ft
-from tools.tools_shared_variables import ( # TODO: Remove these, they shouldn't be added to the table
+from tools.tools_shared_functions import ngvd_to_navd_ft
+from tools.tools_shared_variables import (
     acceptable_alt_acc_thresh,
     acceptable_alt_meth_code_list,
-    acceptable_coord_acc_code_list,
-    acceptable_coord_method_code_list,
     acceptable_site_type_list,
 )
 
@@ -220,24 +217,11 @@ def process_huc(huc, output_folder):
             logging.info(f"{huc} - Loading flow and threshold data for all valid sites...")
 
             # Get threshold data (stages and flows) for all valid sites in this HUC
-            threshold_huc_df, data_source = gcf.get_threshold_data(huc, huc_path, valid_nwm_lids)
+            threshold_huc_df = gcf.get_threshold_data(huc, huc_path, valid_nwm_lids)
 
             # Note: It is possible threshold_huc_df can come back empty if huc has no site(s) with threshold data. 
             # It is okay if this df is empty for now.
 
-            # Notes on the data_source column:
-            #   The data_source is a column from the original threshold dataset. It often contains values
-            #   such as 'Manual_Input' and/or values such as:
-            #       NWS-NRLDB generally for stage data and USGS Rating Depot for Flow data or a combination
-            #
-            #   It is important for us to know if the data_source is Manual_Input for stage-based CatFIM, 
-            #   because that prompts us to skip some of the elevation filtering if it is manual input.
-            #   TODO: Is this the right answer?
-            #
-            #   While somewhat inefficent, we will add this to the sites_gdf column of threshold_data_source
-            #   for simplicity of copying around and using against logic when needed and then we can drop it at the end.
-
-            # 
             # Process threshold data (creates a HUC-level library file with all of the site/magnitude combinations
             # that are still valid up to this point and creates the flow data for FB)
 
@@ -294,34 +278,37 @@ def process_huc(huc, output_folder):
                 logging.warning(f"{huc} - There are no valid huc_library recs at this point. Skipping to finalization")
 
                 # Update mapping status and save the final sites file
-                csf.finalize_sites_mapping_status( 
-                    huc, 
-                    catfim_type, 
-                    sites_post_mapping_file_path, 
-                    library_post_mapping_file_path, 
-                    sites_gdf, 
+                csf.finalize_sites_mapping_status(
+                    huc,
+                    catfim_type,
+                    sites_post_mapping_file_path,
+                    library_post_mapping_file_path,
+                    sites_gdf,
                     None,
-                )   
+                )
                 continue_processing = False
+
 
             # Check for valid LIDs and abort processing if no valid sites remain
             # If there's no valid LIDs we won't have any library files, but we still need to finalize 
             # sites.gdf because it will still be part of the final product rollup.
-            valid_lids = sites_gdf.loc[sites_gdf["mapped"] != "no"]["nws_lid"].values.tolist()
+            if continue_processing == True:
 
-            if len(valid_lids) == 0:
-                logging.info(f"{huc} - There are no remaining sites to process. Skipping to finalization.")
+                valid_lids = sites_gdf.loc[sites_gdf["mapped"] != "no"]["nws_lid"].values.tolist()
 
-                # Update mapping status and save the final sites file
-                csf.finalize_sites_mapping_status( 
-                    huc, 
-                    catfim_type, 
-                    sites_post_mapping_file_path, 
-                    library_post_mapping_file_path, 
-                    sites_gdf, 
-                    None,
-                )
-                continue_processing = False
+                if len(valid_lids) == 0:
+                    logging.info(f"{huc} - There are no remaining sites to process. Skipping to finalization.")
+
+                    # Update mapping status and save the final sites file
+                    csf.finalize_sites_mapping_status( 
+                        huc, 
+                        catfim_type, 
+                        sites_post_mapping_file_path, 
+                        library_post_mapping_file_path, 
+                        sites_gdf, 
+                        None,
+                    )
+                    continue_processing = False
 
         else:
             logging.info(f"{huc} - Continue processing is False, bypassing threshold data processing.")
@@ -504,42 +491,16 @@ def __process_elevations(sites_gdf, huc_library_df, huc, huc_path, output_temp_d
     has_critical_error - BOOL
         Indication of whether a critical error has occurred,
 
-
-    CatFIM Reorg Notes (Jan 26) # TODO: Clean up this part of the docstring
-    ---------------------------
-    
-    data_source comes from the original threshold dataset. It was put into a temp column
-    in the sites_gdf under the name of threshold_data_source. We can use it for processing logic.
-    Later we can drop the columns before the final huc catfim outputs.
-    This can be values of "Manual_Input" and/or values such as:
-        NWS-NRLDB generally for stage data and USGS Rating Depot for Flow data.
-
-    Same as before, the huc_library_df is a the starting framework for each lid and magnitude
-    that is still valid by this point. More tests may drop some of the records.
-    ie.. maybe some lid with an action stage fails a test, assuming that action record was
-    there in the first place. Some columns in the library df will be updated such as the
-    datum and altitude columns. For records that fail, we will just keep updating the
-    sites.gdf as we go and at the end of this function, we will drop lid/mags that no longer apply
-
-    TODO: this is still a wip.
-    data_source = threshold_huc_df["source_stage"]
-
-    huc_library_df should not be empty by now, but some lids may not have all or some library recs
-    for each stage, of course. ie) a lid / stage might have already failed for various reasons before
-    getting here. If it is, we should not bother coming in here as all sites have already failed for
-    various reasones.
-
-    However.. threshold_huc_df has not be filtered at this point and we need to watch for -1, 0, etc
-    TODO: Do we need to even use threshold_huc_df anymore by this point? maybe just the huc_library_df?
-    I don't think there is anything left in the threshold_huc_df that is not already in applicable
-    huc_library_df recs where it still qualifies.
-
-    This portion of code can add or update columns to the library csv or the sites gpkg as it needs
-    It just has to makes sure drops any temp columns in finalization.
-
     """
-    data_source = "WRDS"
+
     has_critical_error = False
+
+    # Get data download source from the library df
+    if 'Manual_Input' in huc_library_df['s_src'].values:
+        download_source = "Manual_Input"
+    else:
+        download_source = "WRDS"
+    # logging.info(f"{huc} - Data downloaded from {download_source}") # TEMP DEBUG
 
     # Initialize output dataframes
     updated_huc_library_df = pd.DataFrame()  # a replacement huc_library_df
@@ -549,7 +510,7 @@ def __process_elevations(sites_gdf, huc_library_df, huc, huc_path, output_temp_d
     valid_lids = sites_gdf.loc[sites_gdf["mapped"] != "no"]["nws_lid"].values.tolist()
 
     # Read in the USGS elevation data and create the exclusion status column
-    if data_source != 'Manual_Input':  # Note: Manual input data does not use usgs_elev_table
+    if download_source != 'Manual_Input':  # Note: Manual input data does not use usgs_elev_table
 
         # ------------------------
         # CatFIM Reorg Note (Jan 26): The usgs elev table was previously in iterate_through_huc_stage_based 
@@ -560,8 +521,14 @@ def __process_elevations(sites_gdf, huc_library_df, huc, huc_path, output_temp_d
         src_usgs_elev_table = os.path.join(os.getenv("FIM_RUN_DIR"), huc, usgs_elev_table_file_name)
 
         if not os.path.isfile(src_usgs_elev_table):
-            msg = "Internal Error: Missing key data from HUC record (usgs_elev_table missing)"
-            raise Exception(msg)
+            msg = "HUC-level USGS elevation table missing from FIM run directory"
+            logging.error(f"{huc} - {msg}")
+
+            # If this happens, all sites in this HUC will fail and have this same message, so we can update them all
+            sites_gdf = csf.update_line_status_or_warning("all", sites_gdf, msg, set_mapped_to_no = True)
+            has_critical_error = True  # This will stop further processing downstream
+
+            return sites_gdf, [], has_critical_error
 
         # Make a copy to the local HUC folder to lower the chance of file collisions.
         # (Copying it to HUC folder and not a temp drive.)
@@ -572,26 +539,16 @@ def __process_elevations(sites_gdf, huc_library_df, huc, huc_path, output_temp_d
         usgs_elev_df = None
         usgs_elev_df = pd.read_csv(local_copy_usgs_elev_table)  # Only used here
 
-        # TODO: this seems a bit weird. hummm.
-        # and has data for all lids in this huc. We are not using it for validation, just loading it for all sites
-
-
-
-        # TODO: Double check that this should actually be a point of failure???
         # Check if there are any records in the USGS elevation table, if not log an error and update all sites to failed with the same message. We can check for this before we do the filtering below, which will give us a more clear error message if there is no data at all for any sites in the HUC. If we wait to check after the filtering, we might have a more generic error message that just says "no usable elevation data" which would be less clear if the issue is that there is no data at all vs. there is data but it just doesn't meet our criteria.
         if len(usgs_elev_df) == 0:
-            msg = "USGS elevation table (from FIM outputs) empty for HUC."
-            logging.error(f"{huc} - {msg}")
-
-            # sites_gdf["mapped"] = 'no'
-            # sites_gdf["status"] = msg # TODO: Clean up after testing
+            msg = f"USGS elevation table (from FIM outputs) empty for HUC {huc}"
+            logging.error(f"{huc} - {msg}, expected at path {src_usgs_elev_table}. If file is there, an error occurred while copying to {huc_path}")
 
             # If this happens, all sites in this HUC will fail and have this same message, so we can update them all
             sites_gdf = csf.update_line_status_or_warning("all", sites_gdf, msg, set_mapped_to_no = True)
-            
-            has_critical_error = True
+            has_critical_error = True  # This will stop further processing downstream
 
-            return sites_gdf, [], has_critical_error  # This will stop further processing downstream
+            return sites_gdf, [], has_critical_error
 
         # Give error if needed.
         # THEN we can filter below using the __create_acceptable_usgs_elev_df() function and give an
@@ -608,58 +565,18 @@ def __process_elevations(sites_gdf, huc_library_df, huc, huc_path, output_temp_d
         # only occur if a code error occurred, so this message is worth looking into
         # if it appears.
         if len(acceptable_usgs_elev_df) == 0:
-            msg = "USGS elevation table empty for HUC after processing exclusion criteria."
+            msg = "USGS elevation table empty for HUC after processing exclusion criteria." # was "Unable to find gage data"
             logging.error(f"{huc} - {msg}")
-            # sites_gdf["mapped"] = 'no'
-            # sites_gdf["status"] = msg # TODO: Clean up after testing
-
             # If this happens, all sites in this HUC will fail and have this same message, so we can update them all
             sites_gdf = csf.update_line_status_or_warning("all", sites_gdf, msg, set_mapped_to_no = True)
-
-            
-            has_critical_error = True
-            return sites_gdf, [], has_critical_error  # This will stop further processing downstream
-        # else: continue on
-
-        # Previous message - was pretty unclear
-        # if acceptable_usgs_elev_df is None or len(acceptable_usgs_elev_df) == 0:
-        #     msg = "Unable to find gage data"  # TODO: USGS Gage Method: Update this error message to be more descriptive
-        #     logging.error(f"{huc} - {msg} for all lids")
-
-        #     # If this happens, all sites in this HUC will fail and have this same message, so we can update them all
-        #     sites_gdf["mapped"] = 'no'
-        #     sites_gdf["status"] = msg
-        #     has_critical_error = True
-
-            # we need to clear the huc_library_df as there no longer will be any to be inundated
-            # just delete the file.
-
-            # return sites_gdf, [], has_critical_error  # This will stop further processing downstream
-        # else: continue on
+            has_critical_error = True  # This will stop further processing downstream
+            return sites_gdf, [], has_critical_error
 
     else:  # If the source is manual input, we skip the above elevation filtering
         logging.info(f"{huc} - Skipping elevation checks and datum adjustment for Manual Input source")
 
-    # TODO: skip here and load it later when we need it - Discuss what this means? -E
-    # we have already validated that the huc folder exists and we can validate
-    # each huc's branches if/when it gets there.
-    # humm? or do we?  Coudl the huc have been a bad huc in the fim run dir?
-    # maybe we do check it, but figure out how to handle the site.gpkg statuses
-    # branch_dir = os.path.join(fim_dir, huc, 'branches')
-    # if not os.path.exists(branch_dir):
-    #     msg = ":branch directory missing"
-    #     # all_messages.append(huc + msg)
-    #     MP_LOG.warning(huc + msg)
-    #     skip_lid_process = Truer, huc, 'branches')
-
     # TODO: Safety check: Do a quick check to make sure there are no huc_library records with -1 in the stage column.
     # should not be any.
-
-
-    # TODO: IMPLEMENT THIS
-    # Read metadata pickle
-    # and then once we get into the lids, can filter the metadata for the lid
-
 
     for lid in valid_lids:
 
@@ -668,7 +585,7 @@ def __process_elevations(sites_gdf, huc_library_df, huc, huc_path, output_temp_d
         # parent as long as you can find the correct index
 
         # Careful about using these two, wahat your function scoping rules for df's being
-        # updated in functions. # TODO: Rob - clarify comment!
+        # updated in functions.
 
         lid_sites_gdf = sites_gdf.loc[sites_gdf["nws_lid"] == lid].copy()
         lid_library_df = huc_library_df[huc_library_df["nws_lid"] == lid].copy()
@@ -689,43 +606,58 @@ def __process_elevations(sites_gdf, huc_library_df, huc, huc_path, output_temp_d
         # Changed this to rfc_stage for processing. Fix in finalization?
 
         # Get the site altitude from the USGS data
-        lid_altitude = lid_sites_gdf.iloc[0]['usgs_data_altitude']
-        if lid_altitude is None or lid_altitude == 0:
+        # lid_altitude = lid_sites_gdf.iloc[0]['usgs_data_altitude'] # Previous method - elevation was pulled from the USGS columns (even if the datum and rating curve were from NRLDB) 
+        
+        # We need to be getting the elev that matches the rating curve that we're using, not just hard coding to USGS I think!!
+        # New as of Spring '26
+        rating_curve_source = lid_library_df.iloc[0]["q_src"] # TODO: Combine with other data source checks? but it's different...
+
+        # Get the site elevation from the same source as the rating curve source
+        # lid_altitude_ft should be in FT, whether it's from USGS or NRLDB (was lid_altitude)
+        if rating_curve_source == 'USGS Rating Depot':
+            lid_altitude_ft = lid_sites_gdf['usgs_data_altitude'].item()
+        elif rating_curve_source == 'NRLDB':
+            lid_altitude_ft = lid_sites_gdf['nws_data_zero_datum'].item()
+        elif rating_curve_source == 'Manual_Input':
+            lid_altitude_ft = lid_sites_gdf['usgs_data_altitude'].item()
+        else:
+            err_msg = f'Unknown rating curve source: {rating_curve_source}, unable to get site elevation'
+            logging.warning(f"{lid}: {err_msg}")
+            sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, err_msg, set_mapped_to_no = True)
+            continue
+
+        lid_altitude_ft = float(lid_altitude_ft)  # Ensure it's a float for processing later
+
+        logging.info(f"{lid}: Rating curve and elevation val source: {rating_curve_source}, site elev value: {lid_altitude_ft}")  # TEMP DEBUG
+
+        if lid_altitude_ft is None or lid_altitude_ft == 0:
             # Jan 2026: In previous versions not all recs stopped here when this failed
             # some continued on and ultimatly failed down the road.
-            msg = 'AHPS site altitude value is invalid'
+            msg = f'AHPS site altitude value is invalid (value is {lid_altitude_ft})'
             logging.warning(f"{huc} - {lid}: {msg}")
-            # sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', msg] # TODO: Clean up after testing
             sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no = True)
             continue
 
-        # Note from Rob: From previous code, there was flaws in this code as far as what data was created or available at the end
-        # of the this Manual_Input code.  Or was there? # TODO: Double check outputs at the end of this
-
         # Adjust the elevation value (if data is not from Manual Input)
-        if data_source != 'Manual_Input':
+        if download_source != 'Manual_Input':
 
             # Get the DEM-adjusted elevation value (prioritize the val that isn't from branch 0)
-            lid_usgs_elev, err_msg = __adj_dem_elevation_val(acceptable_usgs_elev_df, lid)
-            if err_msg != "":
-                
-                # sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', err_msg] # TODO: Clean up after testing
-                sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, err_msg, set_mapped_to_no = True)
+            lid_usgs_elev, err_msg = __adj_dem_elevation_val(acceptable_usgs_elev_df, lid, huc)
 
+            # Exit and update the line status if an error was returned from adjust DEM elevation val
+            if err_msg != "":                
+                sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, err_msg, set_mapped_to_no = True)
                 continue
 
             # Jan 2026: Previously we ran __filter_bad_usgs_gage_data() here but we took 
             # it out because it was duplicate functionality already done in  __adj_dem_elevation_val()
 
-            # hummm... threshold_huc_df can stil include some recs with -1, 0 and None # TODO: Implement a test somewhere?
-
             # Determine the vertical datum adjustment (ft) to convert the datum of the rating curve to NAVD88
-            datum_adj_nodata_value = -9999.0 # A NoData value for the datum adjustment
+            datum_adj_nodata_value = -9999.0 # A NoData value for the datum adjustment # TODO: Add to shared variables?
             datum_adj_ft, err_msg = __adjust_datum_ft(lid_sites_gdf, lid_library_df, lid, datum_adj_nodata_value)
 
+            # Exit and update line status if an error was returned from adjust datum
             if err_msg != "":
-                # Logging was already done in __adjust_datum_ft - some are logged as warnings and some as errors
-                # sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', err_msg] # TODO: Clean up after testing
                 sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, err_msg, set_mapped_to_no = True)
                 continue
 
@@ -734,32 +666,28 @@ def __process_elevations(sites_gdf, huc_library_df, huc, huc_path, output_temp_d
             if datum_adj_ft == datum_adj_nodata_value:
                 msg = "Unable to determine datum adjustment for site, error occurred during datum adjustment calculation"
                 logging.error(f"{huc} - {lid}: {msg}")
-                # sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', msg] # TODO: Clean up after testing
                 sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no = True)
                 continue
 
         else:  # If source is manual input, skip the above elevation filtering
-            lid_altitude = float(lid_altitude)  # LID altitude is expected to be in meters
-            lid_usgs_elev = (
-                lid_altitude * 0.3048
-            )  # lid_altitude is now in meters to match non-manual input units
-            # TODO: Automate conversion?
-
+            # For manual input, we are not pulling the lid_usgs_elev vaalue from the USGS elevation table,
+            # but rather we are just using the site elevation from the metadata input file. That means we
+            # are not inundating the REMs with the elevation from the hydroconditioned FIM DEMs, which could
+            # make the mapping slightly worse. If we end up creating the proper USGS elevation tables
+            # for the manual input sites, this could change. TODO - add usgs elevation tables if we end up creating them
+            lid_usgs_elev = csf.feet_to_meters(lid_altitude_ft)  # lid_altitude is now in meters to match non-manual input units
             datum_adj_ft = 0  # no datum adjustment for manual input
 
-            # Manual input notes - # TODO: Check this, clean up notes
-            # # From previous code, there was flaws in this code as far as what data was created or available at the end
-            # # of the this Manual_Input code. Or was there? 
-            # Update all library (stage) recs for this lid as they will all be the same for each mag per lid.
-            # ie) (some site).action (mag) and all its intervals will have the same datum_adj_ft, lid_alt_ft
-            # lid_alt_m, and lid_usgs_elev. Later, per stage, we will calc datum_adj_wse_ft and
-            # datum_adj_wse_m which add stage value to it.
+
+        lid_altitude_m = csf.feet_to_meters(lid_altitude_ft)
 
         # Add datum adjustment info to site dataframe
-        lid_library_df['datum_adj_ft'] = datum_adj_ft
-        lid_library_df['lid_alt_ft'] = lid_altitude
-        lid_library_df['lid_alt_m'] = lid_altitude * 0.3048
-        lid_library_df['lid_usgs_elev'] = lid_usgs_elev  # temp column for processing
+        lid_library_df['datum_adj_ft'] = datum_adj_ft  # Datum adjustment in feet (could be zero), created using WRDS metadata
+        lid_library_df['lid_alt_ft'] = lid_altitude_ft  # Site elevation (zero datum) in feet, from WRDS metadata
+        lid_library_df['lid_alt_m'] = lid_altitude_m  # Site elevation (zero datum) in meters, from WRDS metadata
+        lid_library_df['lid_usgs_elev'] = lid_usgs_elev  # Site elevation in meters, from the hydroconditioned FIM DEMs (temp column for processing)
+        # Note: for lid_usgs_elev, USGS refers to the fact that the table is stored in the context of the USGS APHS sites,
+        # not that the elevation is actually from the USGS
 
         # =====================
         # Check for large discrepancies between the elevation values from WRDS and HAND.
@@ -767,35 +695,54 @@ def __process_elevations(sites_gdf, huc_library_df, huc, huc_path, output_temp_d
         #   disparity because it's from the the same value.
 
         # TODO: test this elevation_diff code -Rob
+        logging.info('')  # TEMP DEBUG
+        logging.info(f'{lid} - datum_adj_ft: {datum_adj_ft}')  # TEMP DEBUG
+        logging.info(f'{lid} - lid_altitude_ft: {lid_altitude_ft}')  # TEMP DEBUG
+        logging.info(f'{lid} - lid_altitude_m: {lid_altitude_m}')  # TEMP DEBUG
+        logging.info(f'{lid} - lid_usgs_elev: {lid_usgs_elev}')  # TEMP DEBUG
+        logging.info('')  # TEMP DEBUG
+
 
         # Calculate the elevation difference between the two elevation values
-        elevation_diff = lid_usgs_elev - (lid_altitude * 0.3048)
-        diff_rounded = round(elevation_diff, 2)
-        # Note: elevation_diff and diff_rounded are used for these tests only
+        elevation_diff_m = lid_usgs_elev - lid_altitude_m # was lid_altitude_ft * 0.3048, now just lid_altitude_m
+        diff_rounded_m = round(elevation_diff_m, 2)
+        # Note: elevation_diff_m and diff_rounded are used for these tests only
         # and are not part of any logic or are saved to any df's
 
         # Removed this logging for now, can use for debugging if needed. We will log the more important elevation differences below.
         # # Log minor elevation difference information - not an error
-        # if elevation_diff > 0:
-        #     logging.warning(f"{huc} - {lid}: USGS elev is higher than HAND elev by {diff_rounded} ft")
-        # elif elevation_diff < 0:
-        #     logging.warning(f"{huc} - {lid}: USGS elev is lower than HAND elev by {abs(diff_rounded)} ft")
+        # if elevation_diff_m > 0:
+        #     logging.info(f"{huc} - {lid}: USGS elev is higher than HAND elev by {diff_rounded_m} m")
+        # elif elevation_diff_m < 0:
+        #     logging.info(f"{huc} - {lid}: USGS elev is lower than HAND elev by {abs(diff_rounded_m)} m")
 
         # Throw an error for elevation differences greater than 10 meters
-        if abs(elevation_diff) > 10:
-            err_msg = 'Large discrepancy in elevation estimates from gage and HAND'
-            logging.warning(f"{huc} - {lid}: {err_msg}")
+        if abs(elevation_diff_m) > 10:
+            # err_msg = f'Large discrepancy in elevation estimates from gage and HAND - {diff_rounded_m} m difference' # TODO: Clean up
+
+            if lid_altitude_m > lid_usgs_elev:
+                msg = f"Large discrepancy in elevation estimates: AHPS gage zero datum > HAND DEM elevation by {abs(diff_rounded_m)} m"
+                logging.warning(f"{huc} : {lid} - {msg}")
+                sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no = True)
+
+            elif lid_usgs_elev > lid_altitude_m:
+                msg = f"Large discrepancy in elevation estimates: HAND DEM elevation > AHPS gage zero datum by {abs(diff_rounded_m)} m"
+                logging.warning(f"{huc} : {lid} - {msg}")
+                sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no = True)
 
             # We will clean up the huc_library folder shortly
-            # sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', err_msg]  # TODO: Clean up after testing
-            sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, err_msg, set_mapped_to_no = True)
-
             continue
 
         # Log a warning for elevation differences of 5-10 meters (but continue on)
-        elif abs(elevation_diff) > 5:
-            err_msg = f'Moderate discrepancy ({diff_rounded} ft) in elevation estimates from gage and HAND'
-            logging.warning(f"{huc} - {lid}: {err_msg}")
+        elif abs(elevation_diff_m) > 5:
+
+            if lid_altitude_m > lid_usgs_elev:
+                msg = f"Moderate discrepancy in elevation estimates: AHPS gage zero datum > HAND DEM elevation by {abs(diff_rounded_m)} m"
+                logging.warning(f"{huc} : {lid} - {msg}")
+
+            elif lid_usgs_elev > lid_altitude_m:
+                msg = f"Moderate discrepancy in elevation estimates: HAND DEM elevation > AHPS gage zero datum by {abs(diff_rounded_m)} m"
+                logging.warning(f"{huc} : {lid} - {msg}")
 
         # =====================
         # Check whether stage value is actually a WSE value, and fix if needed
@@ -805,19 +752,22 @@ def __process_elevations(sites_gdf, huc_library_df, huc, huc_path, output_temp_d
 
         # Get lowest stage value
         lowest_stage_val = lid_library_df['stage'].min()
-        
-        # lowest_stage_val = lid_library_df[lid_library_df['stage'] != -1]['stage'].min() # TODO: Clean up
-        # stage_values_df, valid_stage_names, stage_warning_msg, err_msg = __calc_stage_values(
-        #     categories, thresholds
-        # )
 
-        maximum_stage_threshold = 250  # TODO: Move to a variables file?
-        if (lowest_stage_val > lid_altitude) and (lowest_stage_val > maximum_stage_threshold):
-            lid_library_df['stage'] = lid_library_df['stage'] - lid_altitude
-            logging.info(
-                f"{huc} - {lid}: Lowest stage val > elev and higher than max stage thresh. Subtracted"
-                " elev from stage vals to fix."
+        # Check if the lowest stage value is greater than the site altitude and also greater than the max stage threshold,
+        # which would indicate that the stage value is actually being stored as a WSE value.
+        # If this is the case, we will subtract the site elevation from all of the stage values to convert them back to stage values.
+        if (lowest_stage_val > lid_altitude_ft) and (lowest_stage_val > csf.MAX_STAGE_THRESHOLD):
+            new_stage_example = lowest_stage_val - lid_altitude_ft
+            lid_library_df['stage'] = lid_library_df['stage'] - lid_altitude_ft
+            logging.warning(
+                f"{huc} - {lid}: Lowest stage val ({lowest_stage_val}) > elev ({lid_altitude_ft}) and > max stage threshold ({csf.MAX_STAGE_THRESHOLD}),"
+                f" which indicates that the stage is being stored as WSE. Subtracted elev from stage vals to fix. Lowest stage is now {new_stage_example}"
             )
+
+            # Update the sites gdf with a warning of this adjustment, but we won't set mapped to no
+            msg = f'Stage value stored as WSE detected, adjusted val by subtracting site elevation.'
+            sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no = False)
+
 
         updated_huc_library_df = pd.concat([updated_huc_library_df, lid_library_df], ignore_index=True)
 
@@ -967,10 +917,7 @@ def __adjust_datum_ft(lid_sites_gdf, lid_library_df, lid, datum_adj_nodata_value
     # TODO: Why are we using flow source data to do logic calcs and not the stage columns # TODO: Check if this is still true?
     # see the notes below about using the rating_curve_source - Discuss
 
-    # Yes... flow data even though we are processing stage data, see notes lower
-    # lid_flow_data = lid_library_df.loc[
-    #     lid_library_df['nws_lid'] == lid & lid_library_df['threshold_type'] == 'flows'
-    # ]
+    # Yes... flow data even though we are processing stage data, see notes lower # TODO: Clean up comment?
 
     # Get the rating curve source
     rating_curve_source = lid_library_df.iloc[0]["q_src"]
@@ -993,21 +940,7 @@ def __adjust_datum_ft(lid_sites_gdf, lid_library_df, lid, datum_adj_nodata_value
 
     nws_datum_info, usgs_datum_info = __get_datum_from_df(lid_sites_gdf) # current reorg setup
 
-
-    # with open(nwm_meta_file, "rb") as p_handle: # previous setup that we might want to go back to
-    #     all_lists = pickle.load(p_handle)
-
-    # # Find lid metadata from master list of metadata dictionaries.
-    # metadata = next(
-    #     (item for item in all_lists if item['identifiers']['nws_lid'] == lid.upper()), False
-    # )
-
-    # metadata = 
-    # nws_datum_info, usgs_datum_info = get_datum(metadata)
-
-    # TODO: Do we need to add the logic from my PR that chooses source based on data
-    # availability? or is that somewhere else?
-
+    # If rating curve source is 'Manual_Input', we will not be running this function
     if rating_curve_source == 'USGS Rating Depot':
         datum_data = usgs_datum_info
     elif rating_curve_source == 'NRLDB':
@@ -1089,7 +1022,7 @@ def __adjust_datum_ft(lid_sites_gdf, lid_library_df, lid, datum_adj_nodata_value
         logging.warning(f"{lid}: {err_msg}")
         return datum_adj_ft, err_msg
 
-    unknown_list = ['Unknown', 'UNK', 'UNKN', 'none', '']  # TODO: Add to an env file?
+    unknown_list = ['Unknown', 'UNK', 'UNKN', 'none', '']  # TODO: Add to shared variables
 
     if datum in unknown_list:
         err_msg = f'Datum info unavailable from (source {rating_curve_source}), datum is {datum}'
@@ -1120,7 +1053,7 @@ def __adjust_datum_ft(lid_sites_gdf, lid_library_df, lid, datum_adj_nodata_value
     #   we aren't sure if they are typos or just something else. We can add them if we see them more
     #   in the future.
 
-    nad27_misspellings = [
+    nad27_misspellings = [ # TODO: Add to shared variables
         'NGVD 1929',
         'NAD 1927',
         'NAD 1929',
@@ -1220,7 +1153,7 @@ def __adjust_datum_ft(lid_sites_gdf, lid_library_df, lid, datum_adj_nodata_value
     if vcs == 'NGVD29':
         try:
             datum_adj_ft = ngvd_to_navd_ft(datum_info=datum_data)
-            logging.info(f"{lid}: Datum adjustment from NGVD29 to NAVD88 is {datum_adj_ft} ft")
+            logging.info(f"{lid}: Datum adjustment from NGVD29 to NAVD88 is {datum_adj_ft} ft:")
 
         except Exception as ex:
             err_msg = f"{lid}: Exception occurred during vertical datum conversion (ngvd_to_navd_ft)"
@@ -1239,7 +1172,6 @@ def __adjust_datum_ft(lid_sites_gdf, lid_library_df, lid, datum_adj_nodata_value
                 # These errors indicate that the input WRDS data is incomplete
 
             else:
-
                 # Check VDatum API error message for clues
                 logging.error(traceback.format_exc())
                 ex = str(ex)
@@ -1267,7 +1199,7 @@ def __adjust_datum_ft(lid_sites_gdf, lid_library_df, lid, datum_adj_nodata_value
         datum_adj_ft = 0.0
 
     else:
-        # TODO: This is a new message, I'm really curious to see if it catches any addiitonal sites
+        # TODO: This is a new message, I'm really curious to see if it catches any additional sites
         logging.warning(f"{lid}: No datum adjustment perfomed due to unknown vertical datum. (CRS: {crs}, VCS: {vcs})")
         datum_adj_ft = 0.0
 
@@ -1341,20 +1273,22 @@ def __get_datum_from_df(lid_sites_gdf):
     return nws_datums, usgs_datums
 
 
-def __adj_dem_elevation_val(acceptable_usgs_elev_df, lid):
+def __adj_dem_elevation_val(acceptable_usgs_elev_df, lid, huc):
     '''
     Used in stage-based CatFIM.
 
-    Retrieves the DEM-adjusted elevation value for a given USGS gage site (LID) from the provided DataFrame,
-    and checks for exclusion criteria or data issues.
+    Retrieves the elevation value from the hydroconiditoned DEM created in the FIM pipeline for
+    a given USGS gage site (LID) from the provided DataFrame, and checks for exclusion criteria or data issues.
 
-    Arguments # TODO: Feed in HUC for logging consistency?
+    Arguments
     ----------
     acceptable_usgs_elev_df - pd.DataFrame
         DataFrame containing USGS gage information, including
         'nws_lid', 'levpa_id', 'dem_adj_elevation', and 'usgs_exclusion_status' columns.
     lid - str
         The NWS LID to look up.
+    huc - str
+        Hydrologic Unit Code.
 
     Returns
     --------
@@ -1386,7 +1320,7 @@ def __adj_dem_elevation_val(acceptable_usgs_elev_df, lid):
             # us to be more explicit here about WHY we are excluding certain sites. But some still do get excluded at that stage and therefore
             # will get caught by this error. I guess the best thing to do here would be to go into the code that downloads that original
             # data and figure out what reasons it excludes sites still and then put that explanation here...
-            logging.warning(f"{lid}: {err_msg}")
+            logging.warning(f"{huc} : {lid} - {err_msg}")
             return lid_usgs_elev, err_msg
 
         # Get the USGS data for the site
@@ -1408,21 +1342,21 @@ def __adj_dem_elevation_val(acceptable_usgs_elev_df, lid):
         # Uses [:-2] to exclude the last comma and space in the string
         if usgs_exclusion_status != 'acceptable':
             err_msg = 'Gage excluded due to the following criteria -- ' + usgs_exclusion_status[:-2]
-            logging.warning(f"{lid}: {err_msg}")
+            logging.warning(f"{huc} : {lid} - {err_msg}")
             return lid_usgs_elev, err_msg
 
         # Check whether DEM adjusted elevation is 0 or not set
         if lid_usgs_elev == 0:
             err_msg = 'DEM adjusted elevation is 0 or not set'
-            logging.warning(f"{lid}: {err_msg}")
+            logging.warning(f"{huc} : {lid} - {err_msg}")
             return lid_usgs_elev, err_msg
 
     except IndexError:  # Occurs when LID is missing from table (yes. warning)
         err_msg = 'Error when extracting dem adjusted elevation value'
-        logging.warning(f"{lid}: {err_msg}")
+        logging.warning(f"{huc} : {lid} - {err_msg}")
         logging.warning(traceback.format_exc())
 
-    logging.info(f"{lid}: lid_usgs_elev is {lid_usgs_elev}")
+    logging.info(f"{huc} : {lid} - lid_usgs_elev is {lid_usgs_elev}")
 
     return lid_usgs_elev, err_msg
 
@@ -1527,15 +1461,6 @@ def __setup_sites_gdf(sites_gdf, catfim_type):
         }
     )
 
-    # TODO: re-eval the data_source system.
-    # We temp add a column named threshold_data_source, which tracks the original source from the threshold dataset
-    # The sites_gdf is updated later, the column will be filled. Yes, it is not the most efficent system, but makes
-    # as each rec in the sites_gdf will have the same value. It does however, make it easier to pass the data through
-    # the system. When we save the final sites_gdf, we will drop the column.
-    # This column is only used by SB processing at this time.
-    # HUMMMM !!!!
-    # sites_gdf['threshold_data_source'] = ""
-
     # NOTE: if you get errors saying: Skipping field because of invalid value:
     # There are a couple of possible reasons. Data type mismatch, None in a float/int column and the most
     # common is a list object in a meta gdf field. To fix it, generaally just make it a string or drop it.
@@ -1544,26 +1469,6 @@ def __setup_sites_gdf(sites_gdf, catfim_type):
     # and see if that helps.
 
     # We need a better answer here as we do want some columns to non string
-
-    # Dec 4, 2025, we may no longer need this. We saw the problem with 12090301, failing saying invalid key
-    # Dec 10, 2025 - ya.. we do still need this but why now?
-    # # Convert all non-geometry columns to string
-    # for col in sites_gdf.columns:
-    #     if col != sites_gdf.geometry.name:  # Exclude the geometry column
-    #         sites_gdf[col] = sites_gdf[col].astype(str)
-    #         sites_gdf[col].fillna('', inplace=True)
-
-    # Some SB specific columns we want to create now, filling in what we know now.
-
-    # # Create stage-based specific validation columns # TODO: Mar 2026 - removed this because we don't want these columns
-    # if catfim_type == 'sb':
-    #     # TODO: This is not actually populating these columns... probably because they're not being read in here?
-    #     # ALSO even if it was working, that's not what we want to read in here.....
-    #     sites_gdf['acceptable_coord_acc_code_list'] = str(acceptable_coord_acc_code_list)
-    #     sites_gdf['acceptable_coord_method_code_list'] = str(acceptable_coord_method_code_list)
-    #     sites_gdf['acceptable_alt_acc_thresh'] = float(acceptable_alt_acc_thresh)
-    #     sites_gdf['acceptable_alt_meth_code_list'] = str(acceptable_alt_meth_code_list)
-    #     sites_gdf['acceptable_site_type_list'] = str(acceptable_site_type_list)
 
     return sites_gdf
 
