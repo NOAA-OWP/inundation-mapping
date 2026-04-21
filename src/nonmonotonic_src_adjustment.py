@@ -7,6 +7,7 @@
 import datetime as dt
 import os
 import re
+import sys
 import traceback
 from argparse import ArgumentParser
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -14,7 +15,8 @@ from os.path import join
 
 import numpy as np
 import pandas as pd
-
+print(f"WARNING: Executable path is {sys.executable}")
+print(f"WARNING: Pandas version is {pd.__version__}")
 
 # -------------------------------------------------------
 # Analysing each HydroID SRC for nonmonotonic SRC
