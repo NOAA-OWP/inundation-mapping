@@ -2,19 +2,22 @@
 
 import logging
 import os
+import pickle
 import random
 import shutil
 import time
-import pickle
 
 import geopandas as gpd
 import pandas as pd
 from dotenv import load_dotenv
 
+
 # Global vars, shared by all related py files.
 MAGNITUDES_TYPES = ['action', 'minor', 'moderate', 'major', 'record']
 
 MAX_STAGE_THRESHOLD = 250
+
+ELEV_NODATA_VALUE = -9999.0  # A NoData value for the datum adjustment, used in multiple functions across the codebase
 
 def load_fim_global_env_values(env_file):
     '''
@@ -197,7 +200,9 @@ def check_for_restricted_sites(sites_gdf, catfim_type):
             # sites_gdf.at[index, "mapped"] = "no"
 
             restricted_reason = is_restrict_lid.iloc[0]['restricted_reason']
-            sites_gdf = update_line_status_or_warning(lid, sites_gdf, restricted_reason, set_mapped_to_no = True)
+            sites_gdf = update_line_status_or_warning(
+                lid, sites_gdf, restricted_reason, set_mapped_to_no=True
+            )
 
         else:
             valid_nwm_lids.append(lid)
@@ -358,22 +363,31 @@ def make_huc_mapping_filepaths(huc, catfim_type, huc_path):
     log_file_dir = os.path.join(huc_path, "logs")
 
     # Create filepaths for the sites and library Geopackages
-    sites_pre_mapping_file_path = os.path.join(output_temp_dir, f"{catfim_type_label}_sites_pre_mapping_{huc}.gpkg")
+    sites_pre_mapping_file_path = os.path.join(
+        output_temp_dir, f"{catfim_type_label}_sites_pre_mapping_{huc}.gpkg"
+    )
     sites_post_mapping_file_path = os.path.join(output_mapping_dir, f"{catfim_type_label}_sites_{huc}.gpkg")
 
     # library_pre_inun_file_path changed to library_pre_mapping_file_path
-    library_pre_mapping_file_path = os.path.join(output_temp_dir, f"{catfim_type_label}_library_pre_mapping_{huc}.csv")
-    library_post_mapping_file_path = os.path.join(output_mapping_dir, f"{catfim_type_label}_library_{huc}.gpkg")
+    library_pre_mapping_file_path = os.path.join(
+        output_temp_dir, f"{catfim_type_label}_library_pre_mapping_{huc}.csv"
+    )
+    library_post_mapping_file_path = os.path.join(
+        output_mapping_dir, f"{catfim_type_label}_library_{huc}.gpkg"
+    )
 
-    return output_mapping_dir, output_temp_dir, log_file_dir, sites_pre_mapping_file_path, sites_post_mapping_file_path, library_pre_mapping_file_path, library_post_mapping_file_path
+    return (
+        output_mapping_dir,
+        output_temp_dir,
+        log_file_dir,
+        sites_pre_mapping_file_path,
+        sites_post_mapping_file_path,
+        library_pre_mapping_file_path,
+        library_post_mapping_file_path,
+    )
 
 def finalize_sites_mapping_status(
-    huc,
-    catfim_type,
-    sites_post_mapping_file_path,
-    library_post_mapping_file_path,
-    sites_input,
-    library_input,
+        huc, catfim_type, sites_post_mapping_file_path, library_post_mapping_file_path, sites_input, library_input
 ):
     '''
     Used in both stage- and flow-based CatFIM.
@@ -457,7 +471,7 @@ def finalize_sites_mapping_status(
 
     Note: the nws_lid column will never get renamed here. Let catfim_post_processing rename
       those columns to ahps_lid when it gets there.
-        
+
     '''
 
     logging.info(f"{huc} - Begin updating sites mapping status")
@@ -470,16 +484,17 @@ def finalize_sites_mapping_status(
     if isinstance(sites_input, str):
 
         if not os.path.exists(sites_input):
-            msg = f'{huc_function_tag} Unable to finalize HUC, no file exists at sites filepath: {sites_input}'
-            logging.error(msg)  # TODO: Is critical + exception correct here? maybe not... since other HUCs still might've been sucessful
-            raise Exception(msg)
+            msg = (
+                f'{huc_function_tag} Unable to finalize HUC, no file exists at sites filepath: {sites_input}'
+            )
+            logging.error(msg)
 
         # Read in sites_input as a gdf
-        logging.info(f"{huc_function_tag} Finalizing sites_input from path {sites_input}") # TEMP DEBUG
+        logging.info(f"{huc_function_tag} Finalizing sites_input from path {sites_input}")
         sites_gdf = gpd.read_file(sites_input, engine='fiona')
 
     elif isinstance(sites_input, gpd.GeoDataFrame):
-        logging.info(f"{huc_function_tag} sites_input is a GeoDataFrame") # TEMP DEBUG
+        logging.info(f"{huc_function_tag} sites_input is a GeoDataFrame")
         sites_gdf = sites_input
 
     else:
@@ -499,28 +514,39 @@ def finalize_sites_mapping_status(
     # the mapped sites should have an updated status from the end of post_process_huc_mapping)
 
     # Initialize values
-    if library_input == None: library_input = '' # change none to an empty string 
+    if library_input is None:
+        library_input = ''  # change none to an empty string
     mapped_sites_list, huc_library_gdf = [], []
     mapping_completed = False
 
     if os.path.exists(library_input):
         # Read in the HUC library and get a list of sites that have at least one mapped geometry
-        huc_library_gdf = gpd.read_file(library_input, engine='fiona') 
-        huc_library_gdf['nws_lid'] = huc_library_gdf['nws_lid'].str.lower() # TODO: Make this consistent earlier in the process?
-        sites_with_valid_geoms_gdf = huc_library_gdf[~huc_library_gdf.geometry.is_empty & huc_library_gdf.geometry.notna()]
+        huc_library_gdf = gpd.read_file(library_input, engine='fiona')
+        huc_library_gdf['nws_lid'] = huc_library_gdf[
+            'nws_lid'
+        ].str.lower()  # TODO: Make this consistent earlier in the process?
+
+        sites_with_valid_geoms_gdf = huc_library_gdf[
+            ~huc_library_gdf.geometry.is_empty & huc_library_gdf.geometry.notna()
+        ]
+
         mapped_sites_list = sites_with_valid_geoms_gdf['nws_lid'].unique().tolist()
 
         if len(mapped_sites_list) != 0:
             mapping_completed = True
 
     if mapping_completed is False:
-        logging.warning(f"{huc} has no mapped sites. It is possible that a HUC-level error occurred that prevented mapping from finishing processing.")
+        logging.warning(
+            f"{huc} has no mapped sites. It is possible that a HUC-level error occurred that prevented mapping from finishing processing."
+        )
 
     # Set a consistent site status error message
     site_status_error_message = 'Possible site status error occurred during processing.'
 
     # Make sure the lid columns are the same case for the comparison (lowercase in both)
-    sites_gdf['nws_lid'] = sites_gdf['nws_lid'].str.lower() # TODO: Make this consistent earlier in the process?
+    sites_gdf['nws_lid'] = sites_gdf[
+        'nws_lid'
+    ].str.lower()  # TODO: Make this consistent earlier in the process?
 
     # Update mapping status in the sites gdf
     for index, row in sites_gdf.iterrows():
@@ -532,79 +558,96 @@ def finalize_sites_mapping_status(
         lid_status_new, lid_mapped_new = None, None
 
         # Create the new mapped and status values for this site based on whether it is in the mapped sites list
-        if lid in mapped_sites_list:  # If site is in mapped list, update mapped to "yes" and update status if it is not already
+        if lid in mapped_sites_list:
+            # If site is in mapped list, update mapped to "yes" and update status if it is not already
             # If we have mapped sites, we know mapping_completed is True so we don't need to check for it
 
             lid_mapped_new = "yes"
 
-            if lid_status != "not set": # Status val available (possible error)
+            if lid_status != "not set":  # Status val available (possible error)
                 lid_status_new = f"{lid_status}; {site_status_error_message}"
-                logging.error(f"{huc_function_tag} {lid} is mapped but had a status before post-processing. {site_status_error_message}")
+                logging.error(
+                    f"{huc_function_tag} {lid} is mapped but had a status before post-processing. {site_status_error_message}"
+                )
 
-            elif lid_warning != "": # No status val available, but warning val IS available
+            elif lid_warning != "":  # No status val available, but warning val IS available
                 lid_status_new = lid_warning
 
-            elif lid_warning == "": # No val for status or warning, inundation completed
+            elif lid_warning == "":  # No val for status or warning, inundation completed
                 lid_status_new = "Good"
 
             else:  # Uncaught variant - status not available, warning not available (possible error)
                 lid_status_new = f"Good ; {site_status_error_message}"
-                logging.error(f"{huc_function_tag} {lid} Site is mapped but site status/warning vals are abnormal; {site_status_error_message}")
+                logging.error(
+                    f"{huc_function_tag} {lid} Site is mapped but site status/warning vals are abnormal; {site_status_error_message}"
+                )
                 logging.error(f"{huc_function_tag} {lid} Status: {lid_status}, Warning: {lid_warning}")
 
-        else: # If site is not in mapped list, update mapped to "no" if it is not already and update status
+        else:  # If site is not in mapped list, update mapped to "no" if it is not already and update status
 
             lid_mapped_new = "no"
 
             if lid_mapped == "yes": # Likely an error if mapped says 'yes' but we have no geoms for it.
-                logging.error(f"{huc_function_tag} {lid} is not mapped but had a mapped val of 'yes' before post-processing; {site_status_error_message}")
+                logging.error(
+                    f"{huc_function_tag} {lid} is not mapped but had a mapped val of 'yes' before post-processing; {site_status_error_message}"
+                )
                 logging.error(f"{huc_function_tag} {lid} Status: {lid_status}, Warning: {lid_warning}")
 
-                if lid_status != "not set": # Status val available
+                if lid_status != "not set":  # Status val available
                     lid_status_new = f"{lid_status}; {site_status_error_message}"
 
-                elif lid_warning != "": # No status val available, but warning val IS available
+                elif lid_warning != "":  # No status val available, but warning val IS available
                     lid_status_new = f"{lid_warning}; {site_status_error_message}"
 
-                elif mapping_completed is True: # No val for status or warning, inundation completed
+                elif mapping_completed is True:  # No val for status or warning, inundation completed
                     lid_status_new = f"Mapping completed but no inundated files found. Site had mapped val of 'yes' before post-processing. {site_status_error_message}"
 
-                else: # No val for status or warning, inundation not completed
+                else:  # No val for status or warning, inundation not completed
                     lid_status_new = f"Mapping not completed, no inundated files found. Site had mapped val of 'yes' before post-processing. {site_status_error_message}"
 
             elif lid_mapped == "no":  # Expected behavior
 
-                if lid_status != "not set": # Status val available (this is the expected behavior)
+                if lid_status != "not set":  # Status val available (this is the expected behavior)
                     lid_status_new = lid_status
 
-                elif lid_warning != "": # No status val available, but warning val IS available (indicates possible error)
+                elif lid_warning != "":  # No status val, but warning val IS available (possible error)
                     lid_status_new = f"{lid_warning}; {site_status_error_message}"
-                    logging.error(f"{huc_function_tag} {lid} had a mapped value of 'no' but no site status before post-processing. {site_status_error_message}")
+                    logging.error(
+                        f"{huc_function_tag} {lid} had a mapped value of 'no' but no site status before post-processing. {site_status_error_message}"
+                    )
 
-                elif mapping_completed is True: # No val for status or warning, inundation completed (indicates possible error)
-                    lid_status_new = f"Mapping completed but no inundated files found; {site_status_error_message}"
-                    logging.error(f"{huc_function_tag} {lid} had a mapped value of no but no site status or warnings before post-processing. Mapping completed but no inundated files found. {site_status_error_message}")
+                elif mapping_completed is True:  # No status or warning val, inundation completed (possible error)
+                    lid_status_new = (
+                        f"Mapping completed but no inundated files found; {site_status_error_message}"
+                    )
+                    logging.error(
+                        f"{huc_function_tag} {lid} had a mapped value of no but no site status or warnings before post-processing. Mapping completed but no inundated files found. {site_status_error_message}"
+                    )
 
-                else:  # No val for status or warning, inundation not completed (indicates possible error)
-                    lid_status_new = f"Mapping not completed, inundated polygons ; {site_status_error_message}"
-                    logging.error(f"{huc_function_tag} {lid} had a mapped value of no but no site status or warnings before post-processing. Mapping not completed, no inundated files found. {site_status_error_message}")
+                else:  # No status or warning val, inundation not completed (possible error)
+                    lid_status_new = (
+                        f"Mapping not completed, inundated polygons ; {site_status_error_message}"
+                    )
+                    logging.error(
+                        f"{huc_function_tag} {lid} had a mapped value of no but no site status or warnings before post-processing. Mapping not completed, no inundated files found. {site_status_error_message}"
+                    )
 
             elif lid_mapped == "not set":  # Expected behavior
 
-                if lid_status != "not set": # Status val available (possible error)
+                if lid_status != "not set":  # Status val available (possible error)
                     lid_status_new = f"{lid_status}; {site_status_error_message}"
                     logging.error(f"{huc_function_tag} {lid} is not mapped but had a status before post-processing. {site_status_error_message}")
 
-                elif lid_warning != "": # No status val available, but warning val IS available (Expected behavior)
+                elif lid_warning != "":  # No status available, but a warning IS (expected)
                     lid_status_new = lid_warning
 
-                elif mapping_completed is True: # No val for status or warning, inundation completed
+                elif mapping_completed is True:  # No status or warning, inundation completed
                     lid_status_new = "Mapping completed but no inundated files found"
 
-                else: # No val for status or warning, inundation not completed
+                else:  # No status or warning, inundation not completed
                     lid_status_new = "Mapping not completed, no inundated files found"
 
-            else: # If status is not 'not set' 'no' or 'yes' at this stage then something weird happened... Unlikely, indicates an error
+            else:  # If status is not 'not set' 'no' or 'yes' at this stage then something weird happened... Unlikely, indicates an error
                 msg = f"{huc_function_tag} {lid} Site had an irregular mapped value of '{lid_mapped}' before post-processing. {site_status_error_message}"
                 logging.error(msg)
                 raise Exception(msg)
@@ -643,7 +686,9 @@ def finalize_sites_mapping_status(
 
     # Exit the function here if there is no library input, if the library GDF is empty, or if the path is faulty
     if len(huc_library_gdf) == 0:
-        logging.info(f"{huc_function_tag} No library input available, no final library gdf will be saved to {library_post_mapping_file_path}")
+        logging.info(
+            f"{huc_function_tag} No library input available, no final library gdf will be saved to {library_post_mapping_file_path}"
+        )
         return
 
     # if library_input == None: # TODO: Clean up
@@ -670,7 +715,7 @@ def finalize_sites_mapping_status(
         huc_library_gdf,
         sites_gdf[['ahps_lid', 'wfo', 'rfc', 'state', 'county', 'status']],
         on='ahps_lid',
-        how='left'
+        how='left',
     )
 
     # TODO: For stage-based, do we want to specify what the elevation source was?
@@ -686,6 +731,7 @@ def finalize_sites_mapping_status(
     huc_library_gdf.to_file(library_post_mapping_file_path, driver='GPKG', engine="fiona", index=False)
 
     return
+
 
 def feet_to_meters(feet):
     '''
@@ -731,7 +777,7 @@ def get_huc_output_folder(huc, output_folder):
     # Check that the output folder was provided
     if not output_folder or output_folder == "":
         raise ValueError("output_folder argument can not be None or empty.")
-    
+
     # If applicable, take slash off filepath end
     if output_folder.endswith("/"):  # strip it off the end
         output_folder = output_folder[:-1]
@@ -772,21 +818,21 @@ def drop_output_columns(df, catfim_type):
     -------
     df_new - Pandas DataFrame or GeoDataFrame
         Dataframe or geodataframe with removed columns.
-    
+
     '''
     df_new = df.copy()
 
     # List of columns to remove for both stage-based AND flow-based CatFIM
-    cols_to_remove = [ # TODO: Decide what columns should be removed
+    cols_to_remove = [  # TODO: Decide what columns should be removed
         'warnings',
-        'env_can_gage_data_name',	
-        'env_can_gage_data_latitude',	
-        'env_can_gage_data_longitude',	
+        'env_can_gage_data_name',
+        'env_can_gage_data_latitude',
+        'env_can_gage_data_longitude',
         'env_can_gage_data_map_link',
         'env_can_gage_data_drainage_area',
         'env_can_gage_data_contrib_drainage_area',
         'env_can_gage_data_water_course',
-        'level_0'
+        'level_0',
     ]
 
     # List of columns to only remove for fb or sb CatFIM
@@ -810,6 +856,7 @@ def drop_output_columns(df, catfim_type):
 
     return df_new
 
+
 def rename_output_columns(df):
     '''
     Rename the CatFIM output column names.
@@ -828,7 +875,7 @@ def rename_output_columns(df):
 
     df_new = df.copy()
 
-    # TODO: Decide if we want to have uniform column names between sites and library 
+    # TODO: Decide if we want to have uniform column names between sites and library
     # or if we want to keep with previous patterns of having different colnames
 
     # Dictionary of old name and new names for the final outputs
@@ -855,10 +902,11 @@ def rename_output_columns(df):
         # 'is_interval': '',
         # 'interval_stage': '',
         # 'lid_usgs_elev': '',
-        # 'datum_adj_ft': 'dtm_adj_ft', # TODO: Decide. Removed the SB column name change for now because they're out of date and less clear than the current output names
-                                        # These will be the col names if we don't make this change: datum_adj_ft, datum_adj_wse_ft, datum_adj_wse_m
+        # 'datum_adj_ft': 'dtm_adj_ft', 
         # 'dadj_w_ft': 'datum_adj_wse_ft',
         # 'dadj_w_m': 'dadj_w_m',
+        # TODO: Decide. Removed the SB column name change for now because they're out of date and less clear than the current output names
+        # These will be the col names if we don't make this change: datum_adj_ft, datum_adj_wse_ft, datum_adj_wse_m
         # TODO: Fill in the new column names after they've been decided on
     }
 
@@ -897,7 +945,6 @@ def update_line_status_or_warning(site, sites_gdf, message, set_mapped_to_no):
     sites_gdf - Geopandas GeoDataFrame
         Table of sites, with the 'status', 'warnings', and 'mapped' columns updated.
 
-    
     '''
 
     all_huc_sites = sites_gdf["nws_lid"].tolist()
@@ -915,7 +962,9 @@ def update_line_status_or_warning(site, sites_gdf, message, set_mapped_to_no):
         site_i = site_i.upper()  # Before post-processing, sites are uppercase
 
         if site_i not in all_huc_sites:
-            logging.error(f"{site} -  - Updating sites table, site not in sites_gdf... unable to update table")
+            logging.error(
+                f"{site} -  - Updating sites table, site not in sites_gdf... unable to update table"
+            )
             return sites_gdf
 
         # Get initial values and print value changes
@@ -932,12 +981,16 @@ def update_line_status_or_warning(site, sites_gdf, message, set_mapped_to_no):
             # We are unmapping the site, so the message gets put in the "status" column
             sites_gdf.loc[sites_gdf["nws_lid"] == site_i, ['mapped', 'status']] = ['no', message]
 
-            logging.info(f"{site} - Updating sites table, changed mapped from '{mapped_i}' to 'no'")  # Verbose, maybe debug?
-            logging.info(f"{site} - Updating sites table, changed status from '{status_i}' to '{message}'")  # Verbose, maybe debug?
+            logging.info(
+                f"{site} - Updating sites table, changed mapped from '{mapped_i}' to 'no'"
+            )  # TODO: These are verbose, maybe change to debug?
+            logging.info(
+                f"{site} - Updating sites table, changed status from '{status_i}' to '{message}'"
+            )  # TODO: These are verbose, maybe change to debug?
 
         elif set_mapped_to_no is False:
             # We are NOT yet unmapping the site, so the messages gets put in the "warnings" column
-            
+
             # Check whether there is already a warning
             prev_warning = sites_gdf.loc[sites_gdf["nws_lid"] == site_i, 'warnings'].item()
 
@@ -953,10 +1006,14 @@ def update_line_status_or_warning(site, sites_gdf, message, set_mapped_to_no):
             # (but we are NOT changing the mapped column here)
             sites_gdf.loc[sites_gdf["nws_lid"] == site_i, 'warnings'] = warning_message
 
-            logging.info(f"{site} - Updating sites table, changed status from '{warnings_i}' to '{warning_message}'")  # Verbose, maybe debug?
+            logging.info(
+                f"{site} - Updating sites table, changed status from '{warnings_i}' to '{warning_message}'"
+            )  # TODO: These are verbose, maybe change to debug?
 
         else:
-            logging.error(f"Updating sites table, error updating line status/warnings. Invalid value for set_mapped_to_no: {set_mapped_to_no}")
+            logging.error(
+                f"Updating sites table, error updating line status/warnings. Invalid value for set_mapped_to_no: {set_mapped_to_no}"
+            )
 
     return sites_gdf
 

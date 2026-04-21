@@ -4,14 +4,14 @@ import argparse
 import logging
 import os
 import re
-import sys
-import traceback
 import shutil
+import traceback
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import datetime, timezone
-import pandas as pd
 
+import pandas as pd
 from dotenv import load_dotenv
+
 import data.wrds.download_process_wrds as dpw
 import src.utils.shared_functions as sf
 import tools.catfim.catfim_shared_functions as csf
@@ -89,7 +89,7 @@ def process_generate_categorical_fim(
 
     # Note: lst_hucs argument is used but passed via locals() so VSCode thinks it is not in use.
 
-    
+
     Arguments
     ---------
     fim_run_dir - str
@@ -189,7 +189,9 @@ def process_generate_categorical_fim(
         output_folder = output_folder + "_" + catfim_type_name
 
         # Validate inputs and get back validated huc list and paths for meta and threshold files
-        local_vals = locals()  # lst_hucs argument is used but passed via locals() so VSCode thinks it is not in use.
+        local_vals = (
+            locals()  # lst_hucs argument is used but passed via locals() so VSCode thinks it is not in use.
+        )
         valid_fim_hucs, dropped_huc_lst, nwm_meta_file, threshold_file = __validate_inputs(local_vals)
         valid_fim_hucs.sort()
 
@@ -200,7 +202,7 @@ def process_generate_categorical_fim(
         # Make output folder
         permissions_code = 0o776
         os.makedirs(output_folder, mode=permissions_code, exist_ok=True)
-    
+
         # Clear previous temp folders if they exist and are not empty (if overwrite is True)
         # or throw an error if they are not empty (if overwrite is False)
         temp_folder = os.path.join(output_folder, "temp")
@@ -222,11 +224,15 @@ def process_generate_categorical_fim(
         log_file_path = sf.setup_file_logger(temp_folder, "gen_catfim")
         is_logging_loaded = True
 
-        task_args_list = []  # We will populate this later on, just need to define it here for the try except scope
+        
+        # We will populate this later on, just need to define it here for the try except scope
+        task_args_list = []
 
         logging.info(f"Starting CatFIM Processing - {catfim_type_name} ;  (UTC): {dt_string}")
         print("")
-        print(f"... Logs will be saved to {log_file_path} initially and later copied over to {output_folder}/logs")
+        print(
+            f"... Logs will be saved to {log_file_path} initially and later copied over to {output_folder}/logs"
+        )
 
         # Make sites output filepath (needed even if we choose skip_processing)
         nwm_sites_file = os.path.join(output_folder, "nwm_sites.parquet")
@@ -263,7 +269,7 @@ def process_generate_categorical_fim(
 
         logging.info("Loading metadata and HUC dictionary")
 
-        # Jan 2026 note: 
+        # Jan 2026 note:
         # I don't think I need the meta_list in this particular script, just the huc dictionary,
         # but load_nwm_metadata loads the meta data list to calc the huc_dictionary.
         # Other scripts, do use the meta_data values.
@@ -304,7 +310,6 @@ def process_generate_categorical_fim(
         if len(huc_dictionary) == 0:
             raise Exception("The metadata pickle file does not have any applicable HUCs")
 
-
         # Dictionary of {col_name: col_type}
         colname_dict = {
             'metadata_sources': 'str',
@@ -324,8 +329,10 @@ def process_generate_categorical_fim(
             if col_name not in nwm_sites_all_gdf.columns:
                 # If column is missing, create it
                 nwm_sites_all_gdf[col_name] = None
-                logging.info(f"Column '{col_name}' was missing from nwm_sites_all_gdf and has been created with default empty values.")
-            
+                logging.info(
+                    f"Column '{col_name}' was missing from nwm_sites_all_gdf and has been created with default empty values."
+                )
+
             # Set/Update the column type
             nwm_sites_all_gdf[col_name] = nwm_sites_all_gdf[col_name].astype(col_type)
 
@@ -343,7 +350,9 @@ def process_generate_categorical_fim(
         nwm_sites_all_gdf.to_parquet(nwm_sites_file)
 
         # Save a GPKG version for debugging (not shared with the HUCs)
-        nwm_sites_all_gdf.to_file(nwm_sites_file.replace('.parquet', '.gpkg'), driver='GPKG', engine='fiona', index=False)
+        nwm_sites_all_gdf.to_file(
+            nwm_sites_file.replace('.parquet', '.gpkg'), driver='GPKG', engine='fiona', index=False
+        )
 
         # Save the HUC list for this CatFIM run (AWS will need this list to know what HUCs to process and iterate)
         catfim_huc_list_file = os.path.join(output_folder, "catfim_huc_list.txt")
@@ -385,7 +394,8 @@ def process_generate_categorical_fim(
             # thresholds, we will want to implement dpw.label_data_file() here
             # too so the threshold data has an indicator that it is only a subset.
 
-            output_thresholds_filename = 'thresholds.pkl' # TODO: Add output filenames to a shared variables or env file?
+            output_thresholds_filename = 'thresholds.pkl'
+            # TODO: Add output filenames to a shared variables or env file?
             thresholds_filepath = os.path.join(output_folder, output_thresholds_filename)
 
             logging.info(f'Threshold data will be saved to {thresholds_filepath}')
@@ -431,7 +441,9 @@ def process_generate_categorical_fim(
         if overwrite:
             logging.info('Overwrite is True. Removing HUC-level mapping and temp folders, CSVs, and GPKGs.')
         else:
-            logging.info('Overwrite is False. Checking that HUC-level mapping and temp folders are empty and that no CSVs and GPKGs are saved.')
+            logging.info(
+                'Overwrite is False. Checking that HUC-level mapping and temp folders are empty and that no CSVs and GPKGs are saved.'
+            )
 
         # Iterate through HUCs, validate inputs, and clear old outputs if needed
         for huc in valid_fim_hucs:
@@ -457,9 +469,10 @@ def process_generate_categorical_fim(
                     for msg in error_msgs:
                         logging.info(msg)
 
-                    err_msg = (f'{huc} - Unable to remove {len(error_msgs)} files'
-                    ' This could be because of permissions or because the files are open somewhere.'
-                    ' Please manually remove the mapping and temp folders and re-start CatFIM.'
+                    err_msg = (
+                        f'{huc} - Unable to remove {len(error_msgs)} files'
+                        ' This could be because of permissions or because the files are open somewhere.'
+                        ' Please manually remove the mapping and temp folders and re-start CatFIM.'
                     )
                     logging.critical(err_msg)
                     raise Exception(err_msg)
@@ -472,8 +485,9 @@ def process_generate_categorical_fim(
                     for msg in error_msgs:
                         logging.info(msg)
 
-                    err_msg = (f'{huc} - {len(error_msgs)} files from a previous run were found.'
-                    ' Please manually remove files, use the overwrite option, or choose a different output filename.'
+                    err_msg = (
+                        f'{huc} - {len(error_msgs)} files from a previous run were found.'
+                        ' Please manually remove files, use the overwrite option, or choose a different output filename.'
                     )
                     logging.critical(err_msg)
                     raise Exception(err_msg)
@@ -517,7 +531,7 @@ def process_generate_categorical_fim(
 
             for future in as_completed(futures_dict):
                 # if future is not None:  # we don't have anything to return at this time.
-                
+
                 # Return whether the HUC-level processing was sucessful.
                 if not future.exception():
                     huc, is_success = future.result()
@@ -530,7 +544,7 @@ def process_generate_categorical_fim(
                     raise future.exception()
 
         logging.info("Completed CatFIM HUC multiprocessing!")
-        
+
         # Print number of failed HUCs
         if len(failed_HUCs_list) > 0:
             logging.error(f"{len(failed_HUCs_list)} HUCs failed. See logs for info.")
@@ -548,7 +562,9 @@ def process_generate_categorical_fim(
 
     except Exception as ex:
         trace_error = traceback.format_exc()
-        err_msg = f"A critical error has occurred in process_generate_categorical_fim(). Detail: {trace_error}"
+        err_msg = (
+            f"A critical error has occurred in process_generate_categorical_fim(). Detail: {trace_error}"
+        )
 
         if is_logging_loaded:
             logging.critical(err_msg)
@@ -557,7 +573,7 @@ def process_generate_categorical_fim(
 
         # re-raise the exception, mostly for AWS
         raise ex
-    
+
     finally:
         if is_logging_loaded:
             print("")
@@ -585,7 +601,7 @@ def make_logs_path_list(main_log_path):
     ---------
     main_log_path - str
         Filepath to the main log path in CatFIM outputs.
-    
+
     Returns
     -------
     main_log_path - str
@@ -594,7 +610,6 @@ def make_logs_path_list(main_log_path):
         Filepath to the main warnings path in the CatFIM outputs (based on the given main log).
     errors_log_path - str
         Filepath to the main errors path in the CatFIM outputs (based on the given main log).
-        
     '''
     warnings_log_path = main_log_path.replace(".log", "-warnings.log")
     errors_log_path = main_log_path.replace(".log", "-errors.log")
@@ -603,14 +618,14 @@ def make_logs_path_list(main_log_path):
 
 
 def clean_up_previous_huc_outputs(
-        output_mapping_dir,
-        output_temp_dir,
-        output_log_dir,
-        sites_pre_mapping_file_path,
-        sites_post_mapping_file_path,
-        library_pre_mapping_file_path,
-        library_post_mapping_file_path,
-    ):
+    output_mapping_dir,
+    output_temp_dir,
+    output_log_dir,
+    sites_pre_mapping_file_path,
+    sites_post_mapping_file_path,
+    library_pre_mapping_file_path,
+    library_post_mapping_file_path,
+):
     '''
     Clean up specific output folders leftover from previous CatFIM runs.
     Removes the mapping folder, compiled sites and library gpkgs and CSVs.
@@ -648,7 +663,12 @@ def clean_up_previous_huc_outputs(
     # We are not removing the logs folder!!!
 
     # Remove HUC mapping files
-    filepaths = [sites_pre_mapping_file_path, sites_post_mapping_file_path, library_pre_mapping_file_path, library_post_mapping_file_path]
+    filepaths = [
+        sites_pre_mapping_file_path,
+        sites_post_mapping_file_path,
+        library_pre_mapping_file_path,
+        library_post_mapping_file_path,
+    ]
     for path in filepaths:
         if os.path.exists(path):
             try:
@@ -658,15 +678,16 @@ def clean_up_previous_huc_outputs(
 
     return
 
+
 def check_for_previous_huc_outputs(
-        output_mapping_dir,
-        output_temp_dir,
-        output_log_dir,
-        sites_pre_mapping_file_path,
-        sites_post_mapping_file_path,
-        library_pre_mapping_file_path,
-        library_post_mapping_file_path,
-    ):
+    output_mapping_dir,
+    output_temp_dir,
+    output_log_dir,
+    sites_pre_mapping_file_path,
+    sites_post_mapping_file_path,
+    library_pre_mapping_file_path,
+    library_post_mapping_file_path,
+):
     '''
     Checks whether certain HUC-level folders and files exists.
     This is used in the overwrite system to throw an error if
@@ -714,7 +735,12 @@ def check_for_previous_huc_outputs(
         error_msgs.append(msg)
 
     # Check for these output files (should be removed if overwrite = true, or not there if overwrite = false)
-    filepaths = [sites_pre_mapping_file_path, sites_post_mapping_file_path, library_pre_mapping_file_path, library_post_mapping_file_path]
+    filepaths = [
+        sites_pre_mapping_file_path,
+        sites_post_mapping_file_path,
+        library_pre_mapping_file_path,
+        library_post_mapping_file_path,
+    ]
     for path in filepaths:
         if os.path.exists(path):
             msg = f'ERROR: {path} already exists.'
@@ -723,7 +749,7 @@ def check_for_previous_huc_outputs(
     return error_msgs
 
 
-def __roll_up_final_logs(gen_log_file_path, huc_list_rollup, output_folder): 
+def __roll_up_final_logs(gen_log_file_path, huc_list_rollup, output_folder):
     '''
     Append HUC and post processing logs to final output logs.
 
@@ -737,11 +763,11 @@ def __roll_up_final_logs(gen_log_file_path, huc_list_rollup, output_folder):
         List of HUCs for which to roll up the logs.
     output_folder - str
         Filepath to the CatFIM output folder.
-    
+
     '''
     try:
         msgs = []
-    
+
         # Make the final log name and filepath list
         final_log_file_name = os.path.basename(gen_log_file_path).replace('gen_catfim_', 'ALL_LOGS_')
 
@@ -749,7 +775,7 @@ def __roll_up_final_logs(gen_log_file_path, huc_list_rollup, output_folder):
 
         # The main log folder doesn't get used until here, so if this isn't a CatFIM re-run then it
         # probably needs to be made. We store the logs in temp until this section because
-        # it helps us make sure we are copying over and compiling the logs from the correct run. 
+        # it helps us make sure we are copying over and compiling the logs from the correct run.
         if not os.path.exists(log_folder):
             os.makedirs(log_folder, exist_ok=True)
             os.chmod(log_folder, 0o777)  # 777 (rwxrwxrwx)
@@ -765,12 +791,14 @@ def __roll_up_final_logs(gen_log_file_path, huc_list_rollup, output_folder):
         gen_logs_path_list = make_logs_path_list(gen_log_file_path)
         final_logs_path_list = make_logs_path_list(final_log_file_path)
 
-        # Check that the generate categorical fim output log files exist. 
+        # Check that the generate categorical fim output log files exist.
         for gen_log_path, final_log_path in zip(gen_logs_path_list, final_logs_path_list):
             if not os.path.exists(gen_log_path):
                 with open(final_log_path, 'a'):
                     pass
-                msgs.append(f'WARNING: {os.path.basename(gen_log_path)} not found, made a blank file for {os.path.basename(final_log_path)} ')
+                msgs.append(
+                    f'WARNING: {os.path.basename(gen_log_path)} not found, made a blank file for {os.path.basename(final_log_path)}'
+                )
                 continue
 
             # If they do exist, copy the generate categorical fim output logs into the final
@@ -796,7 +824,7 @@ def __roll_up_final_logs(gen_log_file_path, huc_list_rollup, output_folder):
             if not os.path.exists(huc_folder):                
                 msgs.append(f"{huc} - HUC folder not found at {huc_folder}, skipping adding HUC logs to final logs.")
                 # Means that the HUC was in the args list but we never got far enough to
-                # make a folder for it. 
+                # make a folder for it.
                 continue
 
             # Get the HUC temp and log filepaths
@@ -806,13 +834,15 @@ def __roll_up_final_logs(gen_log_file_path, huc_list_rollup, output_folder):
             # Exit this process if the HUC temp folder doesn't exist, because that means we didn't get very far
             # into processing for this HUC.
             if not os.path.exists(huc_temp_folder):
-                msgs.append(f"{huc} - HUC temp folder not found at {huc_temp_folder}, skipping adding HUC logs to final logs.")
+                msgs.append(
+                    f"{huc} - HUC temp folder not found at {huc_temp_folder}, skipping adding HUC logs to final logs."
+                )
                 # Means that the HUC was in the args list but we never got far enough to
-                # make a temp folder for it. 
+                # make a temp folder for it.
                 continue
 
             # Get the most recent log file in the folder
-            huc_log_file_name, num_log_files_avail = get_most_recent_log_file(huc_temp_folder, "process_huc") 
+            huc_log_file_name, num_log_files_avail = get_most_recent_log_file(huc_temp_folder, "process_huc")
 
             # Exit this process if the HUC log file doesn't exist, because that means we didn't get very far
             # into processing for this HUC and we don't have logs to add for this HUC.
@@ -821,28 +851,34 @@ def __roll_up_final_logs(gen_log_file_path, huc_list_rollup, output_folder):
                 continue
 
             if num_log_files_avail > 1:
-                msgs.append(f"{huc} - {num_log_files_avail} logs available. Using most recent log: {huc_log_file_name}")
+                msgs.append(
+                    f"{huc} - {num_log_files_avail} logs available. Using most recent log: {huc_log_file_name}"
+                )
 
             huc_log_file_path = os.path.join(huc_temp_folder, huc_log_file_name)
 
             if not os.path.exists(huc_log_file_path):
-                msgs.append(f"{huc} - HUC log not found at {huc_log_file_path}, skipping adding HUC logs (if they exist) to final logs.")
+                msgs.append(
+                    f"{huc} - HUC log not found at {huc_log_file_path}, skipping adding HUC logs (if they exist) to final logs."
+                )
                 continue
 
             huc_log_paths_list = make_logs_path_list(huc_log_file_path)
 
             # Iterate through log types
             for huc_log_path, final_log_path in zip(huc_log_paths_list, final_logs_path_list):
-                
+
                 if not os.path.exists(huc_log_path):
                     msgs.append(f'{huc} - WARNING: File not found: {os.path.basename(huc_log_path)}')
                     continue
 
-                msgs.append(f'{huc} - Appending {os.path.basename(huc_log_path)} to {os.path.basename(final_log_path)}') # TEMP DEBUG
+                msgs.append(
+                    f'{huc} - Appending {os.path.basename(huc_log_path)} to {os.path.basename(final_log_path)}'
+                    )  # TODO: Verbose? TEMP DEBUG
 
                 # The HUC log folder doesn't get used until here, so if this isn't a CatFIM re-run then it
                 # probably needs to be made. We store the HUC logs in temp until this section because
-                # it helps us make sure we are copying over and compiling the logs from the correct run. 
+                # it helps us make sure we are copying over and compiling the logs from the correct run.
                 if not os.path.exists(huc_log_folder):
                     os.makedirs(huc_log_folder, exist_ok=True)
                     os.chmod(huc_log_folder, 0o777)  # 777 (rwxrwxrwx)
@@ -856,7 +892,9 @@ def __roll_up_final_logs(gen_log_file_path, huc_list_rollup, output_folder):
 
                 # Print warning if needed
                 if not log_concat_success:
-                    msgs.append(f'{huc} - WARNING: Unable to concat to final log: {os.path.basename(huc_log_path)}')
+                    msgs.append(
+                        f'{huc} - WARNING: Unable to concat to final log: {os.path.basename(huc_log_path)}'
+                    )
         # End HUC loop
 
         # ----------
@@ -867,10 +905,14 @@ def __roll_up_final_logs(gen_log_file_path, huc_list_rollup, output_folder):
         # Get the most recent log file in the folder
         # log_folder = os.path.join(output_folder, "logs")
         temp_folder = os.path.join(output_folder, "temp")
-        post_p_log_file_name, num_log_files_avail = get_most_recent_log_file(temp_folder, "catfim_post_processing")
+        post_p_log_file_name, num_log_files_avail = get_most_recent_log_file(
+            temp_folder, "catfim_post_processing"
+        )
 
-        if post_p_log_file_name == None:
-            msgs.append(f'Postprocessing log file not found in {temp_folder}. Skipping appending post-processing logs to final logs.')
+        if post_p_log_file_name is None:
+            msgs.append(
+                f'Postprocessing log file not found in {temp_folder}. Skipping appending post-processing logs to final logs.'
+            )
 
         else:
             post_p_log_file_path = os.path.join(temp_folder, post_p_log_file_name)
@@ -883,13 +925,17 @@ def __roll_up_final_logs(gen_log_file_path, huc_list_rollup, output_folder):
                     continue
 
                 # Append HUC .log file to gen .log file
-                log_concat_success = sf.concat_files(post_p_log_path, final_log_path, remove_old_src_file=False)
+                log_concat_success = sf.concat_files(
+                    post_p_log_path, final_log_path, remove_old_src_file=False
+                )
 
                 if log_concat_success is False:
                     msgs.append(f'Unable to concat to final log: {post_p_log_path}')
 
                 else:
-                    msgs.append(f'Appended {os.path.basename(post_p_log_path)} to {os.path.basename(final_log_path)}')
+                    msgs.append(
+                        f'Appended {os.path.basename(post_p_log_path)} to {os.path.basename(final_log_path)}'
+                    )
 
         msgs.append("")
         msgs.append('Completed rolling up logs!')
@@ -931,7 +977,13 @@ def get_most_recent_log_file(folder, log_file_name_prefix):
     log_files_with_prefix = [f for f in os.listdir(folder) if log_file_name_prefix in f]
 
     # Get a list of available .log files (must not have warnings or errors)
-    log_files = sorted([f for f in log_files_with_prefix if f.endswith(".log") and "-warnings.log" not in f and "-errors.log" not in f])
+    log_files = sorted(
+        [
+            f
+            for f in log_files_with_prefix
+            if f.endswith(".log") and "-warnings.log" not in f and "-errors.log" not in f
+        ]
+    )
 
     num_log_files_avail = len(log_files)
 
@@ -950,7 +1002,7 @@ def get_most_recent_log_file(folder, log_file_name_prefix):
     elif num_log_files_avail == 0:
         huc_log_file_path = None
 
-    else: # only one log file, which is what we expect
+    else:  # only one log file, which is what we expect
         huc_log_file_path = log_files[0]
 
     return huc_log_file_path, num_log_files_avail
@@ -1329,7 +1381,7 @@ if __name__ == '__main__':
         '-mc',
         '--past-major-interval-cap',
         help='OPTIONAL: Stage-Based Only. How many feet past major do you want to go for the interval FIMs?'
-        ' of the machine. Defaults to 5', # TODO: I actually have this hard-coded elsewhere, need to reconcile!!
+        ' of the machine. Defaults to 5',  # TODO: I actually have this hard-coded elsewhere, need to reconcile!!
         required=False,
         default=5,
         type=int,

@@ -91,7 +91,7 @@ def process_huc(huc, output_folder):
         # Note: we do need some args later such as input_wbd_layer and likely others
         load_dotenv('/foss_fim/src/bash_variables.env')
 
-        # Load the runtime_args.env, error if it does not exist. 
+        # Load the runtime_args.env, error if it does not exist.
         # It should give us all values we need. We will also do some validation in it as well.
         # See generate_categorical_fim.py -> save_env_args(output_path)
         csf.load_runtime_args(output_folder)
@@ -103,9 +103,7 @@ def process_huc(huc, output_folder):
         # Validate input parameters and bash variables and return cleaned-up paths
         # Helping sort out if even a valid HUC was submitted (and that that we have
         # that as a HUC in the fim_dir)
-        huc_path, output_folder = csf.validate_huc_inputs(
-            huc, output_folder
-        )
+        huc_path, output_folder = csf.validate_huc_inputs(huc, output_folder)
 
         # Create the huc folder if it does not exist
         os.makedirs(huc_path, exist_ok=True, mode=0o777)
@@ -137,24 +135,26 @@ def process_huc(huc, output_folder):
 
         # TODO: AWS BUG Jan 2026 - Why are my logs read only for all but the owner? other apps don't I think.
         # I can not delete them to cleanup if I want too. huh? Better check other apps that use setup_file_logger
-    
+
         # HUC level logs will be initially saved in the temp dir and then they will be copied into the HUC/logs folder
-        # at the end of processing (which will help us ensure that the logs we compile up are from the current run) 
-        log_file_path = sf.setup_file_logger(output_temp_dir, f"process_huc_{huc}") 
+        # at the end of processing (which will help us ensure that the logs we compile up are from the current run)
+        log_file_path = sf.setup_file_logger(output_temp_dir, f"process_huc_{huc}")
         is_logging_loaded = True
 
         logging.info("")
         logging.info(f"Starting HUC-level CatFIM for HUC {huc} ;  {dt_string} (UTC)")
-        print(f"... Logs for this HUC will be saved to {log_file_path} for now, but copied over to {huc}/logs later")
+        print(
+            f"... Logs for this HUC will be saved to {log_file_path} for now, but copied over to {huc}/logs later"
+        )
         print("")
 
         # ---
 
-        # Notes on cleaning up previous files: 
+        # Notes on cleaning up previous files:
         # - Cleaning up some previous files and folders for new runs. By being specific we can keep debugging files
         #   from previous runs.
         #
-        # - We will want to make sure we have a pretty robust cleanup process, because we wouldn't want to 
+        # - We will want to make sure we have a pretty robust cleanup process, because we wouldn't want to
         #   accidentally leave behind site or library files and accidentally merge them into the final outputs. -E
         #
         # - Some of folders are only for stage and some only for flow, but we will keep it as one process just for simplicity
@@ -162,7 +162,7 @@ def process_huc(huc, output_folder):
         #    either _sites.gpkg or _library.gpkg
 
 
-        # Notes on file naming conventions: 
+        # Notes on file naming conventions:
         # - Not all intermediates will go to temp. It depends if we want to keep it long term or not.
         # - Make sure that only the final edition of the product ends in _sites.gpkg or _library.gpkg # TODO: Update, I think we've changed this
         #   as catfim_post_processing.py will look for those conventions.
@@ -186,7 +186,9 @@ def process_huc(huc, output_folder):
 
         # If no valid sites remain, save the meta file we have with the new error messages, then abort.
         if len(valid_nwm_lids) == 0:
-            logging.info(f"All sites associated to HUC {huc} are restricted. No more processing will continue.")
+            logging.info(
+                f"All sites associated to HUC {huc} are restricted. No more processing will continue."
+            )
 
             # Update mapping status and save the final sites file
             csf.finalize_sites_mapping_status(
@@ -205,7 +207,9 @@ def process_huc(huc, output_folder):
 
             # Save sites to a file checkpoint (Yes.. to the master copy)
             logging.info(f"{huc} - Saving sites, pre flow and mapping, at {sites_pre_mapping_file_path}")
-            sites_gdf.to_file(sites_pre_mapping_file_path, driver='GPKG', crs=VIZ_PROJECTION, engine="fiona", index=False)
+            sites_gdf.to_file(
+                sites_pre_mapping_file_path, driver='GPKG', crs=VIZ_PROJECTION, engine="fiona", index=False
+            )
 
             logging.info(f"{huc} - {len(valid_nwm_lids)} sites remaining after validation: {valid_nwm_lids}")
             print("")
@@ -219,7 +223,7 @@ def process_huc(huc, output_folder):
             # Get threshold data (stages and flows) for all valid sites in this HUC
             threshold_huc_df = gcf.get_threshold_data(huc, huc_path, valid_nwm_lids)
 
-            # Note: It is possible threshold_huc_df can come back empty if huc has no site(s) with threshold data. 
+            # Note: It is possible threshold_huc_df can come back empty if huc has no site(s) with threshold data.
             # It is okay if this df is empty for now.
 
             # Process threshold data (creates a HUC-level library file with all of the site/magnitude combinations
@@ -242,8 +246,12 @@ def process_huc(huc, output_folder):
             # Save a copy of the sites_gdf at this point
             # We may have some or all sites that have failed, so we want the master sites rec saved
 
-            logging.info(f"{huc} - Saving sites data post threshold processing at {sites_pre_mapping_file_path}")
-            sites_gdf.to_file(sites_pre_mapping_file_path, driver='GPKG', crs=VIZ_PROJECTION, engine="fiona", index=False)
+            logging.info(
+                f"{huc} - Saving sites data post threshold processing at {sites_pre_mapping_file_path}"
+            )
+            sites_gdf.to_file(
+                sites_pre_mapping_file_path, driver='GPKG', crs=VIZ_PROJECTION, engine="fiona", index=False
+            )
 
             # CatFIM Reorg. Note (Jan 26): We no longer need attribute files or the attribute folder.
             #    The data in those files were mostly duplicate data from the sites_gdf
@@ -253,15 +261,15 @@ def process_huc(huc, output_folder):
             # - At this point, we do have at least one threshold record
             # - Library file was created and saved to disk
             # - It is not yet a gdf because it has no geometry; we will add geometry later in mapping
-            # - Has the same pattern and columns that we use for final library files and is based on 
+            # - Has the same pattern and columns that we use for final library files and is based on
             #   only the lids and mag types that are still valid up to this point
             # - Some library site/magnitude combos may still be rejected and removed based on logic down the road
             # - Contains records for up to 5 magnitude types per lid (ie. ABCD1/action  or EFGH1/record)
             # - For SB, it does not yet contain any of the interval records because future
             #   logic might limit more mag types.
 
-            # TODO: has_error system? or at least a way to see if the huc_library_df allows us to keep 
-            # track of which lids / mags are still valid for processing. Some may fail in other places 
+            # TODO: has_error system? or at least a way to see if the huc_library_df allows us to keep
+            # track of which lids / mags are still valid for processing. Some may fail in other places
             # down the road and will be removed from the huc_library_df. For SB, it will add
             # some interval recs when applicable
 
@@ -275,7 +283,9 @@ def process_huc(huc, output_folder):
                 huc_library_df.to_csv(library_pre_mapping_file_path, index=False)
                 logging.info(f"{huc} - Saving initial library file to {library_pre_mapping_file_path}")
             else:
-                logging.warning(f"{huc} - There are no valid huc_library recs at this point. Skipping to finalization")
+                logging.warning(
+                    f"{huc} - There are no valid huc_library recs at this point. Skipping to finalization"
+                )
 
                 # Update mapping status and save the final sites file
                 csf.finalize_sites_mapping_status(
@@ -290,29 +300,30 @@ def process_huc(huc, output_folder):
 
 
             # Check for valid LIDs and abort processing if no valid sites remain
-            # If there's no valid LIDs we won't have any library files, but we still need to finalize 
+            # If there's no valid LIDs we won't have any library files, but we still need to finalize
             # sites.gdf because it will still be part of the final product rollup.
             if continue_processing == True:
 
                 valid_lids = sites_gdf.loc[sites_gdf["mapped"] != "no"]["nws_lid"].values.tolist()
 
                 if len(valid_lids) == 0:
-                    logging.info(f"{huc} - There are no remaining sites to process. Skipping to finalization.")
+                    logging.info(
+                        f"{huc} - There are no remaining sites to process. Skipping to finalization."
+                    )
 
                     # Update mapping status and save the final sites file
-                    csf.finalize_sites_mapping_status( 
-                        huc, 
-                        catfim_type, 
-                        sites_post_mapping_file_path, 
-                        library_post_mapping_file_path, 
-                        sites_gdf, 
+                    csf.finalize_sites_mapping_status(
+                        huc,
+                        catfim_type,
+                        sites_post_mapping_file_path,
+                        library_post_mapping_file_path,
+                        sites_gdf,
                         None,
                     )
                     continue_processing = False
 
         else:
             logging.info(f"{huc} - Continue processing is False, bypassing threshold data processing.")
-
 
         # =========================================
         # Process stage-based elevation data
@@ -328,7 +339,7 @@ def process_huc(huc, output_folder):
 
                 # Process the elevation data
                 sites_gdf, huc_library_df, has_critical_error = __process_elevations(
-                    sites_gdf, huc_library_df, huc, huc_path, output_temp_dir, library_pre_mapping_file_path,
+                    sites_gdf, huc_library_df, huc, huc_path, output_temp_dir, library_pre_mapping_file_path
                 )
 
                 # Abort early if there's a critical error
@@ -340,12 +351,12 @@ def process_huc(huc, output_folder):
                     )
 
                     # Update mapping status and save the final sites file
-                    csf.finalize_sites_mapping_status( 
-                        huc, 
-                        catfim_type, 
-                        sites_post_mapping_file_path, 
-                        library_post_mapping_file_path, 
-                        sites_gdf, 
+                    csf.finalize_sites_mapping_status(
+                        huc,
+                        catfim_type,
+                        sites_post_mapping_file_path,
+                        library_post_mapping_file_path,
+                        sites_gdf,
                         None,
                     )
                     continue_processing = False
@@ -355,9 +366,15 @@ def process_huc(huc, output_folder):
 
                 else:
                     # Checkpoint
-                    logging.info(f"{huc} - Saving sites data post-elevation processing at {sites_pre_mapping_file_path}")
+                    logging.info(
+                        f"{huc} - Saving sites data post-elevation processing at {sites_pre_mapping_file_path}"
+                    )
                     sites_gdf.to_file(
-                        sites_pre_mapping_file_path, driver='GPKG', crs=VIZ_PROJECTION, engine="fiona", index=False
+                        sites_pre_mapping_file_path,
+                        driver='GPKG',
+                        crs=VIZ_PROJECTION,
+                        engine="fiona",
+                        index=False,
                     )
 
                     if len(huc_library_df) > 0:
@@ -371,18 +388,20 @@ def process_huc(huc, output_folder):
                         )
 
                         # Update mapping status and save the final sites file
-                        csf.finalize_sites_mapping_status( 
-                            huc, 
-                            catfim_type, 
-                            sites_post_mapping_file_path, 
-                            library_post_mapping_file_path, 
-                            sites_gdf, 
+                        csf.finalize_sites_mapping_status(
+                            huc,
+                            catfim_type,
+                            sites_post_mapping_file_path,
+                            library_post_mapping_file_path,
+                            sites_gdf,
                             None,
                         )
                         continue_processing = False
 
             else:
-                logging.info(f"{huc} - Continue processing is False, bypassing stage-based elevation data processing.")
+                logging.info(
+                    f"{huc} - Continue processing is False, bypassing stage-based elevation data processing."
+                )
         # else: if it is flow-based, we skip the elevation processing
 
         # =========================================
@@ -391,7 +410,7 @@ def process_huc(huc, output_folder):
 
             # We can also add temp additional columns in the mapping version of sites if it helps
             # with mapping processing, we just have to make they are removed after finalization here.
-            # Mapping has to be fully independent.          
+            # Mapping has to be fully independent.
 
             # CatFIM Reorg Notes (Jan 26):
             # We don't really want to return anything, unless it is a catastrophic exception.
@@ -400,7 +419,7 @@ def process_huc(huc, output_folder):
             # and Yes... we will be reloading and replacing our sites_gdf from the mapping version
             # as it might have updated it.
             # Mapping will know the file names for the segments and discharge
-            
+
             # Process CatFIM mapping
             gcfm.process_mapping(
                 huc,
@@ -422,16 +441,16 @@ def process_huc(huc, output_folder):
             # Finalize all final sites and library files for this HUC
             # Assumes all logging or finalization was jumped to earlier.
             
-            # TODO: Decide if we want a separate final and post-mapping filepath.... 
+            # TODO: Decide if we want a separate final and post-mapping filepath....
             # We don't want mapping to ever change the copy coming in here as we need
             # to be able to re-run mapping as many times as it wants. It will be updating
             # the sites file as it progresses but will make its own called site_post_processing.gpkg
             # for this code to pick up later in our finalization.
             # For now, we do NOT have a separate final HUC filepath.
 
-            csf.finalize_sites_mapping_status( 
-                huc, 
-                catfim_type, 
+            csf.finalize_sites_mapping_status(
+                huc,
+                catfim_type,
                 sites_post_mapping_file_path,  # Output path
                 library_post_mapping_file_path,  # Output path
                 sites_post_mapping_file_path,  # Data to finalize
@@ -439,7 +458,9 @@ def process_huc(huc, output_folder):
             )
 
         else:
-            logging.info(f"{huc} - Continue processing is False, bypassing mapping and post-mapping finalization.")
+            logging.info(
+                f"{huc} - Continue processing is False, bypassing mapping and post-mapping finalization."
+            )
 
         duration_msg = sf.calculate_duration_msg(overall_start_time)
         logging.info(f"{huc} - End HUC-level processing - {duration_msg}")
@@ -461,7 +482,9 @@ def process_huc(huc, output_folder):
     return huc, is_success
 
 
-def __process_elevations(sites_gdf, huc_library_df, huc, huc_path, output_temp_dir, library_pre_mapping_file_path):
+def __process_elevations(
+    sites_gdf, huc_library_df, huc, huc_path, output_temp_dir, library_pre_mapping_file_path
+):
     """
     Only used by stage-based CatFIM.
 
@@ -513,7 +536,7 @@ def __process_elevations(sites_gdf, huc_library_df, huc, huc_path, output_temp_d
     if download_source != 'Manual_Input':  # Note: Manual input data does not use usgs_elev_table
 
         # ------------------------
-        # CatFIM Reorg Note (Jan 26): The usgs elev table was previously in iterate_through_huc_stage_based 
+        # CatFIM Reorg Note (Jan 26): The usgs elev table was previously in iterate_through_huc_stage_based
         # but wasn't used until later in the code in that function. Now it is done much earlier.
 
         # Get the USGS elevation table (it is already filtered to the HUC level and has data for all sites in this HUC)
@@ -525,7 +548,7 @@ def __process_elevations(sites_gdf, huc_library_df, huc, huc_path, output_temp_d
             logging.error(f"{huc} - {msg}")
 
             # If this happens, all sites in this HUC will fail and have this same message, so we can update them all
-            sites_gdf = csf.update_line_status_or_warning("all", sites_gdf, msg, set_mapped_to_no = True)
+            sites_gdf = csf.update_line_status_or_warning("all", sites_gdf, msg, set_mapped_to_no=True)
             has_critical_error = True  # This will stop further processing downstream
 
             return sites_gdf, [], has_critical_error
@@ -542,10 +565,12 @@ def __process_elevations(sites_gdf, huc_library_df, huc, huc_path, output_temp_d
         # Check if there are any records in the USGS elevation table, if not log an error and update all sites to failed with the same message. We can check for this before we do the filtering below, which will give us a more clear error message if there is no data at all for any sites in the HUC. If we wait to check after the filtering, we might have a more generic error message that just says "no usable elevation data" which would be less clear if the issue is that there is no data at all vs. there is data but it just doesn't meet our criteria.
         if len(usgs_elev_df) == 0:
             msg = f"USGS elevation table (from FIM outputs) empty for HUC {huc}"
-            logging.error(f"{huc} - {msg}, expected at path {src_usgs_elev_table}. If file is there, an error occurred while copying to {huc_path}")
+            logging.error(
+                f"{huc} - {msg}, expected at path {src_usgs_elev_table}. If file is there, an error occurred while copying to {huc_path}"
+            )
 
             # If this happens, all sites in this HUC will fail and have this same message, so we can update them all
-            sites_gdf = csf.update_line_status_or_warning("all", sites_gdf, msg, set_mapped_to_no = True)
+            sites_gdf = csf.update_line_status_or_warning("all", sites_gdf, msg, set_mapped_to_no=True)
             has_critical_error = True  # This will stop further processing downstream
 
             return sites_gdf, [], has_critical_error
@@ -553,8 +578,6 @@ def __process_elevations(sites_gdf, huc_library_df, huc, huc_path, output_temp_d
         # Give error if needed.
         # THEN we can filter below using the __create_acceptable_usgs_elev_df() function and give an
         # error if that filtering leaves us with no usable elevation data.
-        # Also, if we are using the NRLDB elevation data, should confirm that we even still 
-        # need to be using the usgs elevation table??
 
         # ------------------------
         # Creates an updated USGS elevation table with a descriptive USGS exclusion status column
@@ -565,10 +588,10 @@ def __process_elevations(sites_gdf, huc_library_df, huc, huc_path, output_temp_d
         # only occur if a code error occurred, so this message is worth looking into
         # if it appears.
         if len(acceptable_usgs_elev_df) == 0:
-            msg = "USGS elevation table empty for HUC after processing exclusion criteria." # was "Unable to find gage data"
+            msg = "USGS elevation table empty for HUC after processing exclusion criteria."  # was "Unable to find gage data"
             logging.error(f"{huc} - {msg}")
             # If this happens, all sites in this HUC will fail and have this same message, so we can update them all
-            sites_gdf = csf.update_line_status_or_warning("all", sites_gdf, msg, set_mapped_to_no = True)
+            sites_gdf = csf.update_line_status_or_warning("all", sites_gdf, msg, set_mapped_to_no=True)
             has_critical_error = True  # This will stop further processing downstream
             return sites_gdf, [], has_critical_error
 
@@ -596,7 +619,9 @@ def __process_elevations(sites_gdf, huc_library_df, huc, huc_path, output_temp_d
         if len(lid_library_df) == 0:
             # If not, the sites should already have been updated to mapped is no and correct
             # status message applied.
-            raise Exception(f"{huc} - Internal error: There should be at least one valid lid library rec by now")
+            raise Exception(
+                f"{huc} - Internal error: There should be at least one valid lid library rec by now"
+            )
 
         # Make an "rfc_stage" column (for documentation of the data source)
         lid_library_df['rfc_stage'] = lid_library_df['stage']
@@ -606,11 +631,11 @@ def __process_elevations(sites_gdf, huc_library_df, huc, huc_path, output_temp_d
         # Changed this to rfc_stage for processing. Fix in finalization?
 
         # Get the site altitude from the USGS data
-        # lid_altitude = lid_sites_gdf.iloc[0]['usgs_data_altitude'] # Previous method - elevation was pulled from the USGS columns (even if the datum and rating curve were from NRLDB) 
+        # lid_altitude = lid_sites_gdf.iloc[0]['usgs_data_altitude'] # Previous method - elevation was pulled from the USGS columns (even if the datum and rating curve were from NRLDB)
         
         # We need to be getting the elev that matches the rating curve that we're using, not just hard coding to USGS I think!!
         # New as of Spring '26
-        rating_curve_source = lid_library_df.iloc[0]["q_src"] # TODO: Combine with other data source checks? but it's different...
+        rating_curve_source = lid_library_df.iloc[0]["q_src"]
 
         # Get the site elevation from the same source as the rating curve source
         # lid_altitude_ft should be in FT, whether it's from USGS or NRLDB (was lid_altitude)
@@ -623,19 +648,21 @@ def __process_elevations(sites_gdf, huc_library_df, huc, huc_path, output_temp_d
         else:
             err_msg = f'Unknown rating curve source: {rating_curve_source}, unable to get site elevation'
             logging.warning(f"{lid}: {err_msg}")
-            sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, err_msg, set_mapped_to_no = True)
+            sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, err_msg, set_mapped_to_no=True)
             continue
 
         lid_altitude_ft = float(lid_altitude_ft)  # Ensure it's a float for processing later
 
-        logging.info(f"{lid}: Rating curve and elevation val source: {rating_curve_source}, site elev value: {lid_altitude_ft}")  # TEMP DEBUG
+        logging.info(
+            f"{lid}: Rating curve and elevation val source: {rating_curve_source}, site elev value: {lid_altitude_ft}"
+        )  # TEMP DEBUG
 
         if lid_altitude_ft is None or lid_altitude_ft == 0:
             # Jan 2026: In previous versions not all recs stopped here when this failed
             # some continued on and ultimatly failed down the road.
             msg = f'AHPS site altitude value is invalid (value is {lid_altitude_ft})'
             logging.warning(f"{huc} - {lid}: {msg}")
-            sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no = True)
+            sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no=True)
             continue
 
         # Adjust the elevation value (if data is not from Manual Input)
@@ -646,19 +673,21 @@ def __process_elevations(sites_gdf, huc_library_df, huc, huc_path, output_temp_d
 
             # Exit and update the line status if an error was returned from adjust DEM elevation val
             if err_msg != "":                
-                sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, err_msg, set_mapped_to_no = True)
+                sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, err_msg, set_mapped_to_no=True)
                 continue
 
-            # Jan 2026: Previously we ran __filter_bad_usgs_gage_data() here but we took 
+            # Jan 2026: Previously we ran __filter_bad_usgs_gage_data() here but we took
             # it out because it was duplicate functionality already done in  __adj_dem_elevation_val()
 
             # Determine the vertical datum adjustment (ft) to convert the datum of the rating curve to NAVD88
-            datum_adj_nodata_value = -9999.0 # A NoData value for the datum adjustment # TODO: Add to shared variables?
-            datum_adj_ft, err_msg = __adjust_datum_ft(lid_sites_gdf, lid_library_df, lid, datum_adj_nodata_value)
+            datum_adj_nodata_value = csf.ELEV_NODATA_VALUE
+            datum_adj_ft, err_msg = __adjust_datum_ft(
+                lid_sites_gdf, lid_library_df, lid, datum_adj_nodata_value
+            )
 
             # Exit and update line status if an error was returned from adjust datum
             if err_msg != "":
-                sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, err_msg, set_mapped_to_no = True)
+                sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, err_msg, set_mapped_to_no=True)
                 continue
 
             # If an error wasn't returned but the datum adjustment value is equal to the nodata value,
@@ -666,7 +695,7 @@ def __process_elevations(sites_gdf, huc_library_df, huc, huc_path, output_temp_d
             if datum_adj_ft == datum_adj_nodata_value:
                 msg = "Unable to determine datum adjustment for site, error occurred during datum adjustment calculation"
                 logging.error(f"{huc} - {lid}: {msg}")
-                sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no = True)
+                sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no=True)
                 continue
 
         else:  # If source is manual input, skip the above elevation filtering
@@ -674,24 +703,33 @@ def __process_elevations(sites_gdf, huc_library_df, huc, huc_path, output_temp_d
             # but rather we are just using the site elevation from the metadata input file. That means we
             # are not inundating the REMs with the elevation from the hydroconditioned FIM DEMs, which could
             # make the mapping slightly worse. If we end up creating the proper USGS elevation tables
-            # for the manual input sites, this could change. TODO - add usgs elevation tables if we end up creating them
-            lid_usgs_elev = csf.feet_to_meters(lid_altitude_ft)  # lid_altitude is now in meters to match non-manual input units
-            datum_adj_ft = 0  # no datum adjustment for manual input
+            # for the manual input sites, this could change. TODO - incorporate usgs elevation tables if we end up creating them
 
+            # Convert lid_altitude to meters to match non-manual input units
+            lid_usgs_elev = csf.feet_to_meters(lid_altitude_ft)
+            datum_adj_ft = 0  # no datum adjustment for manual input
 
         lid_altitude_m = csf.feet_to_meters(lid_altitude_ft)
 
         # Add datum adjustment info to site dataframe
-        lid_library_df['datum_adj_ft'] = datum_adj_ft  # Datum adjustment in feet (could be zero), created using WRDS metadata
-        lid_library_df['lid_alt_ft'] = lid_altitude_ft  # Site elevation (zero datum) in feet, from WRDS metadata
-        lid_library_df['lid_alt_m'] = lid_altitude_m  # Site elevation (zero datum) in meters, from WRDS metadata
-        lid_library_df['lid_usgs_elev'] = lid_usgs_elev  # Site elevation in meters, from the hydroconditioned FIM DEMs (temp column for processing)
+        lid_library_df['datum_adj_ft'] = (
+            datum_adj_ft  # Datum adjustment in feet (could be zero), created using WRDS metadata
+        )
+        lid_library_df['lid_alt_ft'] = (
+            lid_altitude_ft  # Site elevation (zero datum) in feet, from WRDS metadata
+        )
+        lid_library_df['lid_alt_m'] = (
+            lid_altitude_m  # Site elevation (zero datum) in meters, from WRDS metadata
+        )
+        lid_library_df['lid_usgs_elev'] = (
+            lid_usgs_elev  # Site elevation in meters, from the hydroconditioned FIM DEMs (temp column for processing)
+        )
         # Note: for lid_usgs_elev, USGS refers to the fact that the table is stored in the context of the USGS APHS sites,
         # not that the elevation is actually from the USGS
 
         # =====================
         # Check for large discrepancies between the elevation values from WRDS and HAND.
-        #   (because that could cause bad mapping.) Manual_Input will have no elev 
+        #   (because that could cause bad mapping.) Manual_Input will have no elev
         #   disparity because it's from the the same value.
 
         # TODO: test this elevation_diff code -Rob
@@ -704,7 +742,7 @@ def __process_elevations(sites_gdf, huc_library_df, huc, huc_path, output_temp_d
 
 
         # Calculate the elevation difference between the two elevation values
-        elevation_diff_m = lid_usgs_elev - lid_altitude_m # was lid_altitude_ft * 0.3048, now just lid_altitude_m
+        elevation_diff_m = lid_usgs_elev - lid_altitude_m
         diff_rounded_m = round(elevation_diff_m, 2)
         # Note: elevation_diff_m and diff_rounded are used for these tests only
         # and are not part of any logic or are saved to any df's
@@ -723,12 +761,12 @@ def __process_elevations(sites_gdf, huc_library_df, huc, huc_path, output_temp_d
             if lid_altitude_m > lid_usgs_elev:
                 msg = f"Large discrepancy in elevation estimates: AHPS gage zero datum > HAND DEM elevation by {abs(diff_rounded_m)} m"
                 logging.warning(f"{huc} : {lid} - {msg}")
-                sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no = True)
+                sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no=True)
 
             elif lid_usgs_elev > lid_altitude_m:
                 msg = f"Large discrepancy in elevation estimates: HAND DEM elevation > AHPS gage zero datum by {abs(diff_rounded_m)} m"
                 logging.warning(f"{huc} : {lid} - {msg}")
-                sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no = True)
+                sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no=True)
 
             # We will clean up the huc_library folder shortly
             continue
@@ -765,8 +803,8 @@ def __process_elevations(sites_gdf, huc_library_df, huc, huc_path, output_temp_d
             )
 
             # Update the sites gdf with a warning of this adjustment, but we won't set mapped to no
-            msg = f'Stage value stored as WSE detected, adjusted val by subtracting site elevation.'
-            sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no = False)
+            msg = 'Stage value stored as WSE detected, adjusted val by subtracting site elevation.'
+            sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no=False)
 
 
         updated_huc_library_df = pd.concat([updated_huc_library_df, lid_library_df], ignore_index=True)
@@ -938,7 +976,7 @@ def __adjust_datum_ft(lid_sites_gdf, lid_library_df, lid, datum_adj_nodata_value
 
     # Why did we swtich this from just using get_datum() from the shared functions file?
 
-    nws_datum_info, usgs_datum_info = __get_datum_from_df(lid_sites_gdf) # current reorg setup
+    nws_datum_info, usgs_datum_info = __get_datum_from_df(lid_sites_gdf)  # current reorg setup
 
     # If rating curve source is 'Manual_Input', we will not be running this function
     if rating_curve_source == 'USGS Rating Depot':
@@ -953,7 +991,7 @@ def __adjust_datum_ft(lid_sites_gdf, lid_library_df, lid, datum_adj_nodata_value
     logging.info(f"{lid}: Rating curve source is {rating_curve_source}")
 
     # ---------------------------
-    # Perform site-specific data corrections 
+    # Perform site-specific data corrections
 
     # SPECIAL CASE: Custom workaround these sites have faulty crs from WRDS. CRS needed for NGVD29
     #   conversion to NAVD88
@@ -979,11 +1017,11 @@ def __adjust_datum_ft(lid_sites_gdf, lid_library_df, lid, datum_adj_nodata_value
         'stkn4',
         'wlln7',
     ]:
-        datum_data.update(crs='NAD83') # TODO: Double check that these are correct, because I fear they could be very out of date -E
+        datum_data.update(crs='NAD83') # TODO: Double check hardcoded adjustments
         logging.info(f"{lid}: adjust_datum_ft - CRS manually set to NAD83")
 
     # SPECIAL CASE: Site BMBP1
-    if lid.lower() == 'bmbp1': # TODO: Double check that these are correct, because I fear they could be very out of date -E
+    if lid.lower() == 'bmbp1':  #TODO: Double check hardcoded adjustments
         # SPECIAL CASE: Workaround for "bmbp1" where the only valid datum is from NRLDB (USGS datum is null).
         # Modifying rating curve source will influence the rating curve and
         #   datum retrieved for benchmark determinations.
@@ -994,7 +1032,9 @@ def __adjust_datum_ft(lid_sites_gdf, lid_library_df, lid, datum_adj_nodata_value
         # This was verified by converting USGS coordinates (in NAD83) for bmbp1 to NAD27 and
         #   it matches NRLDB coordinates.
         datum_data.update(crs='NAD27')
-        logging.info(f"{lid}: adjust_datum_ft - CRS manually set to NAD27, rating curve source manually set to NRLDB")
+        logging.info(
+            f"{lid}: adjust_datum_ft - CRS manually set to NAD27, rating curve source manually set to NRLDB"
+        )
 
 
     # SPECIAL CASE: Custom workaround these sites have poorly defined vcs from WRDS. VCS needed to ensure
@@ -1003,7 +1043,7 @@ def __adjust_datum_ft(lid_sites_gdf, lid_library_df, lid, datum_adj_nodata_value
     # bgwn7, eagi1 vertical datum unknown, assume navd88
     # fatw3 USGS data indicates vcs is NAVD88 (USGS and NWS info agree on datum value).
     # wlln7 USGS data indicates vcs is NGVD29 (USGS and NWS info agree on datum value).
-    if lid.lower() in ['bgwn7', 'eagi1', 'fatw3']:  # TODO: Double check that these are correct, because I fear they could be very out of date -E
+    if lid.lower() in ['bgwn7', 'eagi1', 'fatw3']:  # TODO: Double check hardcoded adjustments
         datum_data.update(vcs='NAVD88')
         logging.info(f"{lid}: adjust_datum_ft - VCS manually set to NAVD88")
     elif lid.lower() == 'wlln7':
@@ -1053,7 +1093,9 @@ def __adjust_datum_ft(lid_sites_gdf, lid_library_df, lid, datum_adj_nodata_value
     #   we aren't sure if they are typos or just something else. We can add them if we see them more
     #   in the future.
 
-    nad27_misspellings = [ # TODO: Add to shared variables
+    # TODO: Replace with new function
+
+    nad27_misspellings = [  # TODO: Add to shared variables
         'NGVD 1929',
         'NAD 1927',
         'NAD 1929',
@@ -1144,7 +1186,7 @@ def __adjust_datum_ft(lid_sites_gdf, lid_library_df, lid, datum_adj_nodata_value
     # or there is an error with the specific request), then the datum_adj_ft will be left at 0.0
     # and we will incorrectly assume that the site is in NAVD88 when it might not be.
     # By keeping the default at the nodata value, we can be sure that if it is 0.0,
-    # it is because we know it is in navd88 and not just because vdatum failed and left the default value. 
+    # it is because we know it is in navd88 and not just because vdatum failed and left the default value.
 
     crs = datum_data.get('crs')
     vcs = datum_data.get('vcs')
@@ -1159,7 +1201,7 @@ def __adjust_datum_ft(lid_sites_gdf, lid_library_df, lid, datum_adj_nodata_value
             err_msg = f"{lid}: Exception occurred during vertical datum conversion (ngvd_to_navd_ft)"
             logging.error(err_msg)
 
-            if crs is None: # TODO: Should we check for this earlier? Any reason to wait until here?
+            if crs is None:  # TODO: Should we check for this earlier? Any reason to wait until here?
                 err_msg = 'NOAA VDatum adjustment error, CRS is missing'
                 logging.error(f"{lid}: {err_msg}")
                 # Skip traceback message because we know what went wrong
@@ -1200,7 +1242,9 @@ def __adjust_datum_ft(lid_sites_gdf, lid_library_df, lid, datum_adj_nodata_value
 
     else:
         # TODO: This is a new message, I'm really curious to see if it catches any additional sites
-        logging.warning(f"{lid}: No datum adjustment perfomed due to unknown vertical datum. (CRS: {crs}, VCS: {vcs})")
+        logging.warning(
+            f"{lid}: No datum adjustment perfomed due to unknown vertical datum. (CRS: {crs}, VCS: {vcs})"
+        )
         datum_adj_ft = 0.0
 
     return datum_adj_ft, err_msg
@@ -1294,7 +1338,7 @@ def __adj_dem_elevation_val(acceptable_usgs_elev_df, lid, huc):
     --------
     lid_usgs_elev - float
         The DEM-adjusted elevation value for the specified LID, or 0 if not found or excluded.
-    err_msg - STR 
+    err_msg - STR
         Error message, if one arises. Otherwise, blank string.
 
     Notes
@@ -1314,7 +1358,7 @@ def __adj_dem_elevation_val(acceptable_usgs_elev_df, lid, huc):
         # Check if the site is not in the USGS data table (in our data)
         if len(matching_rows) == 0:
             # err_msg = 'Gage not in HAND usgs gage records, likely due to exclusion criteria' # previous error message
-            err_msg = 'Gage not in USGS elevation data table, likely due to exclusion criteria or missing data' # TODO: Update with more clarity
+            err_msg = 'Gage not in USGS elevation data table, likely due to exclusion criteria or missing data'  # TODO: Update with more clarity
             # TODO: Essentially, this happens when the site has been excluded from the USSG elevation data for not meeting their exlcusion criteria.
             # We've tried to decrease the amount of sites we exclude at that previous download stage because that allows
             # us to be more explicit here about WHY we are excluding certain sites. But some still do get excluded at that stage and therefore
@@ -1401,9 +1445,9 @@ def __setup_sites_gdf(sites_gdf, catfim_type):
         A GeoDataFrame containing site information with columns such as 'nws_lid',
         'HUC8', and various NWS and NWM metadata fields.
     catfim_type - str
-        The type of CATFIM processing, 'sb' or 'fb'. 
+        The type of CATFIM processing, 'sb' or 'fb'.
         Determines whether SB-specific validation columns are added.
-    
+
     Returns
     -------
     sites_gdf - geopandas.GeoDataFrame
@@ -1415,7 +1459,7 @@ def __setup_sites_gdf(sites_gdf, catfim_type):
         - (SB only) Additional columns for coordinate accuracy, altitude accuracy, and site type validation
 
     Notes
-    -----   
+    -----
     Jan 6, 2026: In earlier versions, building up this data was done in two differnt places
     one in the SB logic flow another one was basically identical in FB.
     Some of these columns were updated or added through the code as it progressed.
@@ -1447,7 +1491,9 @@ def __setup_sites_gdf(sites_gdf, catfim_type):
     # note in this file.
     # TODO: Decide what to do with downstream_nwm_features and upstream_nwm_features columns
 
-    sites_gdf = sites_gdf.drop(['downstream_nwm_features', 'upstream_nwm_features'], axis=1, errors='ignore') # TODO: maybe we don't drop this because then we wouldn't have to read the metadata json list in later when this data is needed...?
+    sites_gdf = sites_gdf.drop(
+        ['downstream_nwm_features', 'upstream_nwm_features'], axis=1, errors='ignore'
+    ) # TODO: maybe we don't drop this because then we wouldn't have to read the metadata json list in later when this data is needed...?
     sites_gdf = sites_gdf.astype(
         {
             'metadata_sources': str,
@@ -1472,10 +1518,11 @@ def __setup_sites_gdf(sites_gdf, catfim_type):
 
     return sites_gdf
 
+
 def make_huc_mapping_folders(output_mapping_dir, output_temp_dir, output_log_dir):
     '''
     # TODO: Update
-    
+
     '''
     mode = 0o777  # allows read, write, and execute for all (rwxrwxrwx)
     os.makedirs(output_mapping_dir, exist_ok=True, mode=mode)
@@ -1483,7 +1530,6 @@ def make_huc_mapping_folders(output_mapping_dir, output_temp_dir, output_log_dir
     os.makedirs(output_log_dir, exist_ok=True, mode=mode)
 
     # os.chmod(path, mode)  # if needed, we can adjust permissions like this
-
 
 
 if __name__ == '__main__':

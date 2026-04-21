@@ -44,6 +44,7 @@ import tools.catfim.catfim_shared_functions as csf
 
 """
 
+
 def catfim_post_processing(output_folder):
 
     is_logging_loaded = False
@@ -78,7 +79,9 @@ def catfim_post_processing(output_folder):
 
         logging.info(f"Begin CatFIM post-processing for {catfim_type_name} at {dt_string} (UTC)")
         logging.info("")
-        print(f"Logs will be saved to {log_file_path} initially and later copied over to {output_folder}/logs")
+        print(
+            f"Logs will be saved to {log_file_path} initially and later copied over to {output_folder}/logs"
+        )
 
         # Create filepath names and delete any pre-existing output files
         sites_gpkg_path, sites_csv_path, library_gpkg_path, library_csv_path, deleted_file_count = __set_start_files_folders(
@@ -119,7 +122,9 @@ def catfim_post_processing(output_folder):
             huc_path = os.path.join(huc_parent_folder_path, huc)
 
             # Create filepath variables
-            __, __, __, __, sites_post_mapping_file_path, __, library_post_mapping_file_path = csf.make_huc_mapping_filepaths(huc, catfim_type, huc_path)
+            __, __, __, __, sites_post_mapping_file_path, __, library_post_mapping_file_path = (
+                csf.make_huc_mapping_filepaths(huc, catfim_type, huc_path)
+            )
             # TODO: There's probably a better way to do this without returning all the __'s,
 
             # Sites
@@ -157,31 +162,41 @@ def catfim_post_processing(output_folder):
 
         # If there's no data to compile, then we should just error out here
         if len(compiled_sites_gdf_list) == 0 and len(compiled_library_gdf_list) == 0:
-            logging.error("ERROR: No HUC-level sites or library files to concatenate. Aborting post-processing.")
+            logging.error(
+                "ERROR: No HUC-level sites or library files to concatenate. Aborting post-processing."
+            )
             return
 
         # ---------------------
         # If files were found, summarize HUC processing
 
         logging.info("Done iterating through HUC folders.")
-        logging.info(f"Sucessfully compiled data from {len(compiled_sites_gdf_list)}/{len(huc_list)} HUC folders.")
+        logging.info(
+            f"Sucessfully compiled data from {len(compiled_sites_gdf_list)}/{len(huc_list)} HUC folders."
+        )
 
         # Print HUCs that had neither sites nor library file
         hucs_without_library_and_sites = list(set(hucs_without_sites) & set(hucs_without_library))
         if len(hucs_without_library_and_sites) > 0:
-            logging.warning(f"WARNING: {len(hucs_without_library_and_sites)} HUC(s) skipped due to missing sites AND library results:")
+            logging.warning(
+                f"WARNING: {len(hucs_without_library_and_sites)} HUC(s) skipped due to missing sites AND library results:"
+            )
             logging.warning(hucs_without_library_and_sites)
 
         # Print HUCs that had library but no sites (unlikely might indicate a bug)
         hucs_missing_only_sites = list(set(hucs_without_sites).difference(set(hucs_without_library)))
         if len(hucs_missing_only_sites) > 0:
-            logging.warning(f"WARNING: {len(hucs_missing_only_sites)} HUC(s) skipped due to missing sites file:")
+            logging.warning(
+                f"WARNING: {len(hucs_missing_only_sites)} HUC(s) skipped due to missing sites file:"
+            )
             logging.warning(hucs_missing_only_sites)
 
         # Print HUCs that had sites but no library (unlikely, might indicate a bug)
         hucs_missing_only_library = list(set(hucs_without_library).difference(set(hucs_without_sites)))
         if len(hucs_missing_only_library) > 0:
-            logging.warning(f"WARNING: {len(hucs_missing_only_library)} HUC(s) skipped due to missing library file:")
+            logging.warning(
+                f"WARNING: {len(hucs_missing_only_library)} HUC(s) skipped due to missing library file:"
+            )
             logging.warning(hucs_missing_only_library)
 
         # ---------------------
@@ -202,7 +217,7 @@ def catfim_post_processing(output_folder):
 
             # Drop geometry column and save the csv versions
             compiled_sites_df = compiled_sites_gdf.drop(columns=['geometry'])
-            compiled_sites_df.to_csv(sites_csv_path, index = False)
+            compiled_sites_df.to_csv(sites_csv_path, index=False)
             logging.info(f"Saved sites CSV to {sites_csv_path}")
 
         else:
@@ -250,7 +265,7 @@ def catfim_post_processing(output_folder):
 
 def __load_runtime_args(output_folder):
     '''
-    Loads the necessary variables from the runtime args file. 
+    Loads the necessary variables from the runtime args file.
     '''
 
     args_file_name = "runtime_args.env"
@@ -273,7 +288,7 @@ def __set_start_files_folders(output_folder, catfim_type_name):
         Filepath to CatFIM run output folder
     catfim_type_name - STR
         Type of CatFIM we are running ('flow_based' or 'stage_based')
-    
+
     Returns
     -------
     sites_gpkg_path - STR

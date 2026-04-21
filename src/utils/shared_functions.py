@@ -49,7 +49,7 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
     be writing to the same file at the same time.  If you have a process even if it is in an
     MP, as long as it has its own unique MP log file names, you can use this one.
     ie)  huc_12090301_inundate_20260217.log
-    
+
     It prints to file and screen at the same time.
 
     This one is very similar to 'setup_mp_file_logger' but has a few critical differences.
@@ -115,7 +115,7 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
     err_file_handler = logging.FileHandler(error_file_name)
     err_file_handler.setLevel(logging.ERROR)
     err_file_handler.setFormatter(formatter)
-    os.chmod(error_file_name, mode = permissions_code)
+    os.chmod(error_file_name, mode=permissions_code)
 
     # warning file handler
     warning_file_name = log_file_path.replace(".log", "-warnings.log")
@@ -124,13 +124,13 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
     warn_file_handler.setFormatter(formatter)
     # Filter to exclude ERROR and CRITICAL from warnings file
     warn_file_handler.addFilter(lambda record: record.levelno < logging.ERROR)
-    os.chmod(warning_file_name, mode = permissions_code)
+    os.chmod(warning_file_name, mode=permissions_code)
 
-    # # basic file handler
+    # basic file handler
     file_handler = logging.FileHandler(log_file_path)
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(formatter)
-    os.chmod(log_file_path, mode = permissions_code)
+    os.chmod(log_file_path, mode=permissions_code)
     
     logger.handlers.clear()  # reset the custom logger settings below
     # order matters here
