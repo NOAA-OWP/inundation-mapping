@@ -15,7 +15,7 @@ import tools.catfim.catfim_shared_functions as csf
 
     CatFIM Post-Processing Module
 
-    This module handles the final aggregation and compilation of Categorical Flood Inundation Mapping (CatFIM) 
+    This module handles the final aggregation and compilation of Categorical Flood Inundation Mapping (CatFIM)
     output data from individual HUC folders into a consolidated dataset.
 
     Key Responsibilities:
@@ -124,7 +124,7 @@ def catfim_post_processing(output_folder):
 
             # Sites
             try:
-                with open(sites_post_mapping_file_path, 'r') as f:
+                with open(sites_post_mapping_file_path, 'r'):
                     huc_sites_gdf = gpd.read_file(sites_post_mapping_file_path, engine='fiona')
 
                 # Rename output columns if needed (should already be renamed, but just in case)
@@ -140,7 +140,7 @@ def catfim_post_processing(output_folder):
 
             # Library
             try:
-                with open(library_post_mapping_file_path, 'r') as f:
+                with open(library_post_mapping_file_path, 'r'):
                     huc_library_gdf = gpd.read_file(library_post_mapping_file_path, engine='fiona')
 
                 # Rename output columns if needed (should already be renamed, but just in case)
@@ -206,7 +206,7 @@ def catfim_post_processing(output_folder):
             logging.info(f"Saved sites CSV to {sites_csv_path}")
 
         else:
-            logging.info(f"No sites info to save, not saving sites GPKG or CSV")
+            logging.info("No sites info to save, not saving sites GPKG or CSV")
 
 
         if len(compiled_library_gdf_list) > 0:
@@ -223,7 +223,7 @@ def catfim_post_processing(output_folder):
             logging.info(f"Saved library CSV to {library_csv_path}")
 
         else:
-            logging.info(f"No library info to save, not saving library GPKG or CSV")
+            logging.info("No library info to save, not saving library GPKG or CSV")
 
         # ---------------------
         # Completed post-processing

@@ -759,7 +759,7 @@ def __roll_up_final_logs(gen_log_file_path, huc_list_rollup, output_folder):
         msgs.append("")
         msgs.append(f"Compiling all logs into {final_log_file_path}")
         msgs.append("")
-        msgs.append(f"--- Processing logs from generate_categorical_fim.py ---")
+        msgs.append("--- Processing logs from generate_categorical_fim.py ---")
 
         # Make the filepath lists for the generate categorical fim output logs and the final logs
         gen_logs_path_list = make_logs_path_list(gen_log_file_path)
@@ -768,7 +768,7 @@ def __roll_up_final_logs(gen_log_file_path, huc_list_rollup, output_folder):
         # Check that the generate categorical fim output log files exist. 
         for gen_log_path, final_log_path in zip(gen_logs_path_list, final_logs_path_list):
             if not os.path.exists(gen_log_path):
-                with open(final_log_path, 'a') as f:
+                with open(final_log_path, 'a'):
                     pass
                 msgs.append(f'WARNING: {os.path.basename(gen_log_path)} not found, made a blank file for {os.path.basename(final_log_path)} ')
                 continue
@@ -783,7 +783,7 @@ def __roll_up_final_logs(gen_log_file_path, huc_list_rollup, output_folder):
         # Add HUC logs to the output logs
 
         msgs.append("")
-        msgs.append(f"--- Processing logs from catfim_process_huc.py ---")
+        msgs.append("--- Processing logs from catfim_process_huc.py ---")
 
         if len(huc_list_rollup) == 0:
             msgs.append("No HUCs to roll up logs for.")
@@ -816,7 +816,7 @@ def __roll_up_final_logs(gen_log_file_path, huc_list_rollup, output_folder):
 
             # Exit this process if the HUC log file doesn't exist, because that means we didn't get very far
             # into processing for this HUC and we don't have logs to add for this HUC.
-            if huc_log_file_name == None:
+            if huc_log_file_name is None:
                 msgs.append(f"{huc} - No logs found for HUC, skipping adding HUC logs to final logs.")
                 continue
 
@@ -862,7 +862,7 @@ def __roll_up_final_logs(gen_log_file_path, huc_list_rollup, output_folder):
         # ----------
         # Add post-processing logs to the main log
         msgs.append("")
-        msgs.append(f"--- Processing logs from catfim_post_processing.py ---")
+        msgs.append("--- Processing logs from catfim_post_processing.py ---")
 
         # Get the most recent log file in the folder
         # log_folder = os.path.join(output_folder, "logs")
@@ -885,7 +885,7 @@ def __roll_up_final_logs(gen_log_file_path, huc_list_rollup, output_folder):
                 # Append HUC .log file to gen .log file
                 log_concat_success = sf.concat_files(post_p_log_path, final_log_path, remove_old_src_file=False)
 
-                if not log_concat_success:
+                if log_concat_success is False:
                     msgs.append(f'Unable to concat to final log: {post_p_log_path}')
 
                 else:

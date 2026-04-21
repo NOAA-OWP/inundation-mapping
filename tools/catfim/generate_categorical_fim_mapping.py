@@ -32,9 +32,9 @@ from tools.tools_shared_functions import mask_out_lakes
 
 """
 
-This script focuses on handling HUC-level inundation for both flow- and stage-based CatFIM. 
+This script focuses on handling HUC-level inundation for both flow- and stage-based CatFIM.
 It intakes flows and FIM pipeline outputs and produces inundated TIFs and GPKGs for the
-appropriate NWM reaches. 
+appropriate NWM reaches.
 
 """
 
@@ -1031,7 +1031,7 @@ def run_sb_inundation(
     # Mask out lakes from inundated tif and re-save tif
     # Jan 2026 - Moved lake masking to outside the mosaic function to match fb processing
 
-    logging.info(f'{huc_lid_cat_id} - Masking out lakes from {os.path.basename(output_extent_tif)}') ## TEMP DEBUG
+    # logging.info(f'{huc_lid_cat_id} - Masking out lakes from {os.path.basename(output_extent_tif)}')
 
     with rasterio.open(output_extent_tif, 'r+') as output_extent_src:
         output_extent_array = output_extent_src.read(1)
@@ -1892,7 +1892,7 @@ def __save_huc_outputs_post_mapping(
 
 
 # This function is only called when the tool is being run by itself from command line
-def main(huc, output_folder):
+def main(huc, output_folder, huc_path):
     '''
     Run CatFIM mapping from the command line for a HUC.
 
@@ -1902,6 +1902,8 @@ def main(huc, output_folder):
         8-digit hydologic unit code
     output_folder - str 
         Filepath to CatFIM outputs.
+    huc_path - str
+        Filepath to the HUC-specific CatFIM outputs.
 
     '''
     is_logging_loaded = False
@@ -2054,6 +2056,8 @@ if __name__ == '__main__':
         Hydrologic Unit Code.
     output_folder - str
         CatFIM output folder.
+    huc_path - str
+        Filepath to the HUC-specific CatFIM outputs.
 
     Sample
     ------
@@ -2068,6 +2072,13 @@ if __name__ == '__main__':
         '--output-folder',
         help='REQUIRED: Target location, Where the output folder will be.'
         'ie /data/catfim/hand_4_8_7_2 or /data/catfim/test/test1',
+        required=True,
+    )
+    parser.add_argument(
+        '-p',
+        '--huc-path',
+        help='REQUIRED: Filepath to the HUC-specific CatFIM outputs. This is where the mapping tool will look for inputs and save outputs. '
+        'ie /data/catfim/hand_4_8_7_2/12090301 or /data/catfim/test/test1/12090301',
         required=True,
     )
 

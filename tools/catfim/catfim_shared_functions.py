@@ -513,7 +513,7 @@ def finalize_sites_mapping_status(
         if len(mapped_sites_list) != 0:
             mapping_completed = True
 
-    if not mapping_completed:
+    if mapping_completed is False:
         logging.warning(f"{huc} has no mapped sites. It is possible that a HUC-level error occurred that prevented mapping from finishing processing.")
 
     # Set a consistent site status error message
