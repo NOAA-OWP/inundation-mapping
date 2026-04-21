@@ -20,6 +20,10 @@ import pandas as pd
 # Analysing each HydroID SRC for nonmonotonic SRC
 def analyze_nonmonotonic_src(srcs_df, strm_order):  # , thalweg_hydroids
 
+    # Inject the group key back into the dataframe to maintain Pandas 3.0 safety
+    # when include_groups=False is passed from the parent groupby
+    srcs_df['HydroID'] = srcs_df.name
+    
     # Only apply on stream orders >= strm_order
     if srcs_df['order_'].iloc[0] < strm_order:
         return srcs_df

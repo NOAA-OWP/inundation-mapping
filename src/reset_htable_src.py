@@ -63,7 +63,7 @@ def process_branch(sub_branch_path, branch, huc_id):
     recalc_df['WettedPerimeter (m)'] = recalc_df['BedArea (m2)'] / recalc_df['LENGTHKM'] / 1000
     recalc_df['WetArea (m2)'] = recalc_df['Volume (m3)'] / recalc_df['LENGTHKM'] / 1000
     recalc_df['HydraulicRadius (m)'] = recalc_df['WetArea (m2)'] / recalc_df['WettedPerimeter (m)']
-    recalc_df['HydraulicRadius (m)'].fillna(0, inplace=True)
+    recalc_df['HydraulicRadius (m)'] = recalc_df['HydraulicRadius (m)'].fillna(0)
 
     recalc_df['Discharge (m3s-1)'] = (
         recalc_df['WetArea (m2)']
