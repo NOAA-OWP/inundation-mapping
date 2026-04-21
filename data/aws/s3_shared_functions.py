@@ -140,13 +140,14 @@ def does_s3_folder_exist(s3_client, bucket_name, s3_prefix_folder_path):
     # If the bucket is incorrect, it will throw an exception that already makes sense
     # Don't need pagination as MaxKeys = 2 as prefix will likely won't trigger more than 1000 rec
     s3_objs = s3_client.list_objects_v2(
-        Bucket=bucket_name, Prefix=s3_prefix_folder_path, MaxKeys=2, Delimiter="/"
+        Bucket=bucket_name, Prefix=s3_prefix_folder_path, MaxKeys=2, Delimiter='/'
     )
 
-    # print(s3_objs)
     if s3_objs["KeyCount"] == 0:
+        # print(f"{s3_prefix_folder_path} was not found")
         is_success = False
     else:
+        # print(f"{s3_prefix_folder_path} was found")
         is_success = True
 
     # other exceptions can be passed through
