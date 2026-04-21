@@ -105,17 +105,17 @@ def process_branch(sub_branch_path, branch, huc_id):
                 recalc_df = recalc_df.drop(columns=['Discharge (m3s-1)_df2'])
             else:
                 for index, segment in sml_segs.iterrows():  # Conus
-                    short_id = segment[0]
-                    update_id = segment[1]
+                    short_id = segment.iloc[0]
+                    update_id = segment.iloc[1]
                     new_values = recalc_df.loc[recalc_df['HydroID'] == update_id][
                         ['Stage', 'Discharge (m3s-1)']
                     ]
 
                     for src_index, src_stage in new_values.iterrows():
                         recalc_df.loc[
-                            (recalc_df['HydroID'] == short_id) & (recalc_df['Stage'] == src_stage[0]),
+                            (recalc_df['HydroID'] == short_id) & (recalc_df['Stage'] == src_stage.iloc[0]),
                             ['Discharge (m3s-1)'],
-                        ] = src_stage[1]
+                        ] = src_stage.iloc[1]
 
     # Update src_full & hydroTable
     input_src_full.set_index(['HydroID', 'Stage'], inplace=True)

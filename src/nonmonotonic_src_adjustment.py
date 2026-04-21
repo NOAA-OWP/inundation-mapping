@@ -7,7 +7,6 @@
 import datetime as dt
 import os
 import re
-import sys
 import traceback
 from argparse import ArgumentParser
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -15,8 +14,7 @@ from os.path import join
 
 import numpy as np
 import pandas as pd
-print(f"WARNING: Executable path is {sys.executable}")
-print(f"WARNING: Pandas version is {pd.__version__}")
+
 
 # -------------------------------------------------------
 # Analysing each HydroID SRC for nonmonotonic SRC
@@ -169,8 +167,8 @@ def correct_nonmonotonic_src(huc_dir, huc, strm_order):  # , bankfull_flows_file
         prenonmono_discharge = src_df3['Discharge (m3s-1)']
 
         # Adjusting src tables for nonmonotonic SRCs
-        src_df4 = src_df2.groupby('HydroID', group_keys=False, include_groups=False).apply(
-            analyze_nonmonotonic_src, strm_order=strm_order
+        src_df4 = src_df2.groupby('HydroID', group_keys=False).apply(
+            analyze_nonmonotonic_src, strm_order=strm_order, include_groups=False
         )
 
         # Make sure nonmonotonic adjustment just applied within in-channel stages
