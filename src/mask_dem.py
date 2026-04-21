@@ -3,7 +3,6 @@
 import argparse
 import os
 
-import fiona
 import geopandas as gpd
 import numpy as np
 import pandas as pd
@@ -60,11 +59,14 @@ def mask_dem(
     with rio.open(dem_filename) as dem:
         dem_profile = dem.profile.copy()
         nodata = dem.nodata
+        dem_crs = dem.crs
 
         if branch_id == branch_zero_id:
             # Mask if branch zero
-            with fiona.open(nld_filename) as leveed:
-                geoms = [feature["geometry"] for feature in leveed]
+            leveed = gpd.read_file(nld_filename, engine='fiona')
+            if leveed.crs != dem_crs:
+                leveed = leveed.to_crs(dem_crs)
+            geoms = [feature for feature in leveed.geometry]
 
             if len(geoms) > 0:
                 dem_masked, _ = mask(dem, geoms, invert=True)
@@ -74,6 +76,10 @@ def mask_dem(
             catchments = gpd.read_file(catchments_filename, engine='fiona')
             levee_levelpaths = pd.read_csv(levee_levelpaths)
             leveed = gpd.read_file(nld_filename, engine='fiona')
+            
+            # Reproject leveed to match DEM CRS if needed
+            if leveed.crs != dem_crs:
+                leveed = leveed.to_crs(dem_crs)
 
             # Select levees associated with branch
             levee_levelpaths = levee_levelpaths[levee_levelpaths[branch_id_attribute] == branch_id]
@@ -84,15 +90,17 @@ def mask_dem(
             if len(levelpath_levees) > 0:
                 # Get geometries of levee protected areas associated with levelpath
                 geoms = [
-                    feature['geometry']
-                    for i, feature in leveed.iterrows()
-                    if feature[levee_id_attribute] in levelpath_levees
+                    feature
+                    for i, feature in leveed[leveed[levee_id_attribute].isin(levelpath_levees)].geometry.items()
                 ]
 
                 if len(geoms) > 0:
                     dem_masked, _ = mask(dem, geoms, invert=True)
 
             # Mask levee-protected areas not protected against level path
+            # Ensure catchments have same CRS as leveed before overlay
+            if catchments.crs != dem_crs:
+                catchments = catchments.to_crs(dem_crs)
             leveed_area_catchments = gpd.overlay(catchments, leveed, how="union")
 
             # Select levee catchments not associated with level path
@@ -100,7 +108,7 @@ def mask_dem(
                 ~leveed_area_catchments[levee_id_attribute].isna() & leveed_area_catchments['ID'].isna(), :
             ]
 
-            geoms = [feature["geometry"] for i, feature in levee_catchments_to_mask.iterrows()]
+            geoms = [feature for feature in levee_catchments_to_mask.geometry]
 
             if len(geoms) > 0:
                 levee_catchments_masked, _ = mask(dem, geoms, invert=True)
