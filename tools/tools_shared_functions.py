@@ -35,12 +35,174 @@ from tools_shared_variables import (
     acceptable_coord_acc_code_list,
     acceptable_coord_method_code_list,
     acceptable_site_type_list,
+    UNKNOWN_DATUM_SPELLINGS, 
+    ACCEPTED_NAD27_SPELLINGS, 
+    ACCEPTED_NGVD29_SPELLINGS, 
+    ACCEPTED_NAD83_SPELLINGS,
+    ACCEPTED_NAVD88_SPELLINGS,
 )
 from urllib3.exceptions import InsecureRequestWarning
 from urllib3.util.retry import Retry
 
 
 gpd.options.io_engine = "pyogrio"
+
+def correct_datum_typos(crs, vcs):
+    """
+    Check for typos in the horizontal datum data
+    Temp workaround to handle incorrect WRDS horizontal datum entries. TODO: Remove once WRDS error is corrected?
+
+    These rules were developed by looking at the various ways that the horizontal datum was misspelled in the WRDS data
+    in March 2026. Should be periodically updated to make sure we capture additional "creative" spellings.
+
+    Possible typos that we aren't currently accepting:
+    - 'NGVD83' (because it mixes up NGVD29 and NAD83, so I'm not sure what it means)
+
+    - 'NADVD88', 'NAD983', 'NAC83', 'NAVD27', NGVD1988, NAD84, they're just a bit far off from the correct values such that
+      we aren't sure if they are typos or just something else. We can add them if we see them more
+      in the future.
+
+    Arguments
+    ---------
+    crs - str
+        The horizontal datum to check for typos (or None).
+    vcs -  str
+        The vertical datum to check for typos (or None).
+
+    Returns
+    -------
+    crs_corrected - str or None
+        The corrected horizontal datum, if a typo was found, or None if no typos were found.
+    vcs_corrected - str or None
+        The corrected vertical datum, if a typo was found, or None if no typos were found.
+    uncorrected_crs_error - bool
+        True if a typo was found in the horizontal datum that we were unable to correct, False otherwise.
+    uncorrected_vcs_error - bool
+        True if a typo was found in the vertical datum that we were unable to correct, False otherwise.
+    msgs - list of str
+        A list of messages describing any typos that were found and how they were corrected, or any uncorrected errors.
+
+    crs_corrected, vcs_corrected, uncorrected_crs_error, uncorrected_vcs_error, msgs = correct_datum_typos(crs, vcs)
+
+
+
+    """
+
+    # Preferred CRS or VCS values
+    crs_nad27 = 'NAD27'
+    crs_nad83 = 'NAD83'
+
+    vcs_ngvd29 = 'NGVD29'
+    vcs_navd88 = 'NAVD88'
+
+    # Initialize values
+    crs_corrected = None
+    vcs_corrected = None
+    uncorrected_crs_error = False
+    uncorrected_vcs_error = False
+    msgs = []
+
+
+    known_crs_list = [crs_nad27, crs_nad83, 'WGS84', 'EPSG:4326']
+    known_vcs_list = [vcs_ngvd29, vcs_navd88, 'LMSL']
+
+    # ----
+    # Check the CRS (horizontal datum) for typos (if if is not None or already an acceptable CRS)
+    if crs.upper() is not None and crs.upper() not in known_crs_list:
+
+        try:
+            float(crs)
+            numeric = True
+        except ValueError:
+            numeric = False
+
+        # Fix misspelled CRSs that are actually NAD27
+        if crs.upper() in ACCEPTED_NAD27_SPELLINGS:
+            crs_corrected = crs_nad27
+            msg = f"Typo found in horizontal CRS, changing {crs} to {crs_corrected}"
+            msgs.append(msg)
+        elif crs.upper() in ACCEPTED_NGVD29_SPELLINGS:
+            crs_corrected = crs_nad27
+            msg = f"Vertical datum supplied in lieu of horizontal CRS, changing {crs} to {crs_corrected}"
+            msgs.append(msg)
+
+        # Fix misspelled CRSs that are actually NAD83
+        elif crs.upper() in ACCEPTED_NAD83_SPELLINGS:
+            crs_corrected = crs_nad83
+            msg = f"Typo found in horizontal CRS, changing {crs} to {crs_corrected}"
+            msgs.append(msg)
+        elif crs.upper() in ACCEPTED_NAVD88_SPELLINGS:
+            crs_corrected = crs_nad83
+            msg = f"Vertical datum supplied in lieu of horizontal CRS, changing {crs} to {crs_corrected}"
+            msgs.append(msg)
+
+        # Check if the CRS is a number
+        elif numeric == True:
+            msg = f"Unable to correct CRS, CRS is a number ({crs}) and not an acceptable CRS name (i.e. NAD83)"
+            msgs.append(msg)
+            uncorrected_crs_error = True
+
+        # Check if the CRS is unknown, blank, or other
+        elif crs.upper() in UNKNOWN_DATUM_SPELLINGS:
+            msg = f"Unable to correct CRS, CRS is unknown ({crs}) and not an acceptable CRS name (i.e. NAD83)"
+            msgs.append(msg)
+            uncorrected_crs_error = True
+
+        # If the CRS is not a number, not unknown, and not a known misspelling, then we don't know what it is and we can't correct it
+        else:
+            msg = f"Unable to correct CRS, CRS is not an acceptable CRS name (i.e. NAD83), does not match any known misspellings or other common issues. CRS:{crs}"
+            msgs.append(msg)
+            uncorrected_crs_error = True
+
+    # -----
+    # Check the VCS (vertical datum) for typos (if if is not None or already an acceptable VCS)
+    if vcs.upper() is not None and vcs.upper() not in known_vcs_list:
+
+        try:
+            float(vcs)
+            numeric = True
+        except ValueError:
+            numeric = False
+
+        # Fix misspelled vertical datums that are actually NGVD29
+        if vcs.upper() in ACCEPTED_NGVD29_SPELLINGS:
+            vcs_corrected = vcs_ngvd29
+            msg = f"Typo found in vertical datum, changing {vcs} to {vcs_corrected}"
+            msgs.append(msg)
+        elif vcs.upper() in ACCEPTED_NAD27_SPELLINGS:
+            vcs_corrected = vcs_ngvd29
+            msg = f"Horizontal CRS supplied in lieu of vertical datum, changing {vcs} to {vcs_corrected}"
+            msgs.append(msg)
+
+        # Fix misspelled CRSs that are actually NAVD88
+        elif vcs.upper() in ACCEPTED_NAVD88_SPELLINGS:
+            vcs_corrected = vcs_navd88
+            msg = f"Typo found in vertical datum, changing {vcs} to {vcs_corrected}"
+            msgs.append(msg)
+        elif vcs.upper() in ACCEPTED_NAD83_SPELLINGS:
+            vcs_corrected = vcs_navd88
+            msg = f"Horizontal CRS supplied in lieu of vertical datum, changing {vcs} to {vcs_corrected}"
+            msgs.append(msg)
+
+        # Check if the VCS is a number 
+        elif numeric == True:
+            msg = f"Typo found in vertical datum, vcs is a number ({vcs}) and not an acceptable VCS name (i.e. NGVD29)"
+            msgs.append(msg)
+            uncorrected_vcs_error = True
+
+        # Check if the VCS is unknown, blank, or other
+        elif vcs.upper() in UNKNOWN_DATUM_SPELLINGS:
+            msg = f"Typo found in vertical datum, vcs is unknown ({vcs}) and not an acceptable VCS name (i.e. NGVD29)"
+            msgs.append(msg)
+            uncorrected_vcs_error = True
+
+        # If the VCS is not a number, not unknown, and not a known misspelling, then we don't know what it is and we can't correct it
+        else:
+            msg = f"Unable to correct VCS, VCS is not an acceptable VCS name (i.e. NGVD29), does not match any known misspellings or other common issues. VCS:{vcs}"
+            msgs.append(msg)
+            uncorrected_vcs_error = True
+
+    return crs_corrected, vcs_corrected, uncorrected_crs_error, uncorrected_vcs_error, msgs
 
 
 # TODO: Jun 2025: Change this to have a path to the config via an arg.
@@ -83,14 +245,13 @@ def filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order, nwm_
 
         try:
             stream_order = nwm_flows_df.loc[nwm_flows_df['ID'] == int(feature_id), 'order_'].values[0]
-
-            if stream_order == desired_order:
-                filtered_segments.append(feature_id)
-
         except Exception as e:
-            print(
-                f'WARNING: Exception occurred during filter_nwm_segments_by_stream_order(). FID: {feature_id}, Exception: {e}'
-            )
+            print(f'WARNING: Exception occurred during filter_nwm_segments_by_stream_order():{e}')
+
+        if stream_order == desired_order:
+            filtered_segments.append(feature_id)
+        # else:
+        #     print(f'Stream order for {feature_id} did not match desired stream order...')
 
     return filtered_segments
 
