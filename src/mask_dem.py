@@ -8,9 +8,38 @@ import numpy as np
 import pandas as pd
 import rasterio as rio
 from rasterio.mask import mask
+from shapely.geometry import box
 
 
 # gpd.options.io_engine = "pyogrio"
+
+
+def clip_geoms_to_raster_bounds(geoms, raster_bounds):
+    """
+    Clip geometries to raster bounds to avoid 'shapes outside bounds' warnings.
+    
+    Parameters
+    ----------
+    geoms : list
+        List of shapely geometries
+    raster_bounds : rasterio.coords.BoundingBox
+        Bounding box of the raster (from raster.bounds)
+    
+    Returns
+    -------
+    list
+        List of clipped geometries that intersect with raster bounds
+    """
+    raster_box = box(raster_bounds.left, raster_bounds.bottom, raster_bounds.right, raster_bounds.top)
+    clipped_geoms = []
+    
+    for geom in geoms:
+        if geom.is_valid and geom.intersects(raster_box):
+            clipped = geom.intersection(raster_box)
+            if not clipped.is_empty:
+                clipped_geoms.append(clipped)
+    
+    return clipped_geoms
 
 
 def mask_dem(
@@ -67,6 +96,7 @@ def mask_dem(
             if leveed.crs != dem_crs:
                 leveed = leveed.to_crs(dem_crs)
             geoms = [feature for feature in leveed.geometry]
+            geoms = clip_geoms_to_raster_bounds(geoms, dem.bounds)
 
             if len(geoms) > 0:
                 dem_masked, _ = mask(dem, geoms, invert=True)
@@ -93,6 +123,7 @@ def mask_dem(
                     feature
                     for i, feature in leveed[leveed[levee_id_attribute].isin(levelpath_levees)].geometry.items()
                 ]
+                geoms = clip_geoms_to_raster_bounds(geoms, dem.bounds)
 
                 if len(geoms) > 0:
                     dem_masked, _ = mask(dem, geoms, invert=True)
@@ -109,6 +140,7 @@ def mask_dem(
             ]
 
             geoms = [feature for feature in levee_catchments_to_mask.geometry]
+            geoms = clip_geoms_to_raster_bounds(geoms, dem.bounds)
 
             if len(geoms) > 0:
                 levee_catchments_masked, _ = mask(dem, geoms, invert=True)
