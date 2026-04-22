@@ -15,7 +15,7 @@ def generate_branch_list_csv(huc_id, output_branch_csv):
 
         There likely is a better way to do this, but we need to know which branches completed
         successfully. We could look through the branch logs, but I wonder if that would be too loose.
-        Iterate through all branches looking for the branch hydrotables fileas 
+        Iterate through all branches looking for the branch hydrotables fileas
         it won't be there if the branch failed or aborted.
 
     Params:
@@ -53,7 +53,7 @@ def generate_branch_list_csv(huc_id, output_branch_csv):
 
         # Save the csv even if it is empty
         df_branches.to_csv(output_branch_csv, index=False, header=False)
-    
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Create branch list')
