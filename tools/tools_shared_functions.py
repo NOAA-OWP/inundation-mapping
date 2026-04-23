@@ -30,11 +30,11 @@ from rasterio.warp import Resampling, calculate_default_transform, reproject
 from requests.adapters import HTTPAdapter
 from shapely.geometry import MultiPolygon, Polygon, shape
 from tools_shared_variables import (
-    ACCEPTED_NAD27_SPELLINGS, 
+    ACCEPTED_NAD27_SPELLINGS,
     ACCEPTED_NAD83_SPELLINGS,
     ACCEPTED_NAVD88_SPELLINGS,
-    ACCEPTED_NGVD29_SPELLINGS, 
-    UNKNOWN_DATUM_SPELLINGS, 
+    ACCEPTED_NGVD29_SPELLINGS,
+    UNKNOWN_DATUM_SPELLINGS,
     acceptable_alt_acc_thresh,
     acceptable_alt_meth_code_list,
     acceptable_coord_acc_code_list,
