@@ -1,13 +1,29 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.9.x.x - 2026-04-23 - [PR#1783](https://github.com/NOAA-OWP/inundation-mapping/pull/1783)
+## v4.9.x.x - 2026-04-23 - [PR#1815](https://github.com/NOAA-OWP/inundation-mapping/pull/1815)
 
-tbd
+These changes resolve the numerous pandas 3.0 FutureWarnings as well as other miscellaneous "warning" messages that we track in our logging systems. Resolves #1799
 
 ### Changes
-
-- `tbd`
+The scripts below were updated to address warnings. There were no changes to the resulting outputs.
+`src/add_crosswalk.py`
+`src/aggregate_branches_to_huc.py`
+`src/bathymetric_adjustment.py`
+`src/build_stream_traversal.py`
+`src/delineate_hydros_and_produce_HAND.sh`
+`src/heal_bridges_osm.py`
+`src/identify_src_bankfull.py`
+`src/longitudinal_flow_adjustment.py`
+`src/mask_dem.py`
+`src/mitigate_branch_outlet_backpool.py`
+`src/nonmonotonic_src_adjustment.py`
+`src/reset_htable_src.py`
+`src/run_by_branch.sh`
+`src/run_huc.sh`
+`src/src_adjust_usgs_rating_trace.py`
+`src/src_roughness_optimization.py`
+`src/thalweg_notches_adjustment.py`
 
 <br/>
 ## v4.9.11.1 - 2026-04-17 - [PR#1809](https://github.com/NOAA-OWP/inundation-mapping/pull/1809)
