@@ -1689,8 +1689,7 @@ def __adjust_datum_ft(flows, metadata, lid, huc_lid_id):
     crs = datum_data.get('crs')
     vcs = datum_data.get('vcs')
 
-    crs_corrected, vcs_corrected, uncorrected_crs_error, uncorrected_vcs_error, datum_corr_msgs = 
-    (crs, vcs)
+    crs_corrected, vcs_corrected, uncorrected_crs_error, uncorrected_vcs_error, datum_corr_msgs = correct_datum_typos(crs, vcs)
 
     # Update the datum data with the corrected CRS and VCS if needed
     if crs_corrected is not None:
