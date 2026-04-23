@@ -40,9 +40,7 @@ def make_stages_and_catchlist(
         areasqkm = (catchments['geometry'].area / 10**6).tolist()
         hydroIDs = catchments['HydroID'].tolist()
         areasqkm_df = pd.DataFrame([hydroIDs, areasqkm], columns=['HydroID', 'areasqkm'])
-        mergedflows_catchments = flows.merge(
-            areasqkm_df[['HydroID', 'areasqkm']], on='HydroID', how='left'
-            )
+        mergedflows_catchments = flows.merge(areasqkm_df[['HydroID', 'areasqkm']], on='HydroID', how='left')
 
     hydroIDs = mergedflows_catchments['HydroID'].tolist()
     len_of_hydroIDs = len(hydroIDs)
