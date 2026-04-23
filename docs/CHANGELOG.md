@@ -1,6 +1,28 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.11.1 - 2026-04-17 - [PR#1809](https://github.com/NOAA-OWP/inundation-mapping/pull/1809)
+
+This change resolves issue where SWORD-derived slope values are producing severe over-estimated inundation extents on the Auglaize River in Ohio. The updated code logic now allows for manual removal or override of SWORD slope values as part of the input data processing script.
+
+### Changes
+
+- `data/slope/sword_slope_create_parquet_qc.py`: Added logic to remove or replace slope values by providing dictionary of feature_ids.
+- `src/add_crosswalk.py`: Removed previous logic for replacing the SWORD slope values (this is now done in `sword_slope_create_parquet_qc.py`).
+- `src/bash_variables.env`: Updated the `iris_sword_slope` parameter to point to the newly generated input parquet file
+- `tools/inundate_nation.py`: Made a minor change/enhancement to allow an optional input argument `-p` that will produce the inundation raster using the "precalb_discharge_cms" column in the SRCs rather than the defualt "discharge_cms". This makes it easier to generate inundation rasters with or without the calibration adjustments applied.
+
+## v4.9.11.0 - 2026-04-10 - [PR#1783](https://github.com/NOAA-OWP/inundation-mapping/pull/1783)
+
+Resolves an issue causing stream outlet lines extending outside of the buffered WBD to be snapped back to the buffered WBD.
+
+### Changes
+
+- `data/wbd/clip_vectors_to_wbd.py`: Ignores `linegeom` assignment if already assigned
+- `src/bash_variables.env`: Updates preclip date
+
+<br/>
+
 ## v4.9.10.10 - 2026-04-03 - [PR#1785](https://github.com/NOAA-OWP/inundation-mapping/pull/1785)
 
 Replaces `richdem` with `richdem2` to avoid using deprecated `pkg_resources` in depression filling. Both packages use `rd_depression_filling` so no changes in code were needed.
@@ -10,8 +32,8 @@ Also updates `tornado` to v6.5.5, `gval` to v0.2.12, `dask` to v2026.1.1, `dask-
 ### Changes
 
 - `Pipfile` and `Pipfile.lock`: Updated Python packages.
-<br/>
 
+<br/>
 
 ## v4.9.10.9 - 2026-04-03 - [PR#1780](https://github.com/NOAA-OWP/inundation-mapping/pull/1780)
 
