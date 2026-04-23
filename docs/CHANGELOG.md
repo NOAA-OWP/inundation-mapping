@@ -12,6 +12,58 @@ This PR fixes the AREASQKM issue in HydroTables and SRC tables.
 
 <br/>
 
+## v4.9.11.1 - 2026-04-17 - [PR#1809](https://github.com/NOAA-OWP/inundation-mapping/pull/1809)
+
+This change resolves issue where SWORD-derived slope values are producing severe over-estimated inundation extents on the Auglaize River in Ohio. The updated code logic now allows for manual removal or override of SWORD slope values as part of the input data processing script.
+
+### Changes
+
+- `data/slope/sword_slope_create_parquet_qc.py`: Added logic to remove or replace slope values by providing dictionary of feature_ids.
+- `src/add_crosswalk.py`: Removed previous logic for replacing the SWORD slope values (this is now done in `sword_slope_create_parquet_qc.py`).
+- `src/bash_variables.env`: Updated the `iris_sword_slope` parameter to point to the newly generated input parquet file
+- `tools/inundate_nation.py`: Made a minor change/enhancement to allow an optional input argument `-p` that will produce the inundation raster using the "precalb_discharge_cms" column in the SRCs rather than the defualt "discharge_cms". This makes it easier to generate inundation rasters with or without the calibration adjustments applied.
+
+## v4.9.11.0 - 2026-04-10 - [PR#1783](https://github.com/NOAA-OWP/inundation-mapping/pull/1783)
+
+Resolves an issue causing stream outlet lines extending outside of the buffered WBD to be snapped back to the buffered WBD.
+
+### Changes
+
+- `data/wbd/clip_vectors_to_wbd.py`: Ignores `linegeom` assignment if already assigned
+- `src/bash_variables.env`: Updates preclip date
+
+<br/>
+
+## v4.9.10.10 - 2026-04-03 - [PR#1785](https://github.com/NOAA-OWP/inundation-mapping/pull/1785)
+
+Replaces `richdem` with `richdem2` to avoid using deprecated `pkg_resources` in depression filling. Both packages use `rd_depression_filling` so no changes in code were needed.
+
+Also updates `tornado` to v6.5.5, `gval` to v0.2.12, `dask` to v2026.1.1, `dask-expr` to v2.0.0, `distributed` to v2026.1.1, and `pyasn1` to v0.6.3; adds `laspy` (v2.5.4) and `s5cmd` (v0.3.3); and downgrades `py7zr` to v1.1.0.
+
+### Changes
+
+- `Pipfile` and `Pipfile.lock`: Updated Python packages.
+
+<br/>
+
+## v4.9.10.9 - 2026-04-03 - [PR#1780](https://github.com/NOAA-OWP/inundation-mapping/pull/1780)
+
+This tool takes in the ripple  feature list created by the terrain metrics / validation tools and performs additional validation and data re-organization to it.  Some of the key tasks for the tool are:
+- Calculates the reference S3 path of where a feature's tif's are located available for inundation and processing. This is becomes a column named "library_path".
+- Using each calculated feature's "library_path", go to the HV deployment s3 folders and ensure that feature path does actually exist, via the ripple dataset version name, model collection name, library extent and feature id folder names. In the new "ripple_features_list.csv" list, adds a new True/False column validating if the library path exists.
+ - create a new ripple feature list with a key "is_valid" column. Using the original incoming "is_blacklisted" column  and the new "library_path_exists" column, roll those up to a single "is_valid" column for HV usage.
+
+- Some unrelated files had their implicit file permissions changed.
+ 
+### Additions
+- `data/ripple/validate_ripple_data.py`: As described above.
+
+### Changes
+- `config/workflows_params.template.env`: Minor corrections on behalf of the workflows/deploy/hand_to_owp.py file.
+- `config/hv_deploy_params.template.env`: Added new files to transfer to HV
+- `data/aws/s3_shared_functions.py`: 
+<br/>
+
 ## v4.9.10.8 - 2026-03-13 - [PR#1771](https://github.com/NOAA-OWP/inundation-mapping/pull/1771)
 
 This is a quick tool that can remove selected folders from an s3 bucket using a provided list.
