@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.x.x - 2026-04-23 - [PR#1783](https://github.com/NOAA-OWP/inundation-mapping/pull/1783)
+
+tbd
+
+### Changes
+
+- `tbd`
+
+<br/>
+
 ## v4.9.11.0 - 2026-04-10 - [PR#1783](https://github.com/NOAA-OWP/inundation-mapping/pull/1783)
 
 Resolves an issue causing stream outlet lines extending outside of the buffered WBD to be snapped back to the buffered WBD.
