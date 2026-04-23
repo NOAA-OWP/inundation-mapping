@@ -30,22 +30,23 @@ from rasterio.warp import Resampling, calculate_default_transform, reproject
 from requests.adapters import HTTPAdapter
 from shapely.geometry import MultiPolygon, Polygon, shape
 from tools_shared_variables import (
-    acceptable_alt_acc_thresh,
-    acceptable_alt_meth_code_list,
-    acceptable_coord_acc_code_list,
-    acceptable_coord_method_code_list,
-    acceptable_site_type_list,
     UNKNOWN_DATUM_SPELLINGS, 
     ACCEPTED_NAD27_SPELLINGS, 
     ACCEPTED_NGVD29_SPELLINGS, 
     ACCEPTED_NAD83_SPELLINGS,
     ACCEPTED_NAVD88_SPELLINGS,
+    acceptable_alt_acc_thresh,
+    acceptable_alt_meth_code_list,
+    acceptable_coord_acc_code_list,
+    acceptable_coord_method_code_list,
+    acceptable_site_type_list,
 )
 from urllib3.exceptions import InsecureRequestWarning
 from urllib3.util.retry import Retry
 
 
 gpd.options.io_engine = "pyogrio"
+
 
 def correct_datum_typos(crs, vcs):
     """
@@ -84,8 +85,6 @@ def correct_datum_typos(crs, vcs):
 
     crs_corrected, vcs_corrected, uncorrected_crs_error, uncorrected_vcs_error, msgs = correct_datum_typos(crs, vcs)
 
-
-
     """
 
     # Preferred CRS or VCS values
@@ -101,7 +100,6 @@ def correct_datum_typos(crs, vcs):
     uncorrected_crs_error = False
     uncorrected_vcs_error = False
     msgs = []
-
 
     known_crs_list = [crs_nad27, crs_nad83, 'WGS84', 'EPSG:4326']
     known_vcs_list = [vcs_ngvd29, vcs_navd88, 'LMSL']
@@ -138,7 +136,9 @@ def correct_datum_typos(crs, vcs):
 
         # Check if the CRS is a number
         elif numeric == True:
-            msg = f"Unable to correct CRS, CRS is a number ({crs}) and not an acceptable CRS name (i.e. NAD83)"
+            msg = (
+                f"Unable to correct CRS, CRS is a number ({crs}) and not an acceptable CRS name (i.e. NAD83)"
+            )
             msgs.append(msg)
             uncorrected_crs_error = True
 
@@ -184,7 +184,7 @@ def correct_datum_typos(crs, vcs):
             msg = f"Horizontal CRS supplied in lieu of vertical datum, changing {vcs} to {vcs_corrected}"
             msgs.append(msg)
 
-        # Check if the VCS is a number 
+        # Check if the VCS is a number
         elif numeric == True:
             msg = f"Typo found in vertical datum, vcs is a number ({vcs}) and not an acceptable VCS name (i.e. NGVD29)"
             msgs.append(msg)

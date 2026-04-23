@@ -24,11 +24,11 @@ from generate_categorical_fim_mapping import (
 )
 from tools_shared_functions import (
     aggregate_wbd_hucs,
+    correct_datum_typos,
     filter_nwm_segments_by_stream_order,
     get_datum,
     get_nwm_segs,
     ngvd_to_navd_ft,
-    correct_datum_typos,
 )
 from tools_shared_variables import (
     acceptable_alt_acc_thresh,
