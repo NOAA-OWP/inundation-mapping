@@ -34,7 +34,7 @@ def reset_stage(srcs_df):
 def extend_src_linear_extrapolation(srcs_df, stages_full):
     # Re-inject grouping column for hydroid
     srcs_df['HydroID'] = srcs_df.name
-    
+
     # Number of the last rows of src to include in extrapolation
     num_rows = 3
     # Identify all value columns except 'Stage'
@@ -187,7 +187,9 @@ def correct_thalweg_notches(huc_dir, huc, stage_interval):
             # Apply extend_src_linear_extrapolation to each src_df
             src_df3 = (
                 src_df3.groupby('HydroID', group_keys=False)
-                .apply(lambda src_g: extend_src_linear_extrapolation(src_g, stages_full),include_groups=False)
+                .apply(
+                    lambda src_g: extend_src_linear_extrapolation(src_g, stages_full), include_groups=False
+                )
                 .sort_values(['HydroID', 'Stage'])
                 .reset_index(drop=True)
             )

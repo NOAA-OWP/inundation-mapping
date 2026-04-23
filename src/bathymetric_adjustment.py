@@ -16,7 +16,7 @@ import pandas as pd
 # -------------------------------------------------------
 # Function to use RFC Bathymetry where available over eHydro Data
 def ohrfc_bathy_precedence(group):
-    # Re-inject the grouping column 
+    # Re-inject the grouping column
     group['feature_id'] = group.name
 
     ohrfc_source = 'OHRFC provided bathymetry, compiled from USACE data'

@@ -17,14 +17,14 @@ from shapely.geometry import box
 def clip_geoms_to_raster_bounds(geoms, raster_bounds):
     """
     Clip geometries to raster bounds to avoid 'shapes outside bounds' warnings.
-    
+
     Parameters
     ----------
     geoms : list
         List of shapely geometries
     raster_bounds : rasterio.coords.BoundingBox
         Bounding box of the raster (from raster.bounds)
-    
+
     Returns
     -------
     list
@@ -32,13 +32,13 @@ def clip_geoms_to_raster_bounds(geoms, raster_bounds):
     """
     raster_box = box(raster_bounds.left, raster_bounds.bottom, raster_bounds.right, raster_bounds.top)
     clipped_geoms = []
-    
+
     for geom in geoms:
         if geom.is_valid and geom.intersects(raster_box):
             clipped = geom.intersection(raster_box)
             if not clipped.is_empty:
                 clipped_geoms.append(clipped)
-    
+
     return clipped_geoms
 
 
@@ -106,7 +106,7 @@ def mask_dem(
             catchments = gpd.read_file(catchments_filename, engine='fiona')
             levee_levelpaths = pd.read_csv(levee_levelpaths)
             leveed = gpd.read_file(nld_filename, engine='fiona')
-            
+
             # Reproject leveed to match DEM CRS if needed
             if leveed.crs != dem_crs:
                 leveed = leveed.to_crs(dem_crs)
@@ -121,7 +121,9 @@ def mask_dem(
                 # Get geometries of levee protected areas associated with levelpath
                 geoms = [
                     feature
-                    for i, feature in leveed[leveed[levee_id_attribute].isin(levelpath_levees)].geometry.items()
+                    for i, feature in leveed[
+                        leveed[levee_id_attribute].isin(levelpath_levees)
+                    ].geometry.items()
                 ]
                 geoms = clip_geoms_to_raster_bounds(geoms, dem.bounds)
 

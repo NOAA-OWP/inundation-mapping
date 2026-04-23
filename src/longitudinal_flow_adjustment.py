@@ -477,7 +477,7 @@ def filter_longitudinal_discharge_jitters(huc_dir, huc, stage_interval):
             # Compute mean(SurfaceArea (m2)_longitudinalAdjusted - default) per HydroID
             mean_diff = src_df.groupby('HydroID').apply(
                 lambda g: (g['SurfaceArea (m2)_longitudinalAdjusted'] - g['SurfaceArea (m2)_default']).mean(),
-                include_groups=False
+                include_groups=False,
             )
             # HydroIDs where mean difference > 0
             hids_to_replace = mean_diff[mean_diff > 0].index

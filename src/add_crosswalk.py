@@ -175,11 +175,7 @@ def add_crosswalk(
     # replace small segment geometry with neighboring stream
     for stream_index in output_flows.index:
         row = output_flows.loc[stream_index]
-        if (
-            row["areasqkm"] < min_catchment_area
-            and row["LengthKm"] < min_stream_length
-            and row["LakeID"] < 0
-        ):
+        if row["areasqkm"] < min_catchment_area and row["LengthKm"] < min_stream_length and row["LakeID"] < 0:
             short_id = row['HydroID']
             to_node = row['To_Node']
             from_node = row['From_Node']
@@ -282,9 +278,7 @@ def add_crosswalk(
                 str_order = output_order.item()
             else:
                 str_order = output_order.max()
-            sml_segs_rows.append(
-                {'short_id': short_id, 'update_id': update_id, 'str_order': str_order}
-            )
+            sml_segs_rows.append({'short_id': short_id, 'update_id': update_id, 'str_order': str_order})
 
     sml_segs = pd.DataFrame(sml_segs_rows, columns=['short_id', 'update_id', 'str_order'])
 
@@ -316,7 +310,7 @@ def add_crosswalk(
     # Apply masks to filter out invalid slope values
     # Initialize SLOPE with RISE_RUN values
     input_src_base['SLOPE'] = input_src_base['SLOPE_RISE_RUN'].astype(float)
-    
+
     # Override with IRIS_SWORD slope where mask is valid
     input_src_base.loc[sword_mask, 'SLOPE'] = input_src_base.loc[sword_mask, 'SLOPE_IRIS_SWORD'].astype(float)
 
