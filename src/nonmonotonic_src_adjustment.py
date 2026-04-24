@@ -113,6 +113,7 @@ def correct_nonmonotonic_src(huc_dir, huc, strm_order):  # , bankfull_flows_file
         src_0_df = pd.read_csv(src_full_0, low_memory=False)
         ht_0_df = pd.read_csv(ht_0_path, low_memory=False)
 
+        src_0_df['Bathymetry_source'] = src_0_df['Bathymetry_source'].astype('object')
         src_0_df.loc[src_0_df['Bathymetry_source'] == str(0), 'Bathymetry_source'] = 'No Bathymetry Applied'
         src_0_df.loc[src_0_df['Bathymetry_source'] == 0, 'Bathymetry_source'] = 'No Bathymetry Applied'
         src_0_df['Bathymetry_source'] = src_0_df['Bathymetry_source'].fillna('No Bathymetry Applied')
@@ -196,6 +197,7 @@ def correct_nonmonotonic_src(huc_dir, huc, strm_order):  # , bankfull_flows_file
         # Write src back to file
         src_df = src_df4.copy()
         # Make sure there is no nan values
+        src_df['Bathymetry_source'] = src_df['Bathymetry_source'].astype('object')
         src_df.loc[src_df['Bathymetry_source'] == 0, 'Bathymetry_source'] = 'No Bathymetry Applied'
         src_df['Bathymetry_source'] = src_df['Bathymetry_source'].fillna('No Bathymetry Applied')
 
