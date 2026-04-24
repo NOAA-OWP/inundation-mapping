@@ -57,11 +57,13 @@ def extend_outlet_streams(streams, wbd_buffered, wbd, landsea=None):
         levelpath_outlets = levelpath_outlets.drop(columns=['index_right'])
     # levelpath_outlets = levelpath_outlets[levelpath_outlets_columns]
 
+    # Get the WBD exterior ring
     wbd_boundary = wbd.copy()
     wbd_boundary['geometry'] = wbd_boundary.geometry.boundary
     wbd_boundary = gpd.GeoDataFrame(data=wbd_boundary, geometry='geometry')
 
-    wbd_buffered["linegeom"] = wbd_buffered.geometry
+    if 'linegeom' not in wbd_buffered.columns:
+        wbd_buffered["linegeom"] = wbd_buffered.geometry
 
     levelpath_outlets = levelpath_outlets[
         ~levelpath_outlets.intersects(wbd_buffered["linegeom"].boundary.iloc[0])
