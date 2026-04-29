@@ -125,6 +125,10 @@ def get_fema_buildings(output_dir: str, state: str = "") -> None:
 
 
 if __name__ == "__main__":
+    # Example:
+    # python foss_fim/data/buildings/get_fema_buildings.py \
+    #     -o data/inputs/fema/buildings/20260306/ \
+    #     -s 'IL'
     parser = argparse.ArgumentParser(
         description="Download FEMA building GDBs and convert to per-state parquet."
     )

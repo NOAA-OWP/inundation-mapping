@@ -251,6 +251,9 @@ def build_mixed_row_group_tasks(
                 interleaved_items.append(item)
 
     tasks_args_list: List[dict] = []
+    # Bundle interleaved row groups into fixed-size multiprocessing tasks.
+    # Smaller chunks usually improve load balancing across workers, while larger
+    # chunks reduce task-launch overhead but can make individual workers heavier.
     for i in range(0, len(interleaved_items), row_group_chunk_size):
         chunk = interleaved_items[i : i + row_group_chunk_size]
         tasks_args_list.append(
@@ -340,6 +343,12 @@ def process_row_group_chunk(
 
 
 if __name__ == "__main__":
+    # Example:
+    # python foss_fim/data/buildings/make_buildings_parts_per_huc.py \
+    #     -b data/inputs/fema/buildings/20260306/states_parquet/ \
+    #     -p data/inputs/pre_clip_huc8/20260424/ \
+    #     -o data/inputs/fema/buildings/20260306/huc_parts \
+    #     -s 'IL'
     parser = argparse.ArgumentParser(
         description="Create per-HUC8 parquet parts from state-level building parquet files."
     )
@@ -378,7 +387,11 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--row_group_chunk_size",
-        help="OPTIONAL: Number of mixed row-groups per multiprocessing task. Default is 3.",
+        help=(
+            "OPTIONAL: Number of parquet row groups bundled into each multiprocessing task. "
+            "Lower values improve load balancing but add overhead; higher values reduce overhead "
+            "but can make each worker heavier. Most users should keep the default of 3."
+        ),
         required=False,
         default=3,
         type=int,
