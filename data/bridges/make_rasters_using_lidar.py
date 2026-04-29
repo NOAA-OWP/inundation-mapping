@@ -284,7 +284,7 @@ def make_lidar_footprints():
     return entwine_footprints_gdf
 
 
-def write_modified_bridge_file(OSM_bridge_file, modified_bridge_dir, huc_output_dir, HUC):
+def write_modified_bridge_file(OSM_bridge_lines_gdf, modified_bridge_dir, huc_output_dir, HUC):
     os.makedirs(modified_bridge_dir, exist_ok=True)
 
     output_bridge_path = os.path.join(
@@ -295,12 +295,7 @@ def write_modified_bridge_file(OSM_bridge_file, modified_bridge_dir, huc_output_
         for path in glob.glob(os.path.join(huc_output_dir, 'lidar_osm_rasters', '*.tif'))
     }
 
-    OSM_bridge_lines_gdf = gpd.read_file(OSM_bridge_file)
-    if 'name' not in OSM_bridge_lines_gdf.columns:
-        OSM_bridge_lines_gdf['name'] = None
-
-    cols_to_keep = ['osmid', 'name', 'bridge_type', 'huc8', 'geometry']
-    OSM_bridge_lines_gdf = OSM_bridge_lines_gdf[cols_to_keep]
+    OSM_bridge_lines_gdf = OSM_bridge_lines_gdf.copy()
     OSM_bridge_lines_gdf['osmid'] = OSM_bridge_lines_gdf['osmid'].astype(str)
     OSM_bridge_lines_gdf['huc8'] = OSM_bridge_lines_gdf['huc8'].astype(str)
     OSM_bridge_lines_gdf['has_lidar_tif'] = OSM_bridge_lines_gdf['osmid'].apply(
@@ -427,8 +422,18 @@ def process_single_bridge_file(
             logging.critical(f"Error: {OSM_bridge_file} is missing osmid column. Program terminated.")
             sys.exit(f"Error: {OSM_bridge_file} is missing osmid column. Program terminated.")
 
+        if 'name' not in OSM_bridge_lines_gdf.columns:
+            OSM_bridge_lines_gdf['name'] = None
+
+        if 'bridge_type' not in OSM_bridge_lines_gdf.columns:
+            OSM_bridge_lines_gdf['bridge_type'] = None
+
+        cols_to_keep = ['osmid', 'name', 'bridge_type', 'huc8', 'geometry']
+        OSM_bridge_lines_gdf = OSM_bridge_lines_gdf[cols_to_keep].copy()
+
         # make sure osmid is string
         OSM_bridge_lines_gdf["osmid"] = OSM_bridge_lines_gdf["osmid"].astype(str)
+        OSM_bridge_lines_gdf["huc8"] = OSM_bridge_lines_gdf["huc8"].astype(str)
 
         OSM_polygons_gdf = OSM_bridge_lines_gdf.copy()
         OSM_polygons_gdf['geometry'] = OSM_polygons_gdf['geometry'].buffer(buffer_width)
@@ -541,7 +546,7 @@ def process_single_bridge_file(
                 os.path.join(output_dir, 'bridge_elevation_filter_summary.csv'), index=False
             )
 
-        write_modified_bridge_file(OSM_bridge_file, modified_bridge_dir, output_dir, huc_num)
+        write_modified_bridge_file(OSM_bridge_lines_gdf, modified_bridge_dir, output_dir, huc_num)
 
         # Record run time
         end_time = datetime.now(timezone.utc)
