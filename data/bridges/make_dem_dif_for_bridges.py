@@ -27,15 +27,6 @@ from src.utils.shared_functions import run_with_mp, setup_mp_file_logger
 """Build bridge DEM-difference rasters from HUC8 bridge GeoPackages and lidar rasters."""
 
 
-def identify_bridges_with_lidar(OSM_bridge_lines_gdf, tif_ids):
-    # identify osmids with lidar-tif or not
-
-    OSM_bridge_lines_gdf['has_lidar_tif'] = OSM_bridge_lines_gdf['osmid'].apply(
-        lambda x: 'Y' if str(x) in tif_ids else 'N'
-    )
-    return OSM_bridge_lines_gdf
-
-
 def rasters_to_point(tif_paths, file_logger, screen_queue, task_id):
     gdf_list = []
     for tif_file in tif_paths:
@@ -71,11 +62,9 @@ def rasters_to_point(tif_paths, file_logger, screen_queue, task_id):
 def make_one_diff(
     dem_file,
     huc_bridge_file,
-    tif_ids,
-    lidar_tif_dir,
+    lidar_processing_dir,
     HUC,
     output_diff_path,
-    output_bridge_path,
     file_logger,
     screen_queue,
     task_id,
@@ -84,27 +73,21 @@ def make_one_diff(
     try:
         screen_queue.put(f"Start processing {task_id}")
         OSM_bridge_lines_gdf = None
-        HUC_lidar_tif_osmids = []
+        HUC_lidar_tif_paths = sorted(
+            glob.glob(os.path.join(lidar_processing_dir, HUC, 'lidar_osm_rasters', '*.tif'))
+        )
+        HUC_lidar_tif_osmids = [
+            os.path.splitext(os.path.basename(tif_path))[0] for tif_path in HUC_lidar_tif_paths
+        ]
 
         if not os.path.exists(huc_bridge_file):
             file_logger.info(f"No HUC8 bridge gpkg found for {HUC} at {huc_bridge_file}")
             screen_queue.put(f"No HUC8 bridge gpkg found for {HUC} at {huc_bridge_file}")
         else:
             OSM_bridge_lines_gdf = gpd.read_file(huc_bridge_file)
-            if 'name' not in OSM_bridge_lines_gdf.columns:
-                OSM_bridge_lines_gdf['name'] = None
-
-            cols_to_keep = ['osmid', 'name', 'bridge_type', 'huc8', 'geometry']
+            cols_to_keep = ['osmid', 'geometry']
             OSM_bridge_lines_gdf = OSM_bridge_lines_gdf[cols_to_keep]
             OSM_bridge_lines_gdf['osmid'] = OSM_bridge_lines_gdf['osmid'].astype(str)
-            OSM_bridge_lines_gdf['huc8'] = OSM_bridge_lines_gdf['huc8'].astype(str)
-            OSM_bridge_lines_gdf = identify_bridges_with_lidar(OSM_bridge_lines_gdf, tif_ids)
-            OSM_bridge_lines_gdf.to_file(output_bridge_path)
-
-            HUC_lidar_tif_osmids = OSM_bridge_lines_gdf[OSM_bridge_lines_gdf['has_lidar_tif'] == 'Y'][
-                'osmid'
-            ].values.tolist()
-        HUC_lidar_tif_paths = [os.path.join(lidar_tif_dir, f"{osmid}.tif") for osmid in HUC_lidar_tif_osmids]
 
         if HUC_lidar_tif_paths:
             file_logger.info(
@@ -182,7 +165,7 @@ def make_one_diff(
         return 0, [False]
 
 
-def make_dif_rasters(dem_dir, lidar_tif_dir, OSM_bridge_dir, output_dir, number_jobs, cli_args=None):
+def make_dif_rasters(dem_dir, lidar_processing_dir, OSM_bridge_dir, output_dir, number_jobs, cli_args=None):
     start_time = datetime.now(timezone.utc)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -196,13 +179,10 @@ def make_dif_rasters(dem_dir, lidar_tif_dir, OSM_bridge_dir, output_dir, number_
     try:
         if not os.path.isdir(OSM_bridge_dir):
             raise ValueError(f"Argument -i OSM_bridge_dir of {OSM_bridge_dir} does not exist.")
-
-        # capture all available lidar-based raster files
-        tif_ids = set(
-            os.path.splitext(os.path.basename(f))[0] for f in os.listdir(lidar_tif_dir) if f.endswith('.tif')
-        )
-        if len(tif_ids) == 0:
-            raise ValueError("There are no bridges with lidar data, check data and tif folder pathing.")
+        if not os.path.isdir(lidar_processing_dir):
+            raise ValueError(
+                f"Argument -l lidar_processing_dir of {lidar_processing_dir} does not exist."
+            )
 
         dem_files = list(glob.glob(os.path.join(dem_dir, '*.tif')))
         if len(dem_files) == 0:
@@ -215,24 +195,21 @@ def make_dif_rasters(dem_dir, lidar_tif_dir, OSM_bridge_dir, output_dir, number_
         ]
 
         tasks_args_list = []
-        for dem_file in dem_files:
+        for dem_file in dem_files[1:5]:
             # prepare path for output diff file
             base_name, extension = os.path.splitext(os.path.basename(dem_file))
             output_diff_file_name = f"{base_name}_diff{extension}"
             output_diff_path = os.path.join(output_dir, output_diff_file_name)
             HUC = base_name.split('_')[1]
-            output_bridge_path = os.path.join(output_dir, f"huc_{HUC}_osm_bridges_modified.gpkg")
 
             if HUC not in base_names_no_ext:
                 tasks_args_list.append(
                     {
                         'dem_file': dem_file,
                         'huc_bridge_file': os.path.join(OSM_bridge_dir, f"huc_{HUC}_osm_bridges.gpkg"),
-                        'tif_ids': tif_ids,
-                        'lidar_tif_dir': lidar_tif_dir,
+                        'lidar_processing_dir': lidar_processing_dir,
                         'HUC': HUC,
                         'output_diff_path': output_diff_path,
-                        'output_bridge_path': output_bridge_path,
                     }
                 )
 
@@ -283,28 +260,25 @@ def make_dif_rasters(dem_dir, lidar_tif_dir, OSM_bridge_dir, output_dir, number_
 
 if __name__ == "__main__":
 
-    # NOTE that the result of this script is used as preclipped data,
-    #   because pre-clipped osm data must have "has_lidar_tif" field showing existence of lidar or not
-    #   This code needs to be run twice: once for conus and once for Alaska. Guam and AS are not
-    # needed because there is no lidar-based elevation raster for them :
 
     # python /foss_fim/data/bridges/make_dem_dif_for_bridges.py \
     #  -d data/inputs/dems/3dep_dems/10m_5070/20260128/ \
-    #  -l data/inputs/osm/bridges/lidar_data/20260315/conus_lidar_rasters/lidar_osm_rasters/ \
-    #  -b data/inputs/osm/bridges/bridge_lines/20260315/ \
+    #  -l data/inputs/osm/bridges/lidar_data/20260315/lidar_processing/ \
+    #  -i data/inputs/osm/bridges/bridge_lines/20260315/ \
     #  -o data/inputs/osm/bridges/DEM_Diffs/20260315/conus/ \
     #  -j 10
 
     #  python /foss_fim/data/bridges/make_dem_dif_for_bridges.py \
     #  -d data/inputs/dems/3dep_dems/10m_South_Alaska/20260128/ \
-    #  -l data/inputs/osm/bridges/lidar_data/20260315/alaska_lidar_rasters/lidar_osm_rasters/ \
-    #  -b data/inputs/osm/bridges/bridge_lines/20260315/ \
+    #  -l data/inputs/osm/bridges/lidar_data/20260315/lidar_processing/ \
+    #  -i data/inputs/osm/bridges/bridge_lines/20260315/ \
     #  -o data/inputs/osm/bridges/DEM_Diffs/20260315/alaska/ \
     #  -j 10
     # runs in under 1 min
 
     # This tool needs to be run 4 times, once for Conus, AK, GU and AS
-    # Note: TBD: Guam and AS might not have any lidar data.
+    # For each run, only -d and -o needs to be updated(-l and -i remains the same). 
+    # Note: Guam and AS might not have any lidar data, which would produce DEM diff with only values of 0. 
 
     ###############################
     #
@@ -315,12 +289,7 @@ if __name__ == "__main__":
     #    have the most recent Bridge Lidar, which may/may not need to be re-run. It is only needed if
     #    new OSM data is run.
     #
-    #  After running this tool, you will get a new "modified" bridge files.
-    #    ie) conus_osm_bridges_modified.gpkg,  ak_osm_bridges_modified, etc
-    #
     #  You will also get new DEM Diff VRT's each time you run it. ie) bridge_elev_diff.vrt
-    #
-    #  Bash Variables will need to be updated for all four of these files and copied to all 5 enviros.
     #
     ###############################
 
@@ -332,15 +301,15 @@ if __name__ == "__main__":
 
     parser.add_argument(
         '-l',
-        '--lidar_tif_dir',
-        help='REQUIRED: folder path where lidar-gerenared bridge elevation rasters corresponding to the 3DEP dems are located.',
+        '--lidar_processing_dir',
+        help='REQUIRED: folder path to the lidar-processing output root containing per-HUC lidar rasters.',
         required=True,
     )
 
     parser.add_argument(
-        '-b',
+        '-i',
         '--OSM_bridge_dir',
-        help='REQUIRED: Folder containing all HUC-level gpkg bridge line files for all regions.',
+        help='REQUIRED: Folder containing all HUC-level gpkg original bridge line files for all regions.',
         required=True,
     )
 
