@@ -356,11 +356,11 @@ def process_generate_categorical_fim(
     if not huc_lid_dict:
         sys.exit('Error occurred in metadata download.')
 
-    # Get a dictionary of which sources have valid CRS's for each site
-    lid_source_dict = check_metadata_CRS_availability(output_meta_list)
-
     # Load thresholds if specified
     if get_new_threshold_data == True:
+        # Get a dictionary of which sources have valid CRS's for each site
+        lid_source_dict = check_metadata_CRS_availability(output_meta_list)
+
         threshold_url = f'{API_BASE_URL}/nws_threshold'
 
         # Download thresholds
@@ -1701,7 +1701,7 @@ def __adjust_datum_ft(flows, metadata, lid, huc_lid_id):
 
     # Log output messages from datum typo correction
     for msg in datum_corr_msgs:
-        all_messages.append(lid + msg)
+        all_messages.append(f"{lid}:{msg}")
         MP_LOG.warning(huc_lid_id + msg)
 
     if uncorrected_crs_error:

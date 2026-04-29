@@ -211,10 +211,14 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict, li
                     source_crs_availability=source_crs_availability,
                 )
 
+                # Currently we don't do anything with the 'status' output, just
+                # because I think it would be way too much information in the logs.
+                # However, it could be useful in the future to compile status information
+                # for all sites and save it to a file or something, TBD. - E, 3/20/26
+
             except Exception as e:
-                msg = f"Unable to retrieve thresholds for LID {lid}, exception occurred: {e}"
+                msg = f"Error retrieving thresholds for LID {lid}, exception occurred: {e}"
                 messages.append(msg)
-                messages.append(status)
                 continue
 
             # Combine and label thresholds
@@ -239,7 +243,7 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict, li
         messages.append(msg)
 
     except Exception as e:
-        msg = f"Error saving pickle file {thresholds_filepath}: {e}"
+        msg = f"Error saving pickle file {thresholds_filepath}, exception occurred: {e}"
         messages.append(msg)
         raise (e)
 
@@ -247,7 +251,6 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict, li
     thresholds_duration = thresholds_end_time - thresholds_start_time
     messages.append(f"Finished downloading thresholds - Duration: {str(thresholds_duration).split('.')[0]}")
 
-    # TODO: Why not return the dataset as well?
     return messages
 
 
@@ -642,14 +645,24 @@ def main(
 
         threshold_url = f'{API_BASE_URL}/nws_threshold'
 
+        # Get a dictionary of which sources have valid CRS's for each site
+        lid_source_dict = check_metadata_CRS_availability(output_meta_list)
+
+        output_lid_source_table_filename = 'lid_source_table.csv'
+        output_lid_source_table_filepath = os.path.join(output_folder, output_lid_source_table_filename)
+
+        # We just save the table as a resource for later. The get_thresholds function will use the dictionary directly
+        lid_source_df = pd.DataFrame(list(lid_source_dict.items()), columns=['nws_lid', 'crs_avail'])
+        lid_source_df.to_csv(output_lid_source_table_filepath, index=False)
+
+        print(f'Site source table will be saved to {output_lid_source_table_filepath}')
+
         label_with_date = label_data_file(label, lst_hucs)
         output_thresholds_filename = f'thresholds{label_with_date}.pkl'
         thresholds_filepath = os.path.join(output_folder, output_thresholds_filename)
 
         print(f"Thresholds will be downloaded for sites in {len(huc_lid_dict)} HUCs")
-
-        # Get a dictionary of which sources have valid CRS's for each site
-        lid_source_dict = check_metadata_CRS_availability(output_meta_list)
+        print(f'Thresholds will be saved to {thresholds_filepath}')
 
         # Download thresholds
         messages = download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict, lid_source_dict)
