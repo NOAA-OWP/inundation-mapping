@@ -411,18 +411,12 @@ def process_osm_bridges(preclip_dir, output_folder, number_of_jobs, lst_hucs, fi
 if __name__ == "__main__":
 
     '''
-
     Sample usage:
-
-        (For )
         python3 /foss_fim/data/bridges/pull_osm_bridges.py
             -p /data/inputs/pre_clip_huc8/20250218
             -o /data/inputs/osm/bridges/bridge_lines/20250207/
             -j 10
             -lh '01010002 12090301'
-
-        ** The -lh flg is an optional list of HUC8 if you want to process just those hucs
-           if you want all HUC8s in the preclip directory, leave this arg off
 
 
     Code Usage
@@ -430,18 +424,11 @@ if __name__ == "__main__":
     It reads HUC folders from the preclip directory, so one run can process all HUCs
     present in that folder layout, including CONUS, Alaska, Guam, and American Samoa.
 
-        - One HUC8 was too big for osmnx to handle adn kept timing out. So, we split that HUC8
-          to HUC10's and feed it through this tool again.
-          02060000  -- WBD_National_HUC10_for_osm_pull_02060006.gpkg
+        - One HUC8 was too big for osmnx to handle and kept timing out.
 
-        - This tool is meant to pull down all the Open Street Map bridge data for CONUS as a
+        - This tool is meant to pull down all the Open Street Map bridge data as a
         precursor to the bridge healing pre-processing (so, a pre-pre-processing step).
         It should be run only as often as the user thinks OSM has had any important updates.
-        - As written, the code will skip any HUC that there's already a file for if you save
-          an existing folder.
-
-        - Each HUC8/10's worth of OSM bridge features is saved out individually, then merged together
-        into one.
 
     '''
 

@@ -3,6 +3,7 @@ import glob
 import json
 import logging
 import os
+import re
 import shlex
 import subprocess
 import sys
@@ -35,7 +36,7 @@ def progress_bar_handler(executor_dict, desc):
         try:
             future.result()
         except Exception as exc:
-            print('{}, {}, {}'.format(executor_dict[future], exc.__class__.__name__, exc))
+            logging.error('{}, {}, {}'.format(executor_dict[future], exc.__class__.__name__, exc))
 
 
 def run_pdal_pipeline(my_pipe):
@@ -114,9 +115,8 @@ def download_lidar_points(osmid, poly_geo, lidar_url, output_dir, bridges_crs, u
 
     except Exception as e:
         error_message = f"Error processing osmid={osmid}, url_name={url_name}: {str(e)}"
-        print(error_message)
         logging.error(error_message)
-        traceback.print_exc()
+        logging.error(traceback.format_exc())
 
 
 def las_to_gpkg(osmid, las_path, bridges_crs):
@@ -272,7 +272,7 @@ def gpkg_to_las(points_gdf):
     return las_obj
 
 
-def make_lidar_footprints(bridges_crs):
+def make_lidar_footprints():
     str_hobu_footprints = (
         r"https://raw.githubusercontent.com/hobu/usgs-lidar/master/boundaries/boundaries.topojson"
     )
@@ -281,8 +281,32 @@ def make_lidar_footprints(bridges_crs):
         "epsg:4326", inplace=True
     )  # it is geographic (lat-long degrees) commonly used for GPS for accurate locations
 
-    entwine_footprints_gdf.to_crs(bridges_crs, inplace=True)
     return entwine_footprints_gdf
+
+
+def write_modified_bridge_file(OSM_bridge_file, modified_bridge_dir, huc_output_dir, HUC):
+    os.makedirs(modified_bridge_dir, exist_ok=True)
+
+    output_bridge_path = os.path.join(
+        modified_bridge_dir, f"huc_{HUC}_osm_bridges_modified.gpkg"
+    )
+    created_tif_ids = {
+        os.path.splitext(os.path.basename(path))[0]
+        for path in glob.glob(os.path.join(huc_output_dir, 'lidar_osm_rasters', '*.tif'))
+    }
+
+    OSM_bridge_lines_gdf = gpd.read_file(OSM_bridge_file)
+    if 'name' not in OSM_bridge_lines_gdf.columns:
+        OSM_bridge_lines_gdf['name'] = None
+
+    cols_to_keep = ['osmid', 'name', 'bridge_type', 'huc8', 'geometry']
+    OSM_bridge_lines_gdf = OSM_bridge_lines_gdf[cols_to_keep]
+    OSM_bridge_lines_gdf['osmid'] = OSM_bridge_lines_gdf['osmid'].astype(str)
+    OSM_bridge_lines_gdf['huc8'] = OSM_bridge_lines_gdf['huc8'].astype(str)
+    OSM_bridge_lines_gdf['has_lidar_tif'] = OSM_bridge_lines_gdf['osmid'].apply(
+        lambda x: 'Y' if str(x) in created_tif_ids else 'N'
+    )
+    OSM_bridge_lines_gdf.to_file(output_bridge_path)
 
 
 def make_rasters_in_parallel(
@@ -341,18 +365,20 @@ def make_rasters_in_parallel(
 
     except Exception as e:
         error_message = f"Error processing {osmid}: {str(e)}"
-        print(error_message)
         logging.error(error_message)
-        traceback.print_exc()
+        logging.error(traceback.format_exc())
 
 
-def process_bridges_lidar_data(
+def process_single_bridge_file(
     OSM_bridge_file,
+    huc_num,
     buffer_width,
     raster_resolution,
     output_dir,
+    modified_bridge_dir,
     job_number_lidar,
     job_number_raster,
+    base_entwine_footprints_gdf,
     remove_las_files=True,
     cli_args=None,
 ):
@@ -371,6 +397,7 @@ def process_bridges_lidar_data(
             )
 
     __setup_logger(output_dir)
+    logging.info(f"Starting processing for HUC {huc_num}")
     logging.info(f"Making elevation raster files for osm bridges {start_time}")
     if cli_args:
         logging.info(f"CLI invocation: {cli_args}")
@@ -392,17 +419,16 @@ def process_bridges_lidar_data(
         os.makedirs(tif_files_dir, exist_ok=True)
 
         text = 'read osm bridge lines and make a polygon footprint'
-        print(text)
         logging.info(text)
         OSM_bridge_lines_gdf = gpd.read_file(OSM_bridge_file)
-
-        # make sure osmid is string
-        OSM_bridge_lines_gdf["osmid"] = OSM_bridge_lines_gdf["osmid"].astype(str)
 
         # osm file must contain osmid field
         if 'osmid' not in OSM_bridge_lines_gdf.columns:
             logging.critical(f"Error: {OSM_bridge_file} is missing osmid column. Program terminated.")
             sys.exit(f"Error: {OSM_bridge_file} is missing osmid column. Program terminated.")
+
+        # make sure osmid is string
+        OSM_bridge_lines_gdf["osmid"] = OSM_bridge_lines_gdf["osmid"].astype(str)
 
         OSM_polygons_gdf = OSM_bridge_lines_gdf.copy()
         OSM_polygons_gdf['geometry'] = OSM_polygons_gdf['geometry'].buffer(buffer_width)
@@ -412,27 +438,22 @@ def process_bridges_lidar_data(
         bridges_crs = str(OSM_polygons_gdf.crs)  # parallel processing arguments do not like crs objects
 
         # produce footprints of lidar dataset over conus
-        text = 'generating footprints of available CONUS lidar datasets'
-        print(text)
+        text = 'generating footprints of available lidar datasets'
         logging.info(text)
-        entwine_footprints_gdf = make_lidar_footprints(bridges_crs)
-        entwine_footprints_gdf.to_file(os.path.join(output_dir, 'entwine_footprints.gpkg'))
+        entwine_footprints_gdf = base_entwine_footprints_gdf.to_crs(bridges_crs)
+        # entwine_footprints_gdf.to_file(os.path.join(output_dir, 'entwine_footprints.gpkg'))
 
         # intersect with lidar urls
         text = 'Identify USGS/Entwine lidar URLs for intersecting with each bridge polygon'
-        print(text)
         logging.info(text)
         OSM_polygons_gdf = gpd.overlay(OSM_polygons_gdf, entwine_footprints_gdf, how='intersection')
 
         OSM_polygons_gdf.to_file(os.path.join(output_dir, 'buffered_bridges.gpkg'))
 
         text = f'download last-return lidar points within each bridge polygon from the identified URLs using {job_number_lidar} processors'
-        print(text)
         logging.info(text)
 
         executor_dict = {}
-
-        print(f"There are {len(OSM_polygons_gdf)} files to download")
 
         with ProcessPoolExecutor(max_workers=job_number_lidar) as executor:
             for i, row in OSM_polygons_gdf.iterrows():
@@ -452,8 +473,6 @@ def process_bridges_lidar_data(
                     executor_dict[future] = osmid  # Store task association
                 except Exception as ex:
                     summary = traceback.StackSummary.extract(traceback.walk_stack(None))
-                    print(f"*** {ex}")
-                    print(''.join(summary.format()))
                     logging.critical(f"*** {ex}")
                     logging.critical(''.join(summary.format()))
                     sys.exit(1)
@@ -462,7 +481,6 @@ def process_bridges_lidar_data(
             progress_bar_handler(executor_dict, "Downloading Lidar Points")
 
         text = f'Generate raster files after filtering the points for bridge classification codes using {job_number_raster} processors'
-        print(text)
         logging.info(text)
         downloaded_points_files = glob.glob(os.path.join(output_dir, 'point_files', '*.las'))
         osmid_to_points_paths = defaultdict(list)
@@ -491,8 +509,6 @@ def process_bridges_lidar_data(
                     executor_dict[future] = osmid  # Store task association
                 except Exception as ex:
                     summary = traceback.StackSummary.extract(traceback.walk_stack(None))
-                    print(f"*** {ex}")
-                    print(''.join(summary.format()))
                     logging.critical(f"*** {ex}")
                     logging.critical(''.join(summary.format()))
                     sys.exit(1)
@@ -518,13 +534,14 @@ def process_bridges_lidar_data(
             )
         else:
             logging.info('No Raster file was created.')
-            print('No Raster file was created.')
 
         if elevation_filter_summaries:
             elevation_filter_summary_df = pd.concat(elevation_filter_summaries, ignore_index=True)
             elevation_filter_summary_df.to_csv(
                 os.path.join(output_dir, 'bridge_elevation_filter_summary.csv'), index=False
             )
+
+        write_modified_bridge_file(OSM_bridge_file, modified_bridge_dir, output_dir, huc_num)
 
         # Record run time
         end_time = datetime.now(timezone.utc)
@@ -533,11 +550,108 @@ def process_bridges_lidar_data(
 
     except Exception as ex:
         error_message = traceback.format_exc()
-        print(f"Critical Error: {ex}")
-        print(error_message)
         logging.critical(f"Critical Error: {ex}")
         logging.critical(error_message)
         sys.exit(1)
+
+
+def process_bridges_lidar_data(
+    OSM_bridge_input,
+    buffer_width,
+    raster_resolution,
+    output_dir,
+    job_number_lidar,
+    job_number_raster,
+    lst_hucs='',
+    remove_las_files=True,
+    cli_args=None,
+):
+    if not os.path.isdir(OSM_bridge_input):
+        sys.exit(f"Error: {OSM_bridge_input} is not a directory. Program terminated.")
+
+    bridge_files = sorted(glob.glob(os.path.join(OSM_bridge_input, '*.gpkg')))
+    if not bridge_files:
+        sys.exit(f"Error: {OSM_bridge_input} does not contain any .gpkg bridge files. Program terminated.")
+
+    if lst_hucs != '':
+        lst_hucs = lst_hucs.strip()
+        selected_hucs = set(lst_hucs.split(" "))
+        bridge_files = [
+            bridge_file
+            for bridge_file in bridge_files
+            if (
+                huc_match := re.match(
+                    r'^huc_(\d{8})_osm_bridges\.gpkg$', os.path.basename(bridge_file)
+                )
+            )
+            and huc_match.group(1) in selected_hucs
+        ]
+
+        if not bridge_files:
+            sys.exit(
+                f"Error: No bridge files matched the requested HUCs in {OSM_bridge_input}. Program terminated."
+            )
+
+    os.makedirs(output_dir, exist_ok=True)
+    lidar_processing_dir = os.path.join(output_dir, 'lidar_processing')
+    modified_bridge_dir = os.path.join(output_dir, 'modified_osm_bridges')
+    base_entwine_footprints_gdf = make_lidar_footprints()
+
+    per_file_classification_summaries = []
+    per_file_elevation_summaries = []
+
+    total_hucs = len(bridge_files)
+
+    for huc_index, bridge_file in enumerate(bridge_files, start=1):
+        huc_match = re.match(r'^huc_(\d{8})_osm_bridges\.gpkg$', os.path.basename(bridge_file))
+        if not huc_match:
+            sys.exit(
+                f"Error: {os.path.basename(bridge_file)} does not match the expected "
+                "huc_XXXXXXXX_osm_bridges.gpkg naming pattern. Program terminated."
+            )
+
+        huc_num = huc_match.group(1)
+        bridge_output_dir = os.path.join(lidar_processing_dir, huc_num)
+        print(f"working on HUC {huc_num} ({huc_index}/{total_hucs})")
+
+        process_single_bridge_file(
+            OSM_bridge_file=bridge_file,
+            huc_num=huc_num,
+            buffer_width=buffer_width,
+            raster_resolution=raster_resolution,
+            output_dir=bridge_output_dir,
+            modified_bridge_dir=modified_bridge_dir,
+            job_number_lidar=job_number_lidar,
+            job_number_raster=job_number_raster,
+            base_entwine_footprints_gdf=base_entwine_footprints_gdf,
+            remove_las_files=remove_las_files,
+            cli_args=cli_args,
+        )
+
+        classification_summary_path = os.path.join(bridge_output_dir, 'classifications_summary.csv')
+        if os.path.exists(classification_summary_path):
+            classification_df = pd.read_csv(classification_summary_path)
+            classification_df['HUC'] = huc_num
+            per_file_classification_summaries.append(classification_df)
+
+        elevation_summary_path = os.path.join(bridge_output_dir, 'bridge_elevation_filter_summary.csv')
+        if os.path.exists(elevation_summary_path):
+            elevation_df = pd.read_csv(elevation_summary_path)
+            elevation_df['HUC'] = huc_num
+            per_file_elevation_summaries.append(elevation_df)
+
+    if len(bridge_files) > 1:
+        if per_file_classification_summaries:
+            combined_classification_df = pd.concat(per_file_classification_summaries, ignore_index=True)
+            combined_classification_df.to_csv(
+                os.path.join(output_dir, 'all_classifications_summary.csv'), index=False
+            )
+
+        if per_file_elevation_summaries:
+            combined_elevation_df = pd.concat(per_file_elevation_summaries, ignore_index=True)
+            combined_elevation_df.to_csv(
+                os.path.join(output_dir, 'all_bridge_elevation_filter_summary.csv'), index=False
+            )
 
 
 def __setup_logger(output_folder_path):
@@ -549,10 +663,9 @@ def __setup_logger(output_folder_path):
 
     file_handler = logging.FileHandler(log_file_path)
     file_handler.setLevel(logging.INFO)
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.DEBUG)
 
     logger = logging.getLogger()
+    logger.handlers.clear()
     logger.addHandler(file_handler)
     logger.setLevel(logging.DEBUG)
 
@@ -562,9 +675,9 @@ def __setup_logger(output_folder_path):
 
 if __name__ == "__main__":
     #
-    # Sample usage:  (using a the conda enviro specifically for this step)
+    # Sample usage:
     # python make_rasters_using_lidar.py
-    #  -i /data/inputs/osm/bridges/bridge_lines/20250207/conus_osm_bridges.gpkg
+    #  -i /data/inputs/osm/bridges/bridge_lines/20250207/
     #  -o /data/inputs/osm/bridges/lidar_data/20250323/conus_osm_lidar_rasters/
     #  -jl 30
     #  -jr 30
@@ -586,7 +699,10 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        '-i', '--OSM_bridge_file', help='REQUIRED: A gpkg that contains the bridges lines', required=True
+        '-i',
+        '--OSM_bridge_input',
+        help='REQUIRED: folder path location where individual HUC8 geopackages for bridge lines are located',
+        required=True,
     )
 
     parser.add_argument(
@@ -609,6 +725,15 @@ if __name__ == "__main__":
 
     parser.add_argument(
         '-o', '--output_dir', help='REQUIRED: folder path where results will be saved to.', required=True
+    )
+
+    parser.add_argument(
+        '-lh',
+        '--lst-hucs',
+        help='OPTIONAL: Space-delimited list of HUCs to which can be used to filter bridge lidar processing.'
+        ' Defaults to all HUC8 bridge geopackages in the input directory.',
+        required=False,
+        default='',
     )
 
     parser.add_argument(
