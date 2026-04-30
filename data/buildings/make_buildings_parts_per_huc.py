@@ -222,9 +222,10 @@ def arrow_rowgroup_to_gdf(table, crs: str) -> gpd.GeoDataFrame:
     df = table.to_pandas()
     if "geometry" not in df:
         raise RuntimeError("Expected 'geometry' column in GeoParquet row group, but it was not found.")
-    return gpd.GeoDataFrame(
+    gdf = gpd.GeoDataFrame(
         df.drop(columns="geometry"), geometry=gpd.GeoSeries.from_wkb(df["geometry"]), crs=crs
     )
+    return gdf
 
 
 def build_mixed_row_group_tasks(
@@ -347,7 +348,7 @@ if __name__ == "__main__":
     # python foss_fim/data/buildings/make_buildings_parts_per_huc.py \
     #     -b data/inputs/fema/buildings/20260306/states_parquet/ \
     #     -p data/inputs/pre_clip_huc8/20260424/ \
-    #     -o data/inputs/fema/buildings/20260306/huc_parts \
+    #     -o data/inputs/fema/buildings/20260306/ \
     #     -s 'IL'
     parser = argparse.ArgumentParser(
         description="Create per-HUC8 parquet parts from state-level building parquet files."
@@ -367,7 +368,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-o",
         "--out_dir",
-        help="REQUIRED: folder path for output buildings_by_huc8 parquet parts.",
+        help="REQUIRED: parent folder path. Outputs are written to a huc_parts subfolder.",
         required=True,
     )
     parser.add_argument(
@@ -401,7 +402,7 @@ if __name__ == "__main__":
     make_building_parts_per_huc(
         states_buildings_dir=Path(args.states_buildings_dir),
         current_preclip_directory=Path(args.current_preclip_directory),
-        out_dir=Path(args.out_dir),
+        out_dir=Path(args.out_dir) / "huc_parts",
         states=args.state.split() if args.state else None,
         number_jobs=args.number_jobs,
         row_group_chunk_size=args.row_group_chunk_size,

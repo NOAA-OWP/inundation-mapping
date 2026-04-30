@@ -122,7 +122,7 @@ def __setup_logger(outputs_dir, huc=None, is_multi_proc=False):
     LOG_FILE_PATH = os.path.join(outputs_dir, log_file_name)
 
     if not os.path.exists(outputs_dir):
-        os.mkdir(outputs_dir)
+        os.makedirs(outputs_dir, exist_ok=True)
 
     if os.path.exists(LOG_FILE_PATH):
         os.remove(LOG_FILE_PATH)
