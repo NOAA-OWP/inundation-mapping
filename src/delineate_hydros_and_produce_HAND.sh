@@ -300,6 +300,18 @@ else
     echo -e $startDiv"No osm roads data for $hucNumber"
 fi
 
+## Process buildings FIMpact ##
+if  [ -f $tempHucDataDir/buildings_subset.gpkg ]; then
+    echo -e $startDiv"Process buildings FIMpact $hucNumber $current_branch_id"
+    python3 $srcDir/process_buildings_fimpact.py \
+        -g $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
+        -r $tempHucDataDir/buildings_subset.gpkg \
+        -c $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked_$current_branch_id.gpkg \
+        -o $tempCurrentBranchDataDir/buildings_fimpact_$current_branch_id.csv
+else
+    echo -e $startDiv"No buildings data for $hucNumber"
+fi
+
 ## EVALUATE CROSSWALK ##
 if [ "$current_branch_id" = "$branch_zero_id" ] && [ "$evaluateCrosswalk" = "1" ] ; then
     echo -e $startDiv"Evaluate crosswalk $hucNumber $current_branch_id"
