@@ -236,11 +236,12 @@ def pre_clip_hucs_from_wbd(
 
     else:
         logging.info(
-            "All vector layers will be newly clipped — no copies from previously pre-clipped data were requested."
+            "All vector layers will be newly clipped/transferred — no copies from previously pre-clipped "
+            "data were requested."
         )
 
     if clipped_layers:
-        logging.info("The following layers will be newly clipped:")
+        logging.info("The following layers will be newly clipped/transferred:")
         for layer in clipped_layers:
             logging.info(f" - {layer}")
     else:
@@ -601,18 +602,19 @@ if __name__ == '__main__':
         - nwm_subset_streams.gpkg
         - nwm_headwater_points_subset.gpkg
 
-    The following files are managed with 6 args for pre-clipping vs copying.
-    If preclip args are omitted, copy is used by default.
+    The following files are managed with 6 args for pre-clipping/transferring vs copying.
+    If layer args are omitted, copy from previous preclips is used by default.
             - "nwm_lakes_proj_subset.gpkg"        ->  --nwm_lakes
             - "nwm_catchments_proj_subset.gpkg"   ->  --nwm_catchments
             - levee files (3 files)               ->  --levees
             - "osm_bridges_subset.gpkg"           ->  --osm_bridges
+                Transfers recently pulled, already HUC-level bridge files from osm_bridges_modified_dir.
             - "osm_roads_subset.gpkg"             ->  --osm_roads
             - "buildings_subset.gpkg"             ->  --buildings
 
 
     Example 1:
-        where we preclip all vector data for requested HUCs (no copying):
+        where we preclip/transfer all vector data for requested HUCs (no copying from previous preclips):
 
         python foss_fim/data/wbd/generate_pre_clip_fim_huc8.py \
           -u /data/inputs/huc_lists/full_huc_list.lst \
@@ -622,7 +624,7 @@ if __name__ == '__main__':
           --osm_roads --buildings
 
     Example 2:
-        if you want to preclip only a subset and copy the rest from previous preclips:
+        if you want to preclip/transfer only a subset and copy the rest from previous preclips:
         Always add --copy_from_dir followed by path to the previous preclips results.
         Then provide one or multiple preclip args.
 
@@ -673,10 +675,13 @@ if __name__ == '__main__':
         "--copy_from_dir", help="Directory to copy files from (enables selective copying)", default=None
     )
 
-    # For any provided layer argument, that layer is newly clipped. Missing args default to copy.
+    # For any provided layer argument, that layer is newly clipped/transferred. Missing args default to copy.
     for arg_option in args_preclip_options:
+        arg_help = f"preclip {arg_option} instead of copying"
+        if arg_option == 'osm_bridges':
+            arg_help = "transfer recently pulled osm_bridges instead of copying from previous preclips"
         parser.add_argument(
-            f"--{arg_option}", action="store_true", help=f"preclip {arg_option} instead of copying"
+            f"--{arg_option}", action="store_true", help=arg_help
         )
 
     args = vars(parser.parse_args())
@@ -685,13 +690,13 @@ if __name__ == '__main__':
         print(f"Error: HUC list file {args['huc_list']} does not exist.")
         exit(0)
 
-    # Build internal preclip flags (True means preclip, False means copy).
-    # New CLI semantics: layer args opt-in to clipping; missing args default to copy.
+    # Build internal preclip flags (True means preclip/transfer, False means copy).
+    # New CLI semantics: layer args opt-in to preclipping/transferring; missing args default to copy.
     preclipping_flags = {}
     for arg_option in args_preclip_options:
         preclipping_flags[arg_option] = args.get(arg_option, False)
 
-    # If nothing is selected for preclipping, this becomes a full-copy operation.
+    # If nothing is selected for preclipping/transferring, this becomes a full-copy operation.
     # This tool is intended for preclipping workflows, not copy-only runs.
     if not any(preclipping_flags.values()):
         print(
@@ -703,7 +708,7 @@ if __name__ == '__main__':
     if not all(preclipping_flags.values()) and not args['copy_from_dir']:
         print(
             "Error: one or more layer args were not provided, so those layers would be copied by default.\n"
-            "Provide --copy_from_dir for those copied layers, or provide all 8 layer args to preclip everything."
+            "Provide --copy_from_dir for those copied layers, or provide all 8 layer args to preclip/transfer everything."
         )
         exit(0)
 
