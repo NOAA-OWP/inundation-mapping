@@ -1,8 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-
-## v4.9.10.0 - 2026-03-09 - [PR#1777]([https://github.com/NOAA-OWP/inundation-mapping/pull/1777])
+## v4.9.12.0 - 2026-05-01 - [PR#1777]([https://github.com/NOAA-OWP/inundation-mapping/pull/1777])
 
 This PR closes the issue #1739 and includes the following enhancements to address buildings Fimpacts:
 
@@ -31,7 +30,6 @@ In addition to introducing building pre-clipping in the `data/wbd/generate_pre_c
 
 <br/>
 
-## v4.9.10.0 - 2026-02-25 - [PR#1769]([https://github.com/NOAA-OWP/inundation-mapping/pull/1769])
 ## v4.9.11.2 - 2026-05-01 - [PR#1786](https://github.com/NOAA-OWP/inundation-mapping/pull/1786)
 
 Resolves numerous issues that arose during the March 2026 full-scale CatFIM runs for the FIM 6.1 release. Updates the CatFIM readme.
