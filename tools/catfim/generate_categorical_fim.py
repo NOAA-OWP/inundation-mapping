@@ -23,6 +23,8 @@ from generate_categorical_fim_mapping import (
     produce_stage_based_lid_tifs,
 )
 from tools_shared_functions import (
+    aggregate_wbd_hucs,
+    correct_datum_typos,
     filter_nwm_segments_by_stream_order,
     get_datum,
     get_nwm_segs,
@@ -38,8 +40,8 @@ from tools_shared_variables import (
 
 import utils.fim_logger as fl
 from data.wrds.download_process_wrds import (
+    check_metadata_CRS_availability,
     download_all_thresholds,
-    label_data_file,
     load_nwm_metadata,
     load_site_thresholds,
 )
@@ -328,33 +330,51 @@ def process_generate_categorical_fim(
 
     # Load NWM metadata (either by downloading it or pulling it from WRDS)
     # Note: This is the function that we will put into CatFIM code
-    output_meta_list, huc_lid_dict, messages = load_nwm_metadata(
-        nwm_meta_file, API_BASE_URL, search, get_new_meta_data, lst_hucs
-    )
-    FLOG.lprint(messages)
+    output_meta_list, messages = load_nwm_metadata(nwm_meta_file, API_BASE_URL, search, get_new_meta_data)
+
+    for message in messages:
+        FLOG.lprint(message)
+
+    # Get the HUC dictionary
+    wbd_file = '/data/inputs/wbd/WBD_National.gpkg'  # TODO: Replace with os.getenv("input_wbd_layer")?
+    huc_lid_dict, nwm_sites_all_gdf = aggregate_wbd_hucs(output_meta_list, wbd_file, retain_attributes=True)
+
+    # Filter huc_lid_dict to only include HUCs in huc_lst
+    if 'all' not in lst_hucs:
+        # huc_lid_dict = {lid: huc for lid, huc in huc_lid_dict.items() if huc in lst_hucs}
+
+        keep = set(lst_hucs)
+        for huc in list(huc_lid_dict):
+            if huc not in keep:
+                del huc_lid_dict[huc]
+
+    FLOG.lprint(f"Number of sites to download thresholds for: {len(huc_lid_dict)}")  # TEMP DEBUG
+
+    if len(huc_lid_dict) == 0:
+        raise Exception("The metadata pickle file does not have any applicable HUCs")
 
     if not huc_lid_dict:
         sys.exit('Error occurred in metadata download.')
 
     # Load thresholds if specified
     if get_new_threshold_data == True:
+        # Get a dictionary of which sources have valid CRS's for each site
+        lid_source_dict = check_metadata_CRS_availability(output_meta_list)
+
         threshold_url = f'{API_BASE_URL}/nws_threshold'
 
-        # label = ''
-        # label_with_date = label_data_file(label, lst_hucs)
-        # output_thresholds_filename = f'thresholds{label_with_date}.pkl'
-        # thresholds_filepath = os.path.join(output_folder, output_thresholds_filename)
-
         # Download thresholds
-        messages = download_all_thresholds(threshold_file, threshold_url, huc_lid_dict)
-        FLOG.lprint(messages)
+        messages = download_all_thresholds(threshold_file, threshold_url, huc_lid_dict, lid_source_dict)
+
+        for message in messages:
+            FLOG.lprint(message)
 
     ## ===== END SECTION OF CODE COPIED FROM download_process_wrds.py =====
 
     # Get the source (important for differentiating processing for manual input vs wrds)
     with open(threshold_file, "rb") as p_handle:
         thresh_list = pickle.load(p_handle)
-        source_list = thresh_list['source']
+        source_list = list(thresh_list['source'])
 
         # If manual input is in source list, set data source to manual input
         # Assumes that if one is manual input, then all are manual input
@@ -375,7 +395,7 @@ def process_generate_categorical_fim(
             # data_source = ', '.join(data_source)
 
             # temp workaround
-            data_source = 'TEST'
+            data_source = 'WRDS'
 
     # End of Validation and setup
     # ================================
@@ -643,9 +663,7 @@ def update_sites_mapping_status(output_mapping_dir, catfim_sites_file_path, catf
             # If the ahps_id is not in the valid list, then mapped should be "no" and status updated
             if ahps_id not in valid_ahps_ids:
                 sites_gdf.at[ind, 'mapped'] = 'no'
-                FLOG.warning(
-                    f"{ahps_id} : Mapped status was changed to no because no inundation GPKGs found."
-                )
+                FLOG.lprint(f"{ahps_id} : Mapped status was changed to no because no inundation GPKGs found.")
                 if status_val is None or status_val == "" or status_val == "Good":
                     sites_gdf.at[ind, 'status'] = 'Site resulted with no valid inundated files'
                 else:
@@ -657,7 +675,7 @@ def update_sites_mapping_status(output_mapping_dir, catfim_sites_file_path, catf
 
             sites_gdf.at[ind, 'mapped'] = 'yes'
             # Mapped should be "yes", and "Good",
-            if status_val == "":
+            if status_val is None or status_val == "":
                 sites_gdf.at[ind, 'status'] = 'Good'
             elif status_val.startswith("---") == True:  # warning not an error
                 sites_gdf.at[ind, 'mapped'] = 'yes'
@@ -1664,6 +1682,36 @@ def __adjust_datum_ft(flows, metadata, lid, huc_lid_id):
         all_messages.append(lid + msg)
         MP_LOG.warning(huc_lid_id + msg)
         return None, all_messages
+
+    # ___________________________________________________________________________________________________#
+    # Check for typos in the horizontal datum data
+
+    crs = datum_data.get('crs')
+    vcs = datum_data.get('vcs')
+
+    crs_corrected, vcs_corrected, uncorrected_crs_error, uncorrected_vcs_error, datum_corr_msgs = (
+        correct_datum_typos(crs, vcs)
+    )
+
+    # Update the datum data with the corrected CRS and VCS if needed
+    if crs_corrected is not None:
+        datum_data.update(crs=crs_corrected)
+    if vcs_corrected is not None:
+        datum_data.update(vcs=vcs_corrected)
+
+    # Log output messages from datum typo correction
+    for msg in datum_corr_msgs:
+        all_messages.append(f"{lid}:{msg}")
+        MP_LOG.warning(huc_lid_id + msg)
+
+    if uncorrected_crs_error:
+        msg = ':CRS value is unrecognized and could not be corrected'
+        all_messages.append(lid + msg)
+        MP_LOG.warning(huc_lid_id + msg)
+    if uncorrected_vcs_error:
+        msg = ':VCS value is unrecognized and could not be corrected'
+        all_messages.append(lid + msg)
+        MP_LOG.warning(huc_lid_id + msg)
 
     # ___________________________________________________________________________________________________#
     # NOTE: !!!!
