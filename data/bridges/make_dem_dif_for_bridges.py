@@ -195,7 +195,7 @@ def make_dif_rasters(dem_dir, lidar_processing_dir, OSM_bridge_dir, output_dir, 
         ]
 
         tasks_args_list = []
-        for dem_file in dem_files[1:5]:
+        for dem_file in dem_files:
             # prepare path for output diff file
             base_name, extension = os.path.splitext(os.path.basename(dem_file))
             output_diff_file_name = f"{base_name}_diff{extension}"
@@ -260,38 +260,35 @@ def make_dif_rasters(dem_dir, lidar_processing_dir, OSM_bridge_dir, output_dir, 
 
 if __name__ == "__main__":
 
+    '''
+    This tool needs to be run 4 times seperately for Conus, AK, GU and AS.
+    For each run, only -d and -o needs to be updated(-l and -i remains the same).
+    Note: Guam and AS might not have any lidar data, which would produce DEM diff with only values of 0.
+    Below example for Conus and Alaska
 
-    # python /foss_fim/data/bridges/make_dem_dif_for_bridges.py \
-    #  -d data/inputs/dems/3dep_dems/10m_5070/20260128/ \
-    #  -l data/inputs/osm/bridges/lidar_data/20260315/lidar_processing/ \
-    #  -i data/inputs/osm/bridges/bridge_lines/20260315/ \
-    #  -o data/inputs/osm/bridges/DEM_Diffs/20260315/conus/ \
-    #  -j 10
+    python /foss_fim/data/bridges/make_dem_dif_for_bridges.py \
+     -d data/inputs/dems/3dep_dems/10m_5070/20260128/ \
+     -l data/inputs/osm/bridges/lidar_data/20260315/lidar_processing/ \
+     -i data/inputs/osm/bridges/bridge_lines/20260315/ \
+     -o data/inputs/osm/bridges/DEM_Diffs/20260315/conus/ \
+     -j 10
 
-    #  python /foss_fim/data/bridges/make_dem_dif_for_bridges.py \
-    #  -d data/inputs/dems/3dep_dems/10m_South_Alaska/20260128/ \
-    #  -l data/inputs/osm/bridges/lidar_data/20260315/lidar_processing/ \
-    #  -i data/inputs/osm/bridges/bridge_lines/20260315/ \
-    #  -o data/inputs/osm/bridges/DEM_Diffs/20260315/alaska/ \
-    #  -j 10
-    # runs in under 1 min
+    python /foss_fim/data/bridges/make_dem_dif_for_bridges.py \
+     -d data/inputs/dems/3dep_dems/10m_South_Alaska/20260128/ \
+     -l data/inputs/osm/bridges/lidar_data/20260315/lidar_processing/ \
+     -i data/inputs/osm/bridges/bridge_lines/20260315/ \
+     -o data/inputs/osm/bridges/DEM_Diffs/20260315/alaska/ \
+     -j 10
 
-    # This tool needs to be run 4 times, once for Conus, AK, GU and AS
-    # For each run, only -d and -o needs to be updated(-l and -i remains the same). 
-    # Note: Guam and AS might not have any lidar data, which would produce DEM diff with only values of 0. 
+    If new OSM bridge data is pulled, it will trigger new bridge lidar date, which would trigger
+    running this tool.
 
-    ###############################
-    #
-    # If new OSM bridge data is pulled, it will trigger new bridge lidar date, which would trigger
-    #   running this tool.
-    #
-    # Independently, if new DEMs are pulled, then we need to re-run this tool. Assuming we still
-    #    have the most recent Bridge Lidar, which may/may not need to be re-run. It is only needed if
-    #    new OSM data is run.
-    #
-    #  You will also get new DEM Diff VRT's each time you run it. ie) bridge_elev_diff.vrt
-    #
-    ###############################
+    Independently, if new DEMs are pulled, then we need to re-run this tool. Assuming we still
+    have the most recent Bridge Lidar, which may/may not need to be re-run. It is only needed if
+    new OSM data is run.
+
+    You will also get new DEM Diff VRT's each time you run it. ie) bridge_elev_diff.vrt
+    '''
 
     parser = argparse.ArgumentParser(description='Make bridge dem difference rasters')
 

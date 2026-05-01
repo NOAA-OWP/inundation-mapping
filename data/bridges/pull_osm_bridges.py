@@ -430,7 +430,7 @@ if __name__ == "__main__":
         precursor to the bridge healing pre-processing (so, a pre-pre-processing step).
         It should be run only as often as the user thinks OSM has had any important updates.
 
-    '''
+
 
     ###############################
     #
@@ -443,6 +443,7 @@ if __name__ == "__main__":
     #    need new lidar or dem diffs.
     #
     ###############################
+    '''
 
     parser = argparse.ArgumentParser(description='Acquires and saves Open Street Map bridge features')
 

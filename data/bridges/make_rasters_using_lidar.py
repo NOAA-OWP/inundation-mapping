@@ -679,25 +679,23 @@ def __setup_logger(output_folder_path):
 
 
 if __name__ == "__main__":
-    #
-    # Sample usage:
-    # python make_rasters_using_lidar.py
-    #  -i /data/inputs/osm/bridges/bridge_lines/20250207/
-    #  -o /data/inputs/osm/bridges/lidar_data/20250323/conus_osm_lidar_rasters/
-    #  -jl 30
-    #  -jr 30
-    #  -b 1.5
-    #  -r 3
+    '''
+    Sample usage:
 
-    # This needs to be run twice, once for AK and once for CONUS.
+    python make_rasters_using_lidar.py
+     -i /data/inputs/osm/bridges/bridge_lines/20250207/
+     -o /data/inputs/osm/bridges/lidar_data/20250323/conus_osm_lidar_rasters/
+     -jl 30
+     -jr 30
+     -b 1.5
+     -r 3
 
-    ###############################
-    #
-    # If new OSM bridge data is pulled, this tool needs to be run to pull new bridge lidar data.
-    #
-    # With running this tool, you will also need to run 'make_dem_dif_for_briges.py`
-    #
-    ###############################
+    This needs to be run twice, once for AK and once for CONUS.
+
+    If new OSM bridge data is pulled, this tool needs to be run to pull new bridge lidar data.
+
+    With running this tool, you will also need to run 'make_dem_dif_for_briges.py`
+    '''
 
     parser = argparse.ArgumentParser(
         description='Download lidar points for buffered OSM bridges and make tif files'
