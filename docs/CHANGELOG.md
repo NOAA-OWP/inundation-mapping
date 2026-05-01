@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.9.x.x - 2026-04-23 - [PR#1815](https://github.com/NOAA-OWP/inundation-mapping/pull/1815)
+## v4.9.12.1 - 2026-05-01 - [PR#1815](https://github.com/NOAA-OWP/inundation-mapping/pull/1815)
 
 These changes resolve the numerous pandas 3.0 FutureWarnings as well as other miscellaneous "warning" messages that we track in our logging systems. Resolves #1799
 
@@ -25,7 +25,7 @@ The scripts below were updated to address warnings. There were no changes to the
 `src/src_roughness_optimization.py`
 `src/thalweg_notches_adjustment.py`
 
-<br/>
+
 ## v4.9.12.0 - 2026-05-01 - [PR#1777]([https://github.com/NOAA-OWP/inundation-mapping/pull/1777])
 
 This PR closes the issue #1739 and includes the following enhancements to address buildings Fimpacts:
