@@ -98,6 +98,10 @@ mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
             echo "$line" >&2
         fi
     done)
+    # May 1, 2026: Merge config between Ryan and Matt gdal PR. commented out Ryans. Can we marry the two? do we want too?
+    # -sd8 $tempCurrentBranchDataDir/slopes_d8_dem_meters_$current_branch_id.tif \
+    # 2>&1 | sed -e 's/.*no output sd8 file specified.*/INFO: TauDEM d8flowdir running without optional p flowdir output./I' \
+    #            -e 's/.*no output p file specified.*/INFO: TauDEM d8flowdir running without optional p flowdir output./I'
 
 ## STREAMNET FOR REACHES ##
 echo -e $startDiv"Stream Net for Reaches $hucNumber $current_branch_id"
@@ -358,6 +362,18 @@ if  [ -f $tempHucDataDir/osm_roads_subset.gpkg ]; then
         -o $tempCurrentBranchDataDir/osm_roads_fimpact_$current_branch_id.csv
 else
     echo -e $startDiv"No osm roads data for $hucNumber"
+fi
+
+## Process buildings FIMpact ##
+if  [ -f $tempHucDataDir/buildings_subset.gpkg ]; then
+    echo -e $startDiv"Process buildings FIMpact $hucNumber $current_branch_id"
+    python3 $srcDir/process_buildings_fimpact.py \
+        -g $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
+        -r $tempHucDataDir/buildings_subset.gpkg \
+        -c $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked_$current_branch_id.gpkg \
+        -o $tempCurrentBranchDataDir/buildings_fimpact_$current_branch_id.csv
+else
+    echo -e $startDiv"No buildings data for $hucNumber"
 fi
 
 ## EVALUATE CROSSWALK ##

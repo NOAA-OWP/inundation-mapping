@@ -257,6 +257,9 @@ mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
             echo "$line" >&2
         fi
     done)
+    # May 1, 2026: Merge config between Ryan and Matt gdal PR. commented out Ryans. Can we marry the two? do we want too?    
+    # 2>&1 | sed -e 's/.*no output sd8 file specified.*/INFO: TauDEM d8flowdir running without optional sd8 slope output./I' \
+    #            -e 's/.*no output p file specified.*/INFO: TauDEM d8flowdir running without optional sd8 slope output./I'
 
 ## MAKE A COPY OF THE DEM and DEM DIFF FOR BRANCH 0
 echo -e $startDiv"Copying DEM to Branch 0"
