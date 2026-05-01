@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.______- 2026-__-__ - [PR#1786](https://github.com/NOAA-OWP/inundation-mapping/pull/1786)
+## v4.9.11.2 - 2026-05-01 - [PR#1786](https://github.com/NOAA-OWP/inundation-mapping/pull/1786)
 
 Resolves numerous issues that arose during the March 2026 full-scale CatFIM runs for the FIM 6.1 release. Updates the CatFIM readme.
 
