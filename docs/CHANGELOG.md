@@ -32,6 +32,22 @@ In addition to introducing building pre-clipping in the `data/wbd/generate_pre_c
 <br/>
 
 ## v4.9.10.0 - 2026-02-25 - [PR#1769]([https://github.com/NOAA-OWP/inundation-mapping/pull/1769])
+## v4.9.11.2 - 2026-05-01 - [PR#1786](https://github.com/NOAA-OWP/inundation-mapping/pull/1786)
+
+Resolves numerous issues that arose during the March 2026 full-scale CatFIM runs for the FIM 6.1 release. Updates the CatFIM readme.
+
+Added `aggregate_wbd_hucs()` function to WRDS download script to ensure that incomplete WRDS HUC data was not interfering with pulling a complete set of the site metadata and thresholds. Implemented logic into CatFIM to catch and remedy (where possible) sites where the CRS, datum, or VCS are misspelled or incorrect. Resolved a bug where postprocessing would error out if a site was missing a status.  
+
+### Changes
+- `tools/catfim/README.md`: Updates to documentation about site filtering, site status context, and data flow.
+- `data/wrds/download_process_wrds.py`: Added `aggregate_wbd_hucs()` and `check_metadata_CRS_availability()` functions, updated `get_thresholds()`.
+- `data/nws/preprocess_ahps_nws.py`: Updated `get_thresholds()` inputs.
+- `data/usgs/get_usgs_rating_curves.py`: Updated `get_thresholds()` inputs.
+- `data/usgs/preprocess_ahps_usgs.py`: Updated `get_thresholds()` inputs.
+- `tools/catfim/generate_categorical_fim.py`: Added `aggregate_wbd_hucs()` function, fixed status bug, added typo workaround.
+- `tools/catfim/generate_categorical_fim_flows.py`: Removed unused imports.
+- `tools/tools_shared_functions.py`: Updated `get_thresholds()` to account for source CRS availability.
+
 ## v4.9.11.1 - 2026-04-17 - [PR#1809](https://github.com/NOAA-OWP/inundation-mapping/pull/1809)
 
 This change resolves issue where SWORD-derived slope values are producing severe over-estimated inundation extents on the Auglaize River in Ohio. The updated code logic now allows for manual removal or override of SWORD slope values as part of the input data processing script.
