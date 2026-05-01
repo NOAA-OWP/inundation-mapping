@@ -60,14 +60,7 @@ def rasters_to_point(tif_paths, file_logger, screen_queue, task_id):
 
 
 def make_one_diff(
-    dem_file,
-    huc_bridge_file,
-    lidar_processing_dir,
-    HUC,
-    output_diff_path,
-    file_logger,
-    screen_queue,
-    task_id,
+    dem_file, huc_bridge_file, lidar_processing_dir, HUC, output_diff_path, file_logger, screen_queue, task_id
 ):
 
     try:
@@ -180,9 +173,7 @@ def make_dif_rasters(dem_dir, lidar_processing_dir, OSM_bridge_dir, output_dir, 
         if not os.path.isdir(OSM_bridge_dir):
             raise ValueError(f"Argument -i OSM_bridge_dir of {OSM_bridge_dir} does not exist.")
         if not os.path.isdir(lidar_processing_dir):
-            raise ValueError(
-                f"Argument -l lidar_processing_dir of {lidar_processing_dir} does not exist."
-            )
+            raise ValueError(f"Argument -l lidar_processing_dir of {lidar_processing_dir} does not exist.")
 
         dem_files = list(glob.glob(os.path.join(dem_dir, '*.tif')))
         if len(dem_files) == 0:

@@ -287,9 +287,7 @@ def make_lidar_footprints():
 def write_modified_bridge_file(OSM_bridge_lines_gdf, modified_bridge_dir, huc_output_dir, HUC):
     os.makedirs(modified_bridge_dir, exist_ok=True)
 
-    output_bridge_path = os.path.join(
-        modified_bridge_dir, f"huc_{HUC}_osm_bridges_modified.gpkg"
-    )
+    output_bridge_path = os.path.join(modified_bridge_dir, f"huc_{HUC}_osm_bridges_modified.gpkg")
     created_tif_ids = {
         os.path.splitext(os.path.basename(path))[0]
         for path in glob.glob(os.path.join(huc_output_dir, 'lidar_osm_rasters', '*.tif'))
@@ -584,11 +582,7 @@ def process_bridges_lidar_data(
         bridge_files = [
             bridge_file
             for bridge_file in bridge_files
-            if (
-                huc_match := re.match(
-                    r'^huc_(\d{8})_osm_bridges\.gpkg$', os.path.basename(bridge_file)
-                )
-            )
+            if (huc_match := re.match(r'^huc_(\d{8})_osm_bridges\.gpkg$', os.path.basename(bridge_file)))
             and huc_match.group(1) in selected_hucs
         ]
 

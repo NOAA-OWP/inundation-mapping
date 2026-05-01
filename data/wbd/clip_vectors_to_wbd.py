@@ -343,7 +343,9 @@ def subset_vector_layers(
         dst = os.path.join(huc_directory, output_filenames['osm_bridges'])
 
         if not osm_bridges_modified_dir:
-            logging.warning("Missing osm_bridges_modified_dir environment variable; osm_bridges not transferred.")
+            logging.warning(
+                "Missing osm_bridges_modified_dir environment variable; osm_bridges not transferred."
+            )
         else:
             src = os.path.join(osm_bridges_modified_dir, f'huc_{huc}_osm_bridges_modified.gpkg')
             if os.path.exists(src):

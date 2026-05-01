@@ -680,9 +680,7 @@ if __name__ == '__main__':
         arg_help = f"preclip {arg_option} instead of copying"
         if arg_option == 'osm_bridges':
             arg_help = "transfer recently pulled osm_bridges instead of copying from previous preclips"
-        parser.add_argument(
-            f"--{arg_option}", action="store_true", help=arg_help
-        )
+        parser.add_argument(f"--{arg_option}", action="store_true", help=arg_help)
 
     args = vars(parser.parse_args())
 
