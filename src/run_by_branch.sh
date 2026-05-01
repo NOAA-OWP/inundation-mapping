@@ -141,7 +141,6 @@ mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
         fi
     done)
     # May 1, 2026: Merge config between Ryan and Matt gdal PR. commented out Ryans. Can we marry the two? do we want too?    
-    # -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$current_branch_id.tif \
     # 2>&1 | sed -e 's/.*no output sd8 file specified.*/INFO: TauDEM d8flowdir running without optional sd8 slope output./I' \
     #            -e 's/.*no output p file specified.*/INFO: TauDEM d8flowdir running without optional sd8 slope output./I'
 
