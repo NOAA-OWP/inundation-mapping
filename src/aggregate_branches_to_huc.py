@@ -14,7 +14,6 @@ import pandas as pd
 from dotenv import load_dotenv
 
 from heal_bridges_osm import flow_lookup, flows_from_hydrotable
-from utils.shared_functions import progress_bar_handler
 
 
 load_dotenv('/foss_fim/src/bash_variables.env')
@@ -182,6 +181,24 @@ class HucDirectory(object):
 
         self.agg_road_fimpact = []
 
+        self.building_dtypes = {
+            'UUID': str,
+            'HEIGHT': float,
+            'OCC_CLS': str,
+            'SOURCE': str,
+            'VAL_METHOD': str,
+            'huc8': str,
+            'HydroID': str,
+            'feature_id': str,
+            'branch': str,
+            'threshold_hand': float,
+            'threshold_discharge': float,
+            'threshold_hand_ft': float,
+            'threshold_discharge_cfs': float,
+        }
+
+        self.agg_building_fimpact = pd.DataFrame(columns=list(self.building_dtypes.keys()))
+
     def iter_branches(self):
         if self.limit_branches:
             for branch in self.limit_branches:
@@ -269,8 +286,43 @@ class HucDirectory(object):
 
             self.agg_road_fimpact.append(fimpact_df)
 
+    def aggregate_building_fimpacts(self, branch_path, branch_id):
+        fimpact_filename = join(branch_path, f'buildings_fimpact_{branch_id}.csv')
+        if not os.path.isfile(fimpact_filename):
+            return
+
+        fimpact_df = pd.read_csv(fimpact_filename)
+        if fimpact_df.empty:
+            return
+
+        hydrotable_filename = join(branch_path, f'hydroTable_{branch_id}.csv')
+        hydrotable = pd.read_csv(hydrotable_filename, dtype=self.hydrotable_dtypes)
+
+        # make sure to remove any building with threshold hand greater than 25m (the max available in HydroTable)
+        # these building are assumed to be non-inundated. so no need to process them further.
+        fimpact_df = fimpact_df[fimpact_df['threshold_hand'] < 25]
+
+        if not fimpact_df.empty:
+            fimpact_df['threshold_discharge'] = fimpact_df.apply(
+                lambda row: flow_lookup(row.threshold_hand, row.HydroID, hydrotable), axis=1
+            )
+
+            # Convert stages and dischrages to ft and cfs respectively
+            fimpact_df['threshold_hand_ft'] = fimpact_df['threshold_hand'] * 3.28084
+            fimpact_df['threshold_discharge_cfs'] = fimpact_df['threshold_discharge'] * 35.3147
+
+            self.agg_building_fimpact = pd.concat([self.agg_building_fimpact, fimpact_df])
+
     def agg_function(
-        self, usgs_elev_flag, hydro_table_flag, src_cross_flag, ras_elev_flag, bridge_flag, road_flag, huc_id
+        self,
+        usgs_elev_flag,
+        hydro_table_flag,
+        src_cross_flag,
+        ras_elev_flag,
+        bridge_flag,
+        road_flag,
+        building_flag,
+        huc_id,
     ):
         try:
             # try catch and its own log file output in error only.
@@ -289,6 +341,8 @@ class HucDirectory(object):
                     self.aggregate_bridge_pnts(branch_path, branch_id)
                 if road_flag:
                     self.aggregate_road_fimpacts(branch_path, branch_id)
+                if building_flag:
+                    self.aggregate_building_fimpacts(branch_path, branch_id)
 
             ## After all of the branches are visited, the code below will write the aggregates
             if usgs_elev_flag:
@@ -424,6 +478,18 @@ class HucDirectory(object):
 
                     agg_road_fimpact.to_csv(roads_fimpact_file, index=False)
 
+            if building_flag:
+                buildings_fimpact_file = join(self.huc_dir_path, 'buildings_fimpact.csv')
+                if os.path.isfile(buildings_fimpact_file):
+                    os.remove(buildings_fimpact_file)
+
+                if not self.agg_building_fimpact.empty:
+                    self.agg_building_fimpact = self.agg_building_fimpact.astype(
+                        self.building_dtypes, errors='raise'
+                    )
+
+                    self.agg_building_fimpact.to_csv(buildings_fimpact_file, index=False)
+
         except Exception:
             errMsg = (
                 "--------------------------------------"
@@ -455,6 +521,7 @@ def log_error(
     ras_elev_flag,
     bridge_flag,
     road_flag,
+    building_flag,
     huc_id,
     errMsg,
 ):
@@ -471,6 +538,8 @@ def log_error(
         file_name += "_bridge"
     if road_flag:
         file_name += "_road"
+    if building_flag:
+        file_name += "_building"
     file_name += "_error.log"
 
     log_dir = os.path.join(huc_directory, "logs", "agg_by_huc_errors")
@@ -485,7 +554,14 @@ def log_error(
 
 
 def aggregate_by_huc(
-    huc_dir, usgs_elev_flag, hydro_table_flag, src_cross_flag, ras_elev_flag, bridge_flag, road_flag
+    huc_dir,
+    usgs_elev_flag,
+    hydro_table_flag,
+    src_cross_flag,
+    ras_elev_flag,
+    bridge_flag,
+    road_flag,
+    building_flag,
 ):
     assert os.path.isdir(huc_dir), f'{huc_dir} is not a valid directory'
 
@@ -526,7 +602,14 @@ def aggregate_by_huc(
     try:
         huc_dir_obj = HucDirectory(huc_dir)
         huc_dir_obj.agg_function(
-            usgs_elev_flag, hydro_table_flag, src_cross_flag, ras_elev_flag, bridge_flag, road_flag, huc_id
+            usgs_elev_flag,
+            hydro_table_flag,
+            src_cross_flag,
+            ras_elev_flag,
+            bridge_flag,
+            road_flag,
+            building_flag,
+            huc_id,
         )
     except Exception:
         errMsg = "--------------------------------------" f"\n huc_id {huc_id} has an error\n"
@@ -540,6 +623,7 @@ def aggregate_by_huc(
             ras_elev_flag,
             bridge_flag,
             road_flag,
+            building_flag,
             huc_id,
             errMsg,
         )
@@ -606,6 +690,15 @@ if __name__ == '__main__':
         '-road',
         '--road_flag',
         help='Perform aggregate on branch roads fimpact files',
+        required=False,
+        default=False,
+        action='store_true',
+    )
+
+    parser.add_argument(
+        '-building',
+        '--building_flag',
+        help='Perform aggregate on branch buildings fimpact files',
         required=False,
         default=False,
         action='store_true',
