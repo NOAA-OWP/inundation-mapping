@@ -22,45 +22,22 @@ from tools.tools_shared_functions import aggregate_wbd_hucs
 
 
 """
-Oct/Nov 2025: Notes for MP and splitting logic layer reorg. ie) pre procesing, process hucs, post processing # TODO: Clean up
+Orchestration script for CatFIM preprocessing and workflow coordination.
 
-Tenative notes:
-    - This script will fundamentally play the role stricly as pre-processing for processing HUC and their
-      related sites.
+Initiates multi-process HUC iteration with ProcessPoolExecutor (now delegated to the new catfim_process_huc.py module)
+  and initiates post-processing (now delegated to the new catfim_post_processing.py module).
 
-    - Some of the functions in here may move or be split to smaller functions.
+Creates runtime_args.env file for sharing configuration across all processing stages.
 
-    - Data acquistion such as meta, threshold or flows, should be moved ot generate_categorical_fim_flows.py
+process_generate_categorical_fim() is the central wrapper for full CatFIM runs.
 
-    - Anything related to inundation, tifs, gpkgs, etc, shoudl be moved to generate_categorical_mapping.py
+Optional skip-processing mode for AWS workflows.
 
-    - Anything relating to final post-processing such as merging of sites / library data, or last minute editing
-      of site data will be moved into catfim_post_processing.py
-
-    - This will continue to know if it is processing SB or FB.
-
-    - Primary tasks for this script become:
-        - processing incomings and creating system wide variables as needed. They will be saved into
-          a runtime_args.env file that catfim_process_huc.py and catfim_post_processing.py can pick up and use.
-
-        - This will setup the overall folder structure including the parent catfim output paths such
-          as hand_4_x_x_x_flow_based.
-
-        - Make calls to generate_categorical_fim_flows.py to create/acquire meta, threshold, flow data
-          that could be used for all HUCs and sites no matter what hucs are being processed at this time.
-
-        - Have a way to figure out if we can use a previously created pickle/parquet files for HUC processing.
-          We need a way to also tell the system to reload meta/threshold/flow data when applicable. We might
-          just reuse our current system or a similar one. Question: I assume we will have seperate files
-          for meta versus threshold, so how do we tell the system to use one but reload the other or
-          various combinations. Maybe we already have that in the code. :)
-
-        - Setup an iterator using Multi-proc to process each HUC (catfim_process_huc.py), but keeping
-          arguments to a minimum focusing primarily on letting each huc pick up the runtime_args.txt file to
-          do its processing.
-
-        - This can still take a list or file of HUCs, same as it current does and will need to
-          validate as well, just as we currently do.
+CatFIM Reorg (Jan '26)
+- Data acquistion code moved to generate_categorical_fim_flows.py or download_process_wrds.py
+- Code related to inundation, tifs, gpkgs, etc, was moved to generate_categorical_mapping.py
+- Code relating to final post-processing such as merging of sites / library data, or last minute
+  editing of site data was moved into catfim_post_processing.py
 
 """
 
@@ -82,13 +59,11 @@ def process_generate_categorical_fim(
     overwrite,
 ):
     '''
-
     Orchestrates the generation of CatFIM products for a set of Hydrologic Unit Codes (HUCs),
     supporting both stage-based and flow-based methodologies. Handles validation, setup, filtering, and multi-step processing
     including flow generation, mapping, post-processing, and status updates.
 
-    # Note: lst_hucs argument is used but passed via locals() so VSCode thinks it is not in use.
-
+    Note: lst_hucs argument is used but passed via locals() so VSCode thinks it is not in use.
 
     Arguments
     ---------
@@ -139,14 +114,16 @@ def process_generate_categorical_fim(
     None
         Results are written to output directories and files; function does not return a value.
 
-    Workflow Steps   (TODO: needs updating)
+    Workflow Steps
     -------------
-    1. Validation and setup of input directories, files, and parameters.
-    2. Filtering and selection of valid HUCs based on input and threshold files.
-    3. Stage-based or flow-based CatFIM processing, including flow generation, mapping, and post-processing.
-    4. Compilation of threshold data and cleanup of intermediate files.
-    5. Updating mapping status for processed sites.
-    6. Logging of progress, warnings, and summary information.
+    1. Pre-processing:
+        Validates inputs, sets up CatFIM directories, sets up logging, creates runtime args file
+        Loads site metadata and thresholds data (either from WRDS or from files)
+        Checks for and handles previous outputs depending on overwrite settings
+        Sets up HUC folders
+    2. Iterates over HUCs and processes each one in parallel - runs process_huc() for each HUC
+    3. Runs CatFIM post processing
+    4. Rolls up all logs
 
     Notes
     -----
@@ -154,7 +131,6 @@ def process_generate_categorical_fim(
     - Uses environment variables for API access and configuration.
     - Designed for parallel processing and scalable workflows.
     - "search" : Define upstream and downstream search in miles
-
 
     '''
 
@@ -379,7 +355,7 @@ def process_generate_categorical_fim(
             output_lid_source_table_filename = 'lid_source_table.csv'
             output_lid_source_table_filepath = os.path.join(output_folder, output_lid_source_table_filename)
 
-            lid_source_df = pd.DataFrame(lid_source_dict)
+            lid_source_df = pd.DataFrame(list(lid_source_dict.items()), columns=['nws_lid', 'crs_avail'])
             lid_source_df.to_csv(output_lid_source_table_filepath, index=False)
 
             logging.info(f'Site source table will be saved to {output_lid_source_table_filepath}')
@@ -407,26 +383,6 @@ def process_generate_categorical_fim(
             logging.info(f"Completed downloading thresholds - Duration: {str(time_duration).split('.')[0]}")
             print("")
 
-        # End of pre-processing
-
-        # ================================
-        # Finish up if skip_processing is True
-
-        if skip_processing:
-
-            logging.info("Skipping processing as per the addition of the -sp (skip processing flag).")
-            logging.info("CatFIM HUC processing and post-processing will be done independently.")
-
-            logging.info("")
-            duration_msg = sf.calculate_duration_msg(overall_start_time)
-            logging.info(f"End of process_generate_categorical_fim() - {duration_msg}")
-            logging.info("")
-
-            return
-
-        logging.info(
-            f"Processing {len(valid_fim_hucs)} valid CatFIM HUCs. Note: Not all HUCs may have ahps sites."
-        )
 
         # ================================
         # Clean old files if overwrite is True, check for leftover files if overwrite is False
@@ -491,30 +447,31 @@ def process_generate_categorical_fim(
                     logging.critical(err_msg)
                     raise Exception(err_msg)
 
+
+        # End of pre-processing
+
+        # ================================
+        # Finish up if skip_processing is True
+
+        if skip_processing:
+
+            logging.info("Skipping processing as per the addition of the -sp (skip processing flag).")
+            logging.info("CatFIM HUC processing and post-processing will be done independently.")
+
+            logging.info("")
+            duration_msg = sf.calculate_duration_msg(overall_start_time)
+            logging.info(f"End of process_generate_categorical_fim() - {duration_msg}")
+            logging.info("")
+
+            return
+
+        logging.info(
+            f"Processing {len(valid_fim_hucs)} valid CatFIM HUCs. Note: Not all HUCs may have ahps sites."
+        )
+
         # ================================
         # Iterate over HUCs and process each one in parallel
-
-        # Jan 2026 Notes on MP processing of HUCs: # TODO: Clean up, address if needed (TDQM question?)
-        #
-        # do we want a TQDM? depends on what we want to output to screen.
-        # play with it a little. We recently figured out how to do both.
-        # depending on what we choose to do, look at my new s3_shared_functions
-        # even though it uses MT, but can be easily adjsuted to MP
-        #
-        # With each process_huc handing it's own logging
-        # and may/may not be handing it's screen output...
-        #     we may not want to use run_with_mp. TBD
-        #
-        #     We need to be able to have catfim_process_huc.py run completely independently in case it is
-        #     running in AWS (hence.. its own log and log folder).
-        #
-        # But maybe we do let it all right to a common one and use run_with_mp. If we do:
-        #     can the mp call a seprate py file? (like through a process_by_huc function here or somethign)
-        #     right now, run_with_mp assumes one logger for all mp's so this does not work for AWS
-        #     unless we come up with something else.  Maybe a None logger that catfim_process_huc can detect?
-        #     or let a function in that script setup its own logger if comign through AWS?
-        #
-        # For now, due to debugging, just use our own process pool
+        # NOTE: We could add TDQM progress bar here. For now, due to debugging, just use our own process pool.
 
         for huc in valid_fim_hucs:
             task_args_list.append({"huc": huc, "output_folder": output_folder})
@@ -522,10 +479,11 @@ def process_generate_categorical_fim(
         logging.info(f"Starting multi-process CatFIM HUC processing with {number_jobs} jobs.")
 
         failed_HUCs_list = []
+        sucessful_HUCs_list = []
+
         with ProcessPoolExecutor(max_workers=number_jobs) as executor:
 
             # Some mp functions might throw an exception, which means it may not get to as_completed
-            # We still need to catch that and if so, shut down the script.
             futures_dict = [executor.submit(process_huc, **arg) for arg in task_args_list]
 
             for future in as_completed(futures_dict):
@@ -538,9 +496,56 @@ def process_generate_categorical_fim(
                         failed_HUCs_list.append(huc)
                         logging.error(f"HUC {huc} FAILED")
                     else:
+                        sucessful_HUCs_list.append(huc)
                         logging.info(f"HUC {huc} FINISHED")
                 else:
-                    raise future.exception()
+                    logging.error(future.exception())
+                    # raise future.exception()  # Previously we would halt processing here, but
+                    # now we let it finish and try rerunning the errored HUCs one more time
+
+        # Get a list of HUCs that didn't finish
+        finished_huc_list = failed_HUCs_list + sucessful_HUCs_list
+        unfinished_huc_list = list(set(valid_fim_hucs) - set(finished_huc_list))
+
+        if len(unfinished_huc_list) > 0:
+
+            logging.warning(f"{len(unfinished_huc_list)}/{len(valid_fim_hucs)} HUC(s) did not complete processing, possibly due to multiproc collision")
+            logging.info(f"Re-running CatFIM HUC processing for the following unfinished HUC(s):")
+            logging.info(*unfinished_huc_list, sep=", ")
+
+            # Remove all finished (failed or sucessful) HUCs from the task arg list
+            # Filtered list
+            task_args_list_unfinished = [d for d in task_args_list if d["huc"] in unfinished_huc_list]
+
+            second_failed_HUCs_list, second_sucessful_HUCs_list = [], []
+
+            with ProcessPoolExecutor(max_workers=number_jobs) as executor:
+                futures_dict = [executor.submit(process_huc, **arg) for arg in task_args_list_unfinished]
+
+                for future in as_completed(futures_dict):
+                    # if future is not None:  # we don't have anything to return at this time.
+
+                    # Return whether the HUC-level processing was sucessful.
+                    if not future.exception():
+                        huc, is_success = future.result()
+                        if is_success is False:
+                            second_failed_HUCs_list.append(huc)
+                            logging.error(f"HUC {huc} FAILED IN PROCESS POOL RERUN")
+                        else:
+                            second_sucessful_HUCs_list.append(huc)
+                            logging.info(f"HUC {huc} FINISHED IN PROCESS POOL RERUN")
+                    else:
+                        logging.error(future.exception())
+
+            second_finished_huc_list = second_failed_HUCs_list + second_sucessful_HUCs_list
+
+            if len(second_finished_huc_list) == 0:
+                logging.warning(f"None of the {len(unfinished_huc_list)} re-run HUC(s) finished processing in the second ProcessPoolExecutor run")
+            else:
+                logging.info(f"{len(second_finished_huc_list)}/{len(unfinished_huc_list)} HUCs finished running in the second ProcessPoolExecutor run")   
+                logging.info(f"Of the HUC(s) that finished, {len(second_sucessful_HUCs_list)} succeeded and {len(second_failed_HUCs_list)} finished but failed")   
+
+        # End muliproc rerun
 
         logging.info("Completed CatFIM HUC multiprocessing!")
 
@@ -875,7 +880,7 @@ def __roll_up_final_logs(gen_log_file_path, huc_list_rollup, output_folder):
 
                 msgs.append(
                     f'{huc} - Appending {os.path.basename(huc_log_path)} to {os.path.basename(final_log_path)}'
-                )  # TODO: Verbose? TEMP DEBUG
+                )
 
                 # The HUC log folder doesn't get used until here, so if this isn't a CatFIM re-run then it
                 # probably needs to be made. We store the HUC logs in temp until this section because
@@ -1270,7 +1275,7 @@ if __name__ == '__main__':
 
     past_major_interval_cap (-mc) - int
         OPTIONAL: Stage-Based Only. How many feet past major do you want to go for the interval FIMs?
-          of the machine. Defaults to 5. TODO: I actually have this hard-coded elsewhere, need to reconcile!!
+          of the machine. Defaults to 5.
 
     nwm_meta_file (-mf)  - str
         OPTIONAL: If you have a pre-existing nwm metadata pickle file, you can path to it here.
@@ -1382,7 +1387,7 @@ if __name__ == '__main__':
         '-mc',
         '--past-major-interval-cap',
         help='OPTIONAL: Stage-Based Only. How many feet past major do you want to go for the interval FIMs?'
-        ' of the machine. Defaults to 5',  # TODO: I actually have this hard-coded elsewhere, need to reconcile!!
+        ' of the machine. Defaults to 5',
         required=False,
         default=5,
         type=int,

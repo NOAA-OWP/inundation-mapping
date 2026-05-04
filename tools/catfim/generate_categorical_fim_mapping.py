@@ -39,7 +39,7 @@ gpd.options.io_engine = "pyogrio"
 
 
 # Main function for CatFIM mapping processing for a HUC
-def process_mapping(
+def process_mapping( # need reg output dir
     huc,
     huc_path,
     catfim_type,
@@ -83,6 +83,9 @@ def process_mapping(
     section_start_dt = datetime.now(timezone.utc)
     logging.info(f"{huc} - Mapping - Starting CatFIM HUC-level mapping")
 
+    # Initialize values
+    sites_gdf, huc_library_df, huc_library_gdf = None, None, None
+
     # --------------------------
     # Load and validate mapping data
 
@@ -94,17 +97,11 @@ def process_mapping(
             huc, huc_path, sites_pre_mapping_file_path, library_pre_mapping_file_path
         )
 
-    except Exception as ex:  # TODO: Make sure exceptions are consistent throughout
+    except Exception as ex:
         logging.critical(
             f"{huc} - Mapping - A critical error occurred while loading HUC mapping inputs: {ex}"
         )
         logging.critical(traceback.format_exc())
-
-    # TODO: Make sure the sites mapping is updated outside of process_mapping()
-    # If we're running this in the command line, it doesn't really matter... If we're running
-    # this within the greater CatFIM pipeline, we need to decide what to return here. Either we can update the sites and library
-    # within this script OR we can update the sites and library outside of process_mapping() (which I think is what Rob had in
-    # mind initially).
 
     # --------------------------
     # Split to SB- and FB-specific mapping
@@ -115,14 +112,13 @@ def process_mapping(
             logging.info(f"{huc} - Mapping - Beginning stage-based mapping")
 
             # Jan 26 - New function
-            sites_gdf, huc_library_df = run_sb_mapping(
+            sites_gdf, huc_library_df = run_sb_mapping( # need reg output path?
                 huc,
                 huc_path,
                 sites_gdf,
                 huc_library_df,
                 output_mapping_dir,
                 fim_run_dir,
-                output_temp_dir,
                 huc_segments_df,
             )
 
@@ -153,7 +149,8 @@ def process_mapping(
         )
 
     except Exception as ex:
-        logging.critical(f"{huc} - Mapping - A critical error occurred during mapping post-processing: {ex}")
+        logging.critical(f"{huc} - Mapping - A critical error occurred during mapping post-processing:")
+        logging.critical(f"Exception: {ex}")
         logging.critical(traceback.format_exc())
 
     # -----------------------------
@@ -197,7 +194,6 @@ def run_fb_mapping(
 
     Analogous to run_sb_mapping() for stage-based CatFIM. Different from SB in that
     this function iterates by site/magnitude whereas run_sb_mapping() iterates by site.
-    (TODO: could fix this? not sure if it's worth it)
 
     Arguments
     ---------
@@ -257,8 +253,8 @@ def run_fb_mapping(
         value_name='magnitude_value',
     )
 
-    # Remove rows where magnitude_value is -1.0 # TODO: Update with a variable?
-    huc_thresholds_long_df = huc_thresholds_long_df[huc_thresholds_long_df['magnitude_value'] != -1.0]
+    # Remove rows where magnitude_value is -1.0 (THRESH_NODATA_VALUE) these are where it was NaN in the database
+    huc_thresholds_long_df = huc_thresholds_long_df[huc_thresholds_long_df['magnitude_value'] != csf.THRESH_NODATA_VALUE]
 
     # Loop through AHPS sites
     for ahps_site in ahps_sites_list:
@@ -294,9 +290,9 @@ def run_fb_mapping(
             magnitude_flows_csv_path = os.path.join(output_temp_dir, f"{ahps_site}_{magnitude}_flows.csv")
             magnitude_flows_df_filtered.to_csv(magnitude_flows_csv_path, index=False)
 
-            logging.info(
-                f"{huc} : {ahps_site} : {magnitude} - Saved flows to {magnitude_flows_csv_path}"
-            )  # TODO: Verbose? DEBUG
+            # logging.info(
+            #     f"{huc} : {ahps_site} : {magnitude} - Saved flows to {magnitude_flows_csv_path}"
+            # )  # Verbose - for debugging
 
             # Define output inundation extent tif path
             tif_name = ahps_site + '_' + magnitude + '_extent.tif'
@@ -398,7 +394,7 @@ def run_fb_inundation(  # renamed from run_inundation
             mosaic_output=output_extent_tif,
             mask=os.path.join(fim_run_dir, huc, 'wbd.gpkg'),
             unit_attribute_name='huc8',
-            nodata=-9999,  # TODO: Mapping nodata val
+            nodata=csf.ELEV_NODATA_VALUE,
             workers=1,
             remove_inputs=False,
             subset=None,
@@ -476,7 +472,6 @@ def run_sb_mapping(
     huc_library_df,
     output_mapping_dir,
     fim_run_dir,
-    output_temp_dir,  # TODO: Either use it or remove!
     huc_segments_df,
 ):
     '''
@@ -508,9 +503,7 @@ def run_sb_mapping(
     output_mapping_dir - STR
         Filepath to the HUC-specific mapping folder.
     fim_run_dir - STR
-        Filepath to the HUC-specific mapping folder.
-    output_temp_dir - STR
-        Filepath to the HUC-specific temp folder.
+        Filepath to the HUC-specific FIM run outputs folder.
     huc_segments_df - Pandas DataFrame
         Table of NWM stream segments for the given HUC.
 
@@ -554,8 +547,8 @@ def run_sb_mapping(
         value_name='magnitude_value',
     )
 
-    # Remove rows where magnitude_value is -1.0 # TODO: Update with a variable?
-    huc_thresholds_long_df = huc_thresholds_long_df[huc_thresholds_long_df['magnitude_value'] != -1.0]
+    # Remove rows where magnitude_value is -1.0 - THRESH_NODATA_VALUE, these are where it was NaN in the database
+    huc_thresholds_long_df = huc_thresholds_long_df[huc_thresholds_long_df['magnitude_value'] != csf.THRESH_NODATA_VALUE]    
 
     # Loop through AHPS sites
     for ahps_site in ahps_sites_list:
@@ -640,7 +633,7 @@ def run_sb_mapping(
                 category_key,
             )
 
-            # Update the huc_library_df with the new info from run_sb_inundation (datum_adj_wse, datum_adj_wse_m)
+            # Update the huc_library_df with the new info from run_sb_inundation (datum_adj_wse, datum_adj_wse_m, hand_stage)
             huc_library_df.loc[
                 (huc_library_df['nws_lid'] == ahps_site) & (huc_library_df['magnitude'] == magnitude),
                 'datum_adj_wse_ft',
@@ -650,6 +643,11 @@ def run_sb_mapping(
                 (huc_library_df['nws_lid'] == ahps_site) & (huc_library_df['magnitude'] == magnitude),
                 'datum_adj_wse_m',
             ] = datum_adj_wse_m
+
+            huc_library_df.loc[
+                (huc_library_df['nws_lid'] == ahps_site) & (huc_library_df['magnitude'] == magnitude),
+                'hand_stage',
+            ] = hand_stage
             # We aren't updating sites df with this info because I don't think it is needed? Add here if needed.
 
             # Check if the HAND stage is negative, and if so, log a warning and skip the rest of the magnitudes for this site
@@ -684,8 +682,14 @@ def run_sb_mapping(
         interval_list = []  # might stay empty
         huc_lid_id = f"{huc} : {ahps_site}"
 
-        # TODO: decide if this hard coding is ok... or could add to CatFIM env maybe
-        past_major_interval_cap = 5
+        # Load interval cap val from environment
+        past_major_interval_cap = os.getenv("PAST_MAJOR_INTERVAL_CAP")
+        try:
+            past_major_interval_cap = int(past_major_interval_cap)
+        except ValueError:
+            msg = f"Invalid value for PAST_MAJOR_INTERVAL_CAP: {past_major_interval_cap}"
+            logging.error(msg)
+            raise Exception(msg)
 
         # If non-record magnitudes are available, proceed with inundating intervals
         if len(non_rec_thresholds_df_site) > 0:
@@ -830,7 +834,7 @@ def run_sb_inundation(
     logging.info("hand_stage_m = datum_adj_wse_m - lid_usgs_elev")  # TEMP DEBUG
     logging.info(f"{hand_stage_m} = {datum_adj_wse_m} - {lid_usgs_elev}")  # TEMP DEBUG
 
-    # hand_stage = (
+    # hand_stage = ( # TODO: Clean up
     #     hand_stage_m if str(huc)[:2] == '19' else round(hand_stage_m * 1000)
     # )  # convert to mm to match HAND if it's NOT Alaska (HUC starts with 19)
 
@@ -841,7 +845,7 @@ def run_sb_inundation(
 
     # otherwise convert to mm and round to nearest integer
     else:
-        hand_stage = round(hand_stage * 1000)
+        hand_stage = round(hand_stage_m * 1000)
         hand_stage_units = 'mm'
 
     # Round the datum_adj_wse and datum_adj_wse_m values
@@ -970,7 +974,7 @@ def run_sb_inundation(
 
             inundate_sb(  # Jan 26: was previously called produce_inundated_branch_tif
                 huc,
-                ahps_site,  # called lid inside function # TODO fix?
+                ahps_site,  # called lid inside function
                 category_key,
                 hand_stage,
                 rem_path,
@@ -995,11 +999,16 @@ def run_sb_inundation(
     # Note: Jan 2026 - Moved mosaic code into mosaic_sb_inundation() to match FB processing
     # mosaic_sb_inundation() in SB is analogous to Mosaic_inundation() function in FB
 
-    output_extent_tif = mosaic_sb_inundation(ahps_site, output_mapping_dir, category_key, huc_lid_cat_id)
+    output_extent_tif, mosaic_sb_success = mosaic_sb_inundation(ahps_site, output_mapping_dir, category_key, huc_lid_cat_id)
+
+    # Exit early if the mosaic function returned an error
+    if mosaic_sb_success is False:
+        # Error already was logged in mosaic_sb_inundation, so no need to log it here
+        return hand_stage, datum_adj_wse, datum_adj_wse_m
 
     # Exit early if no output extent tif was created
     if output_extent_tif is None or not os.path.exists(output_extent_tif):
-        logging.error(f"{huc_lid_cat_id} - Failed to create output extent tif, skipping lake masking")
+        logging.error(f"{huc_lid_cat_id} - Branch tifs found but mosaic_sb_inundation failed to create output extent tif. Skipping lake masking")
         return hand_stage, datum_adj_wse, datum_adj_wse_m
 
     else:
@@ -1176,9 +1185,10 @@ def mosaic_sb_inundation(lid, output_mapping_dir, category_key, huc_lid_cat_id):
     -------
     output_extent_tif - str
         Filepath of newly mosaiced and saved output extent tif.
+    is_success - bool
+        Indicator of whether mosaic sb inundation properly finished
 
     '''
-
     # Merge all rasters in output_mapping_dir that have the same magnitude/category.
     path_list = []
 
@@ -1190,14 +1200,15 @@ def mosaic_sb_inundation(lid, output_mapping_dir, category_key, huc_lid_cat_id):
     for f in lid_dir_list:
         path_list.append(os.path.join(output_mapping_dir, f))
 
-    logging.info(f"{huc_lid_cat_id} - Merging {len(lid_dir_list)} branch files")
-
     # Exit function if there aren't any tifs to mosaic
     if len(lid_dir_list) == 0:
-        logging.info(
-            f"{huc_lid_cat_id} - No tifs found for category key {category_key}. Skipping mosaicking and lake masking."
+        logging.error(  # TODO: Should this be an error or warning? Might want to trace further up
+            f"{huc_lid_cat_id} - No branch tifs found for category key {category_key}. Skipping mosaicking and lake masking."
         )
-        return None
+        is_success = False
+        return None, is_success
+
+    logging.info(f"{huc_lid_cat_id} - Merging {len(lid_dir_list)} branch tifs")
 
     # Merging all of the branch tifs into one lid_category tif
     zero_branch_grid = path_list[0]
@@ -1263,7 +1274,9 @@ def mosaic_sb_inundation(lid, output_mapping_dir, category_key, huc_lid_cat_id):
     for tif_file in branch_tifs:
         os.remove(tif_file)
 
-    return output_extent_tif
+    is_success = True
+
+    return output_extent_tif, is_success
 
 
 def post_process_huc_mapping(huc, catfim_type, sites_gdf, huc_library_df, output_mapping_dir):
@@ -1396,6 +1409,10 @@ def post_process_huc_mapping(huc, catfim_type, sites_gdf, huc_library_df, output
 
         if num_intervals == 0:
             logging.info(f"{huc} - Post-Process HUC Mapping - Stage-based - No intervals mapped")
+            # Join the inundated multipolgyon dataframe to the HUC library dataframe (without using interval_stage col)
+            huc_library_df = huc_library_df.merge(
+                reformatted_geom_list_df, on=['nws_lid', 'magnitude', 'is_interval'], how='left'
+            )
 
         elif num_intervals > 0:
             logging.info(
@@ -1428,10 +1445,10 @@ def post_process_huc_mapping(huc, catfim_type, sites_gdf, huc_library_df, output
             huc_library_interval_df = pd.DataFrame(huc_library_interval_data_list)
             huc_library_df = pd.concat([huc_library_df, huc_library_interval_df], ignore_index=True)
 
-        # Join the inundated multipolgyon dataframe to the HUC library dataframe
-        huc_library_df = huc_library_df.merge(
-            reformatted_geom_list_df, on=['nws_lid', 'magnitude', 'interval_stage', 'is_interval'], how='left'
-        )
+            # Join the inundated multipolgyon dataframe to the HUC library dataframe
+            huc_library_df = huc_library_df.merge(
+                reformatted_geom_list_df, on=['nws_lid', 'magnitude', 'interval_stage', 'is_interval'], how='left'
+            )
 
     elif catfim_type == 'fb':
         # Join the inundated multipolgyon dataframe to the HUC library dataframe
@@ -1536,7 +1553,6 @@ def reformat_inundation_maps(huc, nws_lid, magnitude, tif_to_process, interval_s
         extent_poly_diss['magnitude'] = magnitude
         extent_poly_diss['interval_stage'] = interval_stage
         extent_poly_diss['is_interval'] = is_interval
-        # extent_poly_diss['huc'] = huc # TODO: Clean up if I decide it's not needed
 
         # Project to Web Mercator
         extent_poly_diss = extent_poly_diss.to_crs(VIZ_PROJECTION)
@@ -1688,7 +1704,7 @@ def __calc_sb_intervals(non_rec_thresholds_df_site, past_major_interval_cap, huc
         else:
             # If the record IS the last record for the site, calculate the maximum interval
             # value as the minimum interval value + the interval cap (default is 5).
-            max_interval_val = int(min_interval_val) + past_major_interval_cap
+            max_interval_val = int(min_interval_val) + int(past_major_interval_cap)
 
         # Take the minimum and maximum interval values and get a list of the whole nummbers that
         # occur between them (Example: np.arange(1, 5) -> [1, 2, 3, 4]).
@@ -1814,9 +1830,9 @@ def __save_huc_outputs_post_mapping(
     ---------
     huc - str
         Hydrologic Unit Code
-    sites_gdf - Geopandas Geodataframe
+    sites_gdf - Geopandas Geodataframe (or None)
         The sites table (AFTER mapping).
-    huc_library_gdf - Geopandas Geodataframe
+    huc_library_gdf - Geopandas Geodataframe (or None)
         Table of site/magnitude combinations for the given HUC, WITH inundated polygons.
     sites_post_mapping_file_path - str
         Filepath for which to the sites geopackage to after mapping.
@@ -1954,7 +1970,7 @@ def main(huc, output_folder, huc_path):
         logging.info("Mapping command-line wrapper - Starting process_mapping()")
         logging.info("")
 
-        process_mapping(
+        process_mapping( # need reg output dir
             huc,
             huc_path,
             catfim_type,

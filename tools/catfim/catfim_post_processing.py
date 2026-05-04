@@ -63,7 +63,8 @@ def catfim_post_processing(output_folder):
         # ---------------------
         # Load the runtime_args.env, error if it does not exist.
         # See generate_categorical_fim.py -> save_env_args(output_path)
-        catfim_type = __load_runtime_args(output_folder)
+        csf.load_runtime_args(output_folder)
+        catfim_type = os.getenv('CATFIM_TYPE')
 
         catfim_type_name = ""
         if catfim_type == 'sb':
@@ -89,7 +90,7 @@ def catfim_post_processing(output_folder):
         )
 
         if deleted_file_count > 0:
-            logging.info(f"Removed {deleted_file_count} pre-existing output file(s).")
+            logging.info(f"Removed {deleted_file_count} pre-existing output file(s)")
 
         # ---------------------
         # Validate that we have some huc sites / library data
@@ -132,11 +133,11 @@ def catfim_post_processing(output_folder):
                 with open(sites_post_mapping_file_path, 'r'):
                     huc_sites_gdf = gpd.read_file(sites_post_mapping_file_path, engine='fiona')
 
-                # Rename output columns if needed (should already be renamed, but just in case)
-                huc_sites_gdf = csf.rename_output_columns(huc_sites_gdf)
-
-                # Drop unnecessary columns if needed (should already be done, but just in case)
+                # Reformat output columns (should already be done, but just in case)
+                huc_sites_gdf = csf.rename_output_columns(huc_sites_gdf, csf.COLUMN_RENAME_DICT)
                 huc_sites_gdf = csf.drop_output_columns(huc_sites_gdf, catfim_type)
+                huc_sites_gdf = csf.round_output_columns(huc_sites_gdf)
+                huc_sites_gdf = csf.reorder_output_columns(huc_sites_gdf, csf.OUTPUT_COLUMN_ORDER)
 
                 compiled_sites_gdf_list.append(huc_sites_gdf)
 
@@ -148,11 +149,11 @@ def catfim_post_processing(output_folder):
                 with open(library_post_mapping_file_path, 'r'):
                     huc_library_gdf = gpd.read_file(library_post_mapping_file_path, engine='fiona')
 
-                # Rename output columns if needed (should already be renamed, but just in case)
-                huc_library_gdf = csf.rename_output_columns(huc_library_gdf)
-
-                # Drop unnecessary columns if needed (should already be done, but just in case)
+                # Reformat output columns (should already be done, but just in case)
+                huc_library_gdf = csf.rename_output_columns(huc_library_gdf, csf.COLUMN_RENAME_DICT)
                 huc_library_gdf = csf.drop_output_columns(huc_library_gdf, catfim_type)
+                huc_library_gdf = csf.round_output_columns(huc_library_gdf)
+                huc_library_gdf = csf.reorder_output_columns(huc_library_gdf, csf.OUTPUT_COLUMN_ORDER)
 
                 compiled_library_gdf_list.append(huc_library_gdf)
 
@@ -183,7 +184,7 @@ def catfim_post_processing(output_folder):
             )
             logging.warning(hucs_without_library_and_sites)
 
-        # Print HUCs that had library but no sites (unlikely might indicate a bug)
+        # Print HUCs that had library but no sites (unlikely, might indicate a bug)
         hucs_missing_only_sites = list(set(hucs_without_sites).difference(set(hucs_without_library)))
         if len(hucs_missing_only_sites) > 0:
             logging.warning(
@@ -191,7 +192,7 @@ def catfim_post_processing(output_folder):
             )
             logging.warning(hucs_missing_only_sites)
 
-        # Print HUCs that had sites but no library (unlikely, might indicate a bug)
+        # Print HUCs that had sites but no library (just means no sites got mapped)
         hucs_missing_only_library = list(set(hucs_without_library).difference(set(hucs_without_sites)))
         if len(hucs_missing_only_library) > 0:
             logging.warning(
@@ -221,7 +222,7 @@ def catfim_post_processing(output_folder):
             logging.info(f"Saved sites CSV to {sites_csv_path}")
 
         else:
-            logging.info("No sites info to save, not saving sites GPKG or CSV")
+            logging.info("No sites info to save, not creating a final sites GPKG or CSV")
 
         if len(compiled_library_gdf_list) > 0:
 
@@ -237,7 +238,7 @@ def catfim_post_processing(output_folder):
             logging.info(f"Saved library CSV to {library_csv_path}")
 
         else:
-            logging.info("No library info to save, not saving library GPKG or CSV")
+            logging.info("No library info to save, not creating a final library GPKG or CSV")
 
         # ---------------------
         # Completed post-processing
@@ -260,20 +261,6 @@ def catfim_post_processing(output_folder):
 
         # re-raise the exception, mostly for AWS
         raise ex
-
-
-def __load_runtime_args(output_folder):
-    '''
-    Loads the necessary variables from the runtime args file.
-    '''
-
-    args_file_name = "runtime_args.env"
-    args_file = os.path.join(output_folder, args_file_name)
-
-    # Use load_env to just pull outthe variables it needs
-    load_dotenv(args_file)
-
-    return os.getenv('CATFIM_TYPE')
 
 
 def __set_start_files_folders(output_folder, catfim_type_name):

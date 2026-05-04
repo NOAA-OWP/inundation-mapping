@@ -7,6 +7,12 @@ from datetime import date, datetime, timezone
 import pandas as pd
 from dotenv import load_dotenv
 from tools_shared_functions import aggregate_wbd_hucs, get_datum, get_metadata, get_thresholds
+from tools_shared_variables import (
+    ACCEPTED_NAD27_SPELLINGS,
+    ACCEPTED_NAD83_SPELLINGS,
+    ACCEPTED_NAVD88_SPELLINGS,
+    ACCEPTED_NGVD29_SPELLINGS,
+)
 
 
 def label_data_file(label, lst_hucs):
@@ -201,6 +207,7 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict, li
         for lid in lids:
 
             try:
+                status_msg = ''
                 source_crs_availability = lid_source_dict[lid.upper()]
 
                 stages, flows, status = get_thresholds(
@@ -210,26 +217,27 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict, li
                     threshold='all',
                     source_crs_availability=source_crs_availability,
                 )
-
                 # Currently we don't do anything with the 'status' output, just
                 # because I think it would be way too much information in the logs.
                 # However, it could be useful in the future to compile status information
                 # for all sites and save it to a file or something, TBD. - E, 3/20/26
 
+                # Combine and label thresholds
+                thresholds_dict = [
+                    {'threshold_type': 'stages', 'huc': huc, **stages},
+                    {'threshold_type': 'flows', 'huc': huc, **flows},
+                ]
+
+                # Format into a dataframe and add to the df list
+                thresholds_df = pd.DataFrame(thresholds_dict)
+                list_threshold_dfs.append(thresholds_df)
+
             except Exception as e:
-                msg = f"Unable to retrieve thresholds for LID {lid}, exception occurred: {e}"
+                msg = f"Error retrieving thresholds for LID {lid}, exception occurred: {e}"
                 messages.append(msg)
+                if status_msg != '':
+                    messages.append(f"get_thresholds status: {status_msg}")  # For debugging
                 continue
-
-            # Combine and label thresholds
-            thresholds_dict = [
-                {'threshold_type': 'stages', 'huc': huc, **stages},
-                {'threshold_type': 'flows', 'huc': huc, **flows},
-            ]
-
-            # Format into a dataframe and add to the df list
-            thresholds_df = pd.DataFrame(thresholds_dict)
-            list_threshold_dfs.append(thresholds_df)
 
     # Combine all the DataFrames in the list into a single, final DataFrame
     all_thresholds_df = pd.concat(list_threshold_dfs, ignore_index=True)
@@ -243,7 +251,7 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict, li
         messages.append(msg)
 
     except Exception as e:
-        msg = f"Error saving pickle file {thresholds_filepath}: {e}"
+        msg = f"Error saving pickle file {thresholds_filepath}, exception occurred: {e}"
         messages.append(msg)
         raise (e)
 
@@ -251,7 +259,6 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict, li
     thresholds_duration = thresholds_end_time - thresholds_start_time
     messages.append(f"Finished downloading thresholds - Duration: {str(thresholds_duration).split('.')[0]}")
 
-    # TODO: Why not return the dataset as well?
     return messages
 
 
@@ -454,82 +461,29 @@ def check_metadata_CRS_availability(output_meta_list):
 
     '''
 
-    # This list also includes the misspellings that the code knows how to handle # TODO: Add to a shared variables file?
-    correct_spellings = ['NAD27', 'NAD83', 'LMSL']
-    nad27_misspellings = [
-        'NGVD 1929',
-        'NAD 1927',
-        'NAD 1929',
-        'NAD-27',
-        '1929',
-        'NAD1927',
-        'NGVD29',
-        '1927',
-        'NGVD',
-        'NVGD',
-        'NAD 27',
-        'NGDV 1929',
-        'NGVD1929',
-        'NAAD27',
-        'NAD29',
-        '1927 NGVD',
-        '1929',
-        'NVD 1929',
-        'NAD1929',
-        'NGVD1927',
-        '1929 NGV',
-        '1929 NGVD',
-        'NA 1927',
-        'NAVD27',
-    ]
-    nad83_misspellings = [
-        'NAD 1983',
-        'NAVD88',
-        'NAD 83',
-        'NAD1983',
-        'WGS84',
-        'NADA 1983',
-        'NAV83',
-        'NAVD 1988',
-        '1988',
-        'NAD 88',
-        'NAVD 88',
-        'nad83',
-        'NAV-88',
-        'NAVD83',
-        'NGVD1988',
-        'NAD84',
-        'NAD 1988',
-        '1988',
-        'NAV83',
-        'NAVD-88',
-        'NAD88',
-        'NAD87',
-        'NAD893',
-    ]
+    # This list includes the CRS spellings that the code knows how to handle
+    # Currently we are also able to handle if a VCS is provided in place of a
+    # CRS. The code just assumes that the correspoding CRS should be used. 
 
-    acceptable_horizontal_projections = correct_spellings + nad27_misspellings + nad83_misspellings
+    misc_known_crs_list = ['WGS84', 'EPSG:4326', 'LMSL']
+    acceptable_projection_spellings = misc_known_crs_list + ACCEPTED_NAD27_SPELLINGS + ACCEPTED_NAD83_SPELLINGS + ACCEPTED_NAVD88_SPELLINGS + ACCEPTED_NGVD29_SPELLINGS
 
     lid_source_dict = {}
 
     for output_meta_i in output_meta_list:
-
         projections_available_i = []
         nws_lid = output_meta_i['identifiers']['nws_lid']
         nws_datum_info, usgs_datum_info = get_datum(output_meta_i)
 
-        if nws_datum_info['crs'] in acceptable_horizontal_projections:
+        if nws_datum_info['crs'] in acceptable_projection_spellings:
             projections_available_i.append('NRLDB')
-        if usgs_datum_info['crs'] in acceptable_horizontal_projections:
+        if usgs_datum_info['crs'] in acceptable_projection_spellings:
             projections_available_i.append('USGS Rating Depot')
 
         lid_source_dict[nws_lid] = projections_available_i
 
-        # print(f'nws_lid: {nws_lid}')  ## TEMP DEBUG
-        # print(f'nws CRS:           {nws_datum_info["crs"]}')  ## TEMP DEBUG
-        # print(f'usgs CRS:           {usgs_datum_info["crs"]}')  ## TEMP DEBUG
-        # print(f'projections available:            {projections_available_i}')  ## TEMP DEBUG
-        # print()  ## TEMP DEBUG
+        # print(f'nws_lid:{nws_lid}; nws CRS:{nws_datum_info["crs"]};'  ## TEMP DEBUG
+        #       f' usgs CRS:{usgs_datum_info["crs"]}; projections available:{projections_available_i}')  ## TEMP DEBUG
 
     return lid_source_dict
 
@@ -652,7 +606,8 @@ def main(
         output_lid_source_table_filename = 'lid_source_table.csv'
         output_lid_source_table_filepath = os.path.join(output_folder, output_lid_source_table_filename)
 
-        lid_source_df = pd.DataFrame(lid_source_dict)
+        # We just save the table as a resource for later. The get_thresholds function will use the dictionary directly
+        lid_source_df = pd.DataFrame(list(lid_source_dict.items()), columns=['nws_lid', 'crs_avail'])
         lid_source_df.to_csv(output_lid_source_table_filepath, index=False)
 
         print(f'Site source table will be saved to {output_lid_source_table_filepath}')

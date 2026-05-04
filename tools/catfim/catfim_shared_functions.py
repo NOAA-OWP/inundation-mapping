@@ -15,10 +15,51 @@ from dotenv import load_dotenv
 # Global vars, shared by all related py files.
 MAGNITUDES_TYPES = ['action', 'minor', 'moderate', 'major', 'record']
 
-MAX_STAGE_THRESHOLD = 250
+# Max stage value (anything higher is probably WSE and treated as such)
+MAX_STAGE_THRESHOLD = 250  # feet
+
+# Max allowable difference between HAND DEM elevation and APHS site elevation
+MAX_ELEV_DIFFERENCE_THRESHOLD = 10  # meters
 
 # A NoData value for the datum adjustment, used in multiple functions across the codebase
 ELEV_NODATA_VALUE = -9999.0
+
+# A NoData value for the threshold values
+THRESH_NODATA_VALUE = -1
+
+# Order of first columns for the sites and library output files
+OUTPUT_COLUMN_ORDER = ['ahps_lid', 'huc8', 'mapped', 'status', 'wfo', 'rfc', 'state', 'county']
+
+# Dictionary of old name and new names for the sites and library output files (Format: 'old_name': 'new_name')
+COLUMN_RENAME_DICT ={
+    'nws_lid': 'ahps_lid',
+    'huc': 'huc8',
+    'HUC8': 'huc8',
+    's_src':'stage_src',
+    'lid_alt_ft': 'gage_zero_elev_ft',
+    'lid_usgs_elev': 'hand_dem_elev_ft',
+    'nws_data_wfo': 'wfo',
+    'nws_data_rfc': 'rfc',
+    'nws_data_state': 'state',
+    'nws_data_county': 'county',
+    'wrds_timestamp': 'wrds_time',
+    'nrldb_timestamp': 'nrldb_time',
+    'nwis_timestamp': 'nwis_time',
+    'identifiers_nwm_feature_id': 'nwm_seg',
+    'identifiers_usgs_site_code': 'usgs_gage',
+    'crosswalk_datasets_location_nwm_crosswalk_dataset_location_nwm_crosswalk_dataset_id':'location_nwm_crosswalk_dataset_id',
+    'crosswalk_datasets_location_nwm_crosswalk_dataset_name':'location_nwm_crosswalk_dataset_name',
+    'crosswalk_datasets_location_nwm_crosswalk_dataset_description':'location_nwm_crosswalk_dataset_description',
+    'crosswalk_datasets_nws_usgs_crosswalk_dataset_nws_usgs_crosswalk_dataset_id':'nws_usgs_crosswalk_dataset_id',
+    'crosswalk_datasets_nws_usgs_crosswalk_dataset_name':'nws_usgs_crosswalk_dataset_name',
+    'crosswalk_datasets_nws_usgs_crosswalk_dataset_description':'nws_usgs_crosswalk_dataset_description',
+    # 'rfc_stage': '',
+    # 'datum_adj_ft': 'dtm_adj_ft',
+    # 'dadj_w_ft': 'datum_adj_wse_ft',
+    # 'dadj_w_m': 'dadj_w_m',
+    # TODO: Decide. Removed the SB column name change for now because they're out of date and less clear than the current output names
+    # These will be the col names if we don't make this change: datum_adj_ft, datum_adj_wse_ft, datum_adj_wse_m
+}
 
 
 def load_fim_global_env_values(env_file):
@@ -196,11 +237,6 @@ def check_for_restricted_sites(sites_gdf, catfim_type):
         is_restrict_lid = df_restricted_sites.loc[df_restricted_sites['nws_lid'] == lid.upper()]
 
         if len(is_restrict_lid) > 0:
-            # what if it comes back with more than one? if so.. it is a bug in the list
-
-            # sites_gdf.at[index, "status"] = restricted_reason # TODO: clean up after testing
-            # sites_gdf.at[index, "mapped"] = "no"
-
             restricted_reason = is_restrict_lid.iloc[0]['restricted_reason']
             sites_gdf = update_line_status_or_warning(
                 lid, sites_gdf, restricted_reason, set_mapped_to_no=True
@@ -396,11 +432,6 @@ def finalize_sites_mapping_status(
     Used in both stage- and flow-based CatFIM.
     Updates the mapping status and status messages for CatFIM sites based on the presence of valid inundation GeoPackage files.
 
-    Function assumes that we should have only two values for mapped, either no, or "not set."
-
-    If we have a value in the warning column and the mapped is 'not set', then copy messages to status, then mapped becomes 'Good'.
-    If no value in warning, and mapped is 'not set', then status becomes 'Good'. # TODO: Confirm logic
-
     Arguments
     ---------
     huc - ST
@@ -438,43 +469,6 @@ def finalize_sites_mapping_status(
             library_post_mapping_file_path,
         )
 
-    CatFIM Reorg Jan 2026: TODO: Clean up
-
-    This needs to be rethought.
-
-      - Any time we deliminate all needs to make it to mapping, update the sites file.
-      - What do we want to do if we have a catestrophic fail? do we rename the {huc}_sites.gpkg so
-        it is not included in the final catfim post processing?
-      - When we start mapping, a copy of the sites file will be made calling it someting like
-        sites_pre_mapping.gpkg. While mapping is processing, it will never update the
-        sites_pre_mapping so the mapping code can be run multiple time. However, when mapping
-        is done, it will finish with a sites_post_mapping. It will contain any updated statuses.
-      - When we come back from mapping, we check to see if the sites_post_mapping.gkpg and load it in
-        which becomes our new final {huc}_sites.gpkg
-      - Regardless when we hit __updated_sites.. (or a similar) function, we need to update that
-        file only once for column renamed, status updates, etc.
-      - But.. how do we handle it while go through all processing?  Do we have a different WIP
-        sites file that we keep building on as the master?  Then when we get here we look figure
-        out if we aborted / stopped prior to mapping, then use the most recent temp sites.gpkg
-        as a starting point for the final?  Do we look for the post procesing version of it?
-      - Do we try to do that all in this function? or do we break it up for something like a function
-        called __sites_finalization?
-      - Do we make sure mapping updates the sites_post_processing to update the "mapped" = yes
-        and status = good?  Do we let it update the status column from the warnings column?
-        Come to think of it.. that might be good. That way, in theory if we get here and we find
-        some that are "not set", that might indicate a code fail.. .humm.... moo-ha-ha (lol)
-        That is probably better than looking for the existiance of a library file.
-
-    At a min... we need to plug in the mapping code to make it's own sites_post_mapping so this
-    function can decide what to do with it.
-
-    Note: We do have some last minute library finalization we will need. Humm... how does that
-    work if we re-run mapping.  What about the last minute case change for the nws_lid column and
-    rerun of mapping? hummm.
-
-    Note: the nws_lid column will never get renamed here. Let catfim_post_processing rename
-      those columns to ahps_lid when it gets there.
-
     '''
 
     logging.info(f"{huc} - Begin updating sites mapping status")
@@ -485,16 +479,20 @@ def finalize_sites_mapping_status(
     # Validate site_inputs (can be a filepath or a GDF)
 
     if isinstance(sites_input, str):
+        try:
+            # Read in sites_input as a gdf
+            with open(sites_input, "r"):
+                sites_gdf = gpd.read_file(sites_input, engine='fiona')
+            logging.info(f"{huc_function_tag} Finalizing sites_input from path {sites_input}")
 
-        if not os.path.exists(sites_input):
-            msg = (
-                f'{huc_function_tag} Unable to finalize HUC, no file exists at sites filepath: {sites_input}'
-            )
-            logging.error(msg)
+        except FileNotFoundError as e:
+            logging.error(f"{huc_function_tag} Unable to finalize HUC, sites GDF file does not exist at {sites_input}")
+            raise Exception(e)
 
-        # Read in sites_input as a gdf
-        logging.info(f"{huc_function_tag} Finalizing sites_input from path {sites_input}")
-        sites_gdf = gpd.read_file(sites_input, engine='fiona')
+        except Exception as e:
+            # Fallback for any other unexpected errors
+            logging.error(f"{huc_function_tag} Unable to finalize HUC, an unexpected error occurred: {e}")
+            raise Exception(e)
 
     elif isinstance(sites_input, gpd.GeoDataFrame):
         logging.info(f"{huc_function_tag} sites_input is a GeoDataFrame")
@@ -679,8 +677,10 @@ def finalize_sites_mapping_status(
     sites_gdf = sites_gdf.set_geometry(geom.name)
 
     # Rename columns in the sites GDF, then drop any unnecessary or confusing columns
-    sites_gdf = rename_output_columns(sites_gdf)
+    sites_gdf = rename_output_columns(sites_gdf, COLUMN_RENAME_DICT)  # nws_lid is now ahps_lid
     sites_gdf = drop_output_columns(sites_gdf, catfim_type)
+    sites_gdf = round_output_columns(sites_gdf)
+    sites_gdf = reorder_output_columns(sites_gdf, OUTPUT_COLUMN_ORDER)
 
     # Save updated sites GDF
     logging.info(f"{huc_function_tag} Saving updated HUC sites GDF to {sites_post_mapping_file_path}")
@@ -696,23 +696,14 @@ def finalize_sites_mapping_status(
         )
         return
 
-    # if library_input == None: # TODO: Clean up
-    # if len(huc_library_gdf) == 0:
-    #     msg = f"{huc_function_tag} Unable to finalize HUC library, library table is empty at {library_input}"
-    #     logging.error(msg)
-    #     return
-
-    # if not os.path.exists(library_input):
-    #     msg = f"{huc_function_tag} Unable to finalize HUC library, no file exists at: {library_input}"
-    #     logging.error(msg)
-    #     return
-
     # Otherwise, HUC library should already be read in as huc_library_gdf
     logging.info(f"{huc_function_tag} Processing library path {library_input}")
 
     # Rename columns in the library GDF, then drop any unnecessary or confusing columns
-    huc_library_gdf = rename_output_columns(huc_library_gdf)  # nws_lid is now ahps_lid
+    huc_library_gdf = rename_output_columns(huc_library_gdf, COLUMN_RENAME_DICT)  # nws_lid is now ahps_lid
     huc_library_gdf = drop_output_columns(huc_library_gdf, catfim_type)
+    huc_library_gdf = round_output_columns(huc_library_gdf)
+    huc_library_gdf = reorder_output_columns(huc_library_gdf, OUTPUT_COLUMN_ORDER)
 
     # Library needs the following metadata from the sites GDF: wfo, rfc, state, county, and status
     # Note: We are merging using the newly renamed columns!!!
@@ -722,9 +713,6 @@ def finalize_sites_mapping_status(
         on='ahps_lid',
         how='left',
     )
-
-    # TODO: For stage-based, do we want to specify what the elevation source was?
-    # -> that exists already, it's s_src (can rename if needed)
 
     # Re-insert the geometry column at the end
     geom = huc_library_gdf.pop(huc_library_gdf.geometry.name)
@@ -826,11 +814,27 @@ def drop_output_columns(df, catfim_type):
         Dataframe or geodataframe with removed columns.
 
     '''
+    # Check that the col rename has occurred
+    if 'ahps_lid' not in df.columns:
+        msg = "Expected column 'ahps_lid' not found in dataframe columns." \
+        "This likely means that the rename_output_columns function has not been applied yet." \
+        "Additional column formatting should not be applied before the column renaming."
+        logging.error(msg)
+        raise Exception(msg)
+
     df_new = df.copy()
 
     # List of columns to remove for both stage-based AND flow-based CatFIM
-    cols_to_remove = [  # TODO: Decide what columns should be removed
+    cols_to_remove = [
         'warnings',
+        'level_0',
+        'lid_alt_m',
+        'datum_adj_wse_m',
+        'nws_data_geo_rfc',
+        'nws_data_huc',
+        'usgs_data_huc',
+        'usgs_data_state',
+        'identifiers_env_can_gage_id',
         'env_can_gage_data_name',
         'env_can_gage_data_latitude',
         'env_can_gage_data_longitude',
@@ -838,12 +842,13 @@ def drop_output_columns(df, catfim_type):
         'env_can_gage_data_drainage_area',
         'env_can_gage_data_contrib_drainage_area',
         'env_can_gage_data_water_course',
-        'level_0',
     ]
 
     # List of columns to only remove for fb or sb CatFIM
-    fb_specific_cols_to_remove = ['interval_stage', 'is_interval']
-    sb_specific_cols_to_remove = []
+    fb_specific_cols_to_remove = ['interval_stage', 'is_interval', 'stage', 'stage_uni', 'stage_src']
+    sb_specific_cols_to_remove = ['q', 'q_src', 'q_uni', 'stage']
+    # TODO: Eventually can remove the stage intermediate vals, but keeping for now
+    # bcs it’s useful for debugging at the moment (datum_adj_ft, datum_adj_wse_ft, lid_alt_ft, hand_stage)
 
     # Assemble column list
     if catfim_type == 'fb':
@@ -863,7 +868,7 @@ def drop_output_columns(df, catfim_type):
     return df_new
 
 
-def rename_output_columns(df):
+def rename_output_columns(df, column_rename_dict):
     '''
     Rename the CatFIM output column names.
 
@@ -871,6 +876,8 @@ def rename_output_columns(df):
     ---------
     df - Pandas Dataframe or Geopandas GeoDataFrame
         Dataframe or geodataframe that potentially needs column renaming.
+    column_rename_dict - Dictionary
+        A dictionary mapping old column names to new column names.
 
     Returns
     -------
@@ -881,47 +888,98 @@ def rename_output_columns(df):
 
     df_new = df.copy()
 
-    # TODO: Decide if we want to have uniform column names between sites and library
-    # or if we want to keep with previous patterns of having different colnames
-
-    # Dictionary of old name and new names for the final outputs
-    column_rename_dictionary = {
-        # 'old_name': 'new_name',
-        # 'identifiers_nwm_feature_id': 'nwm_seg', # TODO: Decide if we want these renamed?
-        # 'identifiers_usgs_site_code': 'usgs_gage',
-        'nws_lid': 'ahps_lid',
-        'huc': 'huc8',
-        'HUC8': 'huc8',
-        'nws_data_wfo': 'wfo',
-        'nws_data_rfc': 'rfc',
-        'nws_data_state': 'state',
-        'nws_data_county': 'county',
-        'wrds_timestamp': 'wrds_time',
-        'nrldb_timestamp': 'nrldb_time',
-        'nwis_timestamp': 'nwis_time',
-        # 'rfc_stage': '', # TODO: Decide which of these SB library columns I want to rename
-        # 'datum_adj_ft': '',
-        # 'datum_adj_wse_ft':'',
-        # 'datum_adj_wse_m': '',
-        # 'lid_alt_ft': '',
-        # 'lid_alt_m': '',
-        # 'is_interval': '',
-        # 'interval_stage': '',
-        # 'lid_usgs_elev': '',
-        # 'datum_adj_ft': 'dtm_adj_ft',
-        # 'dadj_w_ft': 'datum_adj_wse_ft',
-        # 'dadj_w_m': 'dadj_w_m',
-        # TODO: Decide. Removed the SB column name change for now because they're out of date and less clear than the current output names
-        # These will be the col names if we don't make this change: datum_adj_ft, datum_adj_wse_ft, datum_adj_wse_m
-        # TODO: Fill in the new column names after they've been decided on
-    }
+    # Previous versions of CatFIM had different column names for the sites and library outputs,
+    # but we are moving towards having more uniform column names between the two outputs.
 
     # Iterate down the colname dictionary and rename whichever ones are there
-    for old_name, new_name in column_rename_dictionary.items():
+    for old_name, new_name in column_rename_dict.items():
         if old_name in df_new.columns:
             df_new.rename(columns={old_name: new_name}, inplace=True)
+            # logging.info(f"Renamed column '{old_name}' to '{new_name}' in the output dataframe.")  # Verbose
 
-            # logging.info(f"Renamed column '{old_name}' to '{new_name}' in the output dataframe.")  # TEMP DEBUG
+    return df_new
+
+
+def reorder_output_columns(df, column_order_list):
+    '''
+    Reorders the output columns based on an input list.
+    Uses renamed column names, must be used after rename_output_columns.
+
+    Arguments
+    ---------
+    df - Pandas Dataframe or Geopandas GeoDataFrame
+        Dataframe or geodataframe that potentially needs column rounding.
+    column_order_list - List of STR
+
+
+    Returns
+    -------
+    df_new - Pandas DataFrame or GeoDataFrame
+        Dataframe or geodataframe with rounded columns.
+
+    '''
+    # Check that the col rename has occurred
+    if 'ahps_lid' not in df.columns:
+        msg = "Expected column 'ahps_lid' not found in dataframe columns." \
+        "This likely means that the rename_output_columns function has not been applied yet." \
+        "Additional column formatting should not be applied before the column renaming."
+        logging.error(msg)
+        raise Exception(msg)
+
+    df_new = df.copy()
+
+    # Identify which of the target colnames are actually in the df
+    cols_to_move = [c for c in column_order_list if c in df_new.columns]
+
+    # Get all other columns that are not in our column order list list
+    remaining_cols = [c for c in df_new.columns if c not in cols_to_move]
+
+    # Reorder the columns
+    df_new = df_new[cols_to_move + remaining_cols]
+
+    return df_new
+
+
+def round_output_columns(df):
+    '''
+    Round the values in the specified columns of the input DataFrame.
+    Uses renamed column names, must be used after rename_output_columns.
+
+    Arguments
+    ---------
+    df - Pandas Dataframe or Geopandas GeoDataFrame
+        Dataframe or geodataframe that potentially needs column rounding.
+
+    Returns
+    -------
+    df_new - Pandas DataFrame or GeoDataFrame
+        Dataframe or geodataframe with rounded columns.
+
+    '''
+    # Check that the col rename has occurred
+    if 'ahps_lid' not in df.columns:
+        msg = "Expected column 'ahps_lid' not found in dataframe columns." \
+        "This likely means that the rename_output_columns function has not been applied yet." \
+        "Additional column formatting should not be applied before the column renaming."
+        logging.error(msg)
+        raise Exception(msg)
+
+    df_new = df.copy()
+
+    # Dictionary of old name and new names for the final outputs (Format: 'new_name': number of decimal places to round to)
+    column_round_dictionary = {
+        'datum_adj_ft': 2,
+        'datum_adj_wse_ft': 2,
+        'datum_adj_wse_m': 2,
+        'lid_alt_ft': 2,
+        'lid_alt_m': 2,
+        'lid_usgs_elev': 2
+    }
+
+    # Iterate down the colname dictionary and round whichever ones are there
+    for new_name, round_val in column_round_dictionary.items():
+        if new_name in df_new.columns: 
+            df_new[new_name] = df_new[new_name].round(round_val)
 
     return df_new
 
@@ -955,8 +1013,6 @@ def update_line_status_or_warning(site, sites_gdf, message, set_mapped_to_no):
 
     all_huc_sites = sites_gdf["nws_lid"].tolist()
 
-    logging.info(f"Updating site(s): {site} with message: {message}")  # TEMP DEBUG? Verbose
-
     if site == "all":
         site_list = all_huc_sites
     else:
@@ -964,12 +1020,11 @@ def update_line_status_or_warning(site, sites_gdf, message, set_mapped_to_no):
 
     # Iterate sites and update the columns as needed
     for site_i in site_list:
-
         site_i = site_i.upper()  # Before post-processing, sites are uppercase
 
         if site_i not in all_huc_sites:
             logging.error(
-                f"{site} -  - Updating sites table, site not in sites_gdf... unable to update table"
+                f"{site} - Updating sites table - Site not in sites_gdf... unable to update table"
             )
             return sites_gdf
 
@@ -979,20 +1034,24 @@ def update_line_status_or_warning(site, sites_gdf, message, set_mapped_to_no):
         warnings_i = sites_gdf.loc[sites_gdf["nws_lid"] == site_i, "warnings"].iloc[0]
 
         # Give a warning if mapped is already 'no', because that could indicate an error
-        # Because we don't keep processing sites after mapped is 'no'
+        # because we don't keep processing sites after mapped is 'no'. 
+        # We also will not update any of the columns because we don't want to overwrite the actual reason
+        # a site became unmapped.
         if mapped_i == "no":
-            logging.warning(f"{site} - Updating sites table, 'mapped' value is already 'no' for this site")
+            logging.warning(f"{site} - Updating sites table - 'Mapped' value is already 'no', will not be updating sites table with new message: '{message}'")
+            logging.warning(f"{site} - Updating sites table - Current status: '{status_i}', Current warnings: '{warnings_i}'")
+            continue
 
         if set_mapped_to_no is True:
             # We are unmapping the site, so the message gets put in the "status" column
             sites_gdf.loc[sites_gdf["nws_lid"] == site_i, ['mapped', 'status']] = ['no', message]
 
             logging.info(
-                f"{site} - Updating sites table, changed mapped from '{mapped_i}' to 'no'"
-            )  # TODO: These are verbose, maybe change to debug?
+                f"{site} - Updating sites table - Changed 'Mapped' from '{mapped_i}' to 'no'"
+            )  # Verbose
             logging.info(
-                f"{site} - Updating sites table, changed status from '{status_i}' to '{message}'"
-            )  # TODO: These are verbose, maybe change to debug?
+                f"{site} - Updating sites table - Changed status from '{status_i}' to '{message}'"
+            )  # Verbose
 
         elif set_mapped_to_no is False:
             # We are NOT yet unmapping the site, so the messages gets put in the "warnings" column
@@ -1013,12 +1072,12 @@ def update_line_status_or_warning(site, sites_gdf, message, set_mapped_to_no):
             sites_gdf.loc[sites_gdf["nws_lid"] == site_i, 'warnings'] = warning_message
 
             logging.info(
-                f"{site} - Updating sites table, changed status from '{warnings_i}' to '{warning_message}'"
-            )  # TODO: These are verbose, maybe change to debug?
+                f"{site} - Updating sites table - Changed warnings from '{warnings_i}' to '{warning_message}'"
+            )  # Verbose
 
         else:
             logging.error(
-                f"Updating sites table, error updating line status/warnings. Invalid value for set_mapped_to_no: {set_mapped_to_no}"
+                f"Updating sites table - Error updating line status/warnings. Invalid value for set_mapped_to_no: {set_mapped_to_no}"
             )
 
     return sites_gdf

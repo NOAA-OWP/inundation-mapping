@@ -30,22 +30,23 @@ from rasterio.warp import Resampling, calculate_default_transform, reproject
 from requests.adapters import HTTPAdapter
 from shapely.geometry import MultiPolygon, Polygon, shape
 from tools_shared_variables import (
+    ACCEPTED_NAD27_SPELLINGS,
+    ACCEPTED_NAD83_SPELLINGS,
+    ACCEPTED_NAVD88_SPELLINGS,
+    ACCEPTED_NGVD29_SPELLINGS,
+    UNKNOWN_DATUM_SPELLINGS,
     acceptable_alt_acc_thresh,
     acceptable_alt_meth_code_list,
     acceptable_coord_acc_code_list,
     acceptable_coord_method_code_list,
     acceptable_site_type_list,
-    UNKNOWN_DATUM_SPELLINGS, 
-    ACCEPTED_NAD27_SPELLINGS, 
-    ACCEPTED_NGVD29_SPELLINGS, 
-    ACCEPTED_NAD83_SPELLINGS,
-    ACCEPTED_NAVD88_SPELLINGS,
 )
 from urllib3.exceptions import InsecureRequestWarning
 from urllib3.util.retry import Retry
 
 
 gpd.options.io_engine = "pyogrio"
+
 
 def correct_datum_typos(crs, vcs):
     """
@@ -84,8 +85,6 @@ def correct_datum_typos(crs, vcs):
 
     crs_corrected, vcs_corrected, uncorrected_crs_error, uncorrected_vcs_error, msgs = correct_datum_typos(crs, vcs)
 
-
-
     """
 
     # Preferred CRS or VCS values
@@ -101,7 +100,6 @@ def correct_datum_typos(crs, vcs):
     uncorrected_crs_error = False
     uncorrected_vcs_error = False
     msgs = []
-
 
     known_crs_list = [crs_nad27, crs_nad83, 'WGS84', 'EPSG:4326']
     known_vcs_list = [vcs_ngvd29, vcs_navd88, 'LMSL']
@@ -119,7 +117,7 @@ def correct_datum_typos(crs, vcs):
         # Fix misspelled CRSs that are actually NAD27
         if crs.upper() in ACCEPTED_NAD27_SPELLINGS:
             crs_corrected = crs_nad27
-            msg = f"Typo found in horizontal CRS, changing {crs} to {crs_corrected}"
+            msg = f"Changing CRS from {crs} to {crs_corrected}"
             msgs.append(msg)
         elif crs.upper() in ACCEPTED_NGVD29_SPELLINGS:
             crs_corrected = crs_nad27
@@ -129,7 +127,7 @@ def correct_datum_typos(crs, vcs):
         # Fix misspelled CRSs that are actually NAD83
         elif crs.upper() in ACCEPTED_NAD83_SPELLINGS:
             crs_corrected = crs_nad83
-            msg = f"Typo found in horizontal CRS, changing {crs} to {crs_corrected}"
+            msg = f"Changing CRS from {crs} to {crs_corrected}"
             msgs.append(msg)
         elif crs.upper() in ACCEPTED_NAVD88_SPELLINGS:
             crs_corrected = crs_nad83
@@ -138,7 +136,9 @@ def correct_datum_typos(crs, vcs):
 
         # Check if the CRS is a number
         elif numeric == True:
-            msg = f"Unable to correct CRS, CRS is a number ({crs}) and not an acceptable CRS name (i.e. NAD83)"
+            msg = (
+                f"Unable to correct CRS, CRS is a number ({crs}) and not an acceptable CRS name (i.e. NAD83)"
+            )
             msgs.append(msg)
             uncorrected_crs_error = True
 
@@ -167,7 +167,7 @@ def correct_datum_typos(crs, vcs):
         # Fix misspelled vertical datums that are actually NGVD29
         if vcs.upper() in ACCEPTED_NGVD29_SPELLINGS:
             vcs_corrected = vcs_ngvd29
-            msg = f"Typo found in vertical datum, changing {vcs} to {vcs_corrected}"
+            msg = f"Changing vertical datum from {vcs} to {vcs_corrected}"
             msgs.append(msg)
         elif vcs.upper() in ACCEPTED_NAD27_SPELLINGS:
             vcs_corrected = vcs_ngvd29
@@ -177,14 +177,14 @@ def correct_datum_typos(crs, vcs):
         # Fix misspelled CRSs that are actually NAVD88
         elif vcs.upper() in ACCEPTED_NAVD88_SPELLINGS:
             vcs_corrected = vcs_navd88
-            msg = f"Typo found in vertical datum, changing {vcs} to {vcs_corrected}"
+            msg = f"Changing vertical datum from {vcs} to {vcs_corrected}"
             msgs.append(msg)
         elif vcs.upper() in ACCEPTED_NAD83_SPELLINGS:
             vcs_corrected = vcs_navd88
             msg = f"Horizontal CRS supplied in lieu of vertical datum, changing {vcs} to {vcs_corrected}"
             msgs.append(msg)
 
-        # Check if the VCS is a number 
+        # Check if the VCS is a number
         elif numeric == True:
             msg = f"Typo found in vertical datum, vcs is a number ({vcs}) and not an acceptable VCS name (i.e. NGVD29)"
             msgs.append(msg)
@@ -242,16 +242,16 @@ def filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order, nwm_
     filtered_segments = []
 
     for feature_id in unfiltered_segments:
-
         try:
             stream_order = nwm_flows_df.loc[nwm_flows_df['ID'] == int(feature_id), 'order_'].values[0]
-        except Exception as e:
-            print(f'WARNING: Exception occurred during filter_nwm_segments_by_stream_order():{e}')
 
-        if stream_order == desired_order:
-            filtered_segments.append(feature_id)
-        # else:
-        #     print(f'Stream order for {feature_id} did not match desired stream order...')
+            if stream_order == desired_order:
+                filtered_segments.append(feature_id)
+
+        except Exception as e:
+            # This isn't actually a big deal, it just means that the given feature ID does not
+            # match any of the segments provided.
+            print(f'WARNING: Exception occurred during filter_nwm_segments_by_stream_order():{e}')
 
     return filtered_segments
 

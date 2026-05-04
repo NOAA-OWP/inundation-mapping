@@ -22,34 +22,6 @@ gpd.options.io_engine = "pyogrio"
 
 
 """
-TODO: Clean up once no longer needed
-
-Oct/Nov/Dec 2025: Notes for MP and splitting logic layer reorg. ie) pre procesing, process hucs, post processing
-
-Tenative notes:
-    - Some of the functions in here may move or be split to smaller functions.
-
-    - This can be use by any other file when applicable, but anything needed by catfim_post_processing.py
-      should be moved into that file.
-
-    - Many or all of the functions in here, may move into catfim_process_huc.py potentially. Possible
-      some may move into generate_categorical_fim.py, but more likely some of it's logic relating to flows,
-      meta and thresholds wil move here.
-
-    - This can be responsible for getting meta data, threashold and flow data for both FB and SB
-
-    - For now, some data may come from
-      WRDS, but will save pickle / parquet files when applicable for all HUCs to use for it's processing.
-      Later, the process of getting data from WRDS will be split to an independant tools in our code "data"
-      folders. When that happens, this may no longer be needed here, other than flow data? or making version
-      copied of the WRDS files?
-
-    - Meta and threshold data loaded here, are applicable to all HUCs and sites and will not be filtered in any
-      way. It will still, of course, continue to honor WRDS filters that apply to non CONUS sites/HUCs.
-
-"""
-
-"""
 Sites_gdf:
     As with all catfim files, after the initial sites_gdf is created with geometry, each file
     and function, will update it as it moves along. There are a wide number of reasons that a
@@ -61,7 +33,7 @@ Sites_gdf:
     into the final status column, same as before
 """
 
-# TODO: This file should be renamed to something like generate_categorical_fim_thresholds
+# TODO: This file could be renamed to something like generate_categorical_fim_thresholds
 # as "flows" is not descriptive enough. Note: Renaming it will maintian its history.
 
 
@@ -122,13 +94,12 @@ def get_threshold_data(huc, huc_path, valid_nwm_lids):
         # Handle any messages returned from threshold download (return_msgs is a list, might have warnings/errors)
         if len(return_msgs) > 0:
 
-            # TODO: This seems a bit bumpy but good enough for now. No idea on a better answer short of
-            # custom exceptions.
-
+            # Parses return messages to log them appropriately
             for msg in return_msgs:
                 if "warning" in msg.lower():
                     logging.warning(msg)
                 elif "error" in msg.lower():
+                    logging.error(msg)
                     raise Exception(msg)
                 else:
                     logging.info(msg)
@@ -166,9 +137,6 @@ def get_threshold_data(huc, huc_path, valid_nwm_lids):
     # TODO: is this additional filtering step needed? it might be redundant? (might just need to reset index)
     threshold_huc_df = threshold_all_sites_df[threshold_all_sites_df['nws_lid'].isin(valid_nwm_lids)].copy()
 
-    # TODO: do we need to reset index? or does copy() above do that for us?
-    # threshold_huc_df.reset_index(drop=True, inplace=True)
-
     # TODO: upper case or lower case always? (see other notes around the code about lower or upper)
     # I think it is possible to not have threshold data for all of this huc's list.
     # change all nws_lid values to lower
@@ -181,9 +149,9 @@ def get_threshold_data(huc, huc_path, valid_nwm_lids):
         )
         return []
 
-    # Ensure the mag type columns are floats and rounded to 2 decimals # TODO: Make the threshold NA val (-1) into a variable?
+    # Ensure the mag type columns are floats and rounded to 2 decimals
     stage_types = ['action', 'minor', 'moderate', 'major', 'record']
-    threshold_huc_df[stage_types] = threshold_huc_df[stage_types].fillna(value=-1).astype(float).round(2)
+    threshold_huc_df[stage_types] = threshold_huc_df[stage_types].fillna(value=csf.THRESH_NODATA_VALUE).astype(float).round(2)
 
     # Ensure the units and source columns are strings and not empty
     str_columns = ['units', 'source']
@@ -477,7 +445,7 @@ def __create_sb_huc_library_data(
             huc_segments_df = pd.concat([huc_segments_df, lid_seg_df], ignore_index=True)
 
         # Create a library of all available threshold data for each site/magnitude combination for this LID
-        # At this point, the lid, interval, and elevation data is all nodata values (-9999.0)
+        # At this point, the lid, interval, and elevation data is all nodata values (csf.ELEV_NODATA_VALUE)
         sites_gdf, lid_library_df = __get_sb_library_data_per_lid(huc, lid, sites_gdf, lid_threshold_data)
 
         # Add LID library data to the output huc_libary_df
@@ -546,7 +514,8 @@ def __get_sb_library_data_per_lid(huc, lid, sites_gdf, lid_threshold_data):
 
     # procesing each magnitude in here, now that the tests that are not mag specific are done
     # It will append data to the library csv as it goes along.
-    # This will auto have filtered out some stages based on various conditions such as -1, 0 or null
+    # This will auto have filtered out some stages based on various conditions
+    # such as -1 (csf.THRESH_NODATA_VALUE), 0 or null.
 
     '''
     logging.info(f"{huc} : {lid} - Building the initial library df of all applicable magnitudes...")
@@ -583,10 +552,16 @@ def __get_sb_library_data_per_lid(huc, lid, sites_gdf, lid_threshold_data):
             # Get stage value (will be float type, rounded to 2 decimal points)
             stage_value = stages[magnitude_type]
 
-            # Exit if stage value is invalid (Value of -1 or nodata)
-            if stage_value == -1 or stage_value == 0:
-                logging.warning(
-                    f"{huc} : {lid} : {magnitude_type} - has an invalid or n/a stage value of {stage_value}"
+            # Exit if stage value is invalid (Value of 0 or NaN, indicated by THRESH_NODATA_VALUE)
+            if stage_value == 0:
+                logging.info(
+                    f"{huc} : {lid} : {magnitude_type} - Stage value is 0"
+                )
+                invalid_stages.append(magnitude_type)
+                continue
+            if stage_value == csf.THRESH_NODATA_VALUE:
+                logging.info(
+                    f"{huc} : {lid} : {magnitude_type} - Stage value is NaN"
                 )
                 invalid_stages.append(magnitude_type)
                 continue
@@ -906,10 +881,16 @@ def __get_fb_discharge_and_library_data_per_lid(huc, lid, sites_gdf, lid_thresho
             # Get flow value (will be float type, rounded to 2 decimal points)
             flow_value = flows[magnitude_type]
 
-            # Exit if stage value is invalid (Value of -1 or nodata)
-            if flow_value == -1 or flow_value == 0:
-                logging.warning(
-                    f"{huc} : {lid} : {magnitude_type} - Invalid or N/A flow value found: {flow_value}"
+            # Exit if flow value is invalid (Value of 0 or NaN, indicated by THRESH_NODATA_VALUE)
+            if flow_value == 0:
+                logging.info(
+                    f"{huc} : {lid} : {magnitude_type} - Flow value is 0"
+                )
+                invalid_flows.append(magnitude_type)
+                continue
+            if flow_value == csf.THRESH_NODATA_VALUE:
+                logging.info(
+                    f"{huc} : {lid} : {magnitude_type} - Flow value is NaN"
                 )
                 invalid_flows.append(magnitude_type)
                 continue
@@ -934,7 +915,7 @@ def __get_fb_discharge_and_library_data_per_lid(huc, lid, sites_gdf, lid_thresho
             # While FB does not use logic against the stage columns, earlier versions
             # output files never had this as a blank value, so test for it
             stage_value = stages[magnitude_type]
-            if stage_value == -1 or stage_value == 0:
+            if stage_value == csf.THRESH_NODATA_VALUE or stage_value == 0:
                 logging.warning(
                     f"{huc} : {lid} : {magnitude_type} - Invalid or N/A stage value found: {stage_value}"
                 )
@@ -1084,15 +1065,16 @@ def __create_lid_mag_library_rec(catfim_type, lid, lid_sites_gdf, magnitude_type
         # column could change based on calcs.
         line_df["rfc_stage"] = float(stage_value)
 
-        line_df["datum_adj_ft"] = -9999.0
-        line_df["datum_adj_wse_ft"] = -9999.0
-        line_df["datum_adj_wse_m"] = -9999.0
-        line_df["lid_alt_ft"] = -9999.0
-        line_df["lid_alt_m"] = -9999.0
+        line_df["datum_adj_ft"] = csf.ELEV_NODATA_VALUE
+        line_df["datum_adj_wse_ft"] = csf.ELEV_NODATA_VALUE
+        line_df["datum_adj_wse_m"] = csf.ELEV_NODATA_VALUE
+        line_df["lid_alt_ft"] = csf.ELEV_NODATA_VALUE
+        line_df["lid_alt_m"] = csf.ELEV_NODATA_VALUE
 
         line_df["is_interval"] = False
         line_df["interval_stage"] = None
-        line_df["lid_usgs_elev"] = -9999.0  # This is a temp processing column
+        line_df["lid_usgs_elev"] = csf.ELEV_NODATA_VALUE  # This is a temp processing column
+        line_df["hand_stage"] = csf.ELEV_NODATA_VALUE
 
     return line_df
 
