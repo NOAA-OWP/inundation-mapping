@@ -83,11 +83,37 @@ def download_all_metadata(metadata_filepath, metadata_url, search):
     However, we can still filter the thresholds later using the HUC list if it is provided.
 
     '''
+    Download all metadata from the WRDS API and save it as a pickle file.
+
+    Parameters
+    ----------
+    metadata_filepath : str
+        Path to the output pickle file for the metadata.
+    metadata_url : str
+        URL for the WRDS metadata API.
+    search : int
+        Search distance for upstream and downstream tracing (default is 5).
+
+    Returns
+    -------
+    list
+        List of messages indicating the progress and results of the download.
+
+    Notes
+    -----
+    This function currently does not use the HUC list functionality because the get_metadata function
+    does not get all of the forecast points when using HUCs. When we use nws_lid = all, we get 4810 forecast points,
+    whereas when we use huc = all, we only get 3686 forecast points.
+    So for now, we are just going to get all forecast points using nws_lid = all, and then filter them later if needed.
+    However, we can still filter the thresholds later using the HUC list if it is provided.
+
+    '''
 
     nwm_us_search, nwm_ds_search = search, search
     output_meta_list = []
     messages = []
 
+    messages.append('Starting metadata download from WRDS...')
     messages.append('Starting metadata download from WRDS...')
 
     # Get all forecast points
@@ -143,9 +169,11 @@ def download_all_metadata(metadata_filepath, metadata_url, search):
             pickle.dump(output_meta_list, p_handle, protocol=pickle.HIGHEST_PROTOCOL)
 
         msg = f"New metadata file saved at {metadata_filepath}"
+        msg = f"New metadata file saved at {metadata_filepath}"
         messages.append(msg)
 
     except Exception as e:
+        msg = f"Error saving meta data pickle file {metadata_filepath}: {e}"
         msg = f"Error saving meta data pickle file {metadata_filepath}: {e}"
         messages.append(msg)
         raise (e)
@@ -153,6 +181,7 @@ def download_all_metadata(metadata_filepath, metadata_url, search):
     return messages
 
 
+def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict, lid_source_dict):
 def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict, lid_source_dict):
     '''
     Download all thresholds from the WRDS API for a list of LIDs and save them as CSV files.
@@ -182,7 +211,31 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict, li
     Outputs
     -------
     Saves a combined pickle file 'all_thresholds.pkl' containing all thresholds.
+    Parameters
+    ----------
+    thresholds_filepath - STR
+        filepath where output files will be saved
+    threshold_url - STR
+        URL of the WRDS API endpoint for thresholds
+    huc_lid_dict - DICT
+        dictionary mapping LIDs to HUCs
+    lid_source_dict - DICT
+        dictionary with NWS LID as key and list of available data sources (NRLDB, USGS Rating Depot)
+        as value. This is used to create a source preference list for the get_thresholds function.
+        If there is no projection available for either source, the value will be an empty list.
 
+    Returns
+    -------
+    messages - LIST OF STRING
+        List of messages indicating the progress and results of the download
+
+    Outputs
+    -------
+    Saves a combined pickle file 'all_thresholds.pkl' containing all thresholds.
+
+    Notes
+    -----
+    The output is saved as a pickle file instead of CSV becuase that is the file type we
     Notes
     -----
     The output is saved as a pickle file instead of CSV becuase that is the file type we
@@ -193,11 +246,15 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict, li
     Example
     -------
     messages = download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict)
+    Example
+    -------
+    messages = download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict)
 
     '''
     messages = []
     thresholds_start_time = datetime.now(timezone.utc)
 
+    messages.append('Starting threshold download from WRDS...')
     messages.append('Starting threshold download from WRDS...')
 
     # Iterate through LIDs in huc_lid_dict and get thresholds from the WRDS API
@@ -248,9 +305,11 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict, li
             pickle.dump(all_thresholds_df, f)
 
         msg = f"Thresholds file saved at {thresholds_filepath}"
+        msg = f"Thresholds file saved at {thresholds_filepath}"
         messages.append(msg)
 
     except Exception as e:
+        msg = f"Error saving pickle file {thresholds_filepath}, exception occurred: {e}"
         msg = f"Error saving pickle file {thresholds_filepath}, exception occurred: {e}"
         messages.append(msg)
         raise (e)
@@ -258,10 +317,12 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict, li
     thresholds_end_time = datetime.now(timezone.utc)
     thresholds_duration = thresholds_end_time - thresholds_start_time
     messages.append(f"Finished downloading thresholds - Duration: {str(thresholds_duration).split('.')[0]}")
+    messages.append(f"Finished downloading thresholds - Duration: {str(thresholds_duration).split('.')[0]}")
 
     return messages
 
 
+def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download):
 def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download):
     '''
     Downloads or reads in the NWM metadata and then returns the data as a list and a HUC dictionary.
@@ -287,7 +348,32 @@ def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download
         Distance for upstream and downstream metadata search.
     metadata_download - BOOL
         Whether metadata should be downloaded (True) or not (False)
+    Parameters
+    -----------
+    metadata_filepath - STR
+        Filepath where the metadata pickle is or will be stored. If it does not exist,
+        it will be created. If it does exist and metadata_download is True, it will be overwritten.
+    API_BASE_URL - STR
+        WRDS API URL for retrieving NWM metadata.
+    search - INT
+        Distance for upstream and downstream metadata search.
+    metadata_download - BOOL
+        Whether metadata should be downloaded (True) or not (False)
 
+    Returns
+    --------
+    output_meta_list - LIST of DICT
+        Filtered list of metadata dictionaries, each representing a unique NWS LID site.
+    huc_lid_dict - DICT
+        dictionary mapping LIDs to HUCs.
+            ie) a dictionary [('00BRD', '18060005'), ('AANG1', '03130001'), ...]
+                - Sorted by upper case site ids.
+                - May contain test or invalid sites at this point. Calling code can sort that out.
+    messages - LIST of STRING
+         List of messages indicating the progress and results of the metadata loading process.
+
+    Example
+    --------
     Returns
     --------
     output_meta_list - LIST of DICT
@@ -321,6 +407,24 @@ def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download
         that do not have the HUC information in the metadata but are still in the WBD polygons for the HUCs
         we want to process.
 
+        metadata_filepath, API_BASE_URL, search, metadata_download
+    )
+
+    NOTES
+    ------
+    - If this function finds warning data, it will include the phrase (case-senstive) "WARNING"
+        and same is true for "ERROR". Error means that the calling script can decide if it wants to shut down
+        log it, continue, etc.
+        It is also possible that you might get multiple messages returned in the "messages" list and some
+        may be warnings, others just messages. Could be a mix and match returned.
+        If something catestrophic happens, this function will thrown an exception.
+
+    - This function does not filter by HUC list because the HUC information in the metadata is not
+        complete and we get more sites by pulling all metadata and then filtering by lat/long intersection
+        with the WBD later (aggregate_wbd_hucs). If we filter by HUC list here, we will miss a lot of sites
+        that do not have the HUC information in the metadata but are still in the WBD polygons for the HUCs
+        we want to process.
+
     '''
     output_meta_list = []
     messages = []
@@ -330,6 +434,7 @@ def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download
 
         # Give a warning if the file will be overwritten
         if os.path.isfile(metadata_filepath):
+            msg = f"WARNING: File already exists at {metadata_filepath} & metadata_download is set to True. File will be overwritten."
             msg = f"WARNING: File already exists at {metadata_filepath} & metadata_download is set to True. File will be overwritten."
             messages.append(msg)
         else:
@@ -347,7 +452,11 @@ def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download
         msg = f"Finished downloading metadata - Duration: {str(metadata_duration).split('.')[0]}"
         messages.append(msg)
 
+        msg = f"Finished downloading metadata - Duration: {str(metadata_duration).split('.')[0]}"
+        messages.append(msg)
+
     else:
+        msg = f"Loading NWM metadata from {metadata_filepath}."
         msg = f"Loading NWM metadata from {metadata_filepath}."
         messages.append(msg)
 
@@ -357,8 +466,10 @@ def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download
         messages.append(msg)
 
         msg = "ERROR: Cannot proceed without NWM metadata. Set metadata_download to True or provide a valid metadata_filepath."
+        msg = "ERROR: Cannot proceed without NWM metadata. Set metadata_download to True or provide a valid metadata_filepath."
         messages.append(msg)
 
+        return (output_meta_list, messages)
         return (output_meta_list, messages)
 
     # Open metadata file (either the one we just downloaded or pre-existing)
@@ -366,11 +477,16 @@ def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download
         output_meta_list = pickle.load(p_handle)
 
         msg = f"NWM metadata file loaded from {metadata_filepath}."
+
+        msg = f"NWM metadata file loaded from {metadata_filepath}."
         messages.append(msg)
 
     return output_meta_list, messages
+    return output_meta_list, messages
 
 
+# TODO: Move to CatFIM shared functions?
+# Rob: maybe not.. TBD...
 # TODO: Move to CatFIM shared functions?
 # Rob: maybe not.. TBD...
 def load_site_thresholds(threshold_file, lid):
@@ -378,14 +494,26 @@ def load_site_thresholds(threshold_file, lid):
     Loads threshold stage and flow data for a given site (LID) from a local pickle file.
 
     Parameters
+    Parameters
     ----------
+    threshold_file -  STR
+        Path to the local pickle file containing threshold data.
+    lid -  STR
+        NWS site ID (LID) for which to load thresholds.
     threshold_file -  STR
         Path to the local pickle file containing threshold data.
     lid -  STR
         NWS site ID (LID) for which to load thresholds.
 
     Returns
+    Returns
     --------
+    stages -  DICT or None
+        Dictionary of stage thresholds for the site, or None if not found.
+    flows -  DICT or None
+        Dictionary of flow thresholds for the site, or None if not found.
+    messages -  LIST of STRING
+        Status print messages.
     stages -  DICT or None
         Dictionary of stage thresholds for the site, or None if not found.
     flows -  DICT or None
@@ -395,7 +523,10 @@ def load_site_thresholds(threshold_file, lid):
 
     Example
     -------
+    Example
+    -------
     stages, flows, messages = load_site_thresholds('path/to/thresholds.pkl', 'FLOX1')
+
 
     '''
     stages, flows = {}, {}
@@ -427,6 +558,7 @@ def load_site_thresholds(threshold_file, lid):
         # msg = f"Stages for LID {lid}: {stages}; Flows for LID {lid}: {flows}"  # DEBUG
         # messages.append(msg)  # DEBUG
         # print(msg)  # DEBUG
+        # print('Thresholds loaded from .pkl file.')  # TODO: maybe print the number of thresholds avail?
         # print('Thresholds loaded from .pkl file.')  # TODO: maybe print the number of thresholds avail?
 
     else:

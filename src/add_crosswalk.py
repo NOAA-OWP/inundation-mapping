@@ -138,18 +138,15 @@ def add_crosswalk(
 
     # Adjust short model reach rating curves
     print('Adjusting model reach rating curves')
-    sml_segs = pd.DataFrame()
+    sml_segs_rows = []
 
     # replace small segment geometry with neighboring stream
     for stream_index in output_flows.index:
-        if (
-            output_flows["areasqkm"][stream_index] < min_catchment_area
-            and output_flows["LengthKm"][stream_index] < min_stream_length
-            and output_flows["LakeID"][stream_index] < 0
-        ):
-            short_id = output_flows['HydroID'][stream_index]
-            to_node = output_flows['To_Node'][stream_index]
-            from_node = output_flows['From_Node'][stream_index]
+        row = output_flows.loc[stream_index]
+        if row["areasqkm"] < min_catchment_area and row["LengthKm"] < min_stream_length and row["LakeID"] < 0:
+            short_id = row['HydroID']
+            to_node = row['To_Node']
+            from_node = row['From_Node']
 
             # multiple upstream segments
             if len(output_flows.loc[output_flows['NextDownID'] == short_id]['HydroID']) > 1:
@@ -249,15 +246,9 @@ def add_crosswalk(
                 str_order = output_order.item()
             else:
                 str_order = output_order.max()
-            sml_segs = pd.concat(
-                [
-                    sml_segs,
-                    pd.DataFrame(
-                        {'short_id': [short_id], 'update_id': [update_id], 'str_order': [str_order]}
-                    ),
-                ],
-                ignore_index=True,
-            )
+            sml_segs_rows.append({'short_id': short_id, 'update_id': update_id, 'str_order': str_order})
+
+    sml_segs = pd.DataFrame(sml_segs_rows, columns=['short_id', 'update_id', 'str_order'])
 
     print(
         f"Number of short reaches [areasqkm < {min_catchment_area} and LengthKm < {min_stream_length}] = "
@@ -285,11 +276,11 @@ def add_crosswalk(
     # hfab_mask = (input_src_base['SLOPE_HFAB'] >= SLOPE_MIN) & (input_src_base['SLOPE_HFAB'] <= SLOPE_MAX)
 
     # Apply masks to filter out invalid slope values
-    sword_slope = input_src_base['SLOPE_IRIS_SWORD'].where(sword_mask).astype(float)
-    # hfab_slope = input_src_base['SLOPE_HFAB'].where(hfab_mask)
+    # Initialize SLOPE with RISE_RUN values
+    input_src_base['SLOPE'] = input_src_base['SLOPE_RISE_RUN'].astype(float)
 
-    # Assign SLOPE values with priority: IRIS_SWORD then RISE_RUN
-    input_src_base['SLOPE'] = sword_slope.combine_first(input_src_base['SLOPE_RISE_RUN']).astype(float)
+    # Override with IRIS_SWORD slope where mask is valid
+    input_src_base.loc[sword_mask, 'SLOPE'] = input_src_base.loc[sword_mask, 'SLOPE_IRIS_SWORD'].astype(float)
 
     # --- Normalize and stabilize precision of extremely small slopes ---
     #   1. Rounded to 3 digits in scientific notation
@@ -305,7 +296,7 @@ def add_crosswalk(
     input_src_base['HydraulicRadius (m)'] = (
         input_src_base['WetArea (m2)'] / input_src_base['WettedPerimeter (m)']
     )
-    input_src_base['HydraulicRadius (m)'].fillna(0, inplace=True)
+    input_src_base['HydraulicRadius (m)'] = input_src_base['HydraulicRadius (m)'].fillna(0)
     input_src_base['Discharge (m3s-1)'] = (
         input_src_base['WetArea (m2)']
         * pow(input_src_base['HydraulicRadius (m)'], 2.0 / 3)
@@ -358,17 +349,17 @@ def add_crosswalk(
             output_src = output_src.drop(columns=['Discharge (m3s-1)_df2'])
         else:
             for index, segment in sml_segs.iterrows():
-                short_id = segment[0]
-                update_id = segment[1]
+                short_id = segment['short_id']
+                update_id = segment['update_id']
                 new_values = output_src.loc[output_src['HydroID'] == update_id][
                     ['Stage', 'Discharge (m3s-1)']
                 ]
 
                 for src_index, src_stage in new_values.iterrows():
                     output_src.loc[
-                        (output_src['HydroID'] == short_id) & (output_src['Stage'] == src_stage[0]),
+                        (output_src['HydroID'] == short_id) & (output_src['Stage'] == src_stage['Stage']),
                         ['Discharge (m3s-1)'],
-                    ] = src_stage[1]
+                    ] = src_stage['Discharge (m3s-1)']
 
     del sml_segs
 

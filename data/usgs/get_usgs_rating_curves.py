@@ -82,7 +82,11 @@ def __mp_get_flows_for_site(
 
         # Get the stages and flows
         ___, flows, ___ = tsf.get_thresholds(
-            threshold_url, select_by='nws_lid', selector=nws_lid, threshold='all'
+            threshold_url,
+            select_by='nws_lid',
+            selector=nws_lid,
+            threshold='all',
+            source_crs_availability=None,
         )
 
         site_flows_df = pd.DataFrame()
