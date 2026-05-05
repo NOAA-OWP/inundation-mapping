@@ -83,31 +83,6 @@ def download_all_metadata(metadata_filepath, metadata_url, search):
     However, we can still filter the thresholds later using the HUC list if it is provided.
 
     '''
-    Download all metadata from the WRDS API and save it as a pickle file.
-
-    Parameters
-    ----------
-    metadata_filepath : str
-        Path to the output pickle file for the metadata.
-    metadata_url : str
-        URL for the WRDS metadata API.
-    search : int
-        Search distance for upstream and downstream tracing (default is 5).
-
-    Returns
-    -------
-    list
-        List of messages indicating the progress and results of the download.
-
-    Notes
-    -----
-    This function currently does not use the HUC list functionality because the get_metadata function
-    does not get all of the forecast points when using HUCs. When we use nws_lid = all, we get 4810 forecast points,
-    whereas when we use huc = all, we only get 3686 forecast points.
-    So for now, we are just going to get all forecast points using nws_lid = all, and then filter them later if needed.
-    However, we can still filter the thresholds later using the HUC list if it is provided.
-
-    '''
 
     nwm_us_search, nwm_ds_search = search, search
     output_meta_list = []
@@ -181,7 +156,6 @@ def download_all_metadata(metadata_filepath, metadata_url, search):
     return messages
 
 
-def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict, lid_source_dict):
 def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict, lid_source_dict):
     '''
     Download all thresholds from the WRDS API for a list of LIDs and save them as CSV files.
@@ -317,12 +291,10 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict, li
     thresholds_end_time = datetime.now(timezone.utc)
     thresholds_duration = thresholds_end_time - thresholds_start_time
     messages.append(f"Finished downloading thresholds - Duration: {str(thresholds_duration).split('.')[0]}")
-    messages.append(f"Finished downloading thresholds - Duration: {str(thresholds_duration).split('.')[0]}")
 
     return messages
 
 
-def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download):
 def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download):
     '''
     Downloads or reads in the NWM metadata and then returns the data as a list and a HUC dictionary.

@@ -538,7 +538,9 @@ def run_sb_mapping(
     )
 
     # Remove rows where magnitude_value is -1.0 - THRESH_NODATA_VALUE, these are where it was NaN in the database
-    huc_thresholds_long_df = huc_thresholds_long_df[huc_thresholds_long_df['magnitude_value'] != csf.THRESH_NODATA_VALUE]    
+    huc_thresholds_long_df = huc_thresholds_long_df[
+        huc_thresholds_long_df['magnitude_value'] != csf.THRESH_NODATA_VALUE
+    ]    
 
     # Loop through AHPS sites
     for ahps_site in ahps_sites_list:

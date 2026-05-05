@@ -510,7 +510,7 @@ def process_generate_categorical_fim(
             logging.warning(
                 f"{len(unfinished_huc_list)}/{len(valid_fim_hucs)} HUC(s) did not complete processing, possibly due to multiproc collision"
             )
-            logging.info(f"Re-running CatFIM HUC processing for the following unfinished HUC(s):")
+            logging.info("Re-running CatFIM HUC processing for the following unfinished HUC(s):")
             logging.info(*unfinished_huc_list, sep=", ")
 
             # Remove all finished (failed or sucessful) HUCs from the task arg list
@@ -546,10 +546,10 @@ def process_generate_categorical_fim(
             else:
                 logging.info(
                     f"{len(second_finished_huc_list)}/{len(unfinished_huc_list)} HUCs finished running in the second ProcessPoolExecutor run"
-                )   
+                )
                 logging.info(
                     f"Of the HUC(s) that finished, {len(second_sucessful_HUCs_list)} succeeded and {len(second_failed_HUCs_list)} finished but failed"
-                )   
+                )
 
         # End muliproc rerun
 
