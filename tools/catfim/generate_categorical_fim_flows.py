@@ -151,7 +151,9 @@ def get_threshold_data(huc, huc_path, valid_nwm_lids):
 
     # Ensure the mag type columns are floats and rounded to 2 decimals
     stage_types = ['action', 'minor', 'moderate', 'major', 'record']
-    threshold_huc_df[stage_types] = threshold_huc_df[stage_types].fillna(value=csf.THRESH_NODATA_VALUE).astype(float).round(2)
+    threshold_huc_df[stage_types] = (
+        threshold_huc_df[stage_types].fillna(value=csf.THRESH_NODATA_VALUE).astype(float).round(2)
+    )
 
     # Ensure the units and source columns are strings and not empty
     str_columns = ['units', 'source']
@@ -554,15 +556,11 @@ def __get_sb_library_data_per_lid(huc, lid, sites_gdf, lid_threshold_data):
 
             # Exit if stage value is invalid (Value of 0 or NaN, indicated by THRESH_NODATA_VALUE)
             if stage_value == 0:
-                logging.info(
-                    f"{huc} : {lid} : {magnitude_type} - Stage value is 0"
-                )
+                logging.info(f"{huc} : {lid} : {magnitude_type} - Stage value is 0")
                 invalid_stages.append(magnitude_type)
                 continue
             if stage_value == csf.THRESH_NODATA_VALUE:
-                logging.info(
-                    f"{huc} : {lid} : {magnitude_type} - Stage value is NaN"
-                )
+                logging.info(f"{huc} : {lid} : {magnitude_type} - Stage value is NaN")
                 invalid_stages.append(magnitude_type)
                 continue
 
@@ -883,15 +881,11 @@ def __get_fb_discharge_and_library_data_per_lid(huc, lid, sites_gdf, lid_thresho
 
             # Exit if flow value is invalid (Value of 0 or NaN, indicated by THRESH_NODATA_VALUE)
             if flow_value == 0:
-                logging.info(
-                    f"{huc} : {lid} : {magnitude_type} - Flow value is 0"
-                )
+                logging.info(f"{huc} : {lid} : {magnitude_type} - Flow value is 0")
                 invalid_flows.append(magnitude_type)
                 continue
             if flow_value == csf.THRESH_NODATA_VALUE:
-                logging.info(
-                    f"{huc} : {lid} : {magnitude_type} - Flow value is NaN"
-                )
+                logging.info(f"{huc} : {lid} : {magnitude_type} - Flow value is NaN")
                 invalid_flows.append(magnitude_type)
                 continue
 

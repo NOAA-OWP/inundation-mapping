@@ -31,11 +31,11 @@ THRESH_NODATA_VALUE = -1
 OUTPUT_COLUMN_ORDER = ['ahps_lid', 'huc8', 'mapped', 'status', 'wfo', 'rfc', 'state', 'county']
 
 # Dictionary of old name and new names for the sites and library output files (Format: 'old_name': 'new_name')
-COLUMN_RENAME_DICT ={
+COLUMN_RENAME_DICT = {
     'nws_lid': 'ahps_lid',
     'huc': 'huc8',
     'HUC8': 'huc8',
-    's_src':'stage_src',
+    's_src': 'stage_src',
     'lid_alt_ft': 'gage_zero_elev_ft',
     'lid_usgs_elev': 'hand_dem_elev_ft',
     'nws_data_wfo': 'wfo',
@@ -47,12 +47,12 @@ COLUMN_RENAME_DICT ={
     'nwis_timestamp': 'nwis_time',
     'identifiers_nwm_feature_id': 'nwm_seg',
     'identifiers_usgs_site_code': 'usgs_gage',
-    'crosswalk_datasets_location_nwm_crosswalk_dataset_location_nwm_crosswalk_dataset_id':'location_nwm_crosswalk_dataset_id',
-    'crosswalk_datasets_location_nwm_crosswalk_dataset_name':'location_nwm_crosswalk_dataset_name',
-    'crosswalk_datasets_location_nwm_crosswalk_dataset_description':'location_nwm_crosswalk_dataset_description',
-    'crosswalk_datasets_nws_usgs_crosswalk_dataset_nws_usgs_crosswalk_dataset_id':'nws_usgs_crosswalk_dataset_id',
-    'crosswalk_datasets_nws_usgs_crosswalk_dataset_name':'nws_usgs_crosswalk_dataset_name',
-    'crosswalk_datasets_nws_usgs_crosswalk_dataset_description':'nws_usgs_crosswalk_dataset_description',
+    'crosswalk_datasets_location_nwm_crosswalk_dataset_location_nwm_crosswalk_dataset_id': 'location_nwm_crosswalk_dataset_id',
+    'crosswalk_datasets_location_nwm_crosswalk_dataset_name': 'location_nwm_crosswalk_dataset_name',
+    'crosswalk_datasets_location_nwm_crosswalk_dataset_description': 'location_nwm_crosswalk_dataset_description',
+    'crosswalk_datasets_nws_usgs_crosswalk_dataset_nws_usgs_crosswalk_dataset_id': 'nws_usgs_crosswalk_dataset_id',
+    'crosswalk_datasets_nws_usgs_crosswalk_dataset_name': 'nws_usgs_crosswalk_dataset_name',
+    'crosswalk_datasets_nws_usgs_crosswalk_dataset_description': 'nws_usgs_crosswalk_dataset_description',
     # 'rfc_stage': '',
     # 'datum_adj_ft': 'dtm_adj_ft',
     # 'dadj_w_ft': 'datum_adj_wse_ft',
@@ -486,7 +486,9 @@ def finalize_sites_mapping_status(
             logging.info(f"{huc_function_tag} Finalizing sites_input from path {sites_input}")
 
         except FileNotFoundError as e:
-            logging.error(f"{huc_function_tag} Unable to finalize HUC, sites GDF file does not exist at {sites_input}")
+            logging.error(
+                f"{huc_function_tag} Unable to finalize HUC, sites GDF file does not exist at {sites_input}"
+            )
             raise Exception(e)
 
         except Exception as e:
@@ -816,9 +818,11 @@ def drop_output_columns(df, catfim_type):
     '''
     # Check that the col rename has occurred
     if 'ahps_lid' not in df.columns:
-        msg = "Expected column 'ahps_lid' not found in dataframe columns." \
-        "This likely means that the rename_output_columns function has not been applied yet." \
-        "Additional column formatting should not be applied before the column renaming."
+        msg = (
+            "Expected column 'ahps_lid' not found in dataframe columns."
+            "This likely means that the rename_output_columns function has not been applied yet."
+            "Additional column formatting should not be applied before the column renaming."
+        )
         logging.error(msg)
         raise Exception(msg)
 
@@ -920,9 +924,11 @@ def reorder_output_columns(df, column_order_list):
     '''
     # Check that the col rename has occurred
     if 'ahps_lid' not in df.columns:
-        msg = "Expected column 'ahps_lid' not found in dataframe columns." \
-        "This likely means that the rename_output_columns function has not been applied yet." \
-        "Additional column formatting should not be applied before the column renaming."
+        msg = (
+            "Expected column 'ahps_lid' not found in dataframe columns."
+            "This likely means that the rename_output_columns function has not been applied yet."
+            "Additional column formatting should not be applied before the column renaming."
+        )
         logging.error(msg)
         raise Exception(msg)
 
@@ -958,9 +964,11 @@ def round_output_columns(df):
     '''
     # Check that the col rename has occurred
     if 'ahps_lid' not in df.columns:
-        msg = "Expected column 'ahps_lid' not found in dataframe columns." \
-        "This likely means that the rename_output_columns function has not been applied yet." \
-        "Additional column formatting should not be applied before the column renaming."
+        msg = (
+            "Expected column 'ahps_lid' not found in dataframe columns."
+            "This likely means that the rename_output_columns function has not been applied yet."
+            "Additional column formatting should not be applied before the column renaming."
+        )
         logging.error(msg)
         raise Exception(msg)
 
@@ -973,12 +981,12 @@ def round_output_columns(df):
         'datum_adj_wse_m': 2,
         'lid_alt_ft': 2,
         'lid_alt_m': 2,
-        'lid_usgs_elev': 2
+        'lid_usgs_elev': 2,
     }
 
     # Iterate down the colname dictionary and round whichever ones are there
     for new_name, round_val in column_round_dictionary.items():
-        if new_name in df_new.columns: 
+        if new_name in df_new.columns:
             df_new[new_name] = df_new[new_name].round(round_val)
 
     return df_new
@@ -1023,9 +1031,7 @@ def update_line_status_or_warning(site, sites_gdf, message, set_mapped_to_no):
         site_i = site_i.upper()  # Before post-processing, sites are uppercase
 
         if site_i not in all_huc_sites:
-            logging.error(
-                f"{site} - Updating sites table - Site not in sites_gdf... unable to update table"
-            )
+            logging.error(f"{site} - Updating sites table - Site not in sites_gdf... unable to update table")
             return sites_gdf
 
         # Get initial values and print value changes
@@ -1034,12 +1040,16 @@ def update_line_status_or_warning(site, sites_gdf, message, set_mapped_to_no):
         warnings_i = sites_gdf.loc[sites_gdf["nws_lid"] == site_i, "warnings"].iloc[0]
 
         # Give a warning if mapped is already 'no', because that could indicate an error
-        # because we don't keep processing sites after mapped is 'no'. 
+        # because we don't keep processing sites after mapped is 'no'.
         # We also will not update any of the columns because we don't want to overwrite the actual reason
         # a site became unmapped.
         if mapped_i == "no":
-            logging.warning(f"{site} - Updating sites table - 'Mapped' value is already 'no', will not be updating sites table with new message: '{message}'")
-            logging.warning(f"{site} - Updating sites table - Current status: '{status_i}', Current warnings: '{warnings_i}'")
+            logging.warning(
+                f"{site} - Updating sites table - 'Mapped' value is already 'no', will not be updating sites table with new message: '{message}'"
+            )
+            logging.warning(
+                f"{site} - Updating sites table - Current status: '{status_i}', Current warnings: '{warnings_i}'"
+            )
             continue
 
         if set_mapped_to_no is True:

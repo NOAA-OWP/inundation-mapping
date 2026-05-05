@@ -39,7 +39,7 @@ gpd.options.io_engine = "pyogrio"
 
 
 # Main function for CatFIM mapping processing for a HUC
-def process_mapping( # need reg output dir
+def process_mapping(
     huc,
     huc_path,
     catfim_type,
@@ -112,14 +112,8 @@ def process_mapping( # need reg output dir
             logging.info(f"{huc} - Mapping - Beginning stage-based mapping")
 
             # Jan 26 - New function
-            sites_gdf, huc_library_df = run_sb_mapping( # need reg output path?
-                huc,
-                huc_path,
-                sites_gdf,
-                huc_library_df,
-                output_mapping_dir,
-                fim_run_dir,
-                huc_segments_df,
+            sites_gdf, huc_library_df = run_sb_mapping(  # need reg output path?
+                huc, huc_path, sites_gdf, huc_library_df, output_mapping_dir, fim_run_dir, huc_segments_df
             )
 
         elif catfim_type == "fb":
@@ -254,7 +248,9 @@ def run_fb_mapping(
     )
 
     # Remove rows where magnitude_value is -1.0 (THRESH_NODATA_VALUE) these are where it was NaN in the database
-    huc_thresholds_long_df = huc_thresholds_long_df[huc_thresholds_long_df['magnitude_value'] != csf.THRESH_NODATA_VALUE]
+    huc_thresholds_long_df = huc_thresholds_long_df[
+        huc_thresholds_long_df['magnitude_value'] != csf.THRESH_NODATA_VALUE
+    ]
 
     # Loop through AHPS sites
     for ahps_site in ahps_sites_list:
@@ -466,13 +462,7 @@ def run_fb_inundation(  # renamed from run_inundation
 
 
 def run_sb_mapping(
-    huc,
-    huc_path,
-    sites_gdf,
-    huc_library_df,
-    output_mapping_dir,
-    fim_run_dir,
-    huc_segments_df,
+    huc, huc_path, sites_gdf, huc_library_df, output_mapping_dir, fim_run_dir, huc_segments_df
 ):
     '''
 
@@ -999,7 +989,9 @@ def run_sb_inundation(
     # Note: Jan 2026 - Moved mosaic code into mosaic_sb_inundation() to match FB processing
     # mosaic_sb_inundation() in SB is analogous to Mosaic_inundation() function in FB
 
-    output_extent_tif, mosaic_sb_success = mosaic_sb_inundation(ahps_site, output_mapping_dir, category_key, huc_lid_cat_id)
+    output_extent_tif, mosaic_sb_success = mosaic_sb_inundation(
+        ahps_site, output_mapping_dir, category_key, huc_lid_cat_id
+    )
 
     # Exit early if the mosaic function returned an error
     if mosaic_sb_success is False:
@@ -1008,7 +1000,9 @@ def run_sb_inundation(
 
     # Exit early if no output extent tif was created
     if output_extent_tif is None or not os.path.exists(output_extent_tif):
-        logging.error(f"{huc_lid_cat_id} - Branch tifs found but mosaic_sb_inundation failed to create output extent tif. Skipping lake masking")
+        logging.error(
+            f"{huc_lid_cat_id} - Branch tifs found but mosaic_sb_inundation failed to create output extent tif. Skipping lake masking"
+        )
         return hand_stage, datum_adj_wse, datum_adj_wse_m
 
     else:
@@ -1447,7 +1441,9 @@ def post_process_huc_mapping(huc, catfim_type, sites_gdf, huc_library_df, output
 
             # Join the inundated multipolgyon dataframe to the HUC library dataframe
             huc_library_df = huc_library_df.merge(
-                reformatted_geom_list_df, on=['nws_lid', 'magnitude', 'interval_stage', 'is_interval'], how='left'
+                reformatted_geom_list_df,
+                on=['nws_lid', 'magnitude', 'interval_stage', 'is_interval'],
+                how='left',
             )
 
     elif catfim_type == 'fb':
@@ -1970,7 +1966,7 @@ def main(huc, output_folder, huc_path):
         logging.info("Mapping command-line wrapper - Starting process_mapping()")
         logging.info("")
 
-        process_mapping( # need reg output dir
+        process_mapping(
             huc,
             huc_path,
             catfim_type,

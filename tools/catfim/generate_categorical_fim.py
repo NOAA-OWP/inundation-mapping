@@ -383,7 +383,6 @@ def process_generate_categorical_fim(
             logging.info(f"Completed downloading thresholds - Duration: {str(time_duration).split('.')[0]}")
             print("")
 
-
         # ================================
         # Clean old files if overwrite is True, check for leftover files if overwrite is False
 
@@ -447,7 +446,6 @@ def process_generate_categorical_fim(
                     logging.critical(err_msg)
                     raise Exception(err_msg)
 
-
         # End of pre-processing
 
         # ================================
@@ -509,7 +507,9 @@ def process_generate_categorical_fim(
 
         if len(unfinished_huc_list) > 0:
 
-            logging.warning(f"{len(unfinished_huc_list)}/{len(valid_fim_hucs)} HUC(s) did not complete processing, possibly due to multiproc collision")
+            logging.warning(
+                f"{len(unfinished_huc_list)}/{len(valid_fim_hucs)} HUC(s) did not complete processing, possibly due to multiproc collision"
+            )
             logging.info(f"Re-running CatFIM HUC processing for the following unfinished HUC(s):")
             logging.info(*unfinished_huc_list, sep=", ")
 
@@ -540,10 +540,16 @@ def process_generate_categorical_fim(
             second_finished_huc_list = second_failed_HUCs_list + second_sucessful_HUCs_list
 
             if len(second_finished_huc_list) == 0:
-                logging.warning(f"None of the {len(unfinished_huc_list)} re-run HUC(s) finished processing in the second ProcessPoolExecutor run")
+                logging.warning(
+                    f"None of the {len(unfinished_huc_list)} re-run HUC(s) finished processing in the second ProcessPoolExecutor run"
+                )
             else:
-                logging.info(f"{len(second_finished_huc_list)}/{len(unfinished_huc_list)} HUCs finished running in the second ProcessPoolExecutor run")   
-                logging.info(f"Of the HUC(s) that finished, {len(second_sucessful_HUCs_list)} succeeded and {len(second_failed_HUCs_list)} finished but failed")   
+                logging.info(
+                    f"{len(second_finished_huc_list)}/{len(unfinished_huc_list)} HUCs finished running in the second ProcessPoolExecutor run"
+                )   
+                logging.info(
+                    f"Of the HUC(s) that finished, {len(second_sucessful_HUCs_list)} succeeded and {len(second_failed_HUCs_list)} finished but failed"
+                )   
 
         # End muliproc rerun
 

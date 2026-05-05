@@ -19,12 +19,12 @@ from dotenv import load_dotenv
 import src.utils.shared_functions as sf
 import tools.catfim.catfim_shared_functions as csf
 from src.utils.shared_variables import VIZ_PROJECTION
-from tools.tools_shared_functions import ngvd_to_navd_ft, correct_datum_typos
+from tools.tools_shared_functions import correct_datum_typos, ngvd_to_navd_ft
 from tools.tools_shared_variables import (
+    UNKNOWN_DATUM_SPELLINGS,
     acceptable_alt_acc_thresh,
     acceptable_alt_meth_code_list,
     acceptable_site_type_list,
-    UNKNOWN_DATUM_SPELLINGS,
 )
 
 
@@ -601,7 +601,7 @@ def __process_elevations(
         # Make an "rfc_stage" column (for documentation of the data source)
         lid_library_df['rfc_stage'] = lid_library_df['stage']
         # TODO: Decide if we want to remove the 'stage' col
-        # but add a 'hand_stage' col? I am partial to that because it's more descriptive! 
+        # but add a 'hand_stage' col? I am partial to that because it's more descriptive!
 
         # TODO: rfc_stage, but final library calls this rfs_stage (typo?)
         # uncorrect WRDS value before we adjusted it for inundation
@@ -634,7 +634,7 @@ def __process_elevations(
         lid_altitude_ft = float(lid_altitude_ft)  # Ensure it's a float for processing later
 
         # logging.info(
-            # f"{lid}: Rating curve and elevation val source: {rating_curve_source}, site elev value: {lid_altitude_ft}"
+        # f"{lid}: Rating curve and elevation val source: {rating_curve_source}, site elev value: {lid_altitude_ft}"
         # )  # TEMP DEBUG
 
         if lid_altitude_ft is None or lid_altitude_ft == 0:
@@ -1028,7 +1028,9 @@ def __adjust_datum_ft(lid_sites_gdf, lid_library_df, lid, datum_adj_nodata_value
     # ---------------------------
     # Check for typos in the horizontal datum data
 
-    crs_corrected, vcs_corrected, uncorrected_crs_error, uncorrected_vcs_error, datum_corr_msgs = correct_datum_typos(datum_data.get('crs'), datum_data.get('vcs'))
+    crs_corrected, vcs_corrected, uncorrected_crs_error, uncorrected_vcs_error, datum_corr_msgs = (
+        correct_datum_typos(datum_data.get('crs'), datum_data.get('vcs'))
+    )
 
     # Update the datum data with the corrected CRS and VCS if needed
     if crs_corrected is not None:
@@ -1044,7 +1046,7 @@ def __adjust_datum_ft(lid_sites_gdf, lid_library_df, lid, datum_adj_nodata_value
         msg = 'CRS value is unrecognized and could not be corrected'
         logging.error(f"{lid}: {msg} (CRS: {datum_data.get('crs')})")
         # TODO: Let processing continue and error out shortly? or error out here?
-    
+
     if uncorrected_vcs_error:
         msg = 'VCS value is unrecognized and could not be corrected'
         logging.error(f"{lid}: {msg} (VCS: {datum_data.get('vcs')})")
@@ -1372,9 +1374,7 @@ def __setup_sites_gdf(sites_gdf, catfim_type):
 
     # Drop list fields (downstream_nwm_features and upstream_nwm_features) to streamline GDF processing
     # TODO: Maybe we don't drop this because then we wouldn't have to read the metadata json list in later when this data is needed...?
-    sites_gdf = sites_gdf.drop(
-        ['downstream_nwm_features', 'upstream_nwm_features'], axis=1, errors='ignore'
-    )
+    sites_gdf = sites_gdf.drop(['downstream_nwm_features', 'upstream_nwm_features'], axis=1, errors='ignore')
     sites_gdf = sites_gdf.astype(
         {
             'metadata_sources': str,
