@@ -567,10 +567,16 @@ def check_metadata_CRS_availability(output_meta_list):
 
     # This list includes the CRS spellings that the code knows how to handle
     # Currently we are also able to handle if a VCS is provided in place of a
-    # CRS. The code just assumes that the correspoding CRS should be used. 
+    # CRS. The code just assumes that the correspoding CRS should be used.
 
     misc_known_crs_list = ['WGS84', 'EPSG:4326', 'LMSL']
-    acceptable_projection_spellings = misc_known_crs_list + ACCEPTED_NAD27_SPELLINGS + ACCEPTED_NAD83_SPELLINGS + ACCEPTED_NAVD88_SPELLINGS + ACCEPTED_NGVD29_SPELLINGS
+    acceptable_projection_spellings = (
+        misc_known_crs_list
+        + ACCEPTED_NAD27_SPELLINGS
+        + ACCEPTED_NAD83_SPELLINGS
+        + ACCEPTED_NAVD88_SPELLINGS
+        + ACCEPTED_NGVD29_SPELLINGS
+    )
 
     lid_source_dict = {}
 
