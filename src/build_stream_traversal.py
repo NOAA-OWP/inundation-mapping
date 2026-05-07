@@ -106,10 +106,10 @@ class build_stream_traversal_columns(object):
                 xy_dict = {}
                 bhasnullshape = False
                 for rows in streams[['geometry', from_node, to_node]].iterrows():
-                    if rows[1][0]:
+                    if rows[1]['geometry']:
                         # From Node
-                        firstx = round(rows[1][0].coords.xy[0][0], 7)
-                        firsty = round(rows[1][0].coords.xy[1][0], 7)
+                        firstx = round(rows[1]['geometry'].coords.xy[0][0], 7)
+                        firsty = round(rows[1]['geometry'].coords.xy[1][0], 7)
                         from_key = '{},{}'.format(firstx, firsty)
                         if from_key in xy_dict:
                             streams.at[rows[0], from_node] = xy_dict[from_key]
@@ -118,8 +118,8 @@ class build_stream_traversal_columns(object):
                             streams.at[rows[0], from_node] = xy_dict[from_key]
 
                         # To Node
-                        lastx = round(rows[1][0].coords.xy[0][-1], 7)
-                        lasty = round(rows[1][0].coords.xy[1][-1], 7)
+                        lastx = round(rows[1]['geometry'].coords.xy[0][-1], 7)
+                        lasty = round(rows[1]['geometry'].coords.xy[1][-1], 7)
                         to_key = '{},{}'.format(lastx, lasty)
                         # if xy_dict.has_key(to_key):
                         if to_key in xy_dict:
@@ -144,18 +144,18 @@ class build_stream_traversal_columns(object):
             dnodes = dict()
             lstHydroIDs = []
             for row in streams[[from_node, hydro_id]].iterrows():
-                if (row[1][0] in dnodes) is False:
-                    lstHydroIDs = [row[1][1]]
-                    dnodes.setdefault(row[1][0], lstHydroIDs)
+                if (row[1][from_node] in dnodes) is False:
+                    lstHydroIDs = [row[1][hydro_id]]
+                    dnodes.setdefault(row[1][from_node], lstHydroIDs)
                 else:
-                    lstHydroIDs = dnodes[row[1][0]]
-                    lstHydroIDs.append(row[1][1])
+                    lstHydroIDs = dnodes[row[1][from_node]]
+                    lstHydroIDs.append(row[1][hydro_id])
 
             # for each stream segment, search dict for HydroID downstream and
             for urow in streams[[next_down_id, to_node, from_node, hydro_id]].iterrows():
-                tonodecol = urow[1][1]
-                nextdownIDcol = urow[1][0]
-                hydroIDcol = urow[1][3]
+                tonodecol = urow[1][to_node]
+                nextdownIDcol = urow[1][next_down_id]
+                hydroIDcol = urow[1][hydro_id]
                 try:
                     next_down_ids = dnodes[tonodecol]
                 except:

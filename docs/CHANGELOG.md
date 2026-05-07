@@ -28,6 +28,87 @@ This PR uses Ripple1D dataset, including discharge to calibrate HAND rating curv
 <br/>
 
 ## v4.9.10.1 - 2026-03-02 - [PR#1774]([https://github.com/NOAA-OWP/inundation-mapping/pull/1774])
+## v4.9.12.1 - 2026-05-01 - [PR#1815](https://github.com/NOAA-OWP/inundation-mapping/pull/1815)
+
+These changes resolve the numerous pandas 3.0 FutureWarnings as well as other miscellaneous "warning" messages that we track in our logging systems. Resolves #1799
+
+### Changes
+The scripts below were updated to address warnings. There were no changes to the resulting outputs.
+`src/add_crosswalk.py`
+`src/aggregate_branches_to_huc.py`
+`src/bathymetric_adjustment.py`
+`src/build_stream_traversal.py`
+`src/delineate_hydros_and_produce_HAND.sh`
+`src/heal_bridges_osm.py`
+`src/identify_src_bankfull.py`
+`src/longitudinal_flow_adjustment.py`
+`src/mask_dem.py`
+`src/mitigate_branch_outlet_backpool.py`
+`src/nonmonotonic_src_adjustment.py`
+`src/reset_htable_src.py`
+`src/run_by_branch.sh`
+`src/run_huc.sh`
+`src/src_adjust_usgs_rating_trace.py`
+`src/src_roughness_optimization.py`
+`src/thalweg_notches_adjustment.py`
+
+
+## v4.9.12.0 - 2026-05-01 - [PR#1777]([https://github.com/NOAA-OWP/inundation-mapping/pull/1777])
+
+This PR closes the issue #1739 and includes the following enhancements to address buildings Fimpacts:
+
+- Ingests FEMA buildings as a new input data for FIM. 
+
+- Derives the threshold discharge required for buildings inundation. To achieve this, the minimum non-zero HAND value within each building is extracted as the inundation threshold stage. The corresponding threshold discharge values are then interpolated from the HydroTables.
+
+- Enhances `tools/fimpacts_flood_depth.py` (formerly `road_inundation.py`) to identify inundated buildings and calculate corresponding flood depths for specific events.
+
+In addition to introducing building pre-clipping in the `data/wbd/generate_pre_clip_fim_huc8.py` script, this PR refactors the interface from `--copy_*` arguments (e.g., `--copy_osm_roads`) to direct layer arguments (e.g., `--osm_roads`). Listed layers are pre-clipped by default, while unlisted layers are copied, simplifying the interface and making layer selection more intuitive.
+
+### Additions
+- data/buildings/get_fema_buildings.py  
+- data/buildings/make_buildings_parts_per_huc.py  
+- src/process_buildings_fimpact.py
+         
+
+### Changes
+- **Renamed** `tools/road_inundation.py` to `tools/fimpacts_inundation.py` and extended the script to support **building** inundation processing in addition to roads.
+- data/wbd/clip_vectors_to_wbd.py -> Updated to enable pre-clipping of buildings dataset
+- data/wbd/generate_pre_clip_fim_huc8.py -> Updated to enable pre-clipping of buildings dataset. Also refactored the CLI to switch from copy-first arguments to preclip-first arguments (as described above). 
+- src/aggregate_branches_to_huc.py  -> Aggregates branch-level building FIMpact results by HUC
+- src/delineate_hydros_and_produce_HAND.sh  -> Calls the new `src/process_buildings_fimpact.py` script
+- src/bash_variables.env    -> Updated the reference to the new pre-clipped dataset and added a reference to the building parts dataset required for pre-clipping
+- src/calibrate_rating_curves.sh   -> Enables aggregating buildings FIMpact results by HUC
+
+<br/>
+
+## v4.9.11.2 - 2026-05-01 - [PR#1786](https://github.com/NOAA-OWP/inundation-mapping/pull/1786)
+
+Resolves numerous issues that arose during the March 2026 full-scale CatFIM runs for the FIM 6.1 release. Updates the CatFIM readme.
+
+Added `aggregate_wbd_hucs()` function to WRDS download script to ensure that incomplete WRDS HUC data was not interfering with pulling a complete set of the site metadata and thresholds. Implemented logic into CatFIM to catch and remedy (where possible) sites where the CRS, datum, or VCS are misspelled or incorrect. Resolved a bug where postprocessing would error out if a site was missing a status.  
+
+### Changes
+- `tools/catfim/README.md`: Updates to documentation about site filtering, site status context, and data flow.
+- `data/wrds/download_process_wrds.py`: Added `aggregate_wbd_hucs()` and `check_metadata_CRS_availability()` functions, updated `get_thresholds()`.
+- `data/nws/preprocess_ahps_nws.py`: Updated `get_thresholds()` inputs.
+- `data/usgs/get_usgs_rating_curves.py`: Updated `get_thresholds()` inputs.
+- `data/usgs/preprocess_ahps_usgs.py`: Updated `get_thresholds()` inputs.
+- `tools/catfim/generate_categorical_fim.py`: Added `aggregate_wbd_hucs()` function, fixed status bug, added typo workaround.
+- `tools/catfim/generate_categorical_fim_flows.py`: Removed unused imports.
+- `tools/tools_shared_functions.py`: Updated `get_thresholds()` to account for source CRS availability.
+
+## v4.9.11.1 - 2026-04-17 - [PR#1809](https://github.com/NOAA-OWP/inundation-mapping/pull/1809)
+
+This change resolves issue where SWORD-derived slope values are producing severe over-estimated inundation extents on the Auglaize River in Ohio. The updated code logic now allows for manual removal or override of SWORD slope values as part of the input data processing script.
+
+### Changes
+
+- `data/slope/sword_slope_create_parquet_qc.py`: Added logic to remove or replace slope values by providing dictionary of feature_ids.
+- `src/add_crosswalk.py`: Removed previous logic for replacing the SWORD slope values (this is now done in `sword_slope_create_parquet_qc.py`).
+- `src/bash_variables.env`: Updated the `iris_sword_slope` parameter to point to the newly generated input parquet file
+- `tools/inundate_nation.py`: Made a minor change/enhancement to allow an optional input argument `-p` that will produce the inundation raster using the "precalb_discharge_cms" column in the SRCs rather than the defualt "discharge_cms". This makes it easier to generate inundation rasters with or without the calibration adjustments applied.
+
 ## v4.9.11.0 - 2026-04-10 - [PR#1783](https://github.com/NOAA-OWP/inundation-mapping/pull/1783)
 
 Resolves an issue causing stream outlet lines extending outside of the buffered WBD to be snapped back to the buffered WBD.
