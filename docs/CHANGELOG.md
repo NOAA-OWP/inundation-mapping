@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## vx.x.x.x - 2026-xx-xx - [PR#1720]([https://github.com/NOAA-OWP/inundation-mapping/pull/1720])
+## vx.x.x.x - 2026-xx-xx - [PR#1720](https://github.com/NOAA-OWP/inundation-mapping/pull/1720)
 
 This PR uses Ripple1D dataset, including discharge to calibrate HAND rating curves for HUC8s where the dataset exist. It uses the same approach that has been used for rating curves calibration using RAS2FIM. 
 
@@ -27,7 +27,6 @@ This PR uses Ripple1D dataset, including discharge to calibrate HAND rating curv
 
 <br/>
 
-## v4.9.10.1 - 2026-03-02 - [PR#1774]([https://github.com/NOAA-OWP/inundation-mapping/pull/1774])
 ## v4.9.12.1 - 2026-05-01 - [PR#1815](https://github.com/NOAA-OWP/inundation-mapping/pull/1815)
 
 These changes resolve the numerous pandas 3.0 FutureWarnings as well as other miscellaneous "warning" messages that we track in our logging systems. Resolves #1799
@@ -52,8 +51,9 @@ The scripts below were updated to address warnings. There were no changes to the
 `src/src_roughness_optimization.py`
 `src/thalweg_notches_adjustment.py`
 
+<br/>
 
-## v4.9.12.0 - 2026-05-01 - [PR#1777]([https://github.com/NOAA-OWP/inundation-mapping/pull/1777])
+## v4.9.12.0 - 2026-05-01 - [PR#1777](https://github.com/NOAA-OWP/inundation-mapping/pull/1777)
 
 This PR closes the issue #1739 and includes the following enhancements to address buildings Fimpacts:
 
@@ -98,6 +98,8 @@ Added `aggregate_wbd_hucs()` function to WRDS download script to ensure that inc
 - `tools/catfim/generate_categorical_fim_flows.py`: Removed unused imports.
 - `tools/tools_shared_functions.py`: Updated `get_thresholds()` to account for source CRS availability.
 
+<br/>
+
 ## v4.9.11.1 - 2026-04-17 - [PR#1809](https://github.com/NOAA-OWP/inundation-mapping/pull/1809)
 
 This change resolves issue where SWORD-derived slope values are producing severe over-estimated inundation extents on the Auglaize River in Ohio. The updated code logic now allows for manual removal or override of SWORD slope values as part of the input data processing script.
@@ -108,6 +110,8 @@ This change resolves issue where SWORD-derived slope values are producing severe
 - `src/add_crosswalk.py`: Removed previous logic for replacing the SWORD slope values (this is now done in `sword_slope_create_parquet_qc.py`).
 - `src/bash_variables.env`: Updated the `iris_sword_slope` parameter to point to the newly generated input parquet file
 - `tools/inundate_nation.py`: Made a minor change/enhancement to allow an optional input argument `-p` that will produce the inundation raster using the "precalb_discharge_cms" column in the SRCs rather than the defualt "discharge_cms". This makes it easier to generate inundation rasters with or without the calibration adjustments applied.
+
+<br/>
 
 ## v4.9.11.0 - 2026-04-10 - [PR#1783](https://github.com/NOAA-OWP/inundation-mapping/pull/1783)
 
