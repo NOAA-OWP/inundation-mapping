@@ -103,10 +103,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN apt auto-remove
 
 ## Python Environment Bypass (Required for Ubuntu 24.04/Python 3.12) ##
-ENV PIP_BREAK_SYSTEM_PACKAGES=1
-ENV PIP_IGNORE_INSTALLED=1
-ENV PIPENV_SYSTEM=1
-ENV PIP_NO_CACHE_DIR=1
+ENV PIP_BREAK_SYSTEM_PACKAGES=1 \
+    PIP_IGNORE_INSTALLED=1 \
+    PIPENV_SYSTEM=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_ROOT_USER_ACTION=ignore
 
 ENV TZ=UTC
 ENV MAMBA_ROOT_PREFIX=/opt/micromamba
