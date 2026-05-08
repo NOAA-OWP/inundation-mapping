@@ -9,9 +9,6 @@ ENV srcDir=$projectDir/src
 ENV toolsDir=$projectDir/tools
 ENV workDir=/fim_temp
 
-# Set working directory
-# exitWORKDIR /app
-
 ## ADDING FIM GROUP ##
 ## Skip for OWP Enviro
 # ARG GroupID=1370800235
