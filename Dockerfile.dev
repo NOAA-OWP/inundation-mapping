@@ -121,7 +121,13 @@ RUN python3 -m pip install --no-cache-dir pipenv --break-system-packages
 RUN python3 -m pip install --upgrade pip setuptools wheel
 
 # Install a newer PDAL runtime than the Ubuntu package currently provides.
-RUN wget -qO- https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj -C /usr/local/bin --strip-components=1 bin/micromamba && \
+RUN ARCH=$(uname -m) && \
+    if [ "$ARCH" = "aarch64" ]; then \
+        MAMBA_ARCH="linux-aarch64"; \
+    else \
+        MAMBA_ARCH="linux-64"; \
+    fi && \
+    wget -qO- https://micro.mamba.pm/api/micromamba/${MAMBA_ARCH}/latest | tar -xvj -C /usr/local/bin --strip-components=1 bin/micromamba && \
     micromamba create -y -p /opt/pdal-env -c conda-forge pdal=2.9.3 gdal proj proj-data && \
     micromamba clean --all --yes
 
