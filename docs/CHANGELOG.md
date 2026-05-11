@@ -7,6 +7,7 @@ This PR closes issue #1821 by restoring the required `order_` field for roads FI
 
 ### Changes
 - src/process_roads_fimpact.py
+- src/aggregate_branches_to_huc.py
 
 <br/>
 
