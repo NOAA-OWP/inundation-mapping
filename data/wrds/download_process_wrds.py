@@ -13,6 +13,8 @@ from tools_shared_variables import (
     ACCEPTED_NAVD88_SPELLINGS,
     ACCEPTED_NGVD29_SPELLINGS,
 )
+from tools.catfim.catfim_shared_functions import DEFAULT_SEARCH
+
 
 
 def label_data_file(label, lst_hucs):
@@ -89,7 +91,6 @@ def download_all_metadata(metadata_filepath, metadata_url, search):
     messages = []
 
     messages.append('Starting metadata download from WRDS...')
-    messages.append('Starting metadata download from WRDS...')
 
     # Get all forecast points
     forecast_point_meta_list, ___ = get_metadata(
@@ -144,11 +145,9 @@ def download_all_metadata(metadata_filepath, metadata_url, search):
             pickle.dump(output_meta_list, p_handle, protocol=pickle.HIGHEST_PROTOCOL)
 
         msg = f"New metadata file saved at {metadata_filepath}"
-        msg = f"New metadata file saved at {metadata_filepath}"
         messages.append(msg)
 
     except Exception as e:
-        msg = f"Error saving meta data pickle file {metadata_filepath}: {e}"
         msg = f"Error saving meta data pickle file {metadata_filepath}: {e}"
         messages.append(msg)
         raise (e)
@@ -229,7 +228,6 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict, li
     thresholds_start_time = datetime.now(timezone.utc)
 
     messages.append('Starting threshold download from WRDS...')
-    messages.append('Starting threshold download from WRDS...')
 
     # Iterate through LIDs in huc_lid_dict and get thresholds from the WRDS API
     list_threshold_dfs = []
@@ -279,11 +277,9 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict, li
             pickle.dump(all_thresholds_df, f)
 
         msg = f"Thresholds file saved at {thresholds_filepath}"
-        msg = f"Thresholds file saved at {thresholds_filepath}"
         messages.append(msg)
 
     except Exception as e:
-        msg = f"Error saving pickle file {thresholds_filepath}, exception occurred: {e}"
         msg = f"Error saving pickle file {thresholds_filepath}, exception occurred: {e}"
         messages.append(msg)
         raise (e)
@@ -407,7 +403,6 @@ def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download
         # Give a warning if the file will be overwritten
         if os.path.isfile(metadata_filepath):
             msg = f"WARNING: File already exists at {metadata_filepath} & metadata_download is set to True. File will be overwritten."
-            msg = f"WARNING: File already exists at {metadata_filepath} & metadata_download is set to True. File will be overwritten."
             messages.append(msg)
         else:
             msg = f"NWM metadata file does not exist at {metadata_filepath}, metadata will be downloaded."
@@ -424,11 +419,7 @@ def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download
         msg = f"Finished downloading metadata - Duration: {str(metadata_duration).split('.')[0]}"
         messages.append(msg)
 
-        msg = f"Finished downloading metadata - Duration: {str(metadata_duration).split('.')[0]}"
-        messages.append(msg)
-
     else:
-        msg = f"Loading NWM metadata from {metadata_filepath}."
         msg = f"Loading NWM metadata from {metadata_filepath}."
         messages.append(msg)
 
@@ -438,10 +429,8 @@ def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download
         messages.append(msg)
 
         msg = "ERROR: Cannot proceed without NWM metadata. Set metadata_download to True or provide a valid metadata_filepath."
-        msg = "ERROR: Cannot proceed without NWM metadata. Set metadata_download to True or provide a valid metadata_filepath."
         messages.append(msg)
 
-        return (output_meta_list, messages)
         return (output_meta_list, messages)
 
     # Open metadata file (either the one we just downloaded or pre-existing)
@@ -449,23 +438,15 @@ def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download
         output_meta_list = pickle.load(p_handle)
 
         msg = f"NWM metadata file loaded from {metadata_filepath}."
-
-        msg = f"NWM metadata file loaded from {metadata_filepath}."
         messages.append(msg)
 
     return output_meta_list, messages
-    return output_meta_list, messages
 
 
-# TODO: Move to CatFIM shared functions?
-# Rob: maybe not.. TBD...
-# TODO: Move to CatFIM shared functions?
-# Rob: maybe not.. TBD...
 def load_site_thresholds(threshold_file, lid):
     '''
     Loads threshold stage and flow data for a given site (LID) from a local pickle file.
 
-    Parameters
     Parameters
     ----------
     threshold_file -  STR
@@ -477,7 +458,6 @@ def load_site_thresholds(threshold_file, lid):
     lid -  STR
         NWS site ID (LID) for which to load thresholds.
 
-    Returns
     Returns
     --------
     stages -  DICT or None
@@ -493,8 +473,6 @@ def load_site_thresholds(threshold_file, lid):
     messages -  LIST of STRING
         Status print messages.
 
-    Example
-    -------
     Example
     -------
     stages, flows, messages = load_site_thresholds('path/to/thresholds.pkl', 'FLOX1')
@@ -530,7 +508,6 @@ def load_site_thresholds(threshold_file, lid):
         # msg = f"Stages for LID {lid}: {stages}; Flows for LID {lid}: {flows}"  # DEBUG
         # messages.append(msg)  # DEBUG
         # print(msg)  # DEBUG
-        # print('Thresholds loaded from .pkl file.')  # TODO: maybe print the number of thresholds avail?
         # print('Thresholds loaded from .pkl file.')  # TODO: maybe print the number of thresholds avail?
 
     else:
@@ -653,6 +630,22 @@ def main(
     elif threshold_download == True and metadata_download == False:
         print('Only threshold data will be saved.')
         # For this setup, a valid metadata pkl file must be provided (check will occur for this later on)
+
+    # Validate search input and adjust metadata and threshold data inputs if needed
+    if search == 9999:
+        search = DEFAULT_SEARCH
+    elif search != DEFAULT_SEARCH:
+        if not (get_new_meta_data and get_new_threshold_data):
+            get_new_meta_data = True
+            get_new_threshold_data = True
+
+            # Raise an exception to prompt the user to fix the parameters
+            raise Exception(
+                "Custom search value provided but the metadata and/or threshold"
+                " data download arguments were not used. Custom search cannot"
+                " be applied unless the metadata and thresholds are newly downloaded."
+                " Re-run with the -gmf and -gtf arguments or remove the custom search value."
+            )
 
     # Format HUC list
     lst_hucs = lst_hucs.split()
@@ -843,9 +836,10 @@ if __name__ == '__main__':
     parser.add_argument(
         '-s',
         '--search',
-        help='OPTIONAL: Upstream and downstream search in miles. Defaults to 5.',
+        help='OPTIONAL: Upstream and downstream search in miles. '
+        ' Defaults to a NoData val which will be replaced with csf.DEFAULT_SEARCH',
         required=False,
-        default='5',
+        default='9999',
     )
 
     parser.add_argument(

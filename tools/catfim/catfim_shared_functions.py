@@ -15,6 +15,9 @@ from dotenv import load_dotenv
 # Global vars, shared by all related py files.
 MAGNITUDES_TYPES = ['action', 'minor', 'moderate', 'major', 'record']
 
+# Default search distance
+DEFAULT_SEARCH = 5
+
 # Max stage value (anything higher is probably WSE and treated as such)
 MAX_STAGE_THRESHOLD = 250  # feet
 

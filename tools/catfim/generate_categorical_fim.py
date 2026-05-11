@@ -153,6 +153,22 @@ def process_generate_categorical_fim(
                 " or sb (for stage based)."
             )
 
+        # Validate search input and adjust metadata and threshold data inputs if needed
+        if search == 9999:
+            search = csf.DEFAULT_SEARCH
+        elif search != csf.DEFAULT_SEARCH:
+            if not (get_new_meta_data and get_new_threshold_data):
+                get_new_meta_data = True
+                get_new_threshold_data = True
+
+                # Raise an exception to prompt the user to fix the parameters
+                raise Exception(
+                    "Custom search value provided but the metadata and/or threshold"
+                    " data download arguments were not used. Custom search cannot"
+                    " be applied unless the metadata and thresholds are newly downloaded."
+                    " Re-run with the -gmf and -gtf arguments or remove the custom search value."
+                )
+
         # Get CatFIM type
         if catfim_type == "sb":
             catfim_type_name = "stage_based"
@@ -1374,9 +1390,10 @@ if __name__ == '__main__':
     parser.add_argument(
         '-s',
         '--search',
-        help='OPTIONAL: Upstream and downstream search in miles. How far up and downstream do you want to go? Defaults to 5.',
+        help='OPTIONAL: Upstream and downstream search in miles. How far up and downstream do you want to go?'
+        ' Defaults to a NoData val which will be replaced with csf.DEFAULT_SEARCH',
         required=False,
-        default='5',
+        default=9999,
         type=int,
     )
 
