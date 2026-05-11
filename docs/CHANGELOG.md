@@ -8,7 +8,7 @@ This PR fixes the AREASQKM issue in HydroTables and SRC tables.
 
 ### Changes
 
-- `/src/make_stages_and_catchlist.py` : Merging issue was fixed in the make_stages_and_catchlist function. 
+- `/src/make_stages_and_catchlist.py` : This issue was fixed in the make_stages_and_catchlist function. 
 
 <br/>
 
