@@ -2,7 +2,7 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v4.x.x.x - 2026-05-11 - [PR#1830](https://github.com/NOAA-OWP/inundation-mapping/pull/1830)
-This PR closes issue #1821 by restoring the required `order_` field for roads FIMpact.
+This PR closes issue #1821 by restoring the required `order_` field for roads FIMpact. Also, fixed `log_error()` argument mismatch so aggregation logs the original failure instead of raising a secondary `TypeError`.
 
 
 ### Changes
