@@ -17,7 +17,6 @@ from tools_shared_variables import (
 from tools.catfim.catfim_shared_functions import DEFAULT_SEARCH
 
 
-
 def label_data_file(label, lst_hucs):
     '''
     Generate a filename-style label that optionally indicates a subset and appends the current date.
