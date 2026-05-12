@@ -158,9 +158,6 @@ def process_generate_categorical_fim(
             search = csf.DEFAULT_SEARCH
         elif search != csf.DEFAULT_SEARCH:
             if not (get_new_meta_data and get_new_threshold_data):
-                get_new_meta_data = True
-                get_new_threshold_data = True
-
                 # Raise an exception to prompt the user to fix the parameters
                 raise Exception(
                     "Custom search value provided but the metadata and/or threshold"
