@@ -110,7 +110,9 @@ def preprocess_nws(source_dir, destination, reference_raster):
         # In multiple instances a USGS ID is given but then no USGS rating curve or in some cases no USGS datum is supplied.
         select_by = 'nws_lid'
         selector = code
-        stages, flows, ___ = get_thresholds(threshold_url, select_by, selector, threshold='all')
+        stages, flows, ___ = get_thresholds(
+            threshold_url, select_by, selector, threshold='all', source_crs_availability=None
+        )
 
         # Make sure at least one valid threshold is supplied from WRDS.
         threshold_categories = ['action', 'minor', 'moderate', 'major']

@@ -128,7 +128,9 @@ fi
 echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber $current_branch_id"
 mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
     -fel $tempCurrentBranchDataDir/dem_burned_filled_$current_branch_id.tif \
-    -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$current_branch_id.tif
+    -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$current_branch_id.tif \
+    2>&1 | sed -e 's/.*no output sd8 file specified.*/INFO: TauDEM d8flowdir running without optional sd8 slope output./I' \
+               -e 's/.*no output p file specified.*/INFO: TauDEM d8flowdir running without optional sd8 slope output./I'
 
 ## RASTERIZE NWM Levelpath HEADWATERS (1 & 0) ##
 echo -e $startDiv"Rasterize NHD Headwaters $hucNumber $current_branch_id"

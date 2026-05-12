@@ -231,7 +231,9 @@ def preprocess_usgs(source_dir, destination, reference_raster):
 
         select_by = 'nws_lid'
         selector = code
-        stages, flows, ___ = get_thresholds(threshold_url, select_by, selector, threshold='all')
+        stages, flows, ___ = get_thresholds(
+            threshold_url, select_by, selector, threshold='all', source_crs_availability=None
+        )
 
         # Make sure at least one valid threshold is supplied from WRDS.
         threshold_categories = ['action', 'minor', 'moderate', 'major']

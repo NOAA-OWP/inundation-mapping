@@ -22,9 +22,7 @@ from tools_shared_functions import (
     aggregate_wbd_hucs,
     filter_nwm_segments_by_stream_order,
     flow_data,
-    get_metadata,
     get_nwm_segs,
-    get_thresholds,
 )
 
 import utils.fim_logger as fl

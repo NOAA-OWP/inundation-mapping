@@ -476,7 +476,8 @@ def filter_longitudinal_discharge_jitters(huc_dir, huc, stage_interval):
             # Force increased SA back to default
             # Compute mean(SurfaceArea (m2)_longitudinalAdjusted - default) per HydroID
             mean_diff = src_df.groupby('HydroID').apply(
-                lambda g: (g['SurfaceArea (m2)_longitudinalAdjusted'] - g['SurfaceArea (m2)_default']).mean()
+                lambda g: (g['SurfaceArea (m2)_longitudinalAdjusted'] - g['SurfaceArea (m2)_default']).mean(),
+                include_groups=False,
             )
             # HydroIDs where mean difference > 0
             hids_to_replace = mean_diff[mean_diff > 0].index
@@ -541,7 +542,7 @@ def filter_longitudinal_discharge_jitters(huc_dir, huc, stage_interval):
             src_df['WettedPerimeter (m)'] = src_df['BedArea (m2)'] / src_df['LENGTHKM'] / 1000
             src_df['WetArea (m2)'] = src_df['Volume (m3)'] / src_df['LENGTHKM'] / 1000
             src_df['HydraulicRadius (m)'] = src_df['WetArea (m2)'] / src_df['WettedPerimeter (m)']
-            src_df['HydraulicRadius (m)'].fillna(0, inplace=True)
+            src_df['HydraulicRadius (m)'] = src_df['HydraulicRadius (m)'].fillna(0)
 
             # Recalculating the discharge
             src_df['Discharge (m3s-1)'] = (
