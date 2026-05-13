@@ -505,6 +505,7 @@ class HucDirectory(object):
                 ras_elev_flag,
                 bridge_flag,
                 road_flag,
+                building_flag,
                 huc_id,
                 errMsg,
             )

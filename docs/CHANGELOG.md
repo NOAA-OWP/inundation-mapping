@@ -9,6 +9,13 @@ This PR fixes the AREASQKM issue in HydroTables and SRC tables.
 ### Changes
 
 - `/src/make_stages_and_catchlist.py` : This issue was fixed in the make_stages_and_catchlist function. 
+## v4.9.12.2 - 2026-05-13 - [PR#1830](https://github.com/NOAA-OWP/inundation-mapping/pull/1830)
+This PR closes issue #1821 by restoring the required `order_` field for roads FIMpact. Also, fixed `log_error()` argument mismatch so aggregation logs the original failure instead of raising a secondary `TypeError`.
+
+
+### Changes
+- src/process_roads_fimpact.py
+- src/aggregate_branches_to_huc.py
 
 <br/>
 
