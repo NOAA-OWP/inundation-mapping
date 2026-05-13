@@ -260,7 +260,8 @@ python3 $srcDir/add_crosswalk.py \
     -k $tempCurrentBranchDataDir/small_segments_$current_branch_id.csv \
     -e $min_catchment_area \
     -g $min_stream_length \
-    -i $iris_sword_slope
+    -i $iris_sword_slope \
+    -p $hfab_ransac_slope
 
 ## HEAL HAND -- REMOVES HYDROCONDITIONING ARTIFACTS ##
 if [ "$healed_hand_hydrocondition" = true ] && [ "$current_branch_id" = "$branch_zero_id" ] ; then
