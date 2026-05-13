@@ -74,7 +74,7 @@ def __mp_get_flows_for_site(
 ):
 
     try:
-        sf.l_print(f"Processing flow data for lid: {task_id}", file_logger, "debug", screen_queue )
+        sf.l_print(f"Processing flow data for lid: {task_id}", file_logger, "debug", screen_queue)
 
         # there is no try catch as I want any errors to shut down the entire tool
         # try:
@@ -265,7 +265,9 @@ def __mp_get_site_rating_curve(
 
         # If no rating curve was returned, skip site.
         if curve.empty:
-            sf.l_print(f'{location_id}: Removed because it has no rating curves', file_logger, "info",  screen_queue)
+            sf.l_print(
+                f'{location_id}: Removed because it has no rating curves', file_logger, "info", screen_queue
+            )
             return 0, None  # log and continue the next task
 
         # If the site is in PR, VI, or HI, keep datum in LMSL (local mean sea level)
@@ -276,7 +278,9 @@ def __mp_get_site_rating_curve(
             if usgs['vcs'] == 'LMSL':
                 navd88_datum = usgs['datum']
                 # left of the screen queue so it goes to log only
-                sf.l_print(f'{location_id}: site is in PR, VI, or HI, so datum kept as LMSL', file_logger, "debug")
+                sf.l_print(
+                    f'{location_id}: site is in PR, VI, or HI, so datum kept as LMSL', file_logger, "debug"
+                )
             else:
                 # If the site is in PR, VI, or HI, and has a datum other than LMSL, return an error.
                 datum_name = usgs['vcs']
@@ -295,7 +299,7 @@ def __mp_get_site_rating_curve(
 
                 # Get the datum adjustment to convert NGVD to NAVD.
                 datum_adj_ft, err_msg = tsf.ngvd_to_navd_ft(datum_info=usgs)
-                
+
                 if err_msg != "":
                     sf.l_print(f'{location_id}: {err_msg}', file_logger, "error")
                     return 0, None  # log and continue the next task
@@ -303,32 +307,40 @@ def __mp_get_site_rating_curve(
                 # If datum API failed, print message and skip site.
                 if datum_adj_ft is None:
                     # file_logger.warning(f'{location_id}: Removed because datum adjustment failed!!')
-                    sf.l_print(f'{location_id}: Removed because datum adjustment failed!!', file_logger, "warning")
+                    sf.l_print(
+                        f'{location_id}: Removed because datum adjustment failed!!', file_logger, "warning"
+                    )
                     return 0, None  # log and continue the next task
 
                 # If datum adjustment succeeded, calculate datum in NAVD88
                 navd88_datum = round(usgs['datum'] + datum_adj_ft, 2)
                 # file_logger.debug(f'{location_id}: successfully converted NGVD29 to NAVD88')
-                sf.l_print(f'{location_id}: successfully converted NGVD29 to NAVD88',  file_logger, "debug")
+                sf.l_print(f'{location_id}: successfully converted NGVD29 to NAVD88', file_logger, "debug")
 
             elif usgs['vcs'] == 'NAVD88':
                 navd88_datum = usgs['datum']
                 # file_logger.debug(f'{location_id}: already NAVD88')
-                sf.l_print(f'{location_id}: already NAVD88',  file_logger, "debug")
+                sf.l_print(f'{location_id}: already NAVD88', file_logger, "debug")
 
             elif usgs['vcs'] == 'LMSL':
                 # If the site has a vdatum of LMSL and is not in PR, VI or HI, skip site.
                 # file_logger.warning(
                 #     f'{location_id}: Removed because LMSL datum found outside of PR, VI, or HI'
                 # )
-                sf.l_print(f'{location_id}: Removed because LMSL datum found outside of PR, VI, or HI', file_logger, "warning")
+                sf.l_print(
+                    f'{location_id}: Removed because LMSL datum found outside of PR, VI, or HI',
+                    file_logger,
+                    "warning",
+                )
                 return 0, None  # log and continue the next task
 
             else:
                 # If the site has an unrecognized datum, skip site.
                 datum_name = usgs['vcs']
                 # file_logger.warning(f'{location_id}: Removed due to unknown datum ({datum_name})')
-                sf.l_print(f'{location_id}: Removed due to unknown datum ({datum_name})', file_logger, "warning")
+                sf.l_print(
+                    f'{location_id}: Removed due to unknown datum ({datum_name})', file_logger, "warning"
+                )
                 return 0, None  # log and continue the next task
 
         # Populate rating curve with metadata and use navd88 datum to convert stage to elevation.
@@ -376,7 +388,7 @@ def __get_usgs_metadata(list_of_gage_sites, metadata_url):
         # Since there is a limit to number characters in url, split up selector if too many sites.
         max_sites = 20  # Can we go more than 20? do we want to?
         metadata_list = []
-        
+
         if len(selector) > max_sites:
             chunks = [selector[i : i + max_sites] for i in range(0, len(selector), max_sites)]
             # Get metadata for each chunk
@@ -392,7 +404,7 @@ def __get_usgs_metadata(list_of_gage_sites, metadata_url):
                 )
                 # Append chunk data to metadata_list/df
                 metadata_list.extend(chunk_list)
-                
+
                 # Feb 2026: metadata_df is not in use and has not been since at least Jun 2025
                 # metadata_df = pd.concat([metadata_df, chunk_df])
         else:
@@ -405,7 +417,7 @@ def __get_usgs_metadata(list_of_gage_sites, metadata_url):
                 upstream_trace_distance=None,
                 downstream_trace_distance=None,
             )
-                            
+
         # Get a geospatial layer (gdf) for all acceptable sites
         logging.info("Aggregating WBD HUCs...")
         ___, sites_gdf = tsf.aggregate_wbd_hucs(metadata_list, Path(WBD_LAYER), retain_attributes=True)
@@ -619,12 +631,12 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir):
 
         # This part usually only takes a few mins (up to 8 mins(ish) )
         sites_gdf, metadata_list = __get_usgs_metadata(list_of_gage_sites, metadata_url)
-        
+
         # Save an interium copy of the metadata
         # sites_gdf = sites_gdf.to_crs(PREP_PROJECTION)
         # usgs_metadata_file = os.path.join(output_dir, "usgs_metadata.gpkg")
-        # print(f"Saving a copy of the raw usgs metadata to {usgs_metadata_file}")        
-        # sites_gdf.to_file(usgs_metadata_file, layer='usgs_gages', driver='GPKG', engine='fiona')        
+        # print(f"Saving a copy of the raw usgs metadata to {usgs_metadata_file}")
+        # sites_gdf.to_file(usgs_metadata_file, layer='usgs_gages', driver='GPKG', engine='fiona')
 
         display_dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
         dur_msg = fh.print_date_time_duration(section_start_dt, datetime.now(timezone.utc), False)

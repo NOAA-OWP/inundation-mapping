@@ -4,10 +4,12 @@ import glob
 import inspect
 import logging
 import os
-import pathlib
+
+# import pathlib
 import re
 import shutil
-import sys
+
+# import sys
 import threading
 import traceback
 from concurrent.futures import Future, ProcessPoolExecutor, as_completed
@@ -16,7 +18,7 @@ from multiprocessing import Manager
 from os.path import splitext
 from pathlib import Path
 
-import fiona
+# import fiona
 import geopandas as gp
 import numpy as np
 import pandas as pd
@@ -32,6 +34,7 @@ gp.options.io_engine = "pyogrio"
 
 # #################################
 # log file tools
+
 
 # This one is a standard Python logger, NOT MEANT for multi-proc
 # def setup_file_logger(log_file_path):
@@ -88,7 +91,7 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
     # we will assume the parent folder already exists
     os.makedirs(log_file_dir, exist_ok=True, mode=permissions_code)
     print(f"Logs saved to: {log_file_path}")
-        
+
     # even though we used os.makedirs, it does not mean it had permission to make the dir
     # the mode is for permissions of the folder once is created.
     if not os.path.isdir(log_file_dir):
@@ -125,7 +128,7 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
 
     # basic file handler
     file_handler = logging.FileHandler(log_file_path)
-    file_handler.setLevel(logging.DEBUG)    
+    file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(formatter)
     os.chmod(log_file_path, mode=permissions_code)
 
@@ -234,7 +237,6 @@ def setup_mp_file_logger(log_file_path: str, logger_name: str, level=logging.DEB
         file_handler = logging.FileHandler(log_file_path)
         file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(formatter)
-        os.chmod(log_file_path, mode=permissions_code)
         logger.addHandler(file_handler)
         os.chmod(log_file_path, mode=permissions_code)
         logger.propagate = False  # avoid logging to root logger too
@@ -246,8 +248,6 @@ def setup_mp_file_logger(log_file_path: str, logger_name: str, level=logging.DEB
 # Note: the screen queue is really just a Manager.queue and we are usign a "put"
 # If the screen_queue is None, it defaults to "print"
 # TODO: Does debug work in the loggers?
-# This is generally to simplify MP loggers so it does need to have two lines
-# one for file.logger and one for screen_queue.put
 def l_print(msg, file_logger, log_level="info", screen_queue=None):
 
     if screen_queue is None:
@@ -278,7 +278,7 @@ def rollup_log_files(src_file, trg_file, remove_old_src_file=True):
 
     # This will not error out if the files do not exist
     # only send back a True / False (successful)
-    
+
     # this will also look for rollups automatically for -warning and -error files
 
     if not os.path.exists(src_file) or not os.path.exists(trg_file):
@@ -302,7 +302,7 @@ def rollup_log_files(src_file, trg_file, remove_old_src_file=True):
 
         if remove_old_src_file:
             os.remove(warning_src_file_name)
-    
+
     # ----------------
     # This will auto rollup errors files if they exist
     error_src_file_name = src_file.replace(".log", "-errors.log")
