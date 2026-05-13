@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.9.12.3 - 2026-05-13 - [PR#1694](https://github.com/NOAA-OWP/inundation-mapping/pull/1694)
+## v4.9.12.3 - 2026-05-13 - [PR#1789](https://github.com/NOAA-OWP/inundation-mapping/pull/1789)
 
 This PR fixes the AREASQKM issue in HydroTables and SRC tables. 
 
