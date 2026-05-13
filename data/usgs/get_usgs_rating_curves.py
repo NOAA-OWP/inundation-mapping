@@ -390,9 +390,33 @@ def __get_usgs_metadata(list_of_gage_sites, metadata_url):
                     upstream_trace_distance=None,
                     downstream_trace_distance=None,
                 )
+
+                # If one of the gage IDs is incorrect, then it will error out the entire chunk/list of gages
+                # If the metadata list is zero, rerun as a list to ensure that is not preventing data from being retrieved
+                if len(chunk_list) == 0:
+                    print()
+                    logging.warning(f'No metadata collected for the {len(chunk)} sites. Re-running each site individually.')
+
+                    for gage in chunk:
+                        try:
+                            gage_list, __ = tsf.get_metadata(
+                                metadata_url,
+                                select_by,
+                                [gage],
+                                must_include=None,
+                                upstream_trace_distance=None,
+                                downstream_trace_distance=None,
+                            )
+                            # Append chunk data to metadata_list/df
+                            chunk_list.extend(gage_list)
+                            logging.info(f'Re-running gage {gage} - Metadata retrieved in second try')
+
+                        except Exception:
+                            logging.error(f'Re-running gage {gage} - Exception occurred, unable to retrieve metadata')
+                
                 # Append chunk data to metadata_list/df
                 metadata_list.extend(chunk_list)
-                
+
                 # Feb 2026: metadata_df is not in use and has not been since at least Jun 2025
                 # metadata_df = pd.concat([metadata_df, chunk_df])
         else:
@@ -405,8 +429,32 @@ def __get_usgs_metadata(list_of_gage_sites, metadata_url):
                 upstream_trace_distance=None,
                 downstream_trace_distance=None,
             )
+
+            # If one of the gage IDs is incorrect, then it will error out the entire chunk/list of gages
+            # If the metadata list is zero, rerun as a list to ensure that is not preventing data from being retrieved
+            if len(metadata_list) == 0:
+                print()
+                logging.warning(f'No metadata collected for the {len(list_of_gage_sites)} sites. Re-running each site individually.')
+
+                for gage in list_of_gage_sites:
+                    try:
+                        gage_list, __ = tsf.get_metadata(
+                            metadata_url,
+                            select_by,
+                            [gage],
+                            must_include=None,
+                            upstream_trace_distance=None,
+                            downstream_trace_distance=None,
+                        )
+                        # Append chunk data to metadata_list/df
+                        metadata_list.extend(gage_list)
+                        logging.info(f'Re-running gage {gage} - Metadata retrieved in second try')
+
+                    except Exception:
+                        logging.error(f'Re-running gage {gage} - Exception occurred, unable to retrieve metadata')
                             
         # Get a geospatial layer (gdf) for all acceptable sites
+        print()
         logging.info("Aggregating WBD HUCs...")
         ___, sites_gdf = tsf.aggregate_wbd_hucs(metadata_list, Path(WBD_LAYER), retain_attributes=True)
         if sites_gdf is not None and not sites_gdf.empty:
