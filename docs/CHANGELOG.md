@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.9._____ - 2026-_____ - [PR#1811]([https://github.com/NOAA-OWP/inundation-mapping/pull/1811])
+## v4.9.13.0 - 2026-05-13 - [PR#1811]([https://github.com/NOAA-OWP/inundation-mapping/pull/1811])
 
 A major reorganization of the CatFIM processing pipeline, consolidating and simplifying a complex multi-file workflow into more modular and maintainable components. New scripts (`catfim_shared_functions.py`, `catfim_process_huc.py`, `catfim_post_processing.py`) were created to centralize common operations and move CatFIM processing into a HUC-level scale (whereas previous processing was a mix of site-level, sometimes HUC-level, and sometimes full domain-scale). 
 
@@ -29,6 +29,9 @@ A major reorganization of the CatFIM processing pipeline, consolidating and simp
 
 ### Removals
 - `tools/eval_alt_catfim.py`: Removed module because it is no longer in use or up-to-date.
+
+<br/>
+
 ## v4.9.12.3 - 2026-05-13 - [PR#1789](https://github.com/NOAA-OWP/inundation-mapping/pull/1789)
 
 This PR fixes the AREASQKM issue in HydroTables and SRC tables. 
