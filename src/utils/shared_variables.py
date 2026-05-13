@@ -29,6 +29,9 @@ PREP_PROJECTION = (
     'Tennessee; Texas; Utah; Vermont; Virginia; Washington; West Virginia; Wisconsin; '
     'Wyoming."],BBOX[24.41,-124.79,49.38,-66.91]],ID["EPSG",5070]]'
 )
+
+# TODO: Oct 30, 2025: Does anything use these? Should be moved to bash_variables
+# and no longer look for a .env value
 DEFAULT_FIM_PROJECTION_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
 ALASKA_CRS = os.getenv('ALASKA_CRS')
 PREP_CRS = CRS(PREP_PROJECTION)

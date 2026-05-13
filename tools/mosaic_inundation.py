@@ -2,6 +2,7 @@
 # coding: utf-8
 
 import argparse
+import logging
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
@@ -26,6 +27,10 @@ from utils.shared_variables import elev_raster_ndv
 
 
 gpd.options.io_engine = "pyogrio"
+
+
+# Set rasterio logger to only show errors, not warnings
+logging.getLogger('rasterio').setLevel(logging.ERROR)
 
 
 def Mosaic_inundation(
