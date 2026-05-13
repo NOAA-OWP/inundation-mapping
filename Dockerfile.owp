@@ -60,7 +60,7 @@ ENV PYTHONPATH="${projectDir}:${srcDir}:${srcDir}/utils:${projectDir}/data:${too
 
 ## ============================
 ## Set default permissions
-# RUN umask 0022
+# RUN umask 0027
 
 ## ============================
 ## Set entrypoint
