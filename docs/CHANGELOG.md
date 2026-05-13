@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.12.2 - 2026-05-13 - [PR#1830](https://github.com/NOAA-OWP/inundation-mapping/pull/1830)
+This PR closes issue #1821 by restoring the required `order_` field for roads FIMpact. Also, fixed `log_error()` argument mismatch so aggregation logs the original failure instead of raising a secondary `TypeError`.
+
+
+### Changes
+- src/process_roads_fimpact.py
+- src/aggregate_branches_to_huc.py
+
+<br/>
+
 ## v4.9.12.1 - 2026-05-01 - [PR#1815](https://github.com/NOAA-OWP/inundation-mapping/pull/1815)
 
 These changes resolve the numerous pandas 3.0 FutureWarnings as well as other miscellaneous "warning" messages that we track in our logging systems. Resolves #1799
