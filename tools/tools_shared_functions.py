@@ -117,7 +117,7 @@ def correct_datum_typos(crs, vcs):
         # Fix misspelled CRSs that are actually NAD27
         if crs.upper() in ACCEPTED_NAD27_SPELLINGS:
             crs_corrected = crs_nad27
-            msg = f"Typo found in horizontal CRS, changing {crs} to {crs_corrected}"
+            msg = f"Changing CRS from {crs} to {crs_corrected}"
             msgs.append(msg)
         elif crs.upper() in ACCEPTED_NGVD29_SPELLINGS:
             crs_corrected = crs_nad27
@@ -127,7 +127,7 @@ def correct_datum_typos(crs, vcs):
         # Fix misspelled CRSs that are actually NAD83
         elif crs.upper() in ACCEPTED_NAD83_SPELLINGS:
             crs_corrected = crs_nad83
-            msg = f"Typo found in horizontal CRS, changing {crs} to {crs_corrected}"
+            msg = f"Changing CRS from {crs} to {crs_corrected}"
             msgs.append(msg)
         elif crs.upper() in ACCEPTED_NAVD88_SPELLINGS:
             crs_corrected = crs_nad83
@@ -167,7 +167,7 @@ def correct_datum_typos(crs, vcs):
         # Fix misspelled vertical datums that are actually NGVD29
         if vcs.upper() in ACCEPTED_NGVD29_SPELLINGS:
             vcs_corrected = vcs_ngvd29
-            msg = f"Typo found in vertical datum, changing {vcs} to {vcs_corrected}"
+            msg = f"Changing vertical datum from {vcs} to {vcs_corrected}"
             msgs.append(msg)
         elif vcs.upper() in ACCEPTED_NAD27_SPELLINGS:
             vcs_corrected = vcs_ngvd29
@@ -177,7 +177,7 @@ def correct_datum_typos(crs, vcs):
         # Fix misspelled CRSs that are actually NAVD88
         elif vcs.upper() in ACCEPTED_NAVD88_SPELLINGS:
             vcs_corrected = vcs_navd88
-            msg = f"Typo found in vertical datum, changing {vcs} to {vcs_corrected}"
+            msg = f"Changing vertical datum from {vcs} to {vcs_corrected}"
             msgs.append(msg)
         elif vcs.upper() in ACCEPTED_NAD83_SPELLINGS:
             vcs_corrected = vcs_navd88
@@ -242,16 +242,16 @@ def filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order, nwm_
     filtered_segments = []
 
     for feature_id in unfiltered_segments:
-
         try:
             stream_order = nwm_flows_df.loc[nwm_flows_df['ID'] == int(feature_id), 'order_'].values[0]
-        except Exception as e:
-            print(f'WARNING: Exception occurred during filter_nwm_segments_by_stream_order():{e}')
 
-        if stream_order == desired_order:
-            filtered_segments.append(feature_id)
-        # else:
-        #     print(f'Stream order for {feature_id} did not match desired stream order...')
+            if stream_order == desired_order:
+                filtered_segments.append(feature_id)
+
+        except Exception as e:
+            # This isn't actually a big deal, it just means that the given feature ID does not
+            # match any of the segments provided.
+            print(f'WARNING: Exception occurred during filter_nwm_segments_by_stream_order():{e}')
 
     return filtered_segments
 
