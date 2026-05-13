@@ -361,9 +361,6 @@ def __get_usgs_metadata(list_of_gage_sites, metadata_url):
 
     # Otherwise, if a list of sites is passed, retrieve sites from WRDS.
     else:
-
-        # TODO: Feb 2026: This might not work anymore. ie) a list of gage sites might be failing now. Not sure.
-
         # Define arguments to retrieve metadata and then get metadata from WRDS
         select_by = 'usgs_site_code'
         selector = list_of_gage_sites
