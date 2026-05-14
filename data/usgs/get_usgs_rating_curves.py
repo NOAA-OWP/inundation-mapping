@@ -462,10 +462,6 @@ def __get_usgs_metadata(list_of_gage_sites, metadata_url):
                     except Exception as ex:
                         logging.error(f'Exception occurred while pulling data for site {gage}: {ex}')
 
-        # Log any sites that failed
-        # if len(failed_sites_list) > 0:
-        logging.info(f'Unable to retrieve metadata for {len(failed_sites_list)} site(s): {failed_sites_list}')
-
         # Get a geospatial layer (gdf) for all acceptable sites
         print()
         logging.info("Aggregating WBD HUCs...")
@@ -490,10 +486,7 @@ def __get_usgs_metadata(list_of_gage_sites, metadata_url):
 
 def __attrib_mainstems(sites_gdf, all_rating_curves, output_dir):
 
-    # Add mainstems attribute to acceptable sites
-    section_start_dt = datetime.now(timezone.utc)
-    display_dt_string = section_start_dt.strftime("%m/%d/%Y %H:%M:%S")
-    logging.info(f"Attributing mainstems sites started: {display_dt_string} (UTC)")
+
     # Rename columns and add attribute indicating if rating curve exists
     sites_gdf.rename(columns={'nwm_feature_id': 'feature_id', 'usgs_site_code': 'location_id'}, inplace=True)
     sites_with_data = pd.DataFrame({'location_id': all_rating_curves['location_id'].unique(), 'curve': 'yes'})
@@ -607,7 +600,16 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir):
 
     num_jobs : INT
         Number of jobs (workers) used for multi-proc.
+
+    Returns
+    -------
+    all_rating_curves : Pandas DataFrame
+        DF of the rating curves (or blank df if an error occurred or no valid sites available).
+
     '''
+
+    # Initialize output df for rating curves
+    all_rating_curves = pd.DataFrame()
 
     # Validation
     total_cpus_available = os.cpu_count()
@@ -667,40 +669,43 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir):
     # mp_file_logger = sf.setup_mp_file_logger(log_file_path)
 
     try:
-        logging.info("Retrieving new USGS rating curves")
-        logging.info(f"Started {display_dt_string} (UTC)")
-        print(f"    Logs will be saved to {log_file_path}")
+        print("\n=========================================================================\n")
+        logging.info(f"Get New USGS Rating Curves - {display_dt_string} (UTC)\n")
         print()
+        print(f"Logs will be saved to {log_file_path}")
         print(f"Saving results in {output_dir}")
         print()
+        logging.info("\n-------------------------------------------------\n")
+
+        # ------------------------------
+        # Get USGS metadata and aggregate by HUC
+
+        logging.info("Retrieving metadata and aggregating by HUCs...\n")
+        section_start_dt = datetime.now(timezone.utc)
 
         # If 'all' option passed to list of gages sites, it retrieves all sites within CONUS.
-        section_start_dt = datetime.now(timezone.utc)
-        logging.info("Retrieving metadata")
-
         # This part usually only takes a few mins (up to 8 mins(ish) )
         sites_gdf, metadata_list = __get_usgs_metadata(list_of_gage_sites, metadata_url)
 
-        # Save an interium copy of the metadata
+        # Save an interium copy of the metadata # TODO: Clean up?
         # sites_gdf = sites_gdf.to_crs(PREP_PROJECTION)
         # usgs_metadata_file = os.path.join(output_dir, "usgs_metadata.gpkg")
         # print(f"Saving a copy of the raw usgs metadata to {usgs_metadata_file}")
         # sites_gdf.to_file(usgs_metadata_file, layer='usgs_gages', driver='GPKG', engine='fiona')
 
-        display_dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
         dur_msg = fh.print_date_time_duration(section_start_dt, datetime.now(timezone.utc), False)
-        logging.info(f"Retrieving metadata and agg by HUCs complete: {display_dt_string} (UTC); {dur_msg}")
+        logging.info(f"\nFinished retrieving metadata and aggregating by HUCs - {dur_msg}")
+        logging.info("\n-------------------------------------------------\n")
 
-        # Create DataFrame to store all appended rating curves
-        # print('Processing metadata...')
+        # ------------------------------
+        # Process metadata (creates DF to store all appended rating curves)
+
+        logging.info("Begin processing metadata...\n")
         section_start_dt = datetime.now(timezone.utc)
-        display_dt_string = section_start_dt.strftime("%m/%d/%Y %H:%M:%S")
-        logging.info("=============")
-        logging.info(f"Processing metadata started: {display_dt_string} (UTC)")
 
         num_sites = len(metadata_list)
         logging.info(f"Number of sites to process: {num_sites}")
-        print("-- Note: some locations will be skipped")
+        print("-- Note: some locations will be skipped") # TODO: What do we mean by this? Should clarify or remove
 
         tasks_args_list = []
         for i in range(len(metadata_list)):
@@ -747,7 +752,6 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir):
 
         # run_with_mp returns a list of dictionaries keyed with a huc. We don't care about the keys, just the values
         # which are df's
-        all_rating_curves = pd.DataFrame()
         for i, value in enumerate(rating_curves_dfs.values()):
             if i == 0:
                 all_rating_curves = value
@@ -756,61 +760,78 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir):
 
         logging.info(f"Number of sites to processes with metadata: {len(all_rating_curves)}")
 
-        display_dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
         dur_msg = fh.print_date_time_duration(section_start_dt, datetime.now(timezone.utc), False)
-        logging.info(f"Processing metadata complete: {display_dt_string} (UTC); {dur_msg}")
-        logging.info("=============")
+        logging.info(f"\nFinished processing metadata - {dur_msg}")
+        logging.info("\n-------------------------------------------------\n")
 
         # Error out with messages if no rating curves made it past the datum checks
         if len(all_rating_curves) == 0:
             logging.error('ERROR: No rating curves to compile. Program aborting.')
             sys.exit(1)
 
+        # ------------------------------
+        # Attribute mainstem sites (Add mainstems attribute to acceptable sites)
+
+        logging.info("Begin attributing mainstem sites...\n")
+        section_start_dt = datetime.now(timezone.utc)
+
         # Filter out all_rating_curves by list
         acceptable_sites_list = __attrib_mainstems(sites_gdf, all_rating_curves, output_dir)
         all_rating_curves = all_rating_curves[all_rating_curves['location_id'].isin(acceptable_sites_list)]
 
-        # dur_msg = fh.print_date_time_duration(section_start_dt, datetime.now(timezone.utc), False)
-        display_dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
-        logging.info(f"Attributing mainstems sites done: {display_dt_string} (UTC)")
-        logging.info("=============")
+        dur_msg = fh.print_date_time_duration(section_start_dt, datetime.now(timezone.utc), False)
+        logging.info(f"\nFinished attributing mainstems sites - {dur_msg}")
+        logging.info("\n-------------------------------------------------\n")
+
+        # ------------------------------
+        # Save rating curve file and USGS gages file (if 'all' is selected)
+
+        logging.info("Saving output files...\n")
+        section_start_dt = datetime.now(timezone.utc)
 
         # Write rating curve dataframe to file
         usgs_rating_curve_file = os.path.join(output_dir, "usgs_rating_curves.csv")
         all_rating_curves.to_csv(usgs_rating_curve_file, index=False)
 
         # If 'all' option specified, reproject then write out shapefile of acceptable sites.
-        # TODO: Should it also do something if 'all' isn't specified?
-        if list_of_gage_sites == ['all']:
+        if list_of_gage_sites == ['all']: # TODO: Should it also do something if 'all' isn't specified?
             sites_gdf = sites_gdf.to_crs(PREP_PROJECTION)
             usgs_gages_file = os.path.join(output_dir, "usgs_gages.gpkg")
-
             sites_gdf.to_file(usgs_gages_file, layer='usgs_gages', driver='GPKG', engine='fiona')
 
-        display_dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
-        logging.info(f"usgs gage files created: {display_dt_string} (UTC)")
+            msg = "USGS gage and rating curve files saved"
+
+        else: # TODO: Decide if this is the desired behavior (why not just save above for list as well?)
+            msg = "Rating curve files saved"
+
+        dur_msg = fh.print_date_time_duration(section_start_dt, datetime.now(timezone.utc), False)
+        logging.info(f"\n{msg} - {dur_msg}")
+        logging.info("\n-------------------------------------------------\n")
+
+        # ------------------------------
+        # Write categorical flow files
 
         # Write out flow files for each threshold across all sites
+        logging.info("Getting stage discharge values...\n")
         section_start_dt = datetime.now(timezone.utc)
-        display_dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
-        logging.info(f"Getting stage discharge values - started: {display_dt_string} (UTC)")
 
         __write_categorical_flow_files(
             metadata_list, output_dir, file_datetime_string, log_file_path, num_jobs
         )
 
-        display_dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
         dur_msg = fh.print_date_time_duration(section_start_dt, datetime.now(timezone.utc), False)
-        logging.info(f"Getting stage discharge values - complete: {display_dt_string} (UTC); {dur_msg}")
+        logging.info(f"\nFinished getting stage discharge values - {dur_msg}")
+        logging.info("\n-------------------------------------------------\n")
 
-    except Exception:
+    except Exception as ex:
+        logging.critical(f"Exception occured inside usgs_rating_to_elev: {ex}")
         logging.critical(traceback.format_exc())
 
     display_dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
     dur_msg = fh.print_date_time_duration(overall_start_dt, datetime.now(timezone.utc), False)
-    logging.info(f"Program complete: {display_dt_string} (UTC)")
-    logging.info(dur_msg)
-    print("-------------------------------------------------------------------------")
+    logging.info(f"\nProgram complete - {display_dt_string} (UTC)")
+    logging.info(f"{dur_msg}")
+    print("\n=========================================================================\n")
 
     return all_rating_curves
 
