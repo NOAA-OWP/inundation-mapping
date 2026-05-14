@@ -167,6 +167,21 @@ export ncols=$ncols
 export nrows=$nrows
 $srcDir/delineate_hydros_and_produce_HAND.sh "branch"
 
+## HEAL HAND BRIDGES ##
+if  [ "$heal_hand_bridges" = true ] && [ -f $tempHucDataDir/osm_bridges_subset.gpkg ]; then
+    echo -e $startDiv"Burn in bridges $hucNumber $current_branch_id"
+    python3 $srcDir/heal_bridges_osm.py \
+        -g $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
+        -d $tempCurrentBranchDataDir/bridge_elev_diff_meters_$current_branch_id.tif \
+        -s $tempHucDataDir/osm_bridges_subset.gpkg \
+        -b1 10 \
+        -b2 1.5 \
+        -p $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked_$current_branch_id.gpkg \
+        -c $tempCurrentBranchDataDir/osm_bridge_centroids_$current_branch_id.gpkg
+else
+    echo -e $startDiv"No applicable bridge data for $hucNumber"
+fi
+
 ## USGS CROSSWALK ##
 if [ -f $tempHucDataDir/usgs_subset_gages.gpkg ]; then
     echo -e $startDiv"USGS Crosswalk $hucNumber $current_branch_id"
