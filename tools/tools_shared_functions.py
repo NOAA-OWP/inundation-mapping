@@ -8,6 +8,7 @@ import logging
 import os
 import pathlib
 import sys
+
 # import traceback
 from pathlib import Path
 
@@ -117,7 +118,7 @@ def correct_datum_typos(crs, vcs):
         # Fix misspelled CRSs that are actually NAD27
         if crs.upper() in ACCEPTED_NAD27_SPELLINGS:
             crs_corrected = crs_nad27
-            msg = f"Typo found in horizontal CRS, changing {crs} to {crs_corrected}"
+            msg = f"Changing CRS from {crs} to {crs_corrected}"
             msgs.append(msg)
         elif crs.upper() in ACCEPTED_NGVD29_SPELLINGS:
             crs_corrected = crs_nad27
@@ -127,7 +128,7 @@ def correct_datum_typos(crs, vcs):
         # Fix misspelled CRSs that are actually NAD83
         elif crs.upper() in ACCEPTED_NAD83_SPELLINGS:
             crs_corrected = crs_nad83
-            msg = f"Typo found in horizontal CRS, changing {crs} to {crs_corrected}"
+            msg = f"Changing CRS from {crs} to {crs_corrected}"
             msgs.append(msg)
         elif crs.upper() in ACCEPTED_NAVD88_SPELLINGS:
             crs_corrected = crs_nad83
@@ -167,7 +168,7 @@ def correct_datum_typos(crs, vcs):
         # Fix misspelled vertical datums that are actually NGVD29
         if vcs.upper() in ACCEPTED_NGVD29_SPELLINGS:
             vcs_corrected = vcs_ngvd29
-            msg = f"Typo found in vertical datum, changing {vcs} to {vcs_corrected}"
+            msg = f"Changing vertical datum from {vcs} to {vcs_corrected}"
             msgs.append(msg)
         elif vcs.upper() in ACCEPTED_NAD27_SPELLINGS:
             vcs_corrected = vcs_ngvd29
@@ -177,7 +178,7 @@ def correct_datum_typos(crs, vcs):
         # Fix misspelled CRSs that are actually NAVD88
         elif vcs.upper() in ACCEPTED_NAVD88_SPELLINGS:
             vcs_corrected = vcs_navd88
-            msg = f"Typo found in vertical datum, changing {vcs} to {vcs_corrected}"
+            msg = f"Changing vertical datum from {vcs} to {vcs_corrected}"
             msgs.append(msg)
         elif vcs.upper() in ACCEPTED_NAD83_SPELLINGS:
             vcs_corrected = vcs_navd88
@@ -242,16 +243,16 @@ def filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order, nwm_
     filtered_segments = []
 
     for feature_id in unfiltered_segments:
-
         try:
             stream_order = nwm_flows_df.loc[nwm_flows_df['ID'] == int(feature_id), 'order_'].values[0]
-        except Exception as e:
-            print(f'WARNING: Exception occurred during filter_nwm_segments_by_stream_order():{e}')
 
-        if stream_order == desired_order:
-            filtered_segments.append(feature_id)
-        # else:
-        #     print(f'Stream order for {feature_id} did not match desired stream order...')
+            if stream_order == desired_order:
+                filtered_segments.append(feature_id)
+
+        except Exception as e:
+            # This isn't actually a big deal, it just means that the given feature ID does not
+            # match any of the segments provided.
+            print(f'WARNING: Exception occurred during filter_nwm_segments_by_stream_order():{e}')
 
     return filtered_segments
 
@@ -871,6 +872,7 @@ def get_stats_table_from_binary_rasters(
 # Functions related to categorical fim and ahps evaluation
 ########################################################################
 
+
 # Feb 24, 2026: TODO: The call to the api, should have a "with" and proper try/catch added.
 # See run_vdatum_for_region for an example
 def get_metadata(
@@ -1024,9 +1026,9 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
         # print("temp 1 into meta")
         # print(metadata)
         df = pd.json_normalize(metadata)
-        # print("temp 2 into meta")       
+        # print("temp 2 into meta")
         # print(df.info)   # this is showing the schema
-        # print(f"len of df is {len(df)} ... 1")        
+        # print(f"len of df is {len(df)} ... 1")
         # Columns have periods due to nested dictionaries
         df.columns = df.columns.str.replace('.', '_')
         # print(f"len of df is {len(df)} ... 2")
@@ -1035,7 +1037,7 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
             subset=['identifiers_nws_lid', 'usgs_preferred_latitude', 'usgs_preferred_longitude'],
             inplace=True,
         )
-       
+
         # If dataframe still has data
         if not df.empty:
             # print(df[:5])
@@ -1060,11 +1062,11 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
             metadata_gdf = pd.concat([metadata_gdf, site_gdf], ignore_index=True)
         # else:
         #     logging.warning("This site (what site) does have values for key data")
-            # df.dropna(
-            #    subset=['identifiers_nws_lid', 'usgs_preferred_latitude', 'usgs_preferred_longitude'],
-            # inplace=True,
-            # means a site can be dropped. Hummm... what if we want usgs data but it is missing the nws_lid.
-                        
+        # df.dropna(
+        #    subset=['identifiers_nws_lid', 'usgs_preferred_latitude', 'usgs_preferred_longitude'],
+        # inplace=True,
+        # means a site can be dropped. Hummm... what if we want usgs data but it is missing the nws_lid.
+
     if metadata_gdf.empty:
         return None, gpd.GeoDataFrame()
 
@@ -1078,7 +1080,7 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
     #        metadata_gdf = metadata_gdf[retain_attributes]
     print("Performing spatial and tabular operations on geodataframe...")
     # logging.info("Performing spatial and tabular operations on geodataframe...")
-    
+
     # Perform a spatial join to get the WBD HUC 8 assigned to each AHPS
     joined_gdf = gpd.sjoin(
         metadata_gdf, huc8, how='inner', predicate='intersects', lsuffix='ahps', rsuffix='wbd'
@@ -1233,6 +1235,7 @@ def get_nwm_segs(metadata):
 #######################################################################
 # Thresholds
 #######################################################################
+
 
 # Feb 24, 2026: TODO: The call to the api, should have a "with" and proper try/catch added.
 # See run_vdatum_for_region for an example
@@ -1525,11 +1528,11 @@ def ngvd_to_navd_ft(datum_info):
         Vertical adjustment in feet, from NGVD29 to NAVD88, and rounded to nearest hundredth.
 
     '''
-    
+
     # Feb 2026: All print commands are getting lost in MP, so we need to return the message
     # They do show in the console but not the logs without returning the message
     err_msg = ""
-    
+
     # If crs is not NAD 27, convert crs to NAD27 and get adjusted lat lon
     if datum_info['crs'] != 'NAD27':
         lat, lon = convert_latlon_datum(datum_info['lat'], datum_info['lon'], datum_info['crs'], 'NAD27')
@@ -1554,13 +1557,13 @@ def ngvd_to_navd_ft(datum_info):
 
     # Run API for a given region
     def run_vdatum_for_region(params, region):
-        
+
         # print("+++++++++++++")
         # print("inside run_vdatum_for_region")
         # print(params)
         # print(region)
         # print("----------------")
-        
+
         params['region'] = region
 
         # Suppress Insecure Request Warning
@@ -1571,28 +1574,25 @@ def ngvd_to_navd_ft(datum_info):
 
         try:
             # Call the API
-            retry = Retry(connect=5,
-                            backoff_factor=5,
-                            total=4,
-                            status_forcelist=[429, 500, 502, 503, 504])
+            retry = Retry(connect=5, backoff_factor=5, total=4, status_forcelist=[429, 500, 502, 503, 504])
             adapter = HTTPAdapter(max_retries=retry)
-            
-#             with requests.Session() as session:
+
+            #             with requests.Session() as session:
             session = requests.Session()
-            session.mount('https://', adapter)                
+            session.mount('https://', adapter)
             session.mount('http://', adapter)
 
             response = session.get(datum_url, params=params, verify=False, timeout=5)
 
-    #        print(f"success is {success}")
+            #        print(f"success is {success}")
             # print(f"response code is {response.status_code}")
 
             # Check whether API call was successfull
             if response.status_code == 200:
                 results = response.json()
-                
+
                 # Feb 24, 2026: It is possible for the response header to return a 200, but their could
-                # be a controlled message from the API, such as 
+                # be a controlled message from the API, such as
                 # {'errorCode': 412, 'message': 'Uncaught error, please contact NOAA VDatum Program Support team.'}
                 # Should this be an exception?
                 if "errorCode" in results:
@@ -1602,16 +1602,16 @@ def ngvd_to_navd_ft(datum_info):
                     success = 't_z' in results
             else:
                 response.raise_for_status()
-                               
+
         except HTTPError as http_err:
             # These are for catastropic errors calling NOAA
             print(f"HTTP error occurred while calling NOAA vDatum service: {http_err}")
             raise http_err
         except requests.exceptions.RequestException as err:
             # These are for catastropic errors calling NOAA
-            print(f"Other error occurred while calling NOAA vDatum service: {err}")      
+            print(f"Other error occurred while calling NOAA vDatum service: {err}")
             raise err
-            
+
         return response, success
 
     # Run Vdatum with region-specific parameters
@@ -1644,7 +1644,7 @@ def ngvd_to_navd_ft(datum_info):
             message = "An unknown internal error has occurred."
         # This message gets lost in MP and logging
         print(f'VDatum error occurred: {message}')
-        err_msg=message
+        err_msg = message
         adjustment_ft = None
 
     return adjustment_ft, err_msg

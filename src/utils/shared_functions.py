@@ -4,10 +4,12 @@ import glob
 import inspect
 import logging
 import os
-import pathlib
+
+# import pathlib
 import re
 import shutil
-import sys
+
+# import sys
 import threading
 import traceback
 from concurrent.futures import Future, ProcessPoolExecutor, as_completed
@@ -16,7 +18,7 @@ from multiprocessing import Manager
 from os.path import splitext
 from pathlib import Path
 
-import fiona
+# import fiona
 import geopandas as gp
 import numpy as np
 import pandas as pd
@@ -33,6 +35,7 @@ gp.options.io_engine = "pyogrio"
 # #################################
 # log file tools
 
+
 # This one is a standard Python logger, NOT MEANT for multi-proc
 # def setup_file_logger(log_file_path):
 def setup_file_logger(log_file_dir, log_file_name_prefix):
@@ -43,7 +46,12 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
     ie) setup_file_logger("/ouputs/mylogs", "pull_osm_bridges")
     The log name becomes "/outputs/mylogs/pull_osm_bridges_20250925_1842.log
 
-    This one is not meant to be used for MP's.
+    This one is generally not meant to be used for MP's but this needs to be confirmed.
+    The problem with loggers being used inside some MP's is that each MP process can potentially
+    be writing to the same file at the same time.  If you have a process even if it is in an
+    MP, as long as it has its own unique MP log file names, you can use this one.
+    ie)  huc_12090301_inundate_20260217.log
+
     It prints to file and screen at the same time.
 
     This one is very similar to 'setup_mp_file_logger' but has a few critical differences.
@@ -79,8 +87,11 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
     file_dt_string = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M")
     log_file_name = f"{log_file_name_prefix}_{file_dt_string}.log"
     log_file_path = os.path.join(log_file_dir, log_file_name)
+
+    # we will assume the parent folder already exists
+    os.makedirs(log_file_dir, exist_ok=True, mode=permissions_code)
     print(f"Logs saved to: {log_file_path}")
-        
+
     # even though we used os.makedirs, it does not mean it had permission to make the dir
     # the mode is for permissions of the folder once is created.
     if not os.path.isdir(log_file_dir):
@@ -108,23 +119,31 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
 
     # warning file handler
     warning_file_name = log_file_path.replace(".log", "-warnings.log")
-    warning_file_handler = logging.FileHandler(warning_file_name)
-    warning_file_handler.setLevel(logging.WARNING)
-    warning_file_handler.setFormatter(formatter)
+    warn_file_handler = logging.FileHandler(warning_file_name)
+    warn_file_handler.setLevel(logging.WARNING)
+    warn_file_handler.setFormatter(formatter)
+    # Filter to exclude ERROR and CRITICAL from warnings file
+    warn_file_handler.addFilter(lambda record: record.levelno < logging.ERROR)
     os.chmod(warning_file_name, mode=permissions_code)
 
-    # # basic file handler
+    # basic file handler
     file_handler = logging.FileHandler(log_file_path)
-    file_handler.setLevel(logging.DEBUG)    
+    file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(formatter)
     os.chmod(log_file_path, mode=permissions_code)
 
     logger.handlers.clear()  # reset the custom logger settings below
     # order matters here
     logger.addHandler(err_file_handler)
-    logger.addHandler(warning_file_handler)
+    logger.addHandler(warn_file_handler)
     logger.addHandler(file_handler)
     logger.addHandler(console_handler)
+
+    # Current functionality:
+    # .log file will get: INFO, WARNING, ERROR, CRITICAL
+    # -warnings.log file will get: WARNING (but not ERROR or CRITICAL)
+    # -errors.log file will get: ERROR and CRITICAL
+    # DEBUG will not end up in any of them
 
     return log_file_path
 
@@ -203,6 +222,7 @@ def setup_mp_file_logger(log_file_path: str, logger_name: str, level=logging.DEB
         err_file_handler = logging.FileHandler(error_file_name)
         err_file_handler.setLevel(logging.ERROR)
         err_file_handler.setFormatter(formatter)
+        os.chmod(error_file_name, mode=permissions_code)
         logger.addHandler(err_file_handler)
         os.chmod(error_file_name, mode=permissions_code)
 
@@ -228,8 +248,6 @@ def setup_mp_file_logger(log_file_path: str, logger_name: str, level=logging.DEB
 # Note: the screen queue is really just a Manager.queue and we are usign a "put"
 # If the screen_queue is None, it defaults to "print"
 # TODO: Does debug work in the loggers?
-# This is generally to simplify MP loggers so it does need to have two lines
-# one for file.logger and one for screen_queue.put
 def l_print(msg, file_logger, log_level="info", screen_queue=None):
 
     if screen_queue is None:
@@ -260,7 +278,7 @@ def rollup_log_files(src_file, trg_file, remove_old_src_file=True):
 
     # This will not error out if the files do not exist
     # only send back a True / False (successful)
-    
+
     # this will also look for rollups automatically for -warning and -error files
 
     if not os.path.exists(src_file) or not os.path.exists(trg_file):
@@ -284,7 +302,7 @@ def rollup_log_files(src_file, trg_file, remove_old_src_file=True):
 
         if remove_old_src_file:
             os.remove(warning_src_file_name)
-    
+
     # ----------------
     # This will auto rollup errors files if they exist
     error_src_file_name = src_file.replace(".log", "-errors.log")
@@ -307,7 +325,7 @@ def run_with_mp(
     tasks_args_list,
     file_logger,
     max_workers=4,
-    task_id_key=None,  # must be one of the keys in the args list
+    task_id_key=None,  # must not be None and must be one of the keys in the args list.
     show_progress=True,
 ):
     '''
@@ -315,8 +333,10 @@ def run_with_mp(
 
     NOTES:
     This setup is using a shared log file and it is ok for now assuming that:
-        - we have limitted amount of logs (3-4 lines per subprocess) in multiprocessing work
+        - we have limitted amount of logs (3-4 lines per subprocess) in multiprocessing work.
+
         - total number of subprocesses is modest (e.g., less than 50), not hundreds or thousands.
+
         - if we encounter a case that this does not work correctly, then we can improve it by creating one
            log file per task and combining them afterward.
 
@@ -325,12 +345,17 @@ def run_with_mp(
         " This wrapper catches unexpected crashes (e.g., segfaults or crashes in subprocesses).
         " Inside helper functions feel free to log any information. but no need to raise errors.
         " The only exception is that when we really need to address a special case like API limits and wait and retry.
-    - Inside your task function or helpers, log live messages using screen_queue.put(msg).
-    - These will appear in the main process via tqdm.write() and won't interrupt the progress bar.
-    - Always pass three additional arguments into task_function and its helpers: file_logger ,screen_queue and task_id.
-        - Do not use any print statements after start of multiprocessing in the task function or inside its helper functions. Instead use screen_queue.put().
-        - use file_logger.info() to log the message in the log file
 
+    - Inside your task function or helpers, log live messages using screen_queue.put(msg) if the screen_queue
+        has been passed to the child mp function.
+
+    - These will appear in the main process via tqdm.write() and won't interrupt the progress bar.
+
+    - Always pass three additional arguments into task_function and its helpers: file_logger ,screen_queue and task_id.
+        - Do not use any print statements after start of multiprocessing in the task function or inside its helper
+          functions. Instead use screen_queue.put().
+
+        - Use file_logger.info() to log the message in the log file.
     '''
 
     # +++++++++++++++++++++
@@ -366,6 +391,19 @@ def run_with_mp(
     #          -1, [None]  (Catestrophic fail, shut down the entire script)
 
     # ++++++++++++++++++++++
+
+    # Validation
+    if not task_function:
+        raise Exception("task_function argument can not be None or empty")
+    if tasks_args_list is None or len(tasks_args_list) == 0:
+        raise Exception("tasks_args_list can not be None or empty")
+    if file_logger is None or not isinstance(file_logger, logging.Logger):
+        raise Exception("file_logger is either None or is not a logging class")
+    if not task_id_key:
+        raise Exception("task_id_key can not be None or empty")
+
+    # TODO: Add a validation test to ensure the task_id_key exists as a poplated key in all items
+    # in the tasks_args_list.
 
     try:
         # the thread must be inside the try catch to be closed correct in system fail.
@@ -417,7 +455,7 @@ def run_with_mp(
         # When an MP dies and we want to shut down the app, we have to let it finish the wip mps, then we can
         #   abort and stop new ones from firing.
 
-        # CTRL-C a number of times from console will stop the two program faster, but will leave orphaned memory
+        # CTRL-C entered multiple of times from console will stop the two program faster, but will leave orphaned memory
         #    leaks.  If you do this, close your container to release the memory leaks and restart a new container.
 
         results = {}
@@ -853,10 +891,43 @@ def clean_huc_value(huc):
     return huc
 
 
-########################################################################
+def calculate_duration_msg(start_dt):
+    '''
+    Process:
+    -------
+    Calcuates the difference in time between the start and curerent end time (in UTC)
+    and returns is as:
+
+        Duration: 4 hours 23 mins 15 secs
+
+    Make sure your start_dt is in UTC
+
+    '''
+
+    # if include_log and not isinstance( logging_instance, logging.Logger):
+    #     raise Exception("You have requested to log the duration to file, but the logging_instance"
+    #                     " does not appear to be an instance of logging.Logger (or a custom version).")
+
+    end_dt = datetime.now(timezone.utc)
+    # dt_string = end_dt.strftime("%m/%d/%Y %H:%M:%S")
+
+    time_delta = end_dt - start_dt
+    total_seconds = int(time_delta.total_seconds())
+
+    total_days, rem_seconds = divmod(total_seconds, 60 * 60 * 24)
+    total_hours, rem_seconds = divmod(rem_seconds, 60 * 60)
+    total_mins, seconds = divmod(rem_seconds, 60)
+
+    if total_days > 0:
+        total_hours = (total_days * 24) + total_hours
+
+    time_fmt = f"Duration: {total_hours:02d} hours {total_mins:02d} mins {seconds:02d} secs"
+
+    return time_fmt
 
 
 # #####################################
+# TODO: Oct 2025: Get Rid of this class and move/adjust desired functions above.
 class FIM_Helpers:
     # -----------------------------------------------------------
     @staticmethod
