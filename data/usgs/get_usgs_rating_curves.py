@@ -368,13 +368,14 @@ def __get_usgs_metadata(list_of_gage_sites, metadata_url):
         # Sept 2025: Is this right? If we send in a list of sites, it does not
         # include the filter of "must_include = 'usgs_data.active'" which is used
         # when we use the "get_all_active_usgs_sites"
+        print()
         logging.info(f"Getting metadata for selected sites : {selector}")
 
         # Since there is a limit to number characters in url, split up selector if too many sites.
         max_sites = 20  # Can we go more than 20? do we want to?
         metadata_list = []
         
-        if len(selector) > max_sites:
+        if len(selector) > max_sites: # TODO: Do we even need to keep this? I don't feel like we're prioritizing large-scale runs with a list input...
             chunks = [selector[i : i + max_sites] for i in range(0, len(selector), max_sites)]
             # Get metadata for each chunk
             # metadata_df = pd.DataFrame()  # Feb 2026: metadata_df is not in use and has not been since at least Jun 2025
@@ -389,7 +390,7 @@ def __get_usgs_metadata(list_of_gage_sites, metadata_url):
                 )
 
                 # If one of the gage IDs is incorrect, then it will error out the entire chunk/list of gages
-                # If the metadata list is zero, rerun as a list to ensure that is not preventing data from being retrieved
+                # If the metadata list is zero, rerun sites individually to ensure that is not preventing data from being retrieved
                 if len(chunk_list) == 0:
                     print()
                     logging.warning(f'No metadata collected for the {len(chunk)} sites. Re-running each site individually.')
@@ -406,10 +407,9 @@ def __get_usgs_metadata(list_of_gage_sites, metadata_url):
                             )
                             # Append chunk data to metadata_list/df
                             chunk_list.extend(gage_list)
-                            logging.info(f'Re-running gage {gage} - Metadata retrieved in second try')
 
-                        except Exception:
-                            logging.error(f'Re-running gage {gage} - Exception occurred, unable to retrieve metadata')
+                        except Exception as ex:
+                            logging.error(f'Exception occurred while pulling data for site {gage}: {ex}')
                 
                 # Append chunk data to metadata_list/df
                 metadata_list.extend(chunk_list)
@@ -428,13 +428,14 @@ def __get_usgs_metadata(list_of_gage_sites, metadata_url):
             )
 
             # If one of the gage IDs is incorrect, then it will error out the entire chunk/list of gages
-            # If the metadata list is zero, rerun as a list to ensure that is not preventing data from being retrieved
+            # If the metadata list is zero, rerun sites individually to ensure that is not preventing data from being retrieved
             if len(metadata_list) == 0:
-                print()
-                logging.warning(f'No metadata collected for the {len(list_of_gage_sites)} sites. Re-running each site individually.')
+                logging.warning(f'No metadata collected for the {len(selector)} sites. Re-running each site individually.')
 
                 for gage in list_of_gage_sites:
                     try:
+                        print()
+                        logging.info(f'Re-running site {gage}')
                         gage_list, __ = tsf.get_metadata(
                             metadata_url,
                             select_by,
@@ -445,11 +446,14 @@ def __get_usgs_metadata(list_of_gage_sites, metadata_url):
                         )
                         # Append chunk data to metadata_list/df
                         metadata_list.extend(gage_list)
-                        logging.info(f'Re-running gage {gage} - Metadata retrieved in second try')
 
-                    except Exception:
-                        logging.error(f'Re-running gage {gage} - Exception occurred, unable to retrieve metadata')
-                            
+                    except Exception as ex:
+                        logging.error(f'Exception occurred while pulling data for site {gage}: {ex}')
+
+        # Log any sites that failed
+        # if len(failed_sites_list) > 0:
+        logging.info(f'Unable to retrieve metadata for {len(failed_sites_list)} site(s): {failed_sites_list}')
+
         # Get a geospatial layer (gdf) for all acceptable sites
         print()
         logging.info("Aggregating WBD HUCs...")
