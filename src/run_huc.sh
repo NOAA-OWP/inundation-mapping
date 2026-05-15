@@ -12,6 +12,9 @@ source $outputDestDir/params.env
 source $srcDir/bash_functions.env
 source $srcDir/bash_variables.env
 
+export HYDRA_LAUNCHER=fork
+export DISPLAY=:0
+
 branch_list_csv_file=$tempHucDataDir/branch_ids.csv
 branch_list_lst_file=$tempHucDataDir/branch_ids.lst
 
@@ -199,21 +202,25 @@ python3 $srcDir/burn_in_levees.py \
 
 ## RASTERIZE REACH BOOLEAN (1 & 0) - BRANCH 0 (include all NWM streams) ##
 echo -e $startDiv"Rasterize Reach Boolean $hucNumber $branch_zero_id"
-gdal_rasterize -q -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" \
+gdal_rasterize -q -ot Int32 -burn 1 -init 0 -a_nodata -9999 \
+    -co "BIGTIFF=YES" \
     -te $xmin $ymin $xmax $ymax -ts $ncols $nrows \
-    $tempHucDataDir/nwm_subset_streams.gpkg $tempCurrentBranchDataDir/flows_grid_boolean_$branch_zero_id.tif
+    $tempHucDataDir/nwm_subset_streams.gpkg \
+    $tempCurrentBranchDataDir/flows_grid_boolean_$branch_zero_id.tif
 
 ## RASTERIZE REACH BOOLEAN (1 & 0) - BRANCHES (Not 0) (NWM levelpath streams) ##
 if [ "$levelpaths_exist" = "1" ]; then
     echo -e $startDiv"Rasterize Reach Boolean $hucNumber (Branches)"
-    gdal_rasterize -q -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" \
+    gdal_rasterize -q -ot Int32 -burn 1 -init 0 -a_nodata -9999 \
+        -co "BIGTIFF=YES" \
         -te $xmin $ymin $xmax $ymax -ts $ncols $nrows \
         $tempHucDataDir/nwm_subset_streams_levelPaths_extended.gpkg $tempHucDataDir/flows_grid_boolean.tif
 fi
 
 ## RASTERIZE NWM Levelpath HEADWATERS (1 & 0) ##
 echo -e $startDiv"Rasterize NWM Headwaters $hucNumber $branch_zero_id"
-gdal_rasterize -q -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" \
+gdal_rasterize -q -at -ot Int32 -burn 1 -init 0 -a_nodata -9999 \
+    -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" \
     -te $xmin $ymin $xmax $ymax -ts $ncols $nrows \
     $tempHucDataDir/nwm_headwater_points_subset.gpkg $tempCurrentBranchDataDir/headwaters_$branch_zero_id.tif
 
@@ -240,8 +247,19 @@ echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber $branch_zero_id"
 mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
     -fel $tempCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif \
     -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$branch_zero_id.tif \
-    2>&1 | sed -e 's/.*no output sd8 file specified.*/INFO: TauDEM d8flowdir running without optional sd8 slope output./I' \
-               -e 's/.*no output p file specified.*/INFO: TauDEM d8flowdir running without optional sd8 slope output./I'
+    2> >(while read -r line; do
+        # Check if BOTH strings are present in the error line
+        if [[ "$line" == *"ERROR 6:"* && "$line" == *"Dataset does not support the AddBand() method."* ]]; then
+            # Do nothing (ignore the error)
+            :
+        else
+            # Print the line to the standard error stream (screen)
+            echo "$line" >&2
+        fi
+    done)
+    # May 1, 2026: Merge config between Ryan and Matt gdal PR. commented out Ryans. Can we marry the two? do we want too?    
+    # 2>&1 | sed -e 's/.*no output sd8 file specified.*/INFO: TauDEM d8flowdir running without optional sd8 slope output./I' \
+    #            -e 's/.*no output p file specified.*/INFO: TauDEM d8flowdir running without optional sd8 slope output./I'
 
 ## MAKE A COPY OF THE DEM and DEM DIFF FOR BRANCH 0
 echo -e $startDiv"Copying DEM to Branch 0"

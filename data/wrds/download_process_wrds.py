@@ -7,6 +7,14 @@ from datetime import date, datetime, timezone
 import pandas as pd
 from dotenv import load_dotenv
 from tools_shared_functions import aggregate_wbd_hucs, get_datum, get_metadata, get_thresholds
+from tools_shared_variables import (
+    ACCEPTED_NAD27_SPELLINGS,
+    ACCEPTED_NAD83_SPELLINGS,
+    ACCEPTED_NAVD88_SPELLINGS,
+    ACCEPTED_NGVD29_SPELLINGS,
+)
+
+from tools.catfim.catfim_shared_functions import DEFAULT_SEARCH
 
 
 def label_data_file(label, lst_hucs):
@@ -176,7 +184,31 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict, li
     Outputs
     -------
     Saves a combined pickle file 'all_thresholds.pkl' containing all thresholds.
+    Parameters
+    ----------
+    thresholds_filepath - STR
+        filepath where output files will be saved
+    threshold_url - STR
+        URL of the WRDS API endpoint for thresholds
+    huc_lid_dict - DICT
+        dictionary mapping LIDs to HUCs
+    lid_source_dict - DICT
+        dictionary with NWS LID as key and list of available data sources (NRLDB, USGS Rating Depot)
+        as value. This is used to create a source preference list for the get_thresholds function.
+        If there is no projection available for either source, the value will be an empty list.
 
+    Returns
+    -------
+    messages - LIST OF STRING
+        List of messages indicating the progress and results of the download
+
+    Outputs
+    -------
+    Saves a combined pickle file 'all_thresholds.pkl' containing all thresholds.
+
+    Notes
+    -----
+    The output is saved as a pickle file instead of CSV becuase that is the file type we
     Notes
     -----
     The output is saved as a pickle file instead of CSV becuase that is the file type we
@@ -184,6 +216,9 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict, li
     saved as a CSV file. To keep the file types consistent, we are saving the thresholds
     as a pickle file as well.
 
+    Example
+    -------
+    messages = download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict)
     Example
     -------
     messages = download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict)
@@ -201,6 +236,7 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict, li
         for lid in lids:
 
             try:
+                status_msg = ''
                 source_crs_availability = lid_source_dict[lid.upper()]
 
                 stages, flows, status = get_thresholds(
@@ -210,26 +246,27 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict, li
                     threshold='all',
                     source_crs_availability=source_crs_availability,
                 )
-
                 # Currently we don't do anything with the 'status' output, just
                 # because I think it would be way too much information in the logs.
                 # However, it could be useful in the future to compile status information
                 # for all sites and save it to a file or something, TBD. - E, 3/20/26
 
+                # Combine and label thresholds
+                thresholds_dict = [
+                    {'threshold_type': 'stages', 'huc': huc, **stages},
+                    {'threshold_type': 'flows', 'huc': huc, **flows},
+                ]
+
+                # Format into a dataframe and add to the df list
+                thresholds_df = pd.DataFrame(thresholds_dict)
+                list_threshold_dfs.append(thresholds_df)
+
             except Exception as e:
                 msg = f"Error retrieving thresholds for LID {lid}, exception occurred: {e}"
                 messages.append(msg)
+                if status_msg != '':
+                    messages.append(f"get_thresholds status: {status_msg}")  # For debugging
                 continue
-
-            # Combine and label thresholds
-            thresholds_dict = [
-                {'threshold_type': 'stages', 'huc': huc, **stages},
-                {'threshold_type': 'flows', 'huc': huc, **flows},
-            ]
-
-            # Format into a dataframe and add to the df list
-            thresholds_df = pd.DataFrame(thresholds_dict)
-            list_threshold_dfs.append(thresholds_df)
 
     # Combine all the DataFrames in the list into a single, final DataFrame
     all_thresholds_df = pd.concat(list_threshold_dfs, ignore_index=True)
@@ -279,6 +316,17 @@ def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download
         Distance for upstream and downstream metadata search.
     metadata_download - BOOL
         Whether metadata should be downloaded (True) or not (False)
+    Parameters
+    -----------
+    metadata_filepath - STR
+        Filepath where the metadata pickle is or will be stored. If it does not exist,
+        it will be created. If it does exist and metadata_download is True, it will be overwritten.
+    API_BASE_URL - STR
+        WRDS API URL for retrieving NWM metadata.
+    search - INT
+        Distance for upstream and downstream metadata search.
+    metadata_download - BOOL
+        Whether metadata should be downloaded (True) or not (False)
 
     Returns
     --------
@@ -294,7 +342,39 @@ def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download
 
     Example
     --------
+    Returns
+    --------
+    output_meta_list - LIST of DICT
+        Filtered list of metadata dictionaries, each representing a unique NWS LID site.
+    huc_lid_dict - DICT
+        dictionary mapping LIDs to HUCs.
+            ie) a dictionary [('00BRD', '18060005'), ('AANG1', '03130001'), ...]
+                - Sorted by upper case site ids.
+                - May contain test or invalid sites at this point. Calling code can sort that out.
+    messages - LIST of STRING
+         List of messages indicating the progress and results of the metadata loading process.
+
+    Example
+    --------
     output_meta_list, huc_lid_dict, messages = load_nwm_metadata(
+        metadata_filepath, API_BASE_URL, search, metadata_download
+    )
+
+    NOTES
+    ------
+    - If this function finds warning data, it will include the phrase (case-senstive) "WARNING"
+        and same is true for "ERROR". Error means that the calling script can decide if it wants to shut down
+        log it, continue, etc.
+        It is also possible that you might get multiple messages returned in the "messages" list and some
+        may be warnings, others just messages. Could be a mix and match returned.
+        If something catestrophic happens, this function will thrown an exception.
+
+    - This function does not filter by HUC list because the HUC information in the metadata is not
+        complete and we get more sites by pulling all metadata and then filtering by lat/long intersection
+        with the WBD later (aggregate_wbd_hucs). If we filter by HUC list here, we will miss a lot of sites
+        that do not have the HUC information in the metadata but are still in the WBD polygons for the HUCs
+        we want to process.
+
         metadata_filepath, API_BASE_URL, search, metadata_download
     )
 
@@ -363,14 +443,16 @@ def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download
     return output_meta_list, messages
 
 
-# TODO: Move to CatFIM shared functions?
-# Rob: maybe not.. TBD...
 def load_site_thresholds(threshold_file, lid):
     '''
     Loads threshold stage and flow data for a given site (LID) from a local pickle file.
 
     Parameters
     ----------
+    threshold_file -  STR
+        Path to the local pickle file containing threshold data.
+    lid -  STR
+        NWS site ID (LID) for which to load thresholds.
     threshold_file -  STR
         Path to the local pickle file containing threshold data.
     lid -  STR
@@ -384,10 +466,17 @@ def load_site_thresholds(threshold_file, lid):
         Dictionary of flow thresholds for the site, or None if not found.
     messages -  LIST of STRING
         Status print messages.
+    stages -  DICT or None
+        Dictionary of stage thresholds for the site, or None if not found.
+    flows -  DICT or None
+        Dictionary of flow thresholds for the site, or None if not found.
+    messages -  LIST of STRING
+        Status print messages.
 
     Example
     -------
     stages, flows, messages = load_site_thresholds('path/to/thresholds.pkl', 'FLOX1')
+
 
     '''
     stages, flows = {}, {}
@@ -453,82 +542,35 @@ def check_metadata_CRS_availability(output_meta_list):
 
     '''
 
-    # This list also includes the misspellings that the code knows how to handle # TODO: Add to a shared variables file?
-    correct_spellings = ['NAD27', 'NAD83', 'LMSL']
-    nad27_misspellings = [
-        'NGVD 1929',
-        'NAD 1927',
-        'NAD 1929',
-        'NAD-27',
-        '1929',
-        'NAD1927',
-        'NGVD29',
-        '1927',
-        'NGVD',
-        'NVGD',
-        'NAD 27',
-        'NGDV 1929',
-        'NGVD1929',
-        'NAAD27',
-        'NAD29',
-        '1927 NGVD',
-        '1929',
-        'NVD 1929',
-        'NAD1929',
-        'NGVD1927',
-        '1929 NGV',
-        '1929 NGVD',
-        'NA 1927',
-        'NAVD27',
-    ]
-    nad83_misspellings = [
-        'NAD 1983',
-        'NAVD88',
-        'NAD 83',
-        'NAD1983',
-        'WGS84',
-        'NADA 1983',
-        'NAV83',
-        'NAVD 1988',
-        '1988',
-        'NAD 88',
-        'NAVD 88',
-        'nad83',
-        'NAV-88',
-        'NAVD83',
-        'NGVD1988',
-        'NAD84',
-        'NAD 1988',
-        '1988',
-        'NAV83',
-        'NAVD-88',
-        'NAD88',
-        'NAD87',
-        'NAD893',
-    ]
+    # This list includes the CRS spellings that the code knows how to handle
+    # Currently we are also able to handle if a VCS is provided in place of a
+    # CRS. The code just assumes that the correspoding CRS should be used.
 
-    acceptable_horizontal_projections = correct_spellings + nad27_misspellings + nad83_misspellings
+    misc_known_crs_list = ['WGS84', 'EPSG:4326', 'LMSL']
+    acceptable_projection_spellings = (
+        misc_known_crs_list
+        + ACCEPTED_NAD27_SPELLINGS
+        + ACCEPTED_NAD83_SPELLINGS
+        + ACCEPTED_NAVD88_SPELLINGS
+        + ACCEPTED_NGVD29_SPELLINGS
+    )
 
     lid_source_dict = {}
 
     for output_meta_i in output_meta_list:
-
         projections_available_i = []
         nws_lid = output_meta_i['identifiers']['nws_lid']
         nws_datum_info, usgs_datum_info = get_datum(output_meta_i)
 
-        if nws_datum_info['crs'] in acceptable_horizontal_projections:
+        if nws_datum_info['crs'] in acceptable_projection_spellings:
             projections_available_i.append('NRLDB')
-        if usgs_datum_info['crs'] in acceptable_horizontal_projections:
+        if usgs_datum_info['crs'] in acceptable_projection_spellings:
             projections_available_i.append('USGS Rating Depot')
 
         lid_source_dict[nws_lid] = projections_available_i
 
-        # print(f'nws_lid: {nws_lid}')  ## TEMP DEBUG
-        # print(f'nws CRS:           {nws_datum_info["crs"]}')  ## TEMP DEBUG
-        # print(f'usgs CRS:           {usgs_datum_info["crs"]}')  ## TEMP DEBUG
-        # print(f'projections available:            {projections_available_i}')  ## TEMP DEBUG
-        # print()  ## TEMP DEBUG
+        # print(f'nws_lid:{nws_lid}; nws CRS:{nws_datum_info["crs"]};'  ## TEMP DEBUG
+        #       f' usgs CRS:{usgs_datum_info["crs"]}; projections available:{projections_available_i}')  ## TEMP DEBUG
 
     return lid_source_dict
 
@@ -588,6 +630,19 @@ def main(
     elif threshold_download == True and metadata_download == False:
         print('Only threshold data will be saved.')
         # For this setup, a valid metadata pkl file must be provided (check will occur for this later on)
+
+    # Validate search input and adjust metadata and threshold data inputs if needed
+    if search == 9999:
+        search = DEFAULT_SEARCH
+    elif search != DEFAULT_SEARCH:
+        if not (metadata_download and threshold_download):
+            # Raise an exception to prompt the user to fix the parameters
+            raise Exception(
+                "Custom search value provided but the metadata and/or threshold"
+                " data download arguments were not used. Custom search cannot"
+                " be applied unless the metadata and thresholds are newly downloaded."
+                " Re-run with the -gmf and -gtf arguments or remove the custom search value."
+            )
 
     # Format HUC list
     lst_hucs = lst_hucs.split()
@@ -778,9 +833,10 @@ if __name__ == '__main__':
     parser.add_argument(
         '-s',
         '--search',
-        help='OPTIONAL: Upstream and downstream search in miles. Defaults to 5.',
+        help='OPTIONAL: Upstream and downstream search in miles. '
+        ' Defaults to a NoData val which will be replaced with csf.DEFAULT_SEARCH',
         required=False,
-        default='5',
+        default='9999',
     )
 
     parser.add_argument(

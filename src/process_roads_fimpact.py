@@ -53,7 +53,7 @@ def process_roads_fimpact(
     # read HAND catchments to split the roads segments for each intersected HYDROIDs/feature_ids.
     # this is different than bridges, because a road can exists within multiple HydroID/hydroTable and
     # we need to consider threshold hand for all intersected HydroID.
-    catchments_df = gpd.read_file(catchments_path, columns=['HydroID', 'feature_id', 'geometry'])
+    catchments_df = gpd.read_file(catchments_path, columns=['HydroID', 'feature_id', 'order_', 'geometry'])
 
     # possible that feature id and hydro id be as type float. first make them int and then str
     catchments_df['feature_id'] = catchments_df['feature_id'].astype(int).astype(str)
@@ -95,7 +95,7 @@ def process_roads_fimpact(
         roads_gdf_splitted = roads_gdf_splitted.loc[min_idx]
 
         # make sure to record ids as str for csv output file
-        cols_to_str = ['osmid', 'huc8', 'HydroID', 'feature_id', 'branch']
+        cols_to_str = ['osmid', 'huc8', 'HydroID', 'feature_id', 'order_', 'branch']
         roads_gdf_splitted[cols_to_str] = roads_gdf_splitted[cols_to_str].astype(str)
 
         roads_gdf_splitted.to_csv(output_path, index=False)

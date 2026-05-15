@@ -11,6 +11,7 @@ AUGG1,Stage thresholds seem to be based on sea level and not channel thalweg,sta
 BAXG1,Stage thresholds seem to be based on sea level and not channel thalweg,stage
 BRKTS,Test Site,both
 BOCC2AJM,Duplicate site to bocc2,both
+CMUG1,Out of Service,both
 CNNN6,Pool elevation thresholds. Disabled at request of MARFC,both
 DMBT2,Test Site,both
 DMSF1,Tidal Gauge,stage
@@ -69,4 +70,4 @@ YDAQ9,Outside U.S.,both
 YLKA2,Discontinued gauge,both
 YWRQ9,Outside U.S.,both
 ZZZT2,Test Site,both
-CMUG1,Out of Service,both
+
