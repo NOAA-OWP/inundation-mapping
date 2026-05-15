@@ -47,11 +47,6 @@ RUN pip install --no-cache-dir pipenv
 COPY Pipfile Pipfile.lock ./
 RUN pipenv install --system --deploy --ignore-pipfile
 
-# Install a newer PDAL runtime than the Ubuntu package currently provides.
-RUN wget -qO- https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj -C /usr/local/bin --strip-components=1 bin/micromamba && \
-    micromamba create -y -p /opt/pdal-env -c conda-forge pdal=2.9.3 gdal proj proj-data && \
-    micromamba clean --all --yes
-
 # adding AWS CLI (for bash) ##
 RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
     unzip awscliv2.zip && \
