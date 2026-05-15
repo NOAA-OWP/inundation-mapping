@@ -7,7 +7,7 @@ This PR closes issues #1778, #1795, and  #1796 and includes the following enhanc
 ### Adding pdal to docker image
 Updated the lidar bridge workflow to run PDAL from the standard Docker image instead of requiring a separate conda environment. In [`data/bridges/make_rasters_using_lidar.py`](c:/Users/ali.forghani/Desktop/dev-lidar-bridge-upgrade/inundation-mapping/data/bridges/make_rasters_using_lidar.py), the two PDAL execution points were changed from Python `pdal` bindings to the PDAL CLI by writing the pipeline JSON to a temporary file and invoking `pdal pipeline` with `subprocess`. The pipeline definitions themselves were unchanged.
 
-Docker image changes:
+Docker image changes (Implemented through PR #1805):
 - Added a dedicated PDAL runtime inside the image using `micromamba`, installed at `/opt/pdal-env`.
 - Installed `pdal=2.9.3` in that isolated environment, along with matching `gdal`, `proj`, and `proj-data`.
 - Kept the main container Python and geospatial stack unchanged to avoid interfering with existing GDAL/geopandas behavior.
@@ -28,8 +28,8 @@ Updated `clip_vectors_to_wbd.py` to support the new OSM bridge data layout, wher
 - data/wbd/generate_pre_clip_fim_huc8.py
 - data/wbd/clip_vectors_to_wbd.py
 - src/bash_variables.env
-- Dockerfile.dev
-- Dockerfile.owp
+- Dockerfile.dev (Implemented through PR #1805)
+- Dockerfile.owp (Implemented through PR #1805)
 
 ### Removals
 - data/bridges/conda_fim_bridges_enviro.yml
