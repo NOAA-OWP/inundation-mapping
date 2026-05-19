@@ -19,10 +19,6 @@ PAGE_URL = "https://disasters.geoplatform.gov/USA_Structures/"
 srcDir = os.getenv('srcDir')
 load_dotenv(f'{srcDir}/bash_variables.env')
 
-DEFAULT_FIM_PROJECTION_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
-ALASKA_CRS = os.getenv('ALASKA_CRS')
-GUAM_CRS = os.getenv('GUAM_CRS')
-AMERICAN_SAMOA_CRS = os.getenv('AMERICAN_SAMOA_CRS')
 
 
 def __setup_logger(output_folder_path):
@@ -49,12 +45,12 @@ def __setup_logger(output_folder_path):
 def target_crs_for_state(state: str) -> str:
     state = state.upper()
     if state == "AK":
-        return ALASKA_CRS
+        return os.getenv('ALASKA_CRS')
     if state == "GU":
-        return GUAM_CRS
+        return os.getenv('GUAM_CRS')
     if state == "AS":
-        return AMERICAN_SAMOA_CRS
-    return DEFAULT_FIM_PROJECTION_CRS
+        return os.getenv('AMERICAN_SAMOA_CRS')
+    return os.getenv('DEFAULT_FIM_PROJECTION_CRS')
 
 
 def pull_gdb_files(gdb_dir, selected_states):

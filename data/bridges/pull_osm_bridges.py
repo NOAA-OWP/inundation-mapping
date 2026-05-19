@@ -18,7 +18,7 @@ from networkx import Graph, connected_components
 from osmnx._errors import InsufficientResponseError
 from shapely.geometry import LineString, shape
 
-from src.utils.shared_functions import run_with_mp, setup_mp_file_logger
+from src.utils.shared_functions import get_crs_for_huc, run_with_mp, setup_mp_file_logger
 
 
 # Set the timeout to 500 seconds (5 minutes), which is possible depending on network speed
@@ -29,10 +29,6 @@ ox.settings.request_timeout = 500
 # ox.settings.requests_timeout = 1200  # Set timeout to 20 minutes
 srcDir = os.getenv('srcDir')
 load_dotenv(f'{srcDir}/bash_variables.env')
-DEFAULT_FIM_PROJECTION_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
-ALASKA_CRS = os.getenv('ALASKA_CRS')
-GUAM_CRS = os.getenv('GUAM_CRS')
-AMERICAN_SAMOA_CRS = os.getenv('AMERICAN_SAMOA_CRS')
 
 # TODO: HUC 02060006 remains a known special case. Prior attempts, including splitting to HUC10s,
 # have not produced usable bridge output through the standard osmnx.features_from_polygon(...) workflow.
@@ -196,14 +192,7 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom, file_logger, sc
             screen_queue.put(f"osmnx pull for {huc_num} returned no linear bridge geometries after filtering")
             return 1, [True]
 
-        if str(huc_num).startswith('19'):
-            gdf1 = gdf1.to_crs(ALASKA_CRS)
-        elif str(huc_num) == '22010000':
-            gdf1 = gdf1.to_crs(GUAM_CRS)
-        elif str(huc_num) == '22030001':
-            gdf1 = gdf1.to_crs(AMERICAN_SAMOA_CRS)
-        else:
-            gdf1 = gdf1.to_crs(DEFAULT_FIM_PROJECTION_CRS)
+        gdf1 = gdf1.to_crs(get_crs_for_huc(huc_num))
 
         # Perform dissolve touching lines
         buffered = gdf1.copy()

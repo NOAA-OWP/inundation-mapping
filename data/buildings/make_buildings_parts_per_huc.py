@@ -16,7 +16,7 @@ import pyarrow.parquet as pq
 from dotenv import load_dotenv
 from shapely.geometry import box
 
-from src.utils.shared_functions import run_with_mp, setup_mp_file_logger
+from src.utils.shared_functions import get_crs_for_huc, run_with_mp, setup_mp_file_logger
 
 
 # Your required building attributes (geometry always will be included)
@@ -25,10 +25,6 @@ BUILDING_COLUMNS = ["UUID", "HEIGHT", "OCC_CLS", "SOURCE", "VAL_METHOD"]
 srcDir = os.getenv('srcDir')
 load_dotenv(f'{srcDir}/bash_variables.env')
 
-DEFAULT_FIM_PROJECTION_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
-ALASKA_CRS = os.getenv('ALASKA_CRS')
-GUAM_CRS = os.getenv('GUAM_CRS')
-AMERICAN_SAMOA_CRS = os.getenv('AMERICAN_SAMOA_CRS')
 
 
 def make_building_parts_per_huc(
@@ -118,13 +114,13 @@ def make_building_parts_per_huc(
 def get_crs_of_state(state: str) -> str:
     state = state.upper()
     if state == "AK":
-        return ALASKA_CRS
+        return os.getenv('ALASKA_CRS')
     elif state == "GU":
-        return GUAM_CRS
+        return os.getenv('GUAM_CRS')
     elif state == "AS":
-        return AMERICAN_SAMOA_CRS
+        return os.getenv('AMERICAN_SAMOA_CRS')
     else:
-        return DEFAULT_FIM_PROJECTION_CRS
+        return os.getenv('DEFAULT_FIM_PROJECTION_CRS')
 
 
 def load_single_huc_for_crs(huc8: str, huc_dir: Path, file_logger, screen_queue, task_id):
@@ -133,14 +129,7 @@ def load_single_huc_for_crs(huc8: str, huc_dir: Path, file_logger, screen_queue,
         if not gpkg.exists():
             raise RuntimeError(f"Missing wbd_buffered.gpkg file for HUC8_{huc8}.")
 
-        if huc8.startswith("19"):
-            crs_key = ALASKA_CRS
-        elif huc8.startswith("22010000"):
-            crs_key = GUAM_CRS
-        elif huc8.startswith("22030001"):
-            crs_key = AMERICAN_SAMOA_CRS
-        else:
-            crs_key = DEFAULT_FIM_PROJECTION_CRS
+        crs_key = get_crs_for_huc(huc8)
 
         h = gpd.read_file(gpkg)
         geom = h.geometry.union_all()
@@ -179,10 +168,10 @@ def load_hucs_by_crs(
 
     # Buckets keyed by CRS string
     crs_to_hucs_dict: Dict[str, List[dict]] = {
-        DEFAULT_FIM_PROJECTION_CRS: [],  # conus
-        ALASKA_CRS: [],
-        GUAM_CRS: [],
-        AMERICAN_SAMOA_CRS: [],
+        get_crs_for_huc('00000000'): [],  # conus
+        get_crs_for_huc('19000000'): [],  # alaska
+        get_crs_for_huc('22010000'): [],  # guam
+        get_crs_for_huc('22030001'): [],  # american samoa
     }
 
     huc_tasks = [{"huc8": d.name, "huc_dir": d} for d in huc_dirs]

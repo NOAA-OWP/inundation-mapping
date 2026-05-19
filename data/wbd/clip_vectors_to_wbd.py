@@ -15,6 +15,8 @@ from dotenv import load_dotenv
 from shapely.geometry import LineString, MultiPolygon, Point, Polygon
 from shapely.ops import nearest_points
 
+from src.utils.shared_functions import get_crs_for_huc
+
 
 gpd.options.io_engine = "pyogrio"
 
@@ -164,7 +166,6 @@ def subset_vector_layers(
         nwm_headwaters = os.getenv('input_nwm_headwaters_Alaska')
         levee_protected_areas = os.getenv('input_nld_levee_protected_areas_Alaska')
         osm_roads = os.getenv('osm_roads_alaska')
-        huc_CRS = os.getenv('ALASKA_CRS')
         input_LANDSEA = os.getenv('input_landsea_Alaska')
     elif huc == '22010000':  # Guam
         nwm_lakes = os.getenv('input_nhd_lakes_Guam')
@@ -175,7 +176,6 @@ def subset_vector_layers(
         nwm_headwaters = os.getenv('input_nhd_headwaters_Guam')
         levee_protected_areas = os.getenv('input_nld_levee_protected_areas_Guam')
         osm_roads = os.getenv('osm_roads_guam')
-        huc_CRS = os.getenv('GUAM_CRS')
         input_LANDSEA = os.getenv('input_landsea_Guam')
     elif huc == '22030001':  # American Samoa
         nwm_lakes = os.getenv('input_nhd_lakes_AmericanSamoa')
@@ -186,7 +186,6 @@ def subset_vector_layers(
         nwm_headwaters = os.getenv('input_nhd_headwaters_AmericanSamoa')
         levee_protected_areas = os.getenv('input_nld_levee_protected_areas_AmericanSamoa')
         osm_roads = os.getenv('osm_roads_americansamoa')
-        huc_CRS = os.getenv('AMERICAN_SAMOA_CRS')
         input_LANDSEA = os.getenv('input_landsea_AmericanSamoa')
     else:
         nwm_lakes = os.getenv('input_nwm_lakes')
@@ -197,13 +196,13 @@ def subset_vector_layers(
         nwm_headwaters = os.getenv('input_nwm_headwaters')
         levee_protected_areas = os.getenv('input_nld_levee_protected_areas')
         osm_roads = os.getenv('osm_roads')
-        huc_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
 
         if huc[:2] == "04":
             input_LANDSEA = os.getenv('input_GL_boundaries')
         else:
             input_LANDSEA = os.getenv('input_landsea')
 
+    huc_CRS = get_crs_for_huc(huc)
     osm_bridges_modified_dir = os.getenv('osm_bridges_modified_dir')
 
     # read wbd and wbd_buffered that are needed for clipping

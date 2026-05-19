@@ -651,6 +651,24 @@ def get_env_value(env_var_name):
 
 
 # ============================
+def get_crs_for_huc(huc):
+    """Return the appropriate CRS string for a given 8-digit HUC number.
+
+    Reads DEFAULT_FIM_PROJECTION_CRS, ALASKA_CRS, GUAM_CRS, and
+    AMERICAN_SAMOA_CRS from the environment (expects bash_variables.env
+    to have been loaded by the calling script).
+    """
+    if str(huc).startswith('19'):
+        return os.getenv('ALASKA_CRS')
+    elif str(huc) == '22010000':
+        return os.getenv('GUAM_CRS')
+    elif str(huc) == '22030001':
+        return os.getenv('AMERICAN_SAMOA_CRS')
+    else:
+        return os.getenv('DEFAULT_FIM_PROJECTION_CRS')
+
+
+# ============================
 # Adds a starting and ending slash if not already there
 def add_slashes_to_path(file_path):
     if not file_path.endswith("/"):
