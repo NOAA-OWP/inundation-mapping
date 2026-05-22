@@ -8,6 +8,8 @@ import logging
 import os
 import pathlib
 import sys
+import time
+
 
 # import traceback
 from pathlib import Path
@@ -20,6 +22,7 @@ import rasterio.crs
 import rasterio.shutil
 import requests
 import rioxarray as rxr
+import warnings
 import urllib3
 import xarray as xr
 from dotenv import load_dotenv
@@ -106,9 +109,8 @@ def correct_datum_typos(crs, vcs):
     known_vcs_list = [vcs_ngvd29, vcs_navd88, 'LMSL']
 
     # ----
-    # Check the CRS (horizontal datum) for typos (if if is not None or already an acceptable CRS)
-    if crs.upper() is not None and crs.upper() not in known_crs_list:
-
+    # Check the CRS (horizontal datum) for typos (if it is not None or already an acceptable CRS)
+    if crs is not None and crs.upper() not in known_crs_list:
         try:
             float(crs)
             numeric = True
@@ -120,6 +122,7 @@ def correct_datum_typos(crs, vcs):
             crs_corrected = crs_nad27
             msg = f"Changing CRS from {crs} to {crs_corrected}"
             msgs.append(msg)
+
         elif crs.upper() in ACCEPTED_NGVD29_SPELLINGS:
             crs_corrected = crs_nad27
             msg = f"Vertical datum supplied in lieu of horizontal CRS, changing {crs} to {crs_corrected}"
@@ -130,6 +133,7 @@ def correct_datum_typos(crs, vcs):
             crs_corrected = crs_nad83
             msg = f"Changing CRS from {crs} to {crs_corrected}"
             msgs.append(msg)
+
         elif crs.upper() in ACCEPTED_NAVD88_SPELLINGS:
             crs_corrected = crs_nad83
             msg = f"Vertical datum supplied in lieu of horizontal CRS, changing {crs} to {crs_corrected}"
@@ -138,27 +142,29 @@ def correct_datum_typos(crs, vcs):
         # Check if the CRS is a number
         elif numeric == True:
             msg = (
-                f"Unable to correct CRS, CRS is a number ({crs}) and not an acceptable CRS name (i.e. NAD83)"
+                f"Unable to correct CRS, CRS is a number ({crs}) and not an acceptable value (i.e. NAD83)"
             )
             msgs.append(msg)
             uncorrected_crs_error = True
 
         # Check if the CRS is unknown, blank, or other
         elif crs.upper() in UNKNOWN_DATUM_SPELLINGS:
-            msg = f"Unable to correct CRS, CRS is unknown ({crs}) and not an acceptable CRS name (i.e. NAD83)"
+            msg = f"Unable to correct CRS, CRS is unknown and not an acceptable value (i.e. NAD83)"
             msgs.append(msg)
             uncorrected_crs_error = True
 
         # If the CRS is not a number, not unknown, and not a known misspelling, then we don't know what it is and we can't correct it
         else:
-            msg = f"Unable to correct CRS, CRS is not an acceptable CRS name (i.e. NAD83), does not match any known misspellings or other common issues. CRS:{crs}"
+            msg = f"Unable to correct CRS, CRS is not an acceptable value (i.e. NAD83), does not match any known misspellings or other common issues. CRS:{crs}"
             msgs.append(msg)
             uncorrected_crs_error = True
 
-    # -----
-    # Check the VCS (vertical datum) for typos (if if is not None or already an acceptable VCS)
-    if vcs.upper() is not None and vcs.upper() not in known_vcs_list:
+    # else: 
+    # CRS is provided but is already in an acceptable format
 
+    # -----
+    # Check the VCS (vertical datum) for typos (if it is not None or already an acceptable VCS)
+    if vcs is not None and vcs.upper() not in known_vcs_list:
         try:
             float(vcs)
             numeric = True
@@ -170,6 +176,7 @@ def correct_datum_typos(crs, vcs):
             vcs_corrected = vcs_ngvd29
             msg = f"Changing vertical datum from {vcs} to {vcs_corrected}"
             msgs.append(msg)
+
         elif vcs.upper() in ACCEPTED_NAD27_SPELLINGS:
             vcs_corrected = vcs_ngvd29
             msg = f"Horizontal CRS supplied in lieu of vertical datum, changing {vcs} to {vcs_corrected}"
@@ -180,6 +187,7 @@ def correct_datum_typos(crs, vcs):
             vcs_corrected = vcs_navd88
             msg = f"Changing vertical datum from {vcs} to {vcs_corrected}"
             msgs.append(msg)
+
         elif vcs.upper() in ACCEPTED_NAD83_SPELLINGS:
             vcs_corrected = vcs_navd88
             msg = f"Horizontal CRS supplied in lieu of vertical datum, changing {vcs} to {vcs_corrected}"
@@ -187,21 +195,24 @@ def correct_datum_typos(crs, vcs):
 
         # Check if the VCS is a number
         elif numeric == True:
-            msg = f"Typo found in vertical datum, vcs is a number ({vcs}) and not an acceptable VCS name (i.e. NGVD29)"
+            msg = f"Typo found in vertical datum, vcs is a number ({vcs}) and not an acceptable value (i.e. NGVD29)"
             msgs.append(msg)
             uncorrected_vcs_error = True
 
         # Check if the VCS is unknown, blank, or other
         elif vcs.upper() in UNKNOWN_DATUM_SPELLINGS:
-            msg = f"Typo found in vertical datum, vcs is unknown ({vcs}) and not an acceptable VCS name (i.e. NGVD29)"
+            msg = f"Typo found in vertical datum, vcs is unknown and not an acceptable value (i.e. NGVD29)"
             msgs.append(msg)
             uncorrected_vcs_error = True
 
         # If the VCS is not a number, not unknown, and not a known misspelling, then we don't know what it is and we can't correct it
         else:
-            msg = f"Unable to correct VCS, VCS is not an acceptable VCS name (i.e. NGVD29), does not match any known misspellings or other common issues. VCS:{vcs}"
+            msg = f"Unable to correct VCS, VCS is not an acceptable value (i.e. NGVD29), does not match any known misspellings or other common issues. VCS:{vcs}"
             msgs.append(msg)
             uncorrected_vcs_error = True
+
+    # else: 
+    # VCS is provided but is already in an acceptable format
 
     return crs_corrected, vcs_corrected, uncorrected_crs_error, uncorrected_vcs_error, msgs
 
@@ -907,35 +918,46 @@ def get_metadata(
         Dictionary or list of dictionaries containing metadata at each site.
     metadata_dataframe : Pandas DataFrame
         Dataframe of metadata for each site.
-
+    err_msg : STR
+        Error message, if applicable (or blank string).
     '''
+    # Initialize error message
+    err_msg = ''
 
     # Format selector variable in case multiple selectors supplied
     format_selector = '%2C'.join(selector)
+
     # Define the url
     url = f'{metadata_url}/{select_by}/{format_selector}/'
+
     # Assign optional parameters to a dictionary
     params = {}
     params['must_include'] = must_include
     params['upstream_trace_distance'] = upstream_trace_distance
     params['downstream_trace_distance'] = downstream_trace_distance
+
     # Suppress Insecure Request Warning
     requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
-    # Request data from url
-    response = requests.get(url, params=params, verify=False)
-    #    print(response)
-    #    print(url)
+    try:
+        # Request data from API URL
+        response = requests.get(url, params=params, verify=False)
+
+    except requests.RequestException as e:
+        # If the API request is not completed, output an error message and return empty outputs
+        err_msg = f'Metadata API request failed: {e}'
+        return [], pd.DataFrame(), err_msg
+
+    # If the API request was successful, process the data
     if response.ok:
         # Convert data response to a json
         metadata_json = response.json()
-        # Get the count of returned records
-        location_count = metadata_json['_metrics']['location_count']
-        # Get metadata
+
+        # Get the metadata list from the json
         metadata_list = metadata_json['locations']
-        # Add timestamp of WRDS retrieval
+
+        # Add timestamp of WRDS and sources retrieval
         timestamp = response.headers['Date']
-        # Add timestamp of sources retrieval
         timestamp_list = metadata_json['data_sources']['metadata_sources']
 
         # Default timestamps to "Not available" and overwrite with real values if possible.
@@ -946,27 +968,29 @@ def get_metadata(
             if "NRLDB" in timestamp:
                 nrldb_timestamp = timestamp
 
-        #        nrldb_timestamp, nwis_timestamp = metadata_json['data_sources']['metadata_sources']
-        # get crosswalk info (always last dictionary in list)
+        # Get crosswalk info (always last dictionary in list)
         crosswalk_info = metadata_json['data_sources']
-        # Update each dictionary with timestamp and crosswalk info also save to DataFrame.
+
+        # Update each dictionary with timestamp and crosswalk info
         for metadata in metadata_list:
             metadata.update({"wrds_timestamp": timestamp})
             metadata.update({"nrldb_timestamp": nrldb_timestamp})
             metadata.update({"nwis_timestamp": nwis_timestamp})
             metadata.update(crosswalk_info)
+
+        # Convert metadata list of dictionaries to a dataframe
         metadata_dataframe = pd.json_normalize(metadata_list)
+
         # Replace all periods with underscores in column names
         metadata_dataframe.columns = metadata_dataframe.columns.astype(str).str.replace('.', '_')
+
     else:
-        # if request was not succesful, print error message.
-        # TODO: Output this as a status string because the print is getting suppressed.
-        # Shouldn't this be an exception?
-        print(f'Code: {response.status_code}\nMessage: {response.reason}\nURL: {response.url}')
-        # Return empty outputs
+        # If the request was completed but produced no data, output an error message and return empty outputs
+        err_msg = f'Code: {response.status_code}\nMessage: {response.reason}\nURL: {response.url}'
         metadata_list = []
         metadata_dataframe = pd.DataFrame()
-    return metadata_list, metadata_dataframe
+
+    return metadata_list, metadata_dataframe, err_msg
 
 
 ########################################################################
@@ -1000,38 +1024,41 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
         GeoDataFrame of all NWS_LID sites.
 
     '''
+    # TODO: (May 2026) Update print statements with logging.info() once all apps that use this script have logging plugged in
+    # eval_plots does not have logging yet, maybe others as well
+
     # Import huc8 layer as geodataframe and retain necessary columns
     print("Reading WBD...")
-    # logging.info("Reading WBD..."), not all apps such as eval_plots have logging yet
     huc8_all = gpd.read_file(wbd_huc8_path, layer='WBDHU8')
     # print("WBD read.")
+
     huc8 = huc8_all[['HUC8', 'name', 'states', 'geometry']]
 
+    # Filter HUCs by HUC list and sort numerically
     if len(huc_list) > 0:
-        # filter by hucs we are using
         huc8 = huc8[huc8['HUC8'].isin(huc_list)]
-
     huc8 = huc8.sort_values(by='HUC8', ascending=True)
 
-    # Define EPSG codes for possible latlon datum names (default of NAD83 if unassigned)
-    crs_lookup = {'NAD27': 'EPSG:4267', 'NAD83': 'EPSG:4269', 'WGS84': 'EPSG:4326'}
-    # Create empty geodataframe and define CRS for potential horizontal datums
+    # Create empty geodataframe and define CRS for potential horizontal datums (default of NAD83 if unassigned)
     metadata_gdf = gpd.GeoDataFrame()
+    crs_lookup = {'NAD27': 'EPSG:4267', 'NAD83': 'EPSG:4269', 'WGS84': 'EPSG:4326'}
+
     # Iterate through each site
     print("Iterating through metadata list...")
-    # logging.info("Iterating through metadata list...")
+
+    columns_with_NA_missing_dtype = []
+    dtype_warning_list = []
 
     for metadata in metadata_list:
         # Convert metadata to json
-        # print("temp 1 into meta")
-        # print(metadata)
         df = pd.json_normalize(metadata)
-        # print("temp 2 into meta")
-        # print(df.info)   # this is showing the schema
-        # print(f"len of df is {len(df)} ... 1")
-        # Columns have periods due to nested dictionaries
+        # print(df.info)   # this is showing the schema  # TEMP DEBUG
+        # print(f"len of df is {len(df)} ... 1")  # TEMP DEBUG
+
+        # Columns have periods due to nested dictionaries, replace with '_'
         df.columns = df.columns.str.replace('.', '_')
-        # print(f"len of df is {len(df)} ... 2")
+        # print(f"len of df is {len(df)} ... 2")  # TEMP DEBUG
+
         # Drop any metadata sites that don't have lat/lon populated
         df.dropna(
             subset=['identifiers_nws_lid', 'usgs_preferred_latitude', 'usgs_preferred_longitude'],
@@ -1040,33 +1067,117 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
 
         # If dataframe still has data
         if not df.empty:
-            # print(df[:5])
             # Get horizontal datum
             h_datum = df['usgs_preferred_latlon_datum_name'].item()
+
             # Look up EPSG code, if not returned Assume NAD83 as default.
             dict_crs = crs_lookup.get(h_datum, 'EPSG:4269_ Assumed')
+
             # We want to know what sites were assumed, hence the split.
             src_crs, *message = dict_crs.split('_')
+
             # Convert dataframe to geodataframe using lat/lon (USGS). Add attribute of assigned crs (label ones that are assumed)
             site_gdf = gpd.GeoDataFrame(
                 df,
                 geometry=gpd.points_from_xy(df['usgs_preferred_longitude'], df['usgs_preferred_latitude']),
                 crs=src_crs,
             )
+            # Convert a list of cols to string dtype (basically the cols that often have NA values)
+            new_dtype_dict = {
+                'identifiers_nwm_feature_id': 'str',
+                'identifiers_env_can_gage_id': 'str',
+                'identifiers_goes_id': 'str',
+
+                'nwm_feature_data_downstream_feature_id': 'str',
+                'nwm_feature_data_latitude': 'float',
+                'nwm_feature_data_longitude': 'float',
+                'nwm_feature_data_altitude': 'float',
+                'nwm_feature_data_slope': 'float',
+                'nwm_feature_data_stream_length': 'float',
+                'nwm_feature_data_stream_order': 'float',
+                'nwm_feature_data_mannings_roughness': 'float',
+                'nwm_feature_data_channel_side_slope': 'float',
+                'nwm_feature_data_nhd_waterbody_comid': 'str',
+
+                'env_can_gage_data_name': 'str',
+                'env_can_gage_data_latitude': 'float',
+                'env_can_gage_data_longitude': 'float',
+                'env_can_gage_data_map_link': 'str',
+                'env_can_gage_data_water_course': 'str',
+                'env_can_gage_data_drainage_area': 'float',
+                'env_can_gage_data_contrib_drainage_area': 'float',
+
+                'nws_data_name': 'str',
+                'nws_data_huc': 'str',
+                'nws_data_county': 'str',
+                'nws_data_county_code': 'str',
+                'nws_data_state': 'str',
+                'nws_data_rfc': 'str',
+                'nws_data_wfo': 'str',
+                'nws_data_hsa': 'str',
+                'nws_data_longitude': 'float',
+                'nws_data_latitude': 'float',
+                'nws_data_zero_datum': 'float',
+                'nws_data_vertical_datum_name': 'str',
+                'nws_data_horizontal_datum_name': 'str',
+
+                'usgs_preferred_huc': 'str',
+                'usgs_data_state': 'str',
+                'usgs_data_altitude': 'float',
+                'usgs_data_drainage_area': 'float',
+                'usgs_data_alt_method_code': 'str',
+                'usgs_data_alt_accuracy_code': 'float',
+                'usgs_data_coord_method_code': 'str',
+                'usgs_data_contrib_drainage_area': 'float',
+            }
+
+            # Add data type to columns, if needed (usually the ones that are sometimes/always NA)
+            for colname, new_dtype in new_dtype_dict.items():
+                if colname in site_gdf.columns:
+                    site_gdf[colname] = site_gdf[colname].astype(new_dtype)
+
+            # Record colnames of cols with NA vals and a vague col type (object)
+            # because these columns could cause future warnings and errors
+            for colname in site_gdf.columns: ## TEMP DEBUG
+                if site_gdf[colname].isna().any() and site_gdf[colname].dtype == object:
+                        columns_with_NA_missing_dtype.append(colname)
+            ###
+
             # Field to indicate if a latlon datum was assumed
             site_gdf['assigned_crs'] = src_crs + ''.join(message)
 
             # Reproject to huc 8 crs
             site_gdf = site_gdf.to_crs(huc8.crs)
-            # Append site geodataframe to metadata geodataframe
-            metadata_gdf = pd.concat([metadata_gdf, site_gdf], ignore_index=True)
-        # else:
+
+            # Append site geodataframe to metadata geodataframe (and catch warnings if applicable)
+            with warnings.catch_warnings(record=True) as caught_warnings:
+                warnings.simplefilter("always", category=FutureWarning)
+
+                metadata_gdf = pd.concat([metadata_gdf, site_gdf], ignore_index=True)
+
+                # Extract the warning message as a string
+                if caught_warnings:
+                    warning_message = str(caught_warnings[-1].message)
+                    dtype_warning_list.append(warning_message)
+
+        # else: # TEMP DEBUG TODO: Clean up
         #     logging.warning("This site (what site) does have values for key data")
         # df.dropna(
         #    subset=['identifiers_nws_lid', 'usgs_preferred_latitude', 'usgs_preferred_longitude'],
         # inplace=True,
         # means a site can be dropped. Hummm... what if we want usgs data but it is missing the nws_lid.
 
+    # Debugging information about NA columns relating to FutureWarning (May 2026)
+    columns_with_NA_missing_dtype = list(set(columns_with_NA_missing_dtype)) # TEMP DEBUG
+    if len(columns_with_NA_missing_dtype) > 0:
+        print(f"Columns in sites GDF with NA values AND object dtype (even after fix): {columns_with_NA_missing_dtype}") # TEMP DEBUG
+
+    if len(dtype_warning_list) > 0:
+        print(f"Captured {len(dtype_warning_list)} warnings with with the following info:") ## TEMP DEBUG
+        for warning in list(set(dtype_warning_list)):  # TEMP DEBUG
+            print(warning)  # TEMP DEBUG
+
+    # Exit if there's no metadata compiled
     if metadata_gdf.empty:
         return None, gpd.GeoDataFrame()
 
@@ -1079,7 +1190,6 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
     #    elif isinstance(retain_attributes,list):
     #        metadata_gdf = metadata_gdf[retain_attributes]
     print("Performing spatial and tabular operations on geodataframe...")
-    # logging.info("Performing spatial and tabular operations on geodataframe...")
 
     # Perform a spatial join to get the WBD HUC 8 assigned to each AHPS
     joined_gdf = gpd.sjoin(
@@ -1525,7 +1635,9 @@ def ngvd_to_navd_ft(datum_info):
     Returns
     -------
     datum_adj_ft : FLOAT
-        Vertical adjustment in feet, from NGVD29 to NAVD88, and rounded to nearest hundredth.
+        Vertical adjustment in feet, from NGVD29 to NAVD88, and rounded to nearest hundredth. Returns None if API call is unsuccessful.
+    err_msg : STR
+        Error message if applicable, otherwise blank string.
 
     '''
 
@@ -1533,13 +1645,40 @@ def ngvd_to_navd_ft(datum_info):
     # They do show in the console but not the logs without returning the message
     err_msg = ""
 
+    # Correct the CRS, if needed (this likely also done outside the function, but the redundancy is ok)
+    crs_corrected, __, uncorrected_crs_error, __, msgs = correct_datum_typos(datum_info['crs'], None)
+
+    if len(msgs) > 0:
+        for msg in msgs:
+            print(msg) # Printing for debug purposes, won't show up in logs
+
+    if crs_corrected is not None:
+        datum_info['crs'] = crs_corrected
+
+    if uncorrected_crs_error is True:
+        err_msg += f"Unable to correct CRS spelling (CRS is {datum_info['crs']})\n"
+
     # If crs is not NAD 27, convert crs to NAD27 and get adjusted lat lon
     if datum_info['crs'] != 'NAD27':
-        lat, lon = convert_latlon_datum(datum_info['lat'], datum_info['lon'], datum_info['crs'], 'NAD27')
+        print(f"Input lat/lon is in {datum_info['crs']} datum. Converting to NAD27 for VDatum API...")  # TEMP DEBUG
+        try:
+            lat, lon = convert_latlon_datum(datum_info['lat'], datum_info['lon'], datum_info['crs'], 'NAD27')
+
+        except Exception as ex:
+            # Exit if an error occurs here because the code assumes lat lon is NAD27 so the code can't proceed otherwise
+            msg = f"Error occurred while trying to convert CRS to NAD27 for VDatum API (input CRS: {datum_info['crs']})\nError: {ex}"
+            err_msg += msg
+            print(msg)
+            adjustment_ft = None
+
+            return adjustment_ft, err_msg
+
     else:
         # Otherwise assume lat/lon is in NAD27.
         lat = datum_info['lat']
         lon = datum_info['lon']
+
+    # --------------------------------------
 
     # Define url for datum API
     datum_url = 'https://vdatum.noaa.gov/vdatumweb/api/convert'
@@ -1555,100 +1694,124 @@ def ngvd_to_navd_ft(datum_info):
     params['t_v_frame'] = 'NAVD88'  # Target vertical datum
     params['tar_vertical_unit'] = 'm'  # Target vertical height
 
-    # Run API for a given region
-    def run_vdatum_for_region(params, region):
-
-        # print("+++++++++++++")
-        # print("inside run_vdatum_for_region")
-        # print(params)
-        # print(region)
-        # print("----------------")
-
-        params['region'] = region
-
-        # Suppress Insecure Request Warning
-        requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
-
-        success = False
-        response = "Internal Error: response message not set"
-
-        try:
-            # Call the API
-            retry = Retry(connect=5, backoff_factor=5, total=4, status_forcelist=[429, 500, 502, 503, 504])
-            adapter = HTTPAdapter(max_retries=retry)
-
-            #             with requests.Session() as session:
-            session = requests.Session()
-            session.mount('https://', adapter)
-            session.mount('http://', adapter)
-
-            response = session.get(datum_url, params=params, verify=False, timeout=5)
-
-            #        print(f"success is {success}")
-            # print(f"response code is {response.status_code}")
-
-            # Check whether API call was successfull
-            if response.status_code == 200:
-                results = response.json()
-
-                # Feb 24, 2026: It is possible for the response header to return a 200, but their could
-                # be a controlled message from the API, such as
-                # {'errorCode': 412, 'message': 'Uncaught error, please contact NOAA VDatum Program Support team.'}
-                # Should this be an exception?
-                if "errorCode" in results:
-                    # raise Exception(f"Error returned from NOAA Api: {results}")
-                    success = False
-                else:
-                    success = 't_z' in results
-            else:
-                response.raise_for_status()
-
-        except HTTPError as http_err:
-            # These are for catastropic errors calling NOAA
-            print(f"HTTP error occurred while calling NOAA vDatum service: {http_err}")
-            raise http_err
-        except requests.exceptions.RequestException as err:
-            # These are for catastropic errors calling NOAA
-            print(f"Other error occurred while calling NOAA vDatum service: {err}")
-            raise err
-
-        return response, success
+    err_msg_vdatum = ""
 
     # Run Vdatum with region-specific parameters
     if datum_info['state'] == 'Alaska':
         params['s_v_geoid'] = 'geoid12b'  # Source geoid (AK-specific)
         params['t_v_geoid'] = 'geoid12b'  # Target geoid (AK-specific)
 
-        response, success = run_vdatum_for_region(params, 'AK')
-        if success == False:  # If AK region fails, try running calling API with SEAK region
-            response, success = run_vdatum_for_region(params, 'SEAK')
+        response, success, err_msg_vdatum = run_vdatum_for_region(params, 'AK', datum_url)
+
+        # If AK region fails, try running calling API with SEAK region
+        if success == False:
+            response, success, err_msg_vdatum = run_vdatum_for_region(params, 'SEAK', datum_url)
 
     else:
         # For CONUS, use default geoid
-        response, success = run_vdatum_for_region(params, 'contiguous')
+        response, success, err_msg_vdatum = run_vdatum_for_region(params, 'contiguous', datum_url)
 
     # Get adjustment in feet if Vdatum API call is successful
     if success == True:
-        results = response.json()
         # Get adjustment in meters (NGVD29 to NAVD88)
+        results = response.json()
         adjustment = results['t_z']
-        # convert meters to feet
+ 
+        # Convert meters to feet
         adjustment_ft = round(float(adjustment) * 3.28084, 2)
+
     else:
-        if response is not None:
-            results = response.json()
-            # message = results['message']
-            # we want the full results not the message. We saw some error
-            message = results
+        # If the VDatum call was unsuccessful, set the error message to be the one from the vdatum run if it exists, otherwise set a default error message
+        if err_msg_vdatum == "":
+            err_msg = "VDatum API call was not successful, but no error message was returned from the API."
         else:
-            message = "An unknown internal error has occurred."
-        # This message gets lost in MP and logging
-        print(f'VDatum error occurred: {message}')
-        err_msg = message
+            # Set the error message to be the one from the vdatum run
+            err_msg = err_msg_vdatum
+
         adjustment_ft = None
+        print(err_msg)
+
+        # # If API call is not sucessful, return an error message and an adjustment of None  TODO: Clean up
+        # if response is not None:
+        #     results = response.json()
+        #     message = results
+        #     # message = results['message'] # we want the full results not the message
+        # else:
+        #     message = "An unknown internal error has occurred."
+        # Just printing the message gets lost in MP and logging, so also return err_msg
+        # print(f'VDatum error occurred: {message}')
+        # err_msg = message
 
     return adjustment_ft, err_msg
 
+
+def run_vdatum_for_region(params, region, datum_url):
+    '''
+    Run API for a given region.
+
+    '''
+    params['region'] = region
+
+
+    time.sleep(2) # pause for 2 seconds before each request so we don't overwhelm the API
+
+    # Suppress Insecure Request Warning
+    requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+
+    response = "Internal Error: response message not set"
+    success = False
+    err_msg = ""
+
+    try:
+        # Call the API
+        retry = Retry(connect=5, backoff_factor=5, total=4, status_forcelist=[429, 500, 502, 503, 504])
+        adapter = HTTPAdapter(max_retries=retry)
+
+        # with requests.Session() as session:
+        session = requests.Session()
+        session.mount('https://', adapter)
+        session.mount('http://', adapter)
+
+        response = session.get(datum_url, params=params, verify=False, timeout=5)
+
+        # Check whether API call was successful (indicated by a 200 response code)
+        if response.status_code == 200:
+            results = response.json()
+
+            # print(results) # TEMP DEBUG
+
+            if "errorCode" in results:
+                # API run sucessful but VDatum returned an error message, so we can't proceed with getting the adjustment
+
+                # Feb 24, 2026: It is possible for the response header to return a 200, but there could
+                # be a controlled message from the API, such as  {'errorCode': 412, 'message': 'Uncaught error, please contact NOAA VDatum Program Support team.'}
+
+                if "message" in results:
+                    err_msg = f"Error {results['errorCode']} returned from NOAA VDatum API: {results['message']}"
+                else:
+                    err_msg = f"Error {results['errorCode']} returned from NOAA VDatum API, but no message provided. Full response: {results}"
+
+            else:
+                # API run was successful AND VDatum returned results without an error message, so we can proceed with getting the adjustment
+                success = 't_z' in results
+        else:
+            # If API call was not sucessful (i.e. response code is not 200), return an error message with the status code and description from the response
+            err_msg = f"API call failed while calling NOAA vDatum service: Status code {response.status_code}; Description: {response.reason}"
+            print(err_msg)
+
+    except HTTPError as http_err:
+        # These are for catastropic errors calling NOAA
+        err_msg = f"HTTP error occurred while calling NOAA vDatum service: {http_err}"
+        print(err_msg)
+        # raise http_err # TODO: Do we want to raise this error here? # I think no because there's already error handling for it downstream
+
+    except requests.exceptions.RequestException as err:
+        # These are for catastropic errors calling NOAA
+        err_msg = f"Other error occurred while calling NOAA vDatum service: {err}"
+        print(err_msg)
+        # raise err # TODO: Do we want to raise this error here? # I think no because there's already error handling for it downstream
+
+    return response, success, err_msg
 
 #######################################################################
 # Function to download rating curve from API
@@ -1673,14 +1836,21 @@ def get_rating_curve(rating_curve_url, location_ids):
     '''
     # Define DataFrame to contain all returned curves.
     all_curves = pd.DataFrame()
+    err_msg = ""
 
     # print(location_ids)
     # Define call to retrieve all rating curve information from WRDS.
     joined_location_ids = '%2C'.join(location_ids)
     url = f'{rating_curve_url}/{joined_location_ids}'
 
-    # Call the API
-    response = requests.get(url, verify=False)
+    try:
+        # Call the API
+        response = requests.get(url, verify=False)
+
+    except requests.RequestException as e:
+        # If the API request is not completed, output an error message and return empty outputs
+        err_msg = f'Rating curve API request failed: {e}'
+        return all_curves, err_msg
 
     # If successful
     if response.ok:
@@ -1708,7 +1878,7 @@ def get_rating_curve(rating_curve_url, location_ids):
             else:
                 continue
 
-    return all_curves
+    return all_curves, err_msg
 
 
 #######################################################################
