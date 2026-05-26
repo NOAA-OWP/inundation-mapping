@@ -20,7 +20,8 @@ TARGET_CRS = "EPSG:5070"
 
 # 20% of each domain's estimated average width
 # This will be used for creating the domain buffer
-EDGE_TOLERANCE_WIDTH_FRACTION = 0.20
+# EDGE_TOLERANCE_WIDTH_FRACTION = 0.20
+EDGE_TOLERANCE_M = 300
 
 DOWNSTREAM_FRACTION = 0.50
 
@@ -28,40 +29,26 @@ DOWNSTREAM_FRACTION = 0.50
 HEADWATER_DOWNSTREAM_COVERAGE_THRESHOLD = 0.50
 NOT_HEADWATER_COVERAGE_THRESHOLD = 0.60
 
-DOMAIN_GROUP_COLS = ["collection_id", "model_id"]
+DOMAIN_GROUP_COLS = ["collection_id"]
 
 
 def read_whitelist(ripple_dir, whitelist_file):
-    whitelist_df = pd.read_csv(
-        join(ripple_dir, whitelist_file),
-        dtype={"huc": str},
-    )
+    whitelist_df = pd.read_csv(join(ripple_dir, whitelist_file), dtype={"huc": str})
 
-    whitelist_df = whitelist_df[
-        whitelist_df["is_valid_huc_considered"] == True
-    ].copy()
+    whitelist_df = whitelist_df[whitelist_df["is_valid_huc_considered"] == True].copy()
 
-    whitelist_cols = [
-        "feature_id",
-        "huc",
-        "model_id",
-        "collection_id",
-        "library_path",
-    ]
+    whitelist_cols = ["feature_id", "huc", "model_id", "collection_id", "library_path"]
 
     return whitelist_df[whitelist_cols].reset_index(drop=True)
 
 
 def create_collection_model_ids(whitelist_df):
     collection_model_ids = (
-        whitelist_df[["collection_id", "model_id"]]
-        .drop_duplicates(keep="first")
-        .reset_index(drop=True)
+        whitelist_df[["collection_id", "model_id"]].drop_duplicates(keep="first").reset_index(drop=True)
     )
 
     collection_model_ids["model_indicator"] = collection_model_ids.apply(
-        lambda row: f"/{row['collection_id']}/source_models/{row['model_id']}/",
-        axis=1,
+        lambda row: f"/{row['collection_id']}/source_models/{row['model_id']}/", axis=1
     )
 
     return collection_model_ids
@@ -70,7 +57,7 @@ def create_collection_model_ids(whitelist_df):
 def create_whitelist_domain(ripple_dir, domain_gpkg, collection_model_ids):
 
     # Please note that all feature_ids in a single ripple model is on whitelist.
-    # Because we excluded the whole model if there is one blacklisted FID in it.  
+    # Because we excluded the whole model if there is one blacklisted FID in it.
     domain_gdf = gpd.read_file(join(ripple_dir, domain_gpkg))
 
     domain_gdf["model_indicator"] = domain_gdf["source_path"].str.extract(
@@ -78,29 +65,14 @@ def create_whitelist_domain(ripple_dir, domain_gpkg, collection_model_ids):
     )
 
     # Finding the whitelist model domain using model_indicator
-    domain_whitelist_gdf = domain_gdf.merge(
-        collection_model_ids,
-        on="model_indicator",
-        how="inner",
-    )
+    domain_whitelist_gdf = domain_gdf.merge(collection_model_ids, on="model_indicator", how="inner")
 
-    domain_whitelist_gdf = domain_whitelist_gdf.drop(
-        columns=["model_name", "model_indicator"]
-    )
+    domain_whitelist_gdf = domain_whitelist_gdf.drop(columns=["model_name", "model_indicator"])
 
-    domain_cols = [
-        "model_id",
-        "collection_id",
-        "project_title",
-        "version",
-        "source_path",
-        "geometry",
-    ]
+    domain_cols = ["model_id", "collection_id", "project_title", "version", "source_path", "geometry"]
 
     domain_whitelist_gdf = gpd.GeoDataFrame(
-        domain_whitelist_gdf[domain_cols],
-        geometry="geometry",
-        crs=domain_gdf.crs,
+        domain_whitelist_gdf[domain_cols], geometry="geometry", crs=domain_gdf.crs
     )
 
     domain_whitelist_gdf["geometry"] = domain_whitelist_gdf["geometry"].make_valid()
@@ -111,9 +83,7 @@ def create_whitelist_domain(ripple_dir, domain_gpkg, collection_model_ids):
 
 def read_ripple_streams(whitelist_df, ripple_collections_dir, collection_slice=None):
     collection_ids = sorted(
-        whitelist_df["collection_id"]
-        .drop_duplicates(keep="first")
-        .reset_index(drop=True)
+        whitelist_df["collection_id"].drop_duplicates(keep="first").reset_index(drop=True)
     )
 
     if collection_slice is not None:
@@ -125,10 +95,9 @@ def read_ripple_streams(whitelist_df, ripple_collections_dir, collection_slice=N
         huc = "".join(re.findall(r"\d", cid))
 
         stream_path = os.path.join(
-            ripple_collections_dir,
-            cid,
-            f"ripple_reaches_order_sourcemodels_{huc}.gpkg",
+            ripple_collections_dir, cid, f"ripple_reaches_order_sourcemodels_{huc}.gpkg"
         )
+        # print(stream_path)
 
         if not os.path.exists(stream_path):
             print(f"{cid} does not have ripple_reaches_order_sourcemodels.gpkg")
@@ -142,20 +111,14 @@ def read_ripple_streams(whitelist_df, ripple_collections_dir, collection_slice=N
         return gpd.GeoDataFrame(columns=["feature_id", "order_", "nwm_to_id", "geometry"])
 
     streams_gdf = gpd.GeoDataFrame(
-        pd.concat(stream_gdfs, ignore_index=True),
-        geometry="geometry",
-        crs=stream_gdfs[0].crs,
+        pd.concat(stream_gdfs, ignore_index=True), geometry="geometry", crs=stream_gdfs[0].crs
     )
 
     return streams_gdf
 
 
 def create_save_whitelist_streams(whitelist_df, streams_gdf, ripple_dir):
-    whitelist_streams_df = whitelist_df.merge(
-        streams_gdf,
-        on="feature_id",
-        how="left",
-    )
+    whitelist_streams_df = whitelist_df.merge(streams_gdf, on="feature_id", how="left")
 
     whitelist_streams_gdf = gpd.GeoDataFrame(
         whitelist_streams_df.drop_duplicates(keep="first").reset_index(drop=True),
@@ -163,37 +126,33 @@ def create_save_whitelist_streams(whitelist_df, streams_gdf, ripple_dir):
         crs=streams_gdf.crs,
     )
 
-    whitelist_streams_gdf.to_file(
-        join(ripple_dir, "whitelist_ripple_nwm_streams_sample2.gpkg"),
-        driver="GPKG",
-    )
-
-    return whitelist_streams_gdf
+    whitelist_streams_gdf.to_file(join(ripple_dir, "whitelist_ripple_nwm_streams.gpkg"), driver="GPKG")
+    # return whitelist_streams_gdf
 
 
-def estimate_ripple_domain_width_m(geom):
-    if geom is None or geom.is_empty:
-        return 0.0
+# def estimate_ripple_domain_width_m(geom):
+#     if geom is None or geom.is_empty:
+#         return 0.0
 
-    # Approximate average width as area / perimeter-like length scale.
-    # For long thin domains, this is usually more useful than bbox width.
-    min_rect = geom.minimum_rotated_rectangle
+#     # Approximate average width as area / perimeter-like length scale.
+#     # For long thin domains, this is usually more useful than bbox width.
+#     min_rect = geom.minimum_rotated_rectangle
 
-    if min_rect.is_empty or min_rect.geom_type != "Polygon":
-        return 0.0
+#     if min_rect.is_empty or min_rect.geom_type != "Polygon":
+#         return 0.0
 
-    coords = list(min_rect.exterior.coords)
-    side_lengths = [
-        Point(coords[i]).distance(Point(coords[i + 1]))
-        for i in range(4)
-    ]
+#     coords = list(min_rect.exterior.coords)
+#     side_lengths = [
+#         Point(coords[i]).distance(Point(coords[i + 1]))
+#         for i in range(4)
+#     ]
 
-    side_lengths = [length for length in side_lengths if length > 0]
+#     side_lengths = [length for length in side_lengths if length > 0]
 
-    if not side_lengths:
-        return 0.0
+#     if not side_lengths:
+#         return 0.0
 
-    return min(side_lengths)
+# #     return min(side_lengths)
 
 
 # Break a Polygon, MultiPolygon, or geometry collection into individual polygon pieces
@@ -231,10 +190,10 @@ def main_domain_component(geom):
 # Group domains by collection_id + model_id; union each model’s geometry,
 # keep only the largest connected polygon, and record diagnostics.
 # Create main river polygon + small disconnected island polygon
-def keep_main_model_domain_components(domain_whitelist_gdf):
+def keep_main_collection_domain_components(domain_whitelist_gdf):
     main_domain_rows = []
 
-    for _, group in domain_whitelist_gdf.groupby(DOMAIN_GROUP_COLS):
+    for _, group in domain_whitelist_gdf.groupby("collection_id"):  # DOMAIN_GROUP_COLS
         group_geometry = group.geometry.union_all()
         main_geometry = main_domain_component(group_geometry)
 
@@ -248,15 +207,8 @@ def keep_main_model_domain_components(domain_whitelist_gdf):
         row = group.iloc[0].copy()
         row["geometry"] = main_geometry
         row["domain_component_count"] = len(components)
-        row["disconnected_domain_area_m2"] = max(
-            original_area_m2 - main_area_m2,
-            0.0,
-        )
-        row["main_domain_area_fraction"] = (
-            main_area_m2 / original_area_m2
-            if original_area_m2 > 0
-            else 0.0
-        )
+        row["disconnected_domain_area_m2"] = max(original_area_m2 - main_area_m2, 0.0)
+        row["main_domain_area_fraction"] = main_area_m2 / original_area_m2 if original_area_m2 > 0 else 0.0
 
         main_domain_rows.append(row)
 
@@ -272,30 +224,23 @@ def keep_main_model_domain_components(domain_whitelist_gdf):
             crs=domain_whitelist_gdf.crs,
         )
 
-    return gpd.GeoDataFrame(
-        main_domain_rows,
-        geometry="geometry",
-        crs=domain_whitelist_gdf.crs,
-    ).reset_index(drop=True)
+    return gpd.GeoDataFrame(main_domain_rows, geometry="geometry", crs=domain_whitelist_gdf.crs).reset_index(
+        drop=True
+    )
 
 
 def create_save_whitelist_merged_domain(domain_whitelist_gdf, ripple_dir):
 
     domain_whitelist_gdf = domain_whitelist_gdf.to_crs(TARGET_CRS).copy()
     # Main river polygon + small disconnected island polygon
-    domain_whitelist_gdf = keep_main_model_domain_components(domain_whitelist_gdf)
+    domain_whitelist_gdf = keep_main_collection_domain_components(domain_whitelist_gdf)
 
     domain_whitelist_gdf.to_file(
-        join(ripple_dir, "whitelist_ripple_model_domain_main_component.gpkg"),
-        driver="GPKG",
+        join(ripple_dir, "whitelist_ripple_model_domain_main_component.gpkg"), driver="GPKG"
     )
 
-    disconnected_domain_count = (
-        domain_whitelist_gdf["domain_component_count"] > 1
-    ).sum()
-    disconnected_area_m2 = domain_whitelist_gdf[
-        "disconnected_domain_area_m2"
-    ].sum()
+    disconnected_domain_count = (domain_whitelist_gdf["domain_component_count"] > 1).sum()
+    disconnected_area_m2 = domain_whitelist_gdf["disconnected_domain_area_m2"].sum()
 
     print(
         "Removed disconnected domain components from "
@@ -303,41 +248,38 @@ def create_save_whitelist_merged_domain(domain_whitelist_gdf, ripple_dir):
         f"({disconnected_area_m2:.1f} square meters)."
     )
 
-    domain_whitelist_gdf["domain_width_m"] = domain_whitelist_gdf.geometry.apply(
-        estimate_ripple_domain_width_m
-    )
+    # domain_whitelist_gdf["domain_width_m"] = domain_whitelist_gdf.geometry.apply(
+    #     estimate_ripple_domain_width_m
+    # )
+    # domain_whitelist_gdf["edge_tolerance_m"] = (
+    #     domain_whitelist_gdf["domain_width_m"] * EDGE_TOLERANCE_WIDTH_FRACTION
+    # )
+    # domain_whitelist_gdf["geometry_buffered"] = domain_whitelist_gdf.apply(
+    #     lambda row: row.geometry.buffer(row["edge_tolerance_m"]),
+    #     axis=1,
+    # )
+    domain_whitelist_gdf["edge_tolerance_m"] = EDGE_TOLERANCE_M
 
-    domain_whitelist_gdf["edge_tolerance_m"] = (
-        domain_whitelist_gdf["domain_width_m"] * EDGE_TOLERANCE_WIDTH_FRACTION
-    )
-
-    domain_whitelist_gdf["geometry_buffered"] = domain_whitelist_gdf.apply(
-        lambda row: row.geometry.buffer(row["edge_tolerance_m"]),
-        axis=1,
-    )
+    domain_whitelist_gdf["geometry_buffered"] = domain_whitelist_gdf.geometry.buffer(EDGE_TOLERANCE_M)
 
     domain_union = domain_whitelist_gdf.geometry.union_all()
     domain_union_buffered = domain_whitelist_gdf["geometry_buffered"].union_all()
 
     merged_domain_whitelist_gdf = gpd.GeoDataFrame(
-        geometry=[domain_union],
-        crs=domain_whitelist_gdf.crs,
+        geometry=[domain_union], crs=domain_whitelist_gdf.crs
     ).reset_index(drop=True)
 
     merged_domain_whitelist_gdf["geometry_buffered"] = domain_union_buffered
 
     merged_domain_whitelist_gdf.drop(columns=["geometry_buffered"]).to_file(
-        join(ripple_dir, "merged_domain_whitelist.gpkg"),
-        driver="GPKG",
+        join(ripple_dir, "merged_domain_whitelist.gpkg"), driver="GPKG"
     )
 
     merged_domain_buffered_gdf = gpd.GeoDataFrame(
-        geometry=[domain_union_buffered],
-        crs=domain_whitelist_gdf.crs,
+        geometry=[domain_union_buffered], crs=domain_whitelist_gdf.crs
     )
     merged_domain_buffered_gdf.to_file(
-        join(ripple_dir, "merged_domain_whitelist_buffered.gpkg"),
-        driver="GPKG",
+        join(ripple_dir, "merged_domain_whitelist_buffered.gpkg"), driver="GPKG"
     )
 
     return merged_domain_whitelist_gdf
@@ -362,10 +304,8 @@ def as_single_linestring(geom):
 
 
 def topology_bridge_mask(candidates, included_col="included", max_bridge_reaches=3):
-    
-    included_ids = set(
-        candidates.loc[candidates[included_col], "feature_id"].dropna()
-    )
+
+    included_ids = set(candidates.loc[candidates[included_col], "feature_id"].dropna())
 
     downstream_by_feature_id = (
         candidates.dropna(subset=["feature_id"])
@@ -409,7 +349,7 @@ def topology_bridge_mask(candidates, included_col="included", max_bridge_reaches
     return (~candidates[included_col]) & candidates["feature_id"].isin(bridge_ids)
 
 
-def downstream_domain_metrics(geom, domain_union_buffered): # domain_union
+def downstream_domain_metrics(geom, domain_union_buffered):  # domain_union
 
     line = as_single_linestring(geom)
 
@@ -428,34 +368,27 @@ def downstream_domain_metrics(geom, domain_union_buffered): # domain_union
 
     stream_length_m = line.length
 
+    # headwaters at least 50% of downstream tail of stream is inside the domain
+    # and downstream_endpoint covered by the domain.
     downstream_start_m = stream_length_m * (1 - DOWNSTREAM_FRACTION)
     downstream_tail = substring(line, downstream_start_m, stream_length_m)
 
     downstream_tail_length_m = downstream_tail.length
-    downstream_tail_covered_length_m = downstream_tail.intersection(
-        domain_union_buffered
-    ).length
+    downstream_tail_covered_length_m = downstream_tail.intersection(domain_union_buffered).length
 
     downstream_tail_frac_inside_buffered = (
-        downstream_tail_covered_length_m / downstream_tail_length_m
-        if downstream_tail_length_m > 0
-        else 0.0
+        downstream_tail_covered_length_m / downstream_tail_length_m if downstream_tail_length_m > 0 else 0.0
     )
 
     downstream_endpoint = Point(line.coords[-1])
-    downstream_endpoint_covered_buffered = domain_union_buffered.covers(
-        downstream_endpoint
-    )
+    downstream_endpoint_covered_buffered = domain_union_buffered.covers(downstream_endpoint)
 
-    # For not-headwater streams
+    # For not-headwater streams, at least 60% of stream is inside the domain
+    # and downstream_endpoint covered by the domain.
     inside_geom_buffered = line.intersection(domain_union_buffered)
     inside_length_m_buffered = inside_geom_buffered.length
 
-    frac_inside_buffered = (
-        inside_length_m_buffered / stream_length_m
-        if stream_length_m > 0
-        else 0.0
-    )
+    frac_inside_buffered = inside_length_m_buffered / stream_length_m if stream_length_m > 0 else 0.0
 
     return pd.Series(
         {
@@ -471,7 +404,6 @@ def downstream_domain_metrics(geom, domain_union_buffered): # domain_union
 
 
 def select_valid_streams(streams_gdf, merged_domain_whitelist_gdf):
-
     """
     whitelist_df = read_whitelist(RIPPLE_DIR, RIPPLE_WHITELIST_IDS)
 
@@ -491,7 +423,11 @@ def select_valid_streams(streams_gdf, merged_domain_whitelist_gdf):
     streams_gdf = read_ripple_streams(
         whitelist_df,
         RIPPLE_COLLECTIONS_DIR,
-        collection_slice=slice(92, 94),
+        collection_slice=None # slice(92, 94),
+    )
+    streams_gdf.to_file(
+        join(RIPPLE_DIR, "all_nwm_streams.gpkg"),
+        driver="GPKG",
     )
 
     create_save_whitelist_streams(whitelist_df, streams_gdf, RIPPLE_DIR)
@@ -508,103 +444,88 @@ def select_valid_streams(streams_gdf, merged_domain_whitelist_gdf):
 
     # Streams that are completely whitin the whitelist ripple domain
     streams_within_gdf = gpd.sjoin(
-        streams_gdf,
-        merged_domain_whitelist_gdf,
-        how="inner",
-        predicate="within",
+        streams_gdf, merged_domain_whitelist_gdf, how="inner", predicate="within"
     ).drop(columns=["index_right"])
+
+    streams_within_gdf.to_file(join(RIPPLE_DIR, "white_streams_within.gpkg"), driver="GPKG")
 
     within_feature_ids = set(streams_within_gdf["feature_id"])
     within_count = len(within_feature_ids)
 
     # domain_union = merged_domain_whitelist_gdf.geometry.iloc[0]
     domain_union_buffered = merged_domain_whitelist_gdf["geometry_buffered"].iloc[0]
-    # domain_union_buffered = domain_union.buffer(EDGE_TOLERANCE_M) 
+    # domain_union_buffered = domain_union.buffer(EDGE_TOLERANCE_M)
 
     candidates = gpd.sjoin(
-        streams_gdf,
-        merged_domain_whitelist_gdf,
-        how="inner",
-        predicate="intersects",
+        streams_gdf, merged_domain_whitelist_gdf, how="inner", predicate="intersects"
     ).drop(columns=["index_right"])
 
     candidates = candidates.drop_duplicates(subset="feature_id").reset_index(drop=True)
 
-    metrics = candidates.geometry.apply(
-        lambda geom: downstream_domain_metrics(
-            geom,
-            domain_union_buffered,
-        )
-    )
+    metrics = candidates.geometry.apply(lambda geom: downstream_domain_metrics(geom, domain_union_buffered))
 
-    candidates = pd.concat([candidates, metrics], axis=1)
+    candidates_metrix_df = pd.concat([candidates, metrics], axis=1)
 
     downstream_target_ids = set(streams_gdf["nwm_to_id"].dropna())
-    candidates["headwater_stream"] = (
-        ~candidates["feature_id"].isin(downstream_target_ids)
-    )
-    candidates["not_headwater_stream"] = (
-        ~candidates["headwater_stream"]
-    )
+    candidates_metrix_df["headwater_stream"] = ~candidates_metrix_df["feature_id"].isin(downstream_target_ids)
+    candidates_metrix_df["not_headwater_stream"] = ~candidates_metrix_df["headwater_stream"]
 
-    candidates["strictly_within_domain"] = candidates["feature_id"].isin(
+    candidates_metrix_df["strictly_within_domain"] = candidates_metrix_df["feature_id"].isin(
         within_feature_ids
     )
 
-    candidates["headwater_downstream_buffered_covered"] = (
-        candidates["headwater_stream"]
-    ) & (
-        candidates["downstream_tail_frac_inside_buffered"]
-        >= HEADWATER_DOWNSTREAM_COVERAGE_THRESHOLD
-    ) & candidates["downstream_endpoint_covered_buffered"]
-
-    candidates["not_headwater_buffered_covered"] = (
-        candidates["not_headwater_stream"]
-    ) & (
-        candidates["frac_inside_buffered"] >= NOT_HEADWATER_COVERAGE_THRESHOLD
-        # candidates["downstream_tail_frac_inside_buffered"]
-        # >= HEADWATER_DOWNSTREAM_COVERAGE_THRESHOLD
-    ) & candidates["downstream_endpoint_covered_buffered"]
-
-    candidates["included"] = (
-        candidates["strictly_within_domain"]
-        | candidates["headwater_downstream_buffered_covered"]
-        | candidates["not_headwater_buffered_covered"]
+    candidates_metrix_df["headwater_downstream_buffered_covered"] = (
+        (candidates_metrix_df["headwater_stream"])
+        & (
+            candidates_metrix_df["downstream_tail_frac_inside_buffered"]
+            >= HEADWATER_DOWNSTREAM_COVERAGE_THRESHOLD
+        )
+        & candidates_metrix_df["downstream_endpoint_covered_buffered"]
     )
 
-    candidates["topology_bridge"] = topology_bridge_mask(candidates)
-
-    candidates["included"] = (
-        candidates["included"]
-        | candidates["topology_bridge"]
+    candidates_metrix_df["not_headwater_buffered_covered"] = (
+        (candidates_metrix_df["not_headwater_stream"])
+        & (
+            candidates_metrix_df["frac_inside_buffered"]
+            >= NOT_HEADWATER_COVERAGE_THRESHOLD
+            # candidates_metrix_df["downstream_tail_frac_inside_buffered"]
+            # >= HEADWATER_DOWNSTREAM_COVERAGE_THRESHOLD
+        )
+        & candidates_metrix_df["downstream_endpoint_covered_buffered"]
     )
 
-    candidates["included_by"] = np.select(
+    candidates_metrix_df["included"] = (
+        candidates_metrix_df["strictly_within_domain"]
+        | candidates_metrix_df["headwater_downstream_buffered_covered"]
+        | candidates_metrix_df["not_headwater_buffered_covered"]
+    )
+
+    candidates_metrix_df["topology_bridge"] = topology_bridge_mask(candidates_metrix_df)
+
+    candidates_metrix_df["included"] = (
+        candidates_metrix_df["included"] | candidates_metrix_df["topology_bridge"]
+    )
+
+    candidates_metrix_df["included_by"] = np.select(
         [
-            candidates["strictly_within_domain"],
-            candidates["headwater_downstream_buffered_covered"],
-            candidates["not_headwater_buffered_covered"],
-            candidates["topology_bridge"],
+            candidates_metrix_df["strictly_within_domain"],
+            candidates_metrix_df["headwater_downstream_buffered_covered"],
+            candidates_metrix_df["not_headwater_buffered_covered"],
+            candidates_metrix_df["topology_bridge"],
         ],
         [
             "within",
-            (
-                "headwater_downstream_buffered_covered"
-                f">={HEADWATER_DOWNSTREAM_COVERAGE_THRESHOLD:.0%}"
-            ),
-            (
-                "not_headwater_buffered_covered"
-                f">={NOT_HEADWATER_COVERAGE_THRESHOLD:.0%}"
-            ),
+            ("headwater_downstream_buffered_covered" f">={HEADWATER_DOWNSTREAM_COVERAGE_THRESHOLD:.0%}"),
+            ("not_headwater_buffered_covered" f">={NOT_HEADWATER_COVERAGE_THRESHOLD:.0%}"),
             "topology_bridge_between_included_reaches",
         ],
         default="excluded",
     )
 
     included_streams_gdf = gpd.GeoDataFrame(
-        candidates[candidates["included"]].copy(),
+        candidates_metrix_df[candidates_metrix_df["included"]].copy(),
         geometry="geometry",
-        crs=candidates.crs,
+        crs=candidates_metrix_df.crs,
     )
 
     included_streams_gdf = included_streams_gdf.drop(
@@ -625,37 +546,31 @@ def select_valid_streams(streams_gdf, merged_domain_whitelist_gdf):
             "topology_bridge",
             "included",
         ],
-        errors="ignore",
+        # errors="ignore",
     )
     ripple_dir = RIPPLE_DIR
     included_streams_gdf.to_file(
-        join(
-            ripple_dir,
-            "nwm_streams_WITHIN_DOWNSTREAM_GAP_whitelisted_rippledomain_union_new4.gpkg",
-        ),
+        join(ripple_dir, "nwm_streams_WITHIN_DOWNSTREAM_GAP_whitelisted_rippledomain_union.gpkg"),
         driver="GPKG",
     )
 
     print(
-        f"Candidates intersecting: {candidates['feature_id'].nunique()}, "
+        f"candidates_metrix_df intersecting: {candidates_metrix_df['feature_id'].nunique()}, "
         f"'within' count: {within_count}, "
         f"included by headwater downstream rule: "
-        f"{candidates['headwater_downstream_buffered_covered'].sum()}, "
+        f"{candidates_metrix_df['headwater_downstream_buffered_covered'].sum()}, "
         f"included by not-headwater coverage rule: "
-        f"{candidates['not_headwater_buffered_covered'].sum()}, "
-        f"included by topology bridge: {candidates['topology_bridge'].sum()}, "
+        f"{candidates_metrix_df['not_headwater_buffered_covered'].sum()}, "
+        f"included by topology bridge: {candidates_metrix_df['topology_bridge'].sum()}, "
         f"total included: {included_streams_gdf['feature_id'].nunique()}"
     )
 
-    return included_streams_gdf, candidates
+    return included_streams_gdf, candidates_metrix_df
 
 
-def save_outputs(included_streams_gdf, candidates, whitelist_df, ripple_dir):
+def save_outputs(included_streams_gdf, candidates_metrix_df, whitelist_df, ripple_dir):
     included_streams_gdf.to_file(
-        join(
-            ripple_dir,
-            "nwm_streams_WITHIN_DOWNSTREAM_GAP_whitelisted_rippledomain_union_sample2.gpkg",
-        ),
+        join(ripple_dir, "nwm_streams_WITHIN_DOWNSTREAM_GAP_whitelisted_rippledomain_union_sample2.gpkg"),
         driver="GPKG",
     )
 
@@ -676,7 +591,7 @@ def save_outputs(included_streams_gdf, candidates, whitelist_df, ripple_dir):
     #     "included_by",
     # ]
 
-    # candidates[diagnostic_cols].sort_values("feature_id").to_csv(
+    # candidates_metrix_df[diagnostic_cols].sort_values("feature_id").to_csv(
     #     join(
     #         ripple_dir,
     #         "nwm_streams_WITHIN_OR_DOWNSTREAM_whitelisted_rippledomain_union.csv",
@@ -696,47 +611,28 @@ def save_outputs(included_streams_gdf, candidates, whitelist_df, ripple_dir):
     # )
 
 
-
 def main():
     whitelist_df = read_whitelist(RIPPLE_DIR, RIPPLE_WHITELIST_IDS)
 
     collection_model_ids = create_collection_model_ids(whitelist_df)
 
-    domain_whitelist_gdf = create_whitelist_domain(
-        RIPPLE_DIR,
-        RIPPLE_DOMAIN_GPKG,
-        collection_model_ids,
-    )
+    domain_whitelist_gdf = create_whitelist_domain(RIPPLE_DIR, RIPPLE_DOMAIN_GPKG, collection_model_ids)
 
     domain_whitelist_gdf.to_file(
-        join(RIPPLE_DIR, "whitelist_ripple_model_domain_sample2.gpkg"),
-        driver="GPKG",
+        join(RIPPLE_DIR, "whitelist_ripple_model_domain_sample2.gpkg"), driver="GPKG"
     )
 
-    streams_gdf = read_ripple_streams(
-        whitelist_df,
-        RIPPLE_COLLECTIONS_DIR,
-        collection_slice=slice(92, 94),
-    )
+    streams_gdf = read_ripple_streams(whitelist_df, RIPPLE_COLLECTIONS_DIR, collection_slice=slice(92, 94))
 
     create_save_whitelist_streams(whitelist_df, streams_gdf, RIPPLE_DIR)
 
-    merged_domain_whitelist_gdf = create_save_whitelist_merged_domain(
-        domain_whitelist_gdf,
-        RIPPLE_DIR,
+    merged_domain_whitelist_gdf = create_save_whitelist_merged_domain(domain_whitelist_gdf, RIPPLE_DIR)
+
+    included_streams_gdf, candidates_metrix_df = select_valid_streams(
+        streams_gdf, merged_domain_whitelist_gdf
     )
 
-    included_streams_gdf, candidates = select_valid_streams(
-        streams_gdf,
-        merged_domain_whitelist_gdf,
-    )
-
-    save_outputs(
-        included_streams_gdf,
-        candidates,
-        whitelist_df,
-        RIPPLE_DIR,
-    )
+    save_outputs(included_streams_gdf, candidates_metrix_df, whitelist_df, RIPPLE_DIR)
 
 
 if __name__ == "__main__":
