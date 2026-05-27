@@ -9,7 +9,7 @@ import rioxarray
 from numba import njit, typed, types, prange
 
 
-def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raster):
+def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, pixel_catchments_elevation_filename, thalweg_raster):
     """
     Calculates REM/HAND/Detrended DEM
 
@@ -19,6 +19,8 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raste
         File name of pit filled DEM raster.
     pixel_watersheds_fileName : str
         File name of stream pixel watersheds raster.
+    pixel_catchments_elevation_filename : str
+        File name of pixel catchments thalweg elevation raster.
     rem_fileName : str
         File name of output relative elevation raster.
 
@@ -94,7 +96,7 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raste
 
     # Save output
     raster.values = remapped_data
-    raster.rio.to_raster(os.path.join(os.path.splitext(pixel_watersheds_fileName)[0] + "_catchment_min_values.tif"))
+    raster.rio.to_raster(pixel_catchments_elevation_filename)
 
     dem_thalwegCond_masked_object.close()
     gw_catchments_pixels_masked_object.close()
@@ -148,6 +150,9 @@ if __name__ == '__main__':
         '-w', '--watersheds', help='Pixel based watersheds raster to use within project path', required=True
     )
     parser.add_argument(
+        '-e', '--pixel-catchments-elevation-filename', help='NWM pixel catchments elevation filename', required=True, type=str
+    )
+    parser.add_argument(
         '-t',
         '--thalweg-raster',
         help='A binary raster representing the thalweg. 1 for thalweg, 0 for non-thalweg.',
@@ -163,5 +168,6 @@ if __name__ == '__main__':
     pixel_watersheds_fileName = args['watersheds']
     rem_fileName = args['rem']
     thalweg_raster = args['thalweg_raster']
+    pixel_catchments_elevation_filename = args['pixel_catchments_elevation_filename']
 
-    rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raster)
+    rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, pixel_catchments_elevation_filename, thalweg_raster)

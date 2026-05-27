@@ -252,7 +252,8 @@ echo -e $startDiv"D8 REM $hucNumber $current_branch_id"
 $srcDir/make_rem.py -d $tempCurrentBranchDataDir/dem_thalwegCond_"$current_branch_id".tif \
     -w $tempCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.tif \
     -o $tempCurrentBranchDataDir/rem_$current_branch_id.tif \
-    -t $tempCurrentBranchDataDir/demDerived_streamPixels_$current_branch_id.tif
+    -t $tempCurrentBranchDataDir/demDerived_streamPixels_$current_branch_id.tif \
+    -e $tempCurrentBranchDataDir/gw_catchments_pixels_thalweg_elev_$current_branch_id.tif
 
 ## BRING DISTANCE DOWN TO ZERO & MASK TO CATCHMENTS ##
 echo -e $startDiv"Bring negative values in REM to zero and mask to catchments $hucNumber $current_branch_id"
@@ -279,6 +280,7 @@ if [ "$compute_spillover_toggle" = true ] && [ "$current_branch_id" != "$branch_
         --dem_tif $tempCurrentBranchDataDir/dem_thalwegCond_$current_branch_id.tif \
         --rem_tif $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
         --flow_direction_tif $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$current_branch_id.tif \
+        -t $tempCurrentBranchDataDir/gw_catchments_pixels_thalweg_elev_$current_branch_id.tif \
         --max_iterations $spillover_iterations_max \
         --pct_change_threshold $spillover_pct_change_threshold
 fi

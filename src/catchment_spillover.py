@@ -27,9 +27,9 @@ def save_raster(array, filename, crs, transform):
         dst.write(array)
 
 
-def iterate_spillover(dem_tif, rem_tif, flow_direction_tif, max_iterations=20, pct_change_threshold=1.0):
+def iterate_spillover(dem_tif, rem_tif, flow_direction_tif, thalweg_elevation_tif, max_iterations=20, pct_change_threshold=1.0):
 
-    with rasterio.open(dem_tif) as dem, rasterio.open(rem_tif) as rem:
+    with rasterio.open(dem_tif) as dem, rasterio.open(rem_tif) as rem, rasterio.open(thalweg_elevation_tif) as thalweg:
         crs = dem.crs
         dem_nodata = dem.profile['nodata']
         dem = dem.read()
@@ -42,11 +42,15 @@ def iterate_spillover(dem_tif, rem_tif, flow_direction_tif, max_iterations=20, p
         rem[np.where(rem == rem_nodata)] = np.nan
         rem_mask = rem[rem != np.nan]
 
+        thalweg_nodata = thalweg.profile['nodata']
+        thalweg_elev = thalweg.read()
+        thalweg_elev[np.where(thalweg_elev == thalweg_nodata)] = np.nan
+
     rem_change = []
     previous_rem = rem
     for i in range(max_iterations):
         print(f"Iteration {i} of {max_iterations}")
-        rem = catchment_spillover(dem, rem, rem_mask, flow_direction_tif, crs, rem_transform)
+        rem = catchment_spillover(dem, thalweg_elev, rem_mask, flow_direction_tif, crs, rem_transform)
 
         change_in_rem = rem - previous_rem
         percent_change = -(np.nanmean(change_in_rem) / np.nanmean(previous_rem)) * 100.0
@@ -67,9 +71,9 @@ def iterate_spillover(dem_tif, rem_tif, flow_direction_tif, max_iterations=20, p
     rem_change_df.to_csv(os.path.join(os.path.dirname(rem_tif), 'rem_change.csv'), index=False)
 
 
-def catchment_spillover(dem, rem, rem_mask, flow_direction_tif, crs=None, rem_transform=None):
+def catchment_spillover(dem, thalweg_elev, rem_mask, flow_direction_tif, crs=None, rem_transform=None):
     # Calculate the pixel catchment thalweg elevation
-    thalweg_elev = dem - rem
+    dtf = dem - thalweg_elev
 
     # The 3x3 max filter identifies which cells might spill over into neighbors
     max_thalweg_elev = ndimage.maximum_filter(thalweg_elev, size=3)
@@ -77,7 +81,7 @@ def catchment_spillover(dem, rem, rem_mask, flow_direction_tif, crs=None, rem_tr
 
     # Recalculate depth-to-flood by subtracting the new reference (thalweg) elevation from the DEM
     # new_thalweg_elev = np.where(max_thalweg_elev > thalweg_elev, max_thalweg_elev - dem, np.nan)
-    updated_dtf = np.where((dem - max_thalweg_elev) < rem, dem - max_thalweg_elev, rem)
+    updated_dtf = np.where((dem - max_thalweg_elev) < dtf, dem - max_thalweg_elev, dtf)
     # spillover_locations = np.where(updated_dtf != rem, updated_dtf, np.nan)
 
     with rasterio.open(flow_direction_tif, "r") as src:
@@ -107,10 +111,10 @@ def catchment_spillover(dem, rem, rem_mask, flow_direction_tif, crs=None, rem_tr
     # print(np.unique(flw.to_array('ldd')))
 
     # Fill the new depth-to-flood values to downhill cells
-    DTF_w_downhill = flw.fillnodata(np.where(updated_dtf != rem, updated_dtf, -9999), -9999, how='min')
+    DTF_w_downhill = flw.fillnodata(np.where(updated_dtf != dtf, updated_dtf, -9999), -9999, how='min')
 
     # Stop the new depth-to-flood values where it meets the backfill flooding (equals original HAND values)
-    DTF_w_downhill = np.where(DTF_w_downhill < rem, DTF_w_downhill, -9999)
+    DTF_w_downhill = np.where(DTF_w_downhill < dtf, DTF_w_downhill, -9999)
 
     # Set the no data to nans
     # DTF_w_downhill_nans = np.where(DTF_w_downhill == -9999, np.nan, DTF_w_downhill)
@@ -157,7 +161,7 @@ def catchment_spillover(dem, rem, rem_mask, flow_direction_tif, crs=None, rem_tr
     DTF_w_downhill_backfill = dem - updated_reference_elev_nans
 
     # Replace original REM values where they are greater
-    DTF_w_downhill_backfill_final = np.where(DTF_w_downhill_backfill < rem, DTF_w_downhill_backfill, rem)
+    DTF_w_downhill_backfill_final = np.where(DTF_w_downhill_backfill < dtf, DTF_w_downhill_backfill, dtf)
 
     DTF_w_downhill_backfill_final[DTF_w_downhill_backfill_final < 0] = 0
 
@@ -174,15 +178,16 @@ def catchment_spillover(dem, rem, rem_mask, flow_direction_tif, crs=None, rem_tr
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Calculate spillover flooding for a given branch.")
 
-    parser.add_argument("--dem_tif", type=str, help="Path to DEM TIFF file.")
-    parser.add_argument("--rem_tif", type=str, help="Path to REM TIFF file.")
-    parser.add_argument("--flow_direction_tif", type=str, help="Path to flow direction TIFF file.")
+    parser.add_argument('-d', "--dem_tif", type=str, help="Path to DEM TIFF file.")
+    parser.add_argument('-r', "--rem_tif", type=str, help="Path to REM TIFF file.")
+    parser.add_argument('-f', "--flow_direction_tif", type=str, help="Path to flow direction TIFF file.")
     parser.add_argument(
-        "--max_iterations", type=int, default=5, help="Number of spillover iterations to perform."
+        '-m', "--max_iterations", type=int, default=5, help="Number of spillover iterations to perform."
     )
     parser.add_argument(
-        "--pct_change_threshold", type=float, default=1.0, help="Percent change threshold to stop iterations."
+        '-p', "--pct_change_threshold", type=float, default=1.0, help="Percent change threshold to stop iterations."
     )
+    parser.add_argument('-t', '--thalweg-elevation-tif', type=str, help='Path to pixel catchment thalweg elevation TIFF file.')
     args = parser.parse_args()
 
     iterate_spillover(**vars(args))
