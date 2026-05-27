@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
 import argparse
+import os
 
 import numpy as np
 import rasterio
-from numba import njit, typed, types
+import rioxarray
+from numba import njit, typed, types, prange
 
 
 def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raster):
@@ -67,6 +69,32 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raste
         catchment_min_dict = make_catchment_min_dict(
             dem_window, catchment_min_dict, catchments_window, thalweg_window
         )
+
+    @njit(parallel=True)
+    def remap_raster_numba(raster_arr, d_mapping, nodata_val=np.nan):
+        # Flatten or shape iteration safely
+        out = np.full(raster_arr.shape, nodata_val, dtype=np.float32)
+        
+        # prange parallelizes across your CPU threads automatically
+        for i in prange(raster_arr.shape[0]):
+            for j in range(raster_arr.shape[1]):
+                for k in range(raster_arr.shape[2]):
+                    val = raster_arr[i, j, k]
+                    if val in d_mapping:
+                        out[i, j, k] = d_mapping[val]
+        return out
+
+    # Execute the JIT function (passes your typed.Dict seamlessly)
+    raster = rioxarray.open_rasterio(pixel_watersheds_fileName)
+
+    new_nodata_val = -999999
+    raster.rio.write_nodata(new_nodata_val, inplace=True)
+
+    remapped_data = remap_raster_numba(raster.values, catchment_min_dict)
+
+    # Save output
+    raster.values = remapped_data
+    raster.rio.to_raster(os.path.join(os.path.splitext(pixel_watersheds_fileName)[0] + "_catchment_min_values.tif"))
 
     dem_thalwegCond_masked_object.close()
     gw_catchments_pixels_masked_object.close()
