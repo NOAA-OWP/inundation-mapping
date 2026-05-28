@@ -325,7 +325,7 @@ def __write_categorical_flow_files(
         site_status_df.loc[
             (site_status_df['usgs_site_code'].isin(processed_USGS_site_codes))
             & (~site_status_df['usgs_site_code'].isin(all_flows_data['location_id'])),
-            'categorical_flows_avail'
+            'categorical_flows_avail',
         ] = 'no'
 
     else:
@@ -505,9 +505,7 @@ def __mp_get_site_rating_curve(
                     ex = str(ex)
 
                     if 'HTTPSConnectionPool' in ex:
-                        http_msg = (
-                            f"VDatum API Error: HTTPSConnectionPool. Waiting 10 seconds and rerunning API call"
-                        )
+                        http_msg = "VDatum API Error: HTTPSConnectionPool. Waiting 10 seconds and rerunning API call"
                         sf.l_print(f'{location_id}: {http_msg}', file_logger, "error")
                         time.sleep(10)  # Maybe the API needs a break, so wait 10 seconds
                         try:
