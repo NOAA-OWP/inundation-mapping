@@ -43,7 +43,7 @@ def __get_all_active_usgs_sites():
     -------
     gdf : GeoDataFrame
         A geospatial layer containing all active USGS gage sites. This layer is used for mapping and spatial joins.
-    
+
     metadata_list : LIST
         A list of metadata for all active USGS gage sites. This is used for pulling rating curve data and other site-specific information.
 
@@ -184,16 +184,16 @@ def __write_categorical_flow_files(
         appended to the parent when it is done.
     num_jobs : INT
         Number of jobs (workers) used for multi-proc.
-    
+
     Returns
     -------
     None
-        
+
     Note: For now.. any error files created anywhere are not removed.
 
     '''
 
-    logging.info(f"Writing categorical flow file...")
+    logging.info("Writing categorical flow file...")
 
     threshold_url = f'{API_BASE_URL}/nws_threshold'
     output_dir = Path(output_dir)
@@ -252,15 +252,23 @@ def __write_categorical_flow_files(
     # It is expected that some sites will be removed at this stage
     if len(bogus_id_site_list) > 0:
         logging.warning(f"Found {len(bogus_id_site_list)} site(s) with bogus ID values: {bogus_id_site_list}")
-        site_status_df.loc[site_status_df['usgs_site_code'].isin(bogus_id_site_list), 'categorical_flows_avail'] = 'no (due to placeholder ID)'
+        site_status_df.loc[
+            site_status_df['usgs_site_code'].isin(bogus_id_site_list), 'categorical_flows_avail'
+        ] = 'no (due to placeholder ID)'
 
     if len(no_nws_lid_site_list) > 0:
         logging.warning(f"Found {len(no_nws_lid_site_list)} site(s) with no nws_lid available: {no_nws_lid_site_list}")
-        site_status_df.loc[site_status_df['usgs_site_code'].isin(no_nws_lid_site_list), 'categorical_flows_avail'] = 'no (due to missing NWS LID)'
+        site_status_df.loc[
+            site_status_df['usgs_site_code'].isin(no_nws_lid_site_list), 'categorical_flows_avail'
+        ] = 'no (due to missing NWS LID)'
 
     if len(no_feature_id_site_list) > 0:
-        logging.warning(f"Found {len(no_feature_id_site_list)} site(s) with no feature_id available: {no_feature_id_site_list}")
-        site_status_df.loc[site_status_df['usgs_site_code'].isin(no_feature_id_site_list), 'categorical_flows_avail'] = 'no (due to missing NWM Feature ID)'
+        logging.warning(
+            f"Found {len(no_feature_id_site_list)} site(s) with no feature_id available: {no_feature_id_site_list}"
+        )
+        site_status_df.loc[
+            site_status_df['usgs_site_code'].isin(no_feature_id_site_list), 'categorical_flows_avail'
+        ] = 'no (due to missing NWM Feature ID)'
 
     all_removed_sites_list = list(set(bogus_id_site_list + no_nws_lid_site_list + no_feature_id_site_list))
     if len(all_removed_sites_list) > 0:
@@ -307,16 +315,23 @@ def __write_categorical_flow_files(
         logging.info(f"Saved USGS discharge file to {usgs_discharge_file_name}")
 
         # Update site_status_df 'categorical_flows_avail' column with 'yes' if there is categorical flow data available for the site
-        site_status_df.loc[site_status_df['usgs_site_code'].isin(all_flows_data['location_id']), 'categorical_flows_avail'] = 'yes'
+        site_status_df.loc[
+            site_status_df['usgs_site_code'].isin(all_flows_data['location_id']), 'categorical_flows_avail'
+        ] = 'yes'
 
         # If USGS site code is in processed_USGS_site_codes but there is no categorical flow data for the site, update site_status_df 'categorical_flows_avail' column with 'no'
-        site_status_df.loc[(site_status_df['usgs_site_code'].isin(processed_USGS_site_codes)) & (~site_status_df['usgs_site_code'].isin(all_flows_data['location_id'])), 'categorical_flows_avail'] = 'no'
+        site_status_df.loc[
+            (site_status_df['usgs_site_code'].isin(processed_USGS_site_codes))
+            & (~site_status_df['usgs_site_code'].isin(all_flows_data['location_id'])), 'categorical_flows_avail'
+        ] = 'no'
 
     else:
         logging.info("No flow data was found. Saving of usgs_stage_discharge_cms file skipped")
 
         # Update site_status_df 'categorical_flows_avail' column with 'no' if there is no categorical flow data for the site (but only if the status says 'not set')
-        site_status_df.loc[site_status_df['categorical_flows_avail'] == 'not set', 'categorical_flows_avail'] = 'no (no flow data found for any sites)'
+        site_status_df.loc[
+            site_status_df['categorical_flows_avail'] == 'not set', 'categorical_flows_avail'
+        ] = 'no (no flow data found for any sites)'
 
     return site_status_df
 
@@ -366,7 +381,7 @@ def __mp_get_site_rating_curve(
         The screen queue for the multi-processing function. This is used to print messages to the console for each site.
     task_id : STR
         The task id for the multi-processing function. This is used for logging and to identify the site being processed in the logs and console messages.
-    
+
     Returns
     -------
     status_code : INT
@@ -395,14 +410,22 @@ def __mp_get_site_rating_curve(
         #     return 0, None  # log and continue the next task
 
         if usgs['vcs'] in tsv.UNKNOWN_DATUM_SPELLINGS:
-            sf.l_print(f"{location_id}: Removed due to unknown/blank VCS (VCS: {usgs['vcs']})", file_logger, "warning")
+            sf.l_print(
+                f"{location_id}: Removed due to unknown/blank VCS (VCS: {usgs['vcs']})",
+                file_logger,
+                "warning",
+            )
             return 0, None  # log and continue the next task
 
         # Get rating curve for site using the USGS site code
         curve, rc_err_msg = tsf.get_rating_curve(rating_curve_url, location_ids=[location_id])
 
         if rc_err_msg != "":
-            sf.l_print(f"{location_id}: Rating curve API call returned error message: {rc_err_msg}", file_logger, "error")
+            sf.l_print(
+                f"{location_id}: Rating curve API call returned error message: {rc_err_msg}",
+                file_logger,
+                "error",
+            )
 
         # If no rating curve was returned, skip site.
         if curve.empty:
@@ -415,7 +438,9 @@ def __mp_get_site_rating_curve(
         # Only continue if a rating curve is found and the CRS and VCS are not None/UNK/""/etc.
 
         # Correct datum spelling if needed
-        crs_corrected, vcs_corrected, uncorrected_crs_error, uncorrected_vcs_error, msgs = tsf.correct_datum_typos(usgs['crs'], usgs['vcs'])
+        crs_corrected, vcs_corrected, uncorrected_crs_error, uncorrected_vcs_error, msgs = (
+            tsf.correct_datum_typos(usgs['crs'], usgs['vcs'])
+        )
 
         if crs_corrected is not None:
             usgs['crs'] = crs_corrected
@@ -424,10 +449,14 @@ def __mp_get_site_rating_curve(
 
         # An uncorrected error likely means an error in the future, but we will just log it here in case it goes through
         if uncorrected_crs_error is True:
-            sf.l_print(f"{location_id}: Unable to correct CRS spelling (CRS: {usgs['crs']})", file_logger, "warning")
+            sf.l_print(
+                f"{location_id}: Unable to correct CRS spelling (CRS: {usgs['crs']})", file_logger, "warning"
+            )
         if uncorrected_vcs_error is True:
-            sf.l_print(f"{location_id}: Unable to correct VCS spelling (VCS: {usgs['vcs']})", file_logger, "warning")
-        
+            sf.l_print(
+                f"{location_id}: Unable to correct VCS spelling (VCS: {usgs['vcs']})", file_logger, "warning"
+            )
+
         # Log information about whether the datums were corrected
         # This is probably too verbose for large runs, but keeping it in for now (maybe keeping at debug level is good)
         if len(msgs) > 0:
@@ -473,10 +502,8 @@ def __mp_get_site_rating_curve(
                     ex = str(ex)
 
                     if 'HTTPSConnectionPool' in ex:
-
-                        http_msg = 'VDatum API Error: HTTPSConnectionPool. Waiting 10 seconds and rerunning API call' # verbose?
+                        http_msg = 'VDatum API Error: HTTPSConnectionPool. Waiting 10 seconds and rerunning API call'
                         sf.l_print(f'{location_id}: {http_msg}', file_logger, "error")
-
                         time.sleep(10)  # Maybe the API needs a break, so wait 10 seconds
                         try:
                             datum_adj_ft, err_msg = tsf.ngvd_to_navd_ft(datum_info=usgs)
@@ -487,7 +514,6 @@ def __mp_get_site_rating_curve(
                         except Exception as ex:
                             msg = 'VDatum API Error, possible API issue (tried again after 10 second break)'
                             sf.l_print(f'{location_id}: {msg}: {ex}', file_logger, "error")
-
     
                     elif 'Invalid projection' in ex:
                         msg = f'VDatum API Error, invalid projection: crs={usgs["crs"]}'
@@ -496,8 +522,6 @@ def __mp_get_site_rating_curve(
                     else:
                         msg = 'VDatum API Error, unrecognized exception'
                         sf.l_print(f'{location_id}: {msg}: {ex}', file_logger, "error")
-
-                # If no exceptions occurred, process outputs from the API call.
 
                 # If datum API failed, print message and skip site.
                 if datum_adj_ft is None:
@@ -526,9 +550,7 @@ def __mp_get_site_rating_curve(
             else:
                 # If the site has an unrecognized datum, skip site.
                 datum_name = usgs['vcs']
-                sf.l_print(
-                    f'{location_id}: Removed due to unknown vertical datum', file_logger, "warning"
-                )
+                sf.l_print(f'{location_id}: Removed due to unknown vertical datum', file_logger, "warning")
                 return 0, None  # log and continue the next task
 
         # Populate rating curve with metadata and use navd88 datum to convert stage to elevation.
@@ -543,7 +565,12 @@ def __mp_get_site_rating_curve(
         return 1, curve
 
     except Exception:
-        sf.l_print(f'❌ Critical error while processing {task_id} (location ID: {location_id})', file_logger, "critical", screen_queue)
+        sf.l_print(
+            f'❌ Critical error while processing {task_id} (location ID: {location_id})',
+            file_logger,
+            "critical",
+            screen_queue,
+        )
         sf.l_print(traceback.format_exc(), file_logger, "critical", screen_queue)
         return -1, None  # shut the program down.
 
@@ -616,11 +643,13 @@ def __get_usgs_metadata(list_of_gage_sites, metadata_url):
                 # If the metadata list is zero, rerun sites individually to ensure that is not preventing data from being retrieved
                 if len(chunk_list) == 0:
                     print()
-                    logging.warning(f'No metadata collected for the {len(chunk)} sites. Re-running each site individually.')
+                    logging.warning(
+                        f'No metadata collected for the {len(chunk)} sites. Re-running each site individually.'
+                    )
 
                     for gage in chunk:
                         try:
-                            gage_list, __ , err_msg = tsf.get_metadata(
+                            gage_list, __, err_msg = tsf.get_metadata(
                                 metadata_url,
                                 select_by,
                                 [gage],
@@ -662,7 +691,9 @@ def __get_usgs_metadata(list_of_gage_sites, metadata_url):
             # If one of the gage IDs is incorrect, then it will error out the entire chunk/list of gages
             # If the metadata list is zero, rerun sites individually to ensure that is not preventing data from being retrieved
             if len(metadata_list) == 0:
-                logging.warning(f'No metadata collected for the {len(selector)} sites. Re-running each site individually.')
+                logging.warning(
+                    f'No metadata collected for the {len(selector)} sites. Re-running each site individually.'
+                )
 
                 for gage in list_of_gage_sites:
                     try:
@@ -717,7 +748,7 @@ def __get_usgs_metadata(list_of_gage_sites, metadata_url):
     #     sample_usgs_list.append(usgs_site_code)
 
     # # Filter the sites gdf to only have the sites in sample_usgs_list (will be less than number of sites provided)
-    # sites_gdf = sites_gdf[sites_gdf['usgs_site_code'].isin(sample_usgs_list)] 
+    # sites_gdf = sites_gdf[sites_gdf['usgs_site_code'].isin(sample_usgs_list)]
     ##### END TEMP DEBUG SECTION #####
 
     # Assign column types to prevent errors later on while saving GPKG
@@ -742,7 +773,12 @@ def __get_usgs_metadata(list_of_gage_sites, metadata_url):
     if list_of_gage_sites != ['all']:
         for site in list_of_gage_sites:
             if site not in sites_gdf['usgs_site_code'].values:
-                new_row = {'nws_lid': None, 'usgs_site_code': site, 'nwm_feature_id': None, 'metadata_avail': 'no'}
+                new_row = {
+                    'nws_lid': None,
+                    'usgs_site_code': site,
+                    'nwm_feature_id': None,
+                    'metadata_avail': 'no',
+                }
                 site_status_df = pd.concat([site_status_df, pd.DataFrame([new_row])], ignore_index=True)
 
     # Create additional columns with a placeholder
@@ -813,25 +849,33 @@ def __attrib_mainstems_filter_sites(sites_gdf, all_rating_curves, site_status_df
     sites_gdf['acceptable_site_type'] = sites_gdf['usgs_data_site_type'].isin(acceptable_site_type_list)
 
     # Get a list of sites that are being removed due to unacceptable site type
-    unacceptable_site_type_sites = sites_gdf[sites_gdf['acceptable_site_type'] == False]['location_id'].tolist()
+    unacceptable_site_type_sites = sites_gdf[sites_gdf['acceptable_site_type'] == False][
+        'location_id'
+    ].tolist()
 
     # Update the 'correct_site_type' column in site_status_df to 'yes' if the site is of an acceptable site type, and 'no' if it is not
-    site_status_df['correct_site_type'] = np.where(site_status_df['usgs_site_code'].isin(unacceptable_site_type_sites), 'no', 'yes')
+    site_status_df['correct_site_type'] = np.where(
+        site_status_df['usgs_site_code'].isin(unacceptable_site_type_sites), 'no', 'yes'
+    )
 
     # Filter to acceptable sites
     acceptable_sites_gdf = sites_gdf[sites_gdf['acceptable_site_type'] == True]
 
-    # Get the number of sites removed because they're missing rating curves ## TEMP DEBUG
-    num_acceptable_sites_missing_rc = len(acceptable_sites_gdf[acceptable_sites_gdf['curve'] == 'no']) ## TEMP DEBUG
-    logging.info(f"Removed {num_acceptable_sites_missing_rc} site(s) due to missing rating curve") ## TEMP DEBUG
+    # Get the number of sites removed because they're missing rating curves
+    num_acceptable_sites_missing_rc = len(
+        acceptable_sites_gdf[acceptable_sites_gdf['curve'] == 'no']
+    )
+    logging.info(f"Removed {num_acceptable_sites_missing_rc} site(s) due to missing rating curve")
 
-    # Only keep sites where the rating curve is available  #TODO: this step might be obselete because I filter out the none sites earlier now
+    # Only keep sites where the rating curve is available  # TODO: this step might be obselete because I filter out the none sites earlier now
     acceptable_sites_gdf = acceptable_sites_gdf[acceptable_sites_gdf['curve'] == 'yes']
 
     # Log the site len change
     num_sites_removed = len(acceptable_sites_gdf) - len(sites_gdf)
     if num_sites_removed > 0:
-        logging.info(f"Removed {num_sites_removed} site(s) due to unacceptable site type and/or missing rating curve")
+        logging.info(
+            f"Removed {num_sites_removed} site(s) due to unacceptable site type and/or missing rating curve"
+        )
 
     # Save filtered sites file for viewing
     logging.info("Saving acceptable rating curve files")
@@ -853,8 +897,9 @@ def __attrib_mainstems_filter_sites(sites_gdf, all_rating_curves, site_status_df
     return all_rating_curves, site_status_df
 
 
-
-def __run_rating_curve_retrieval(metadata_list, site_status_df, rating_curve_url, output_dir, file_datetime_string, num_jobs, log_file_path):
+def __run_rating_curve_retrieval(
+        metadata_list, site_status_df, rating_curve_url, output_dir, file_datetime_string, num_jobs, log_file_path
+):
     '''
     New wrapper for  __mp_get_site_rating_curve
 
@@ -901,27 +946,32 @@ def __run_rating_curve_retrieval(metadata_list, site_status_df, rating_curve_url
     # Get the dfs from the multiproc output
     # Note: run_with_mp returns a list of dictionaries keyed with a huc. We don't care about the keys (HUCs), just the values (DFs).
 
-
     # If they all fail, rating_curves_dfs will be something like this: {'14238800': None, '01464000': None, '01464907': None}
     # Remove any None values from the dictionary
     rating_curves_dfs_filtered = {k: v for k, v in rating_curves_dfs.items() if v is not None}
 
     logging.info(f"Retrieved rating curves for {len(rating_curves_dfs_filtered)} sites")
-    logging.info(f"Failed to retrieve rating curves for {len(rating_curves_dfs) - len(rating_curves_dfs_filtered)} sites")
+    logging.info(
+        f"Failed to retrieve rating curves for {len(rating_curves_dfs) - len(rating_curves_dfs_filtered)} sites"
+    )
 
     # If there's no valid rating curves in the dictionary, make a blank df to return (will get caught in next step)
     if len(rating_curves_dfs_filtered) == 0:
         all_rating_curves = pd.DataFrame()
 
-    elif len(rating_curves_dfs_filtered) > 0: # Changed to only iterate through the RC's that aren't none
+    elif len(rating_curves_dfs_filtered) > 0:  # Changed to only iterate through the RC's that aren't none
         logging.info(f"Creating DataFrame for {len(rating_curves_dfs_filtered)} retrieved rating curves")
 
         loop_section_start_dt = datetime.now(timezone.utc)
         for i, value in enumerate(rating_curves_dfs_filtered.values()):
             # Print an update every 500 sites w/duration of that section
             if i % 500 == 0:
-                section_dur_msg = fh.print_date_time_duration(loop_section_start_dt, datetime.now(timezone.utc), False)
-                logging.info(f"Compiling rating curve {i} of {len(rating_curves_dfs_filtered)} - {section_dur_msg}")
+                section_dur_msg = fh.print_date_time_duration(
+                    loop_section_start_dt, datetime.now(timezone.utc), False
+                )
+                logging.info(
+                    f"Compiling rating curve {i} of {len(rating_curves_dfs_filtered)} - {section_dur_msg}"
+                )
                 loop_section_start_dt = datetime.now(timezone.utc)  # Reset timestamp
 
             # Create the output dataframe with all of the valid rating curves
@@ -932,13 +982,25 @@ def __run_rating_curve_retrieval(metadata_list, site_status_df, rating_curve_url
 
         # Get a list of sites that have rating curves and sites that don't have rating curves (but had metadata) and update the site_status_df accordingly
         sites_with_rating_curves = all_rating_curves['location_id'].unique().tolist()
-        sites_without_rating_curves = site_status_df[(site_status_df['metadata_avail'] == 'yes') & (~site_status_df['usgs_site_code'].isin(sites_with_rating_curves))]['usgs_site_code'].tolist()
+        sites_without_rating_curves = site_status_df[
+            (site_status_df['metadata_avail'] == 'yes')
+            & (~site_status_df['usgs_site_code'].isin(sites_with_rating_curves))
+        ]['usgs_site_code'].tolist()
         
         # Update the site_status_df with the availability of rating curves
-        site_status_df.loc[site_status_df['usgs_site_code'].isin(sites_with_rating_curves), 'rating_curves_avail'] = 'yes'
-        site_status_df.loc[site_status_df['usgs_site_code'].isin(sites_without_rating_curves), 'rating_curves_avail'] = 'no'
+        site_status_df.loc[
+            site_status_df['usgs_site_code'].isin(sites_with_rating_curves), 'rating_curves_avail'
+        ] = 'yes'
+        site_status_df.loc[
+            site_status_df['usgs_site_code'].isin(sites_without_rating_curves), 'rating_curves_avail'
+        ] = 'no'
 
-    return rating_curves_dfs, all_rating_curves, site_status_df # TODO: Should we return rating_curves_dfs, or rating_curves_dfs_filtered?
+    # TODO: Should we return rating_curves_dfs, or rating_curves_dfs_filtered?
+    return (
+        rating_curves_dfs,
+        all_rating_curves,
+        site_status_df,
+    )
 
 
 def __write_rc_and_site_files(all_rating_curves, sites_gdf, list_of_gage_sites, output_dir):
@@ -961,7 +1023,7 @@ def __write_rc_and_site_files(all_rating_curves, sites_gdf, list_of_gage_sites, 
     -------
     msg : str
         A message indicating the outcome of the file writing process, including where files were saved and what files were saved. This message can be used for logging and user feedback.
-    
+
     '''
 
     # Write rating curve dataframe to file
@@ -969,13 +1031,8 @@ def __write_rc_and_site_files(all_rating_curves, sites_gdf, list_of_gage_sites, 
     all_rating_curves.to_csv(usgs_rating_curve_file, index=False)
     logging.info(f"Saved rating curve dataframe to {usgs_rating_curve_file}")
 
-    # # Save the site status df to file # TODO: Clean up
-    # site_status_file = os.path.join(output_dir, "site_status.csv")
-    # site_status_df.to_csv(site_status_file, index=False)
-    # logging.info(f"Saved site status dataframe to {site_status_file}")
-
     # If 'all' option specified, reproject then write out shapefile of acceptable sites.
-    if list_of_gage_sites == ['all']: # TODO: Should it also do something if 'all' isn't specified?
+    if list_of_gage_sites == ['all']:  # TODO: Should it also do something if 'all' isn't specified?
         sites_gdf = sites_gdf.to_crs(PREP_PROJECTION)
         usgs_gages_file = os.path.join(output_dir, "usgs_gages.gpkg")
         sites_gdf.to_file(usgs_gages_file, layer='usgs_gages', driver='GPKG', engine='fiona')
@@ -983,7 +1040,7 @@ def __write_rc_and_site_files(all_rating_curves, sites_gdf, list_of_gage_sites, 
         logging.info(f"Saved sites GDF to to {usgs_gages_file}")
         msg = "USGS gage and rating curve files saved"
 
-    else: # TODO: Decide if this is the desired behavior (why not just save above for list as well?)
+    else:  # TODO: Decide if this is the desired behavior (why not just save above for list as well?)
         msg = "Rating curve files saved"
 
     return msg
@@ -994,9 +1051,9 @@ def make_status_summary(row):
     Make the status summary column.
 
     For each row,
-    - if metadata_avail is no, add 'no metadata available', 
-    - if rating_curves_avail is no, add 'no rating curves available', 
-    - if correct_site_type is no, add 'incorrect site type', 
+    - if metadata_avail is no, add 'no metadata available',
+    - if rating_curves_avail is no, add 'no rating curves available',
+    - if correct_site_type is no, add 'incorrect site type',
     - if categorical_flows_avail is no, add 'no categorical flows available'
     - if all are yes, status will be 'good'
 
@@ -1025,21 +1082,13 @@ def make_status_summary(row):
         status = 'Good'
     else:
         status = '; '.join(status_list)
-        # Capitalize the first letter of the status for better readability
-        status = status.capitalize() #.strip('\'"')
-
-        # print(status)  # TEMP DEBUG
-        # print(type(status))  # TEMP DEBUG
-
-    # status = str(status)  # Ensure status is a string (in case of empty list or other issues)
-    # print(type(status))  # TEMP DEBUG
-
+        status = status.capitalize()
 
     return status
 
 
 # Generate USGS rating curves
-def main(list_of_gage_sites, env_file, num_jobs, output_dir): 
+def main(list_of_gage_sites, env_file, num_jobs, output_dir):
     '''
     Main function (was usgs_rating_to_elev).
 
@@ -1206,7 +1255,15 @@ def main(list_of_gage_sites, env_file, num_jobs, output_dir):
         logging.info("")
         logging.info(f"Number of sites to process: {len(metadata_list)}")
 
-        rating_curves_dfs, all_rating_curves, site_status_df = __run_rating_curve_retrieval(metadata_list, site_status_df, rating_curve_url, output_dir, file_datetime_string, num_jobs, log_file_path)
+        rating_curves_dfs, all_rating_curves, site_status_df = __run_rating_curve_retrieval(
+            metadata_list,
+            site_status_df,
+            rating_curve_url,
+            output_dir,
+            file_datetime_string,
+            num_jobs,
+            log_file_path
+        )
 
         logging.info("")
         dur_msg = fh.print_date_time_duration(section_start_dt, datetime.now(timezone.utc), False)
@@ -1230,7 +1287,9 @@ def main(list_of_gage_sites, env_file, num_jobs, output_dir):
         logging.info("Begin getting mainstem attribute and filtering sites...")
         logging.info("")
 
-        all_rating_curves, site_status_df = __attrib_mainstems_filter_sites(sites_gdf, all_rating_curves, site_status_df, output_dir)
+        all_rating_curves, site_status_df = __attrib_mainstems_filter_sites(
+            sites_gdf, all_rating_curves, site_status_df, output_dir
+        )
 
         logging.info("")
         dur_msg = fh.print_date_time_duration(section_start_dt, datetime.now(timezone.utc), False)

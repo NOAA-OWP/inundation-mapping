@@ -4,11 +4,9 @@
 import datetime as dt
 import gc
 import json
-import logging
 import os
 import pathlib
-import sys
-import time
+import warnings
 
 
 # import traceback
@@ -18,11 +16,8 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio
-import rasterio.crs
-import rasterio.shutil
 import requests
 import rioxarray as rxr
-import warnings
 import urllib3
 import xarray as xr
 from dotenv import load_dotenv
@@ -141,15 +136,13 @@ def correct_datum_typos(crs, vcs):
 
         # Check if the CRS is a number
         elif numeric == True:
-            msg = (
-                f"Unable to correct CRS, CRS is a number ({crs}) and not an acceptable value (i.e. NAD83)"
-            )
+            msg = (f"Unable to correct CRS, CRS is a number ({crs}) and not an acceptable value (i.e. NAD83)")
             msgs.append(msg)
             uncorrected_crs_error = True
 
         # Check if the CRS is unknown, blank, or other
         elif crs.upper() in UNKNOWN_DATUM_SPELLINGS:
-            msg = f"Unable to correct CRS, CRS is unknown and not an acceptable value (i.e. NAD83)"
+            msg = "Unable to correct CRS, CRS is unknown and not an acceptable value (i.e. NAD83)"
             msgs.append(msg)
             uncorrected_crs_error = True
 
@@ -159,7 +152,7 @@ def correct_datum_typos(crs, vcs):
             msgs.append(msg)
             uncorrected_crs_error = True
 
-    # else: 
+    # else:
     # CRS is provided but is already in an acceptable format
 
     # -----
@@ -201,7 +194,7 @@ def correct_datum_typos(crs, vcs):
 
         # Check if the VCS is unknown, blank, or other
         elif vcs.upper() in UNKNOWN_DATUM_SPELLINGS:
-            msg = f"Typo found in vertical datum, vcs is unknown and not an acceptable value (i.e. NGVD29)"
+            msg = "Typo found in vertical datum, vcs is unknown and not an acceptable value (i.e. NGVD29)"
             msgs.append(msg)
             uncorrected_vcs_error = True
 
@@ -211,7 +204,7 @@ def correct_datum_typos(crs, vcs):
             msgs.append(msg)
             uncorrected_vcs_error = True
 
-    # else: 
+    # else:
     # VCS is provided but is already in an acceptable format
 
     return crs_corrected, vcs_corrected, uncorrected_crs_error, uncorrected_vcs_error, msgs
@@ -1087,7 +1080,6 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
                 'identifiers_nwm_feature_id': 'str',
                 'identifiers_env_can_gage_id': 'str',
                 'identifiers_goes_id': 'str',
-
                 'nwm_feature_data_downstream_feature_id': 'str',
                 'nwm_feature_data_latitude': 'float',
                 'nwm_feature_data_longitude': 'float',
@@ -1098,7 +1090,6 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
                 'nwm_feature_data_mannings_roughness': 'float',
                 'nwm_feature_data_channel_side_slope': 'float',
                 'nwm_feature_data_nhd_waterbody_comid': 'str',
-
                 'env_can_gage_data_name': 'str',
                 'env_can_gage_data_latitude': 'float',
                 'env_can_gage_data_longitude': 'float',
@@ -1106,7 +1097,6 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
                 'env_can_gage_data_water_course': 'str',
                 'env_can_gage_data_drainage_area': 'float',
                 'env_can_gage_data_contrib_drainage_area': 'float',
-
                 'nws_data_name': 'str',
                 'nws_data_huc': 'str',
                 'nws_data_county': 'str',
@@ -1120,7 +1110,6 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
                 'nws_data_zero_datum': 'float',
                 'nws_data_vertical_datum_name': 'str',
                 'nws_data_horizontal_datum_name': 'str',
-
                 'usgs_preferred_huc': 'str',
                 'usgs_data_state': 'str',
                 'usgs_data_altitude': 'float',
@@ -1138,9 +1127,9 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
 
             # Record colnames of cols with NA vals and a vague col type (object)
             # because these columns could cause future warnings and errors
-            for colname in site_gdf.columns: ## TEMP DEBUG
+            for colname in site_gdf.columns:  # TEMP DEBUG
                 if site_gdf[colname].isna().any() and site_gdf[colname].dtype == object:
-                        columns_with_NA_missing_dtype.append(colname)
+                    columns_with_NA_missing_dtype.append(colname)
             ###
 
             # Field to indicate if a latlon datum was assumed
@@ -1168,12 +1157,14 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
         # means a site can be dropped. Hummm... what if we want usgs data but it is missing the nws_lid.
 
     # Debugging information about NA columns relating to FutureWarning (May 2026)
-    columns_with_NA_missing_dtype = list(set(columns_with_NA_missing_dtype)) # TEMP DEBUG
+    columns_with_NA_missing_dtype = list(set(columns_with_NA_missing_dtype))  # TEMP DEBUG
     if len(columns_with_NA_missing_dtype) > 0:
-        print(f"Columns in sites GDF with NA values AND object dtype (even after fix): {columns_with_NA_missing_dtype}") # TEMP DEBUG
+        print(
+            f"Columns in sites GDF with NA values AND object dtype (even after fix): {columns_with_NA_missing_dtype}"
+        )  # TEMP DEBUG
 
     if len(dtype_warning_list) > 0:
-        print(f"Captured {len(dtype_warning_list)} warnings with with the following info:") ## TEMP DEBUG
+        print(f"Captured {len(dtype_warning_list)} warnings with with the following info:")  # TEMP DEBUG
         for warning in list(set(dtype_warning_list)):  # TEMP DEBUG
             print(warning)  # TEMP DEBUG
 
@@ -1650,7 +1641,7 @@ def ngvd_to_navd_ft(datum_info):
 
     if len(msgs) > 0:
         for msg in msgs:
-            print(msg) # Printing for debug purposes, won't show up in logs
+            print(msg)  # Printing for debug purposes, won't show up in logs
 
     if crs_corrected is not None:
         datum_info['crs'] = crs_corrected
@@ -1660,7 +1651,9 @@ def ngvd_to_navd_ft(datum_info):
 
     # If crs is not NAD 27, convert crs to NAD27 and get adjusted lat lon
     if datum_info['crs'] != 'NAD27':
-        print(f"Input lat/lon is in {datum_info['crs']} datum. Converting to NAD27 for VDatum API...")  # TEMP DEBUG
+        print(
+            f"Input lat/lon is in {datum_info['crs']} datum. Converting to NAD27 for VDatum API..."
+        )
         try:
             lat, lon = convert_latlon_datum(datum_info['lat'], datum_info['lon'], datum_info['crs'], 'NAD27')
 
@@ -1716,7 +1709,7 @@ def ngvd_to_navd_ft(datum_info):
         # Get adjustment in meters (NGVD29 to NAVD88)
         results = response.json()
         adjustment = results['t_z']
- 
+
         # Convert meters to feet
         adjustment_ft = round(float(adjustment) * 3.28084, 2)
 
@@ -1752,8 +1745,7 @@ def run_vdatum_for_region(params, region, datum_url):
     '''
     params['region'] = region
 
-
-    # time.sleep(2) # pause for 2 seconds before each request so we don't overwhelm the API
+    # time.sleep(2) # pause for 2 seconds before each request so we don't overwhelm the API # TODO: Reimplement?
 
     # Suppress Insecure Request Warning
     requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
@@ -1787,7 +1779,9 @@ def run_vdatum_for_region(params, region, datum_url):
                 # be a controlled message from the API, such as  {'errorCode': 412, 'message': 'Uncaught error, please contact NOAA VDatum Program Support team.'}
 
                 if "message" in results:
-                    err_msg = f"Error {results['errorCode']} returned from NOAA VDatum API: {results['message']}"
+                    err_msg = (
+                        f"Error {results['errorCode']} returned from NOAA VDatum API: {results['message']}"
+                    )
                 else:
                     err_msg = f"Error {results['errorCode']} returned from NOAA VDatum API, but no message provided. Full response: {results}"
 
