@@ -163,7 +163,7 @@ def __mp_get_flows_for_site(
 
 # Generate categorical flows for each category across all sites.
 def __write_categorical_flow_files(
-    metadata_list, output_dir, file_datetime_string, parent_log_file, num_jobs
+    metadata_list, site_status_df, output_dir, file_datetime_string, parent_log_file, num_jobs
 ):
     '''
     Writes flow files of each category for every feature_id in the input metadata.
@@ -173,6 +173,8 @@ def __write_categorical_flow_files(
     ---------
     metadata_list : LIST
         A list of metadata for all active USGS gage sites. This is used for pulling flow data and other site-specific information.
+    site_status_df : DataFrame
+        A DataFrame to track the status of each site throughout the process.
     output_dir : STR
         Path to output_dir where flow files will be saved.
     file_datetime_string : STR
@@ -204,6 +206,7 @@ def __write_categorical_flow_files(
     # Check that there is an acceptable nws_lid and feature_id val and create the arg list for mp
     task_args_list = []
     bogus_id_site_list, no_nws_lid_site_list, no_feature_id_site_list = [], [], []
+    processed_USGS_site_codes = []
 
     for i in range(num_sites):
         skip_site = False
@@ -241,6 +244,7 @@ def __write_categorical_flow_files(
                 "threshold_url": threshold_url,
             }
         )
+        processed_USGS_site_codes.append(usgs_site_code)
 
     sorted_tasks_args_list = sorted(task_args_list, key=lambda x: ['nws_lid'])
 
@@ -248,12 +252,15 @@ def __write_categorical_flow_files(
     # It is expected that some sites will be removed at this stage
     if len(bogus_id_site_list) > 0:
         logging.warning(f"Found {len(bogus_id_site_list)} site(s) with bogus ID values: {bogus_id_site_list}")
+        site_status_df.loc[site_status_df['usgs_site_code'].isin(bogus_id_site_list), 'categorical_flows_avail'] = 'no (due to placeholder ID)'
 
     if len(no_nws_lid_site_list) > 0:
         logging.warning(f"Found {len(no_nws_lid_site_list)} site(s) with no nws_lid available: {no_nws_lid_site_list}")
+        site_status_df.loc[site_status_df['usgs_site_code'].isin(no_nws_lid_site_list), 'categorical_flows_avail'] = 'no (due to missing NWS LID)'
 
     if len(no_feature_id_site_list) > 0:
         logging.warning(f"Found {len(no_feature_id_site_list)} site(s) with no feature_id available: {no_feature_id_site_list}")
+        site_status_df.loc[site_status_df['usgs_site_code'].isin(no_feature_id_site_list), 'categorical_flows_avail'] = 'no (due to missing NWM Feature ID)'
 
     all_removed_sites_list = list(set(bogus_id_site_list + no_nws_lid_site_list + no_feature_id_site_list))
     if len(all_removed_sites_list) > 0:
@@ -298,8 +305,20 @@ def __write_categorical_flow_files(
         final_data = all_flows_data[['feature_id', 'discharge_cms', 'recurr_interval']]
         final_data.to_csv(usgs_discharge_file_name, index=False)
         logging.info(f"Saved USGS discharge file to {usgs_discharge_file_name}")
+
+        # Update site_status_df 'categorical_flows_avail' column with 'yes' if there is categorical flow data available for the site
+        site_status_df.loc[site_status_df['usgs_site_code'].isin(all_flows_data['location_id']), 'categorical_flows_avail'] = 'yes'
+
+        # If USGS site code is in processed_USGS_site_codes but there is no categorical flow data for the site, update site_status_df 'categorical_flows_avail' column with 'no'
+        site_status_df.loc[(site_status_df['usgs_site_code'].isin(processed_USGS_site_codes)) & (~site_status_df['usgs_site_code'].isin(all_flows_data['location_id'])), 'categorical_flows_avail'] = 'no'
+
     else:
         logging.info("No flow data was found. Saving of usgs_stage_discharge_cms file skipped")
+
+        # Update site_status_df 'categorical_flows_avail' column with 'no' if there is no categorical flow data for the site (but only if the status says 'not set')
+        site_status_df.loc[site_status_df['categorical_flows_avail'] == 'not set', 'categorical_flows_avail'] = 'no (no flow data found for any sites)'
+
+    return site_status_df
 
 
 def set_global_env(env_file):
@@ -546,16 +565,16 @@ def __get_usgs_metadata(list_of_gage_sites, metadata_url):
         A geospatial layer containing the USGS gage sites for which metadata was retrieved. This layer is used for mapping and spatial joins.
     metadata_list : LIST
         A list of metadata for the USGS gage sites for which metadata was retrieved. This is used for pulling rating curve data and other site-specific information.
+    site_status_df : DataFrame
+        A dataframe tracking the status of each site during the metadata retrieval process.
     '''
+
+    sites_gdf = pd.DataFrame()  # create blank dataframes
+    site_status_df = pd.DataFrame()
 
     if list_of_gage_sites == ['all']:
         logging.info('Getting metadata for all sites')
         sites_gdf, metadata_list = __get_all_active_usgs_sites()
-
-        # # TEMP DEBUG: Keep first n sites to speed up testing. Remove this when not needed.
-        # logging.info(f"DEBUG MODE: Only keeping metadata for first 25 sites")  # TEMP DEBUG
-        # sites_gdf = sites_gdf.head(25)  # TEMP DEBUG
-        # metadata_list = metadata_list[:25]  # TEMP DEBUG
 
     # Otherwise, if a list of sites is passed, retrieve sites from WRDS.
     else:
@@ -679,34 +698,61 @@ def __get_usgs_metadata(list_of_gage_sites, metadata_url):
             # Rename gdf fields
             sites_gdf.columns = sites_gdf.columns.str.replace('identifiers_', '')
         else:
-            logging.error("There are no acceptable sites.")
-            sys.exit()
+            logging.info("Sites GDF is empty or None after aggregation.")
+            return sites_gdf, metadata_list, site_status_df
 
     if len(metadata_list) == 0:
-        logging.error("No metadata was found for any of the sites")
-        sys.exit()
+        logging.info("Length of metadata list is zero after aggregation.")
+        return sites_gdf, metadata_list, site_status_df
 
-    # Assign column types and drop a few to prevent errors later on while saving GPKG
+    # ##### TEMP DEBUG SECTION #####
+    # # TEMP DEBUG: Keep first n sites to speed up testing. Remove this when not needed.
+    # n = 300
+    # logging.info(f"DEBUG MODE: Only keeping metadata for first {n} sites")
+    # metadata_list = metadata_list[:n]
+    # sample_usgs_list = []
+    # for i in range(len(metadata_list)):
+    #     site_data_json = metadata_list[i]
+    #     usgs_site_code = site_data_json.get('identifiers').get('usgs_site_code')
+    #     sample_usgs_list.append(usgs_site_code)
+
+    # # Filter the sites gdf to only have the sites in sample_usgs_list (will be less than number of sites provided)
+    # sites_gdf = sites_gdf[sites_gdf['usgs_site_code'].isin(sample_usgs_list)] 
+    ##### END TEMP DEBUG SECTION #####
+
+    # Assign column types to prevent errors later on while saving GPKG
     # TODO: Is the coltype change still necessary? I think no...
-    sites_gdf = sites_gdf.astype({'metadata_sources': str})
-    sites_gdf = sites_gdf.astype({'nws_data_county_code': str})
-    sites_gdf = sites_gdf.astype({'nwm_feature_data_stream_order': str})
-    sites_gdf = sites_gdf.astype({'nwm_feature_data_downstream_feature_id': str})
-    sites_gdf = sites_gdf.astype({'nwm_feature_data_nhd_waterbody_comid': str})
+    # sites_gdf = sites_gdf.astype({'metadata_sources': str})
+    # sites_gdf = sites_gdf.astype({'nws_data_county_code': str})
+    # sites_gdf = sites_gdf.astype({'nwm_feature_data_stream_order': str})
+    # sites_gdf = sites_gdf.astype({'nwm_feature_data_downstream_feature_id': str})
+    # sites_gdf = sites_gdf.astype({'nwm_feature_data_nhd_waterbody_comid': str})
 
+    # Drop a few columns to prevent errors downstream while saving GPKG
     sites_gdf = sites_gdf.drop(['upstream_nwm_features'], axis=1, errors='ignore')
     sites_gdf = sites_gdf.drop(['downstream_nwm_features'], axis=1, errors='ignore')
 
-    # Save an interium copy of the metadata # TODO: Clean up?
-    # sites_gdf = sites_gdf.to_crs(PREP_PROJECTION)
-    # usgs_metadata_file = os.path.join(output_dir, "usgs_metadata.gpkg")
-    # print(f"Saving a copy of the raw usgs metadata to {usgs_metadata_file}")
-    # sites_gdf.to_file(usgs_metadata_file, layer='usgs_gages', driver='GPKG', engine='fiona')
+    # Create a site status DF to track why different sites are getting removed
+    # Should be a copy of sites_gdf but with these columns: nws_lid,location_id,feature_id, and status (a new column)
+    site_status_df = sites_gdf[['nws_lid', 'usgs_site_code', 'nwm_feature_id']].copy()
+    site_status_df['metadata_avail'] = 'yes'  # Every site in this table at this point has metadata available
 
-    return sites_gdf, metadata_list
+    # Make rows for the sites that were in the input list but did not have metadata returned (if the input was not "all").
+    # These sites will be marked as "no metadata" in the site_status_df and will be included in the final output to show that they were processed but had no metadata available.
+    if list_of_gage_sites != ['all']:
+        for site in list_of_gage_sites:
+            if site not in sites_gdf['usgs_site_code'].values:
+                new_row = {'nws_lid': None, 'usgs_site_code': site, 'nwm_feature_id': None, 'metadata_avail': 'no'}
+                site_status_df = pd.concat([site_status_df, pd.DataFrame([new_row])], ignore_index=True)
+
+    # Create additional columns with a placeholder
+    new_cols = ['rating_curves_avail', 'correct_site_type', 'categorical_flows_avail']
+    site_status_df[new_cols] = 'not set'
+
+    return sites_gdf, metadata_list, site_status_df
 
 
-def __attrib_mainstems_filter_sites(sites_gdf, all_rating_curves, output_dir):
+def __attrib_mainstems_filter_sites(sites_gdf, all_rating_curves, site_status_df, output_dir):
     '''
     Attributes mainstem segments in the sites_gdf. This is used for mapping and spatial joins.
 
@@ -716,6 +762,8 @@ def __attrib_mainstems_filter_sites(sites_gdf, all_rating_curves, output_dir):
         A geospatial layer containing the USGS gage sites for which metadata was retrieved.
     all_rating_curves : DataFrame
         A DataFrame containing all available rating curves.
+    site_status_df : DataFrame
+        A DataFrame to track the status of each site.
     output_dir : str
         The directory where output files will be saved.
 
@@ -723,6 +771,10 @@ def __attrib_mainstems_filter_sites(sites_gdf, all_rating_curves, output_dir):
     -------
     acceptable_sites_list : LIST
         A list of location_ids for sites that have rating curves and are of an acceptable site type.
+    all_rating_curves : DataFrame
+        A DataFrame containing only the rating curves for sites that have rating curves and are of an acceptable site type.
+    site_status_df : DataFrame
+        A DataFrame to track the status of each site.
     '''
 
     # Rename columns and add attribute indicating if rating curve exists
@@ -760,14 +812,20 @@ def __attrib_mainstems_filter_sites(sites_gdf, all_rating_curves, output_dir):
     num_sites_before_filtering = len(sites_gdf)
     sites_gdf['acceptable_site_type'] = sites_gdf['usgs_data_site_type'].isin(acceptable_site_type_list)
 
-    # Filter to acceptable sites where 'curve' = Yes
+    # Get a list of sites that are being removed due to unacceptable site type
+    unacceptable_site_type_sites = sites_gdf[sites_gdf['acceptable_site_type'] == False]['location_id'].tolist()
+
+    # Update the 'correct_site_type' column in site_status_df to 'yes' if the site is of an acceptable site type, and 'no' if it is not
+    site_status_df['correct_site_type'] = np.where(site_status_df['usgs_site_code'].isin(unacceptable_site_type_sites), 'no', 'yes')
+
+    # Filter to acceptable sites
     acceptable_sites_gdf = sites_gdf[sites_gdf['acceptable_site_type'] == True]
 
     # Get the number of sites removed because they're missing rating curves ## TEMP DEBUG
     num_acceptable_sites_missing_rc = len(acceptable_sites_gdf[acceptable_sites_gdf['curve'] == 'no']) ## TEMP DEBUG
     logging.info(f"Removed {num_acceptable_sites_missing_rc} site(s) due to missing rating curve") ## TEMP DEBUG
 
-    # Only keep sites where the rating curve is available
+    # Only keep sites where the rating curve is available  #TODO: this step might be obselete because I filter out the none sites earlier now
     acceptable_sites_gdf = acceptable_sites_gdf[acceptable_sites_gdf['curve'] == 'yes']
 
     # Log the site len change
@@ -792,11 +850,11 @@ def __attrib_mainstems_filter_sites(sites_gdf, all_rating_curves, output_dir):
     # Filter all rating curves to only the rating curves for sites in the acceptable sites list
     all_rating_curves = all_rating_curves[all_rating_curves['location_id'].isin(acceptable_sites_list)]
 
-    return all_rating_curves
+    return all_rating_curves, site_status_df
 
 
 
-def __run_rating_curve_retrieval(metadata_list, rating_curve_url, output_dir, file_datetime_string, num_jobs, log_file_path):
+def __run_rating_curve_retrieval(metadata_list, site_status_df, rating_curve_url, output_dir, file_datetime_string, num_jobs, log_file_path):
     '''
     New wrapper for  __mp_get_site_rating_curve
 
@@ -842,20 +900,67 @@ def __run_rating_curve_retrieval(metadata_list, rating_curve_url, output_dir, fi
 
     # Get the dfs from the multiproc output
     # Note: run_with_mp returns a list of dictionaries keyed with a huc. We don't care about the keys (HUCs), just the values (DFs).
-    if len(rating_curves_dfs) > 0:
-        for i, value in enumerate(rating_curves_dfs.values()):
+
+
+    # If they all fail, rating_curves_dfs will be something like this: {'14238800': None, '01464000': None, '01464907': None}
+    # Remove any None values from the dictionary
+    rating_curves_dfs_filtered = {k: v for k, v in rating_curves_dfs.items() if v is not None}
+
+    logging.info(f"Retrieved rating curves for {len(rating_curves_dfs_filtered)} sites")
+    logging.info(f"Failed to retrieve rating curves for {len(rating_curves_dfs) - len(rating_curves_dfs_filtered)} sites")
+
+    # If there's no valid rating curves in the dictionary, make a blank df to return (will get caught in next step)
+    if len(rating_curves_dfs_filtered) == 0:
+        all_rating_curves = pd.DataFrame()
+
+    elif len(rating_curves_dfs_filtered) > 0: # Changed to only iterate through the RC's that aren't none
+        logging.info(f"Creating DataFrame for {len(rating_curves_dfs_filtered)} retrieved rating curves")
+
+        loop_section_start_dt = datetime.now(timezone.utc)
+        for i, value in enumerate(rating_curves_dfs_filtered.values()):
+            # Print an update every 500 sites w/duration of that section
+            if i % 500 == 0:
+                section_dur_msg = fh.print_date_time_duration(loop_section_start_dt, datetime.now(timezone.utc), False)
+                logging.info(f"Compiling rating curve {i} of {len(rating_curves_dfs_filtered)} - {section_dur_msg}")
+                loop_section_start_dt = datetime.now(timezone.utc)  # Reset timestamp
+
+            # Create the output dataframe with all of the valid rating curves
             if i == 0:
                 all_rating_curves = value
             else:
                 all_rating_curves = pd.concat([all_rating_curves, value])
 
-    logging.info(f"Retrieved rating curves for {len(rating_curves_dfs)} sites")
+        # Get a list of sites that have rating curves and sites that don't have rating curves (but had metadata) and update the site_status_df accordingly
+        sites_with_rating_curves = all_rating_curves['location_id'].unique().tolist()
+        sites_without_rating_curves = site_status_df[(site_status_df['metadata_avail'] == 'yes') & (~site_status_df['usgs_site_code'].isin(sites_with_rating_curves))]['usgs_site_code'].tolist()
+        
+        # Update the site_status_df with the availability of rating curves
+        site_status_df.loc[site_status_df['usgs_site_code'].isin(sites_with_rating_curves), 'rating_curves_avail'] = 'yes'
+        site_status_df.loc[site_status_df['usgs_site_code'].isin(sites_without_rating_curves), 'rating_curves_avail'] = 'no'
 
-    return rating_curves_dfs, all_rating_curves
+    return rating_curves_dfs, all_rating_curves, site_status_df # TODO: Should we return rating_curves_dfs, or rating_curves_dfs_filtered?
 
 
 def __write_rc_and_site_files(all_rating_curves, sites_gdf, list_of_gage_sites, output_dir):
     '''
+    Write the rating curves and site information to files.
+
+    Arguments
+    --------
+    all_rating_curves : DataFrame
+        A DataFrame containing the rating curves for all sites that were successfully retrieved and processed. This DataFrame includes the stage, discharge, datum information, and elevation in NAVD88 for each site
+    sites_gdf : GeoDataFrame
+        A geospatial layer containing the USGS gage sites for which metadata was retrieved. This layer includes attributes such as the site type, coordinate accuracy, and other metadata that can be used for filtering and mapping.
+    list_of_gage_sites : LIST
+        A list of USGS gage site codes that were input by the user. This is used to determine whether to save the full list of sites (if 'all' was selected) or
+        just the sites that were processed (if a specific list was provided).
+    output_dir : str
+        The directory where output files will be saved. This includes the rating curve CSV, site status CSV, and potentially the geospatial file of sites if 'all' was selected.
+
+    Returns
+    -------
+    msg : str
+        A message indicating the outcome of the file writing process, including where files were saved and what files were saved. This message can be used for logging and user feedback.
     
     '''
 
@@ -863,6 +968,11 @@ def __write_rc_and_site_files(all_rating_curves, sites_gdf, list_of_gage_sites, 
     usgs_rating_curve_file = os.path.join(output_dir, "usgs_rating_curves.csv")
     all_rating_curves.to_csv(usgs_rating_curve_file, index=False)
     logging.info(f"Saved rating curve dataframe to {usgs_rating_curve_file}")
+
+    # # Save the site status df to file # TODO: Clean up
+    # site_status_file = os.path.join(output_dir, "site_status.csv")
+    # site_status_df.to_csv(site_status_file, index=False)
+    # logging.info(f"Saved site status dataframe to {site_status_file}")
 
     # If 'all' option specified, reproject then write out shapefile of acceptable sites.
     if list_of_gage_sites == ['all']: # TODO: Should it also do something if 'all' isn't specified?
@@ -877,6 +987,55 @@ def __write_rc_and_site_files(all_rating_curves, sites_gdf, list_of_gage_sites, 
         msg = "Rating curve files saved"
 
     return msg
+
+
+def make_status_summary(row):
+    '''
+    Make the status summary column.
+
+    For each row,
+    - if metadata_avail is no, add 'no metadata available', 
+    - if rating_curves_avail is no, add 'no rating curves available', 
+    - if correct_site_type is no, add 'incorrect site type', 
+    - if categorical_flows_avail is no, add 'no categorical flows available'
+    - if all are yes, status will be 'good'
+
+    '''
+    status_list = []
+    if 'no' in row['metadata_avail']:
+        status_list.append('no metadata found')
+        # metadata_avail will never be 'not set'
+
+    if 'no' in row['rating_curves_avail']:
+        status_list.append('no rating curves found')
+    elif 'not set' in row['rating_curves_avail']:
+        status_list.append('rating curves not queried for site')
+
+    if 'no' in row['correct_site_type']:
+        status_list.append('incorrect site type')
+    elif 'not set' in row['correct_site_type']:
+        status_list.append('site type not queried for site')
+
+    if 'no' in row['categorical_flows_avail']:
+        status_list.append('no categorical flows found')
+    elif 'not set' in row['categorical_flows_avail']:
+        status_list.append('categorical flows not queried for site')
+
+    if status_list == []:
+        status = 'Good'
+    else:
+        status = '; '.join(status_list)
+        # Capitalize the first letter of the status for better readability
+        status = status.capitalize() #.strip('\'"')
+
+        # print(status)  # TEMP DEBUG
+        # print(type(status))  # TEMP DEBUG
+
+    # status = str(status)  # Ensure status is a string (in case of empty list or other issues)
+    # print(type(status))  # TEMP DEBUG
+
+
+    return status
 
 
 # Generate USGS rating curves
@@ -943,8 +1102,9 @@ def main(list_of_gage_sites, env_file, num_jobs, output_dir):
 
     '''
 
-    # Initialize output df for rating curves
+    # Initialize output dfs
     all_rating_curves = pd.DataFrame()
+    site_status_df = pd.DataFrame()
 
     # Validate CPU availability
     total_cpus_available = os.cpu_count()
@@ -1016,10 +1176,10 @@ def main(list_of_gage_sites, env_file, num_jobs, output_dir):
         # Get USGS metadata and aggregate by HUC
 
         section_start_dt = datetime.now(timezone.utc)
-        logging.info("Retrieving metadata and aggregating by HUCs...")
+        logging.info("Begin retrieving metadata and aggregating by HUCs...")
         logging.info("")
 
-        sites_gdf, metadata_list = __get_usgs_metadata(list_of_gage_sites, metadata_url)
+        sites_gdf, metadata_list, site_status_df = __get_usgs_metadata(list_of_gage_sites, metadata_url)
         # If 'all' option passed to list of gages sites, it retrieves all sites within CONUS.
         # This part usually only takes a few mins (up to 8 mins(ish) )
 
@@ -1029,30 +1189,39 @@ def main(list_of_gage_sites, env_file, num_jobs, output_dir):
         logging.info("-------------------------------------------------")
         logging.info("")
 
+        # Error out if no sites or metadata were retrieved
+        if len(sites_gdf) == 0:
+            msg = 'No valid sites found. Program aborting.'
+            raise Exception(msg)
+
+        if len(metadata_list) == 0:
+            msg = 'No metadata was found for any of the sites. Program aborting.'
+            raise Exception(msg)
+
         # ------------------------------
         # Set up and run the multiproc to get rating curves for sites
 
         section_start_dt = datetime.now(timezone.utc)
-        logging.info("Begin processing metadata...")
+        logging.info("Begin retrieving rating curves...")
         logging.info("")
         logging.info(f"Number of sites to process: {len(metadata_list)}")
 
-        rating_curves_dfs, all_rating_curves = __run_rating_curve_retrieval(metadata_list, rating_curve_url, output_dir, file_datetime_string, num_jobs, log_file_path)
+        rating_curves_dfs, all_rating_curves, site_status_df = __run_rating_curve_retrieval(metadata_list, site_status_df, rating_curve_url, output_dir, file_datetime_string, num_jobs, log_file_path)
 
         logging.info("")
         dur_msg = fh.print_date_time_duration(section_start_dt, datetime.now(timezone.utc), False)
-        logging.info(f"Finished processing metadata - {dur_msg}")
+        logging.info(f"Finished retrieving rating curves - {dur_msg}")
         logging.info("-------------------------------------------------")
         logging.info("")
 
         # Error out with messages if no rating curves made it past the datum checks
         if len(all_rating_curves) == 0:
-            logging.error('No rating curves to compile. Program aborting.')
-            sys.exit(1) # TODO: Do we want to exit differently? need to make sure this works w logging
+            msg = 'No rating curves to compile. Program aborting.'
+            raise Exception(msg)
 
         if len(rating_curves_dfs) == 0:
-            logging.error("No rating curve DFs to compile. Program aborting.")
-            sys.exit(1) # TODO: Do we want to exit differently? need to make sure this works w logging
+            msg = "No rating curve DFs to compile. Program aborting."
+            raise Exception(msg)
 
         # ------------------------------
         # Get mainstems attribute and filter out unacceptable sites
@@ -1061,7 +1230,7 @@ def main(list_of_gage_sites, env_file, num_jobs, output_dir):
         logging.info("Begin getting mainstem attribute and filtering sites...")
         logging.info("")
 
-        all_rating_curves = __attrib_mainstems_filter_sites(sites_gdf, all_rating_curves, output_dir)
+        all_rating_curves, site_status_df = __attrib_mainstems_filter_sites(sites_gdf, all_rating_curves, site_status_df, output_dir)
 
         logging.info("")
         dur_msg = fh.print_date_time_duration(section_start_dt, datetime.now(timezone.utc), False)
@@ -1070,10 +1239,10 @@ def main(list_of_gage_sites, env_file, num_jobs, output_dir):
         logging.info("")
 
         # ------------------------------
-        # Save rating curve file (and USGS gages file if 'all' is selected)
+        # Save rating curve file, site status file, and USGS gages file (if 'all' is selected)
 
         section_start_dt = datetime.now(timezone.utc)
-        logging.info("Saving output files...")
+        logging.info("Begin saving output files...")
         logging.info("")
 
         msg = __write_rc_and_site_files(all_rating_curves, sites_gdf, list_of_gage_sites, output_dir)
@@ -1088,11 +1257,11 @@ def main(list_of_gage_sites, env_file, num_jobs, output_dir):
         # Write out categorical flow files for each threshold across all available sites
 
         section_start_dt = datetime.now(timezone.utc)
-        logging.info("Getting stage discharge values...")
+        logging.info("Begin getting stage discharge values...")
         logging.info("")
 
-        __write_categorical_flow_files(
-            metadata_list, output_dir, file_datetime_string, log_file_path, num_jobs
+        site_status_df = __write_categorical_flow_files(
+            metadata_list, site_status_df, output_dir, file_datetime_string, log_file_path, num_jobs
         )
 
         logging.info("")
@@ -1104,6 +1273,30 @@ def main(list_of_gage_sites, env_file, num_jobs, output_dir):
     except Exception as ex:
         logging.critical(f"Exception occured: {ex}")
         logging.critical(traceback.format_exc())
+
+    # If site status df is not empty, save it to file. If it is empty, log that it is empty and skip saving.
+    if len(site_status_df) == 0:
+        logging.warning("Site status dataframe is empty. Skipping saving site status file.")
+    else:
+
+        section_start_dt = datetime.now(timezone.utc)
+        logging.info("Begin summarizing NWS LID site statuses and saving table...")
+        logging.info("")
+
+        site_status_df['status'] = site_status_df.apply(make_status_summary, axis=1)
+
+        # site_status_df['status'] = site_status_df['status'].astype(str).str.strip('"')
+
+        # Save the site status df to file
+        site_status_file = os.path.join(output_dir, "nws_site_status.csv")
+        site_status_df.to_csv(site_status_file, index=False)
+        logging.info(f"Saved site status dataframe to {site_status_file}")
+
+        logging.info("")
+        dur_msg = fh.print_date_time_duration(section_start_dt, datetime.now(timezone.utc), False)
+        logging.info(f"Finished summarizing NWS LID site statuses and saving table - {dur_msg}")
+        logging.info("-------------------------------------------------")
+        logging.info("")
 
     display_dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
     dur_msg = fh.print_date_time_duration(overall_start_dt, datetime.now(timezone.utc), False)

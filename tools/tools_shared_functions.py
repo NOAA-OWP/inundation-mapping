@@ -1753,7 +1753,7 @@ def run_vdatum_for_region(params, region, datum_url):
     params['region'] = region
 
 
-    time.sleep(2) # pause for 2 seconds before each request so we don't overwhelm the API
+    # time.sleep(2) # pause for 2 seconds before each request so we don't overwhelm the API
 
     # Suppress Insecure Request Warning
     requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
