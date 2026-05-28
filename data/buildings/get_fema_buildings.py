@@ -20,7 +20,6 @@ srcDir = os.getenv('srcDir')
 load_dotenv(f'{srcDir}/bash_variables.env')
 
 
-
 def __setup_logger(output_folder_path):
     start_time = datetime.now(timezone.utc)
     file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")

@@ -278,8 +278,8 @@ def run_with_mp(
     task_function,
     tasks_args_list,
     file_logger,
+    task_id_key,  # must be one of the keys in the args list.
     max_workers=4,
-    task_id_key=None,  # must not be None and must be one of the keys in the args list.
     show_progress=True,
 ):
     '''
@@ -317,13 +317,11 @@ def run_with_mp(
 
     # Different tools have different needs for how it uses it's MP functions and what it returns from run_with_mp.
 
-    # This tool requires that two things are returned: a return code, then a list (might be empty
-    #    or any just one list item containing any object such as a bool, string, dictionary, dataframe, etc)
-    #    If you the task is succesful and you have no specific need for anything to return, just return an empty
-    #    list. ie) [].
-    #    Only one item inside the list can be returned and it will be extracted to add to the growing
-    #    main return set. results = {}.
-    #    In the end, you will have a set of T/F, dictionaries, dataframes, string, etc
+    # This tool requires that two things are returned: a return code, then a list.
+    #    The list can be empty ([]), contain a single item, or contain multiple items — whatever
+    #    the caller needs (e.g. a bool, a string, a dataframe, or multiple values like
+    #    [bool, df1, df2]). The entire list is stored as-is in the results dict under the task_id.
+    #    In the end, results = {task_id: rtn_value_list, ...}
 
     # -  A status code. options are:
     #       1: Success and show tqdm or print success line
@@ -356,14 +354,15 @@ def run_with_mp(
     if not task_id_key:
         raise Exception("task_id_key can not be None or empty")
 
-    # TODO: Add a validation test to ensure the task_id_key exists as a poplated key in all items
-    # in the tasks_args_list.
+    missing = [i for i, t in enumerate(tasks_args_list) if task_id_key not in t]
+    if missing:
+        raise Exception(f"task_id_key '{task_id_key}' missing from tasks_args_list at indices: {missing}")
 
     try:
         # the thread must be inside the try catch to be closed correct in system fail.
         screen_queue = (
             Manager().Queue()
-        )  # creates a process-safe Queue that allows subprocesses to put() messages into it.
+        )  # Manager proxy queue — picklable so it can be passed to spawned worker processes via ProcessPoolExecutor
 
         # Background thread to print logs without interrupting tqdm
         def log_worker(queue):
@@ -519,7 +518,8 @@ def run_with_mp(
                 # Yes.. seems weird to have this here and a new exception.
                 # But it helps force shut down other objects like manual logging and a
                 # a queue.
-                pbar.close()  # aborts the progress bar
+                if pbar:
+                    pbar.close()  # aborts the progress bar
 
                 if console_queue_thread:
                     screen_queue.put("DONE")  # sends the stop SIGNAL to thread

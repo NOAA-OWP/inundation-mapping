@@ -26,7 +26,6 @@ srcDir = os.getenv('srcDir')
 load_dotenv(f'{srcDir}/bash_variables.env')
 
 
-
 def make_building_parts_per_huc(
     states_buildings_dir: Path,
     current_preclip_directory: Path,
