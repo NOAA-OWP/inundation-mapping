@@ -3,8 +3,8 @@ import argparse
 import logging
 import os
 import sys
-import traceback
 import time
+import traceback
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -226,7 +226,7 @@ def __write_categorical_flow_files(
             no_nws_lid_site_list.append(usgs_site_code)
             skip_site = True
 
-        # Check for a NWM feature_id 
+        # Check for a NWM feature_id
         if feature_id is None:
             no_feature_id_site_list.append(usgs_site_code)
             skip_site = True
@@ -257,7 +257,9 @@ def __write_categorical_flow_files(
         ] = 'no (due to placeholder ID)'
 
     if len(no_nws_lid_site_list) > 0:
-        logging.warning(f"Found {len(no_nws_lid_site_list)} site(s) with no nws_lid available: {no_nws_lid_site_list}")
+        logging.warning(
+            f"Found {len(no_nws_lid_site_list)} site(s) with no nws_lid available: {no_nws_lid_site_list}"
+        )
         site_status_df.loc[
             site_status_df['usgs_site_code'].isin(no_nws_lid_site_list), 'categorical_flows_avail'
         ] = 'no (due to missing NWS LID)'
@@ -322,7 +324,8 @@ def __write_categorical_flow_files(
         # If USGS site code is in processed_USGS_site_codes but there is no categorical flow data for the site, update site_status_df 'categorical_flows_avail' column with 'no'
         site_status_df.loc[
             (site_status_df['usgs_site_code'].isin(processed_USGS_site_codes))
-            & (~site_status_df['usgs_site_code'].isin(all_flows_data['location_id'])), 'categorical_flows_avail'
+            & (~site_status_df['usgs_site_code'].isin(all_flows_data['location_id'])),
+            'categorical_flows_avail'
         ] = 'no'
 
     else:
@@ -502,7 +505,9 @@ def __mp_get_site_rating_curve(
                     ex = str(ex)
 
                     if 'HTTPSConnectionPool' in ex:
-                        http_msg = 'VDatum API Error: HTTPSConnectionPool. Waiting 10 seconds and rerunning API call'
+                        http_msg = (
+                            f"VDatum API Error: HTTPSConnectionPool. Waiting 10 seconds and rerunning API call"
+                        )
                         sf.l_print(f'{location_id}: {http_msg}', file_logger, "error")
                         time.sleep(10)  # Maybe the API needs a break, so wait 10 seconds
                         try:
@@ -514,7 +519,7 @@ def __mp_get_site_rating_curve(
                         except Exception as ex:
                             msg = 'VDatum API Error, possible API issue (tried again after 10 second break)'
                             sf.l_print(f'{location_id}: {msg}: {ex}', file_logger, "error")
-    
+
                     elif 'Invalid projection' in ex:
                         msg = f'VDatum API Error, invalid projection: crs={usgs["crs"]}'
                         sf.l_print(f'{location_id}: {msg}', file_logger, "error")
@@ -843,7 +848,6 @@ def __attrib_mainstems_filter_sites(sites_gdf, all_rating_curves, site_status_df
     # )
     # sites_gdf.to_file(os.path.join(output_dir, 'sites_bool_flags.gpkg'), driver='GPKG', engine='fiona')
 
-
     # Filter out non stream sites (the other acceptance criteria will be filtered out the scripts where the data is used)
     num_sites_before_filtering = len(sites_gdf)
     sites_gdf['acceptable_site_type'] = sites_gdf['usgs_data_site_type'].isin(acceptable_site_type_list)
@@ -862,9 +866,7 @@ def __attrib_mainstems_filter_sites(sites_gdf, all_rating_curves, site_status_df
     acceptable_sites_gdf = sites_gdf[sites_gdf['acceptable_site_type'] == True]
 
     # Get the number of sites removed because they're missing rating curves
-    num_acceptable_sites_missing_rc = len(
-        acceptable_sites_gdf[acceptable_sites_gdf['curve'] == 'no']
-    )
+    num_acceptable_sites_missing_rc = len(acceptable_sites_gdf[acceptable_sites_gdf['curve'] == 'no'])
     logging.info(f"Removed {num_acceptable_sites_missing_rc} site(s) due to missing rating curve")
 
     # Only keep sites where the rating curve is available  # TODO: this step might be obselete because I filter out the none sites earlier now
@@ -898,7 +900,7 @@ def __attrib_mainstems_filter_sites(sites_gdf, all_rating_curves, site_status_df
 
 
 def __run_rating_curve_retrieval(
-        metadata_list, site_status_df, rating_curve_url, output_dir, file_datetime_string, num_jobs, log_file_path
+    metadata_list, site_status_df, rating_curve_url, output_dir, file_datetime_string, num_jobs, log_file_path
 ):
     '''
     New wrapper for  __mp_get_site_rating_curve
@@ -986,7 +988,7 @@ def __run_rating_curve_retrieval(
             (site_status_df['metadata_avail'] == 'yes')
             & (~site_status_df['usgs_site_code'].isin(sites_with_rating_curves))
         ]['usgs_site_code'].tolist()
-        
+
         # Update the site_status_df with the availability of rating curves
         site_status_df.loc[
             site_status_df['usgs_site_code'].isin(sites_with_rating_curves), 'rating_curves_avail'
@@ -996,11 +998,7 @@ def __run_rating_curve_retrieval(
         ] = 'no'
 
     # TODO: Should we return rating_curves_dfs, or rating_curves_dfs_filtered?
-    return (
-        rating_curves_dfs,
-        all_rating_curves,
-        site_status_df,
-    )
+    return rating_curves_dfs, all_rating_curves, site_status_df
 
 
 def __write_rc_and_site_files(all_rating_curves, sites_gdf, list_of_gage_sites, output_dir):
@@ -1262,7 +1260,7 @@ def main(list_of_gage_sites, env_file, num_jobs, output_dir):
             output_dir,
             file_datetime_string,
             num_jobs,
-            log_file_path
+            log_file_path,
         )
 
         logging.info("")

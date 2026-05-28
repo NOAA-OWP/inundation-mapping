@@ -8,7 +8,6 @@ import os
 import pathlib
 import warnings
 
-
 # import traceback
 from pathlib import Path
 
@@ -136,7 +135,7 @@ def correct_datum_typos(crs, vcs):
 
         # Check if the CRS is a number
         elif numeric == True:
-            msg = (f"Unable to correct CRS, CRS is a number ({crs}) and not an acceptable value (i.e. NAD83)")
+            msg = f"Unable to correct CRS, CRS is a number ({crs}) and not an acceptable value (i.e. NAD83)"
             msgs.append(msg)
             uncorrected_crs_error = True
 
@@ -1651,9 +1650,7 @@ def ngvd_to_navd_ft(datum_info):
 
     # If crs is not NAD 27, convert crs to NAD27 and get adjusted lat lon
     if datum_info['crs'] != 'NAD27':
-        print(
-            f"Input lat/lon is in {datum_info['crs']} datum. Converting to NAD27 for VDatum API..."
-        )
+        print(f"Input lat/lon is in {datum_info['crs']} datum. Converting to NAD27 for VDatum API...")
         try:
             lat, lon = convert_latlon_datum(datum_info['lat'], datum_info['lon'], datum_info['crs'], 'NAD27')
 
@@ -1806,6 +1803,7 @@ def run_vdatum_for_region(params, region, datum_url):
         # raise err # TODO: Do we want to raise this error here? # I think no because there's already error handling for it downstream
 
     return response, success, err_msg
+
 
 #######################################################################
 # Function to download rating curve from API
