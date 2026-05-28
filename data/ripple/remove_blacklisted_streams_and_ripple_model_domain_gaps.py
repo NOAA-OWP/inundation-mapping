@@ -13,11 +13,6 @@ from shapely.geometry import Point
 from shapely.ops import linemerge, substring
 
 
-# RIPPLE_DIR = "/outputs/"
-# RIPPLE_DOMAIN_GPKG = "ripple_domains.gpkg"
-# RIPPLE_WHITELIST_TABLE = "ripple_feature_list_20260310_huc_considered_delivered.csv"
-# RIPPLE_COLLECTIONS_DIR = "/outputs/nwm_ripple_streams/"
-
 TARGET_CRS = "EPSG:5070"
 
 # 20% of each domain's estimated average width
@@ -586,6 +581,24 @@ def process_streams_save_outputs(
 
 
 if __name__ == "__main__":
+
+    """
+    Examples of usage:
+
+    # RIPPLE_DIR = "/outputs/"
+    # RIPPLE_DOMAIN_GPKG = "ripple_domains.gpkg"
+    # RIPPLE_WHITELIST_TABLE = "ripple_feature_list_20260310_huc_considered_delivered.csv"
+    # RIPPLE_COLLECTIONS_DIR = "/outputs/nwm_ripple_streams/"
+
+    python data/ripple/remove_blacklisted_streams_and_ripple_model_domain_gaps.py \
+        -rd /outputs/ \
+        -dg ripple_domains.gpkg \
+        -wl ripple_feature_list_20260310_huc_considered_delivered.csv \
+        -rc /outputs/nwm_ripple_streams/ \
+        -j 8 \
+        -cs 500
+
+    """
 
     parser = argparse.ArgumentParser(
         description="Remove blacklisted streams and identify valid Ripple streams using domain coverage rules."
