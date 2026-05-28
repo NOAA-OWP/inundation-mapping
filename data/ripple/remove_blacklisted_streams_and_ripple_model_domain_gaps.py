@@ -23,13 +23,13 @@ TARGET_CRS = "EPSG:5070"
 # EDGE_TOLERANCE_WIDTH_FRACTION = 0.20
 EDGE_TOLERANCE_M = 300
 
+MIN_COMPONENT_AREA_FRACTION = 0.20
+
 DOWNSTREAM_FRACTION = 0.50
 
 # DOWNSTREAM_COVERAGE_THRESHOLD = 0.50
 HEADWATER_DOWNSTREAM_COVERAGE_THRESHOLD = 0.50
 NOT_HEADWATER_COVERAGE_THRESHOLD = 0.60
-
-DOMAIN_GROUP_COLS = ["collection_id"]
 
 
 def read_whitelist(ripple_dir, whitelist_file):
@@ -190,25 +190,39 @@ def main_domain_component(geom):
 # Group domains by collection_id + model_id; union each model’s geometry,
 # keep only the largest connected polygon, and record diagnostics.
 # Create main river polygon + small disconnected island polygon
-def keep_main_collection_domain_components(domain_whitelist_gdf):
+def keep_main_collection_domain_components(domain_whitelist_gdf):  # , min_component_area_fraction
     main_domain_rows = []
 
     for _, group in domain_whitelist_gdf.groupby("collection_id"):  # DOMAIN_GROUP_COLS
         group_geometry = group.geometry.union_all()
-        main_geometry = main_domain_component(group_geometry)
+        components = polygon_components(group_geometry)
 
-        if main_geometry is None or main_geometry.is_empty:
+        if not components:
             continue
 
-        components = polygon_components(group_geometry)
-        original_area_m2 = group_geometry.area
+        main_geometry = max(components, key=lambda component: component.area)
         main_area_m2 = main_geometry.area
 
+        retained_components = [
+            component
+            for component in components
+            if component.area >= main_area_m2 * MIN_COMPONENT_AREA_FRACTION
+        ]
+
+        retained_geometry = gpd.GeoSeries(retained_components, crs=domain_whitelist_gdf.crs).union_all()
+
+        original_area_m2 = group_geometry.area
+        retained_area_m2 = retained_geometry.area
+
         row = group.iloc[0].copy()
-        row["geometry"] = main_geometry
+        row["geometry"] = retained_geometry
         row["domain_component_count"] = len(components)
-        row["disconnected_domain_area_m2"] = max(original_area_m2 - main_area_m2, 0.0)
+        row["retained_domain_component_count"] = len(retained_components)
+        row["disconnected_domain_area_m2"] = max(original_area_m2 - retained_area_m2, 0.0)
         row["main_domain_area_fraction"] = main_area_m2 / original_area_m2 if original_area_m2 > 0 else 0.0
+        row["retained_domain_area_fraction"] = (
+            retained_area_m2 / original_area_m2 if original_area_m2 > 0 else 0.0
+        )
 
         main_domain_rows.append(row)
 
@@ -217,8 +231,10 @@ def keep_main_collection_domain_components(domain_whitelist_gdf):
             columns=[
                 *domain_whitelist_gdf.columns,
                 "domain_component_count",
+                "retained_domain_component_count",
                 "disconnected_domain_area_m2",
                 "main_domain_area_fraction",
+                "retained_domain_area_fraction",
             ],
             geometry="geometry",
             crs=domain_whitelist_gdf.crs,
@@ -227,6 +243,45 @@ def keep_main_collection_domain_components(domain_whitelist_gdf):
     return gpd.GeoDataFrame(main_domain_rows, geometry="geometry", crs=domain_whitelist_gdf.crs).reset_index(
         drop=True
     )
+
+
+# def keep_main_collection_domain_components(domain_whitelist_gdf):
+#     main_domain_rows = []
+
+#     for _, group in domain_whitelist_gdf.groupby("collection_id"):  # DOMAIN_GROUP_COLS
+#         group_geometry = group.geometry.union_all()
+#         main_geometry = main_domain_component(group_geometry)
+
+#         if main_geometry is None or main_geometry.is_empty:
+#             continue
+
+#         components = polygon_components(group_geometry)
+#         original_area_m2 = group_geometry.area
+#         main_area_m2 = main_geometry.area
+
+#         row = group.iloc[0].copy()
+#         row["geometry"] = main_geometry
+#         row["domain_component_count"] = len(components)
+#         row["disconnected_domain_area_m2"] = max(original_area_m2 - main_area_m2, 0.0)
+#         row["main_domain_area_fraction"] = main_area_m2 / original_area_m2 if original_area_m2 > 0 else 0.0
+
+#         main_domain_rows.append(row)
+
+#     if not main_domain_rows:
+#         return gpd.GeoDataFrame(
+#             columns=[
+#                 *domain_whitelist_gdf.columns,
+#                 "domain_component_count",
+#                 "disconnected_domain_area_m2",
+#                 "main_domain_area_fraction",
+#             ],
+#             geometry="geometry",
+#             crs=domain_whitelist_gdf.crs,
+#         )
+
+#     return gpd.GeoDataFrame(main_domain_rows, geometry="geometry", crs=domain_whitelist_gdf.crs).reset_index(
+#         drop=True
+#     )
 
 
 def create_save_whitelist_merged_domain(domain_whitelist_gdf, ripple_dir):
