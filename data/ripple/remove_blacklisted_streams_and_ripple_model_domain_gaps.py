@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
+import argparse
 import os
 import re
+from concurrent.futures import ProcessPoolExecutor
 from os.path import join
 
 import geopandas as gpd
@@ -11,10 +13,10 @@ from shapely.geometry import Point
 from shapely.ops import linemerge, substring
 
 
-RIPPLE_DIR = "/outputs/"
-RIPPLE_DOMAIN_GPKG = "ripple_domains.gpkg"
-RIPPLE_WHITELIST_TABLE = "ripple_feature_list_20260310_huc_considered_delivered.csv"
-RIPPLE_COLLECTIONS_DIR = "/outputs/nwm_ripple_streams/"
+# RIPPLE_DIR = "/outputs/"
+# RIPPLE_DOMAIN_GPKG = "ripple_domains.gpkg"
+# RIPPLE_WHITELIST_TABLE = "ripple_feature_list_20260310_huc_considered_delivered.csv"
+# RIPPLE_COLLECTIONS_DIR = "/outputs/nwm_ripple_streams/"
 
 TARGET_CRS = "EPSG:5070"
 
@@ -26,13 +28,14 @@ EDGE_TOLERANCE_M = 300
 MIN_COMPONENT_AREA_FRACTION = 0.20
 
 DOWNSTREAM_FRACTION = 0.50
-
 HEADWATER_DOWNSTREAM_COVERAGE_THRESHOLD = 0.50
 NOT_HEADWATER_COVERAGE_THRESHOLD = 0.60
 
+_WORKER_DOMAIN_UNION_BUFFERED = None
 
-def read_whitelist(ripple_dir, whitelist_file):
-    whitelist_df = pd.read_csv(join(ripple_dir, whitelist_file), dtype={"huc": str})
+
+def read_whitelist(ripple_dir, ripple_whitelist_table):
+    whitelist_df = pd.read_csv(join(ripple_dir, ripple_whitelist_table), dtype={"huc": str})
 
     whitelist_df = whitelist_df[whitelist_df["is_valid_huc_considered"] == True].copy()
 
@@ -53,11 +56,11 @@ def create_collection_model_ids(whitelist_df):
     return collection_model_ids
 
 
-def create_whitelist_domain(ripple_dir, domain_gpkg, collection_model_ids):
+def create_whitelist_domain(ripple_dir, ripple_domain_gpkg, collection_model_ids):
 
     # Please note that all feature_ids in a single ripple model is on whitelist.
     # Because we excluded the whole model if there is one blacklisted FID in it.
-    domain_gdf = gpd.read_file(join(ripple_dir, domain_gpkg))
+    domain_gdf = gpd.read_file(join(ripple_dir, ripple_domain_gpkg))
 
     domain_gdf["model_indicator"] = domain_gdf["source_path"].str.extract(
         r"collections(\/.*\/source_models\/[^\/]+\/)"
@@ -393,24 +396,48 @@ def downstream_domain_metrics(geom, domain_union_buffered):  # domain_union
     )
 
 
-def select_valid_streams(streams_gdf, merged_domain_whitelist_gdf):
+def _init_domain_metrics_worker(domain_union_buffered):
+    global _WORKER_DOMAIN_UNION_BUFFERED
+    _WORKER_DOMAIN_UNION_BUFFERED = domain_union_buffered
+
+
+def _downstream_domain_metrics_worker(geom):
+    return downstream_domain_metrics(geom, _WORKER_DOMAIN_UNION_BUFFERED).to_dict()
+
+
+def compute_downstream_domain_metrics_parallel(geometries, domain_union_buffered, n_workers, chunksize):
+    geometries = list(geometries)
+
+    if n_workers is None:
+        n_workers = max((os.cpu_count() or 2) - 1, 1)
+
+    if n_workers <= 1 or len(geometries) == 0:
+        records = [downstream_domain_metrics(geom, domain_union_buffered).to_dict() for geom in geometries]
+    else:
+        with ProcessPoolExecutor(
+            max_workers=n_workers, initializer=_init_domain_metrics_worker, initargs=(domain_union_buffered,)
+        ) as executor:
+            records = list(executor.map(_downstream_domain_metrics_worker, geometries, chunksize=chunksize))
+
+    return pd.DataFrame.from_records(records)
+
+
+def select_valid_streams(streams_gdf, merged_domain_whitelist_gdf, n_workers, chunksize):
 
     merged_domain_whitelist_gdf = merged_domain_whitelist_gdf.to_crs(TARGET_CRS)
     streams_gdf = streams_gdf.to_crs(TARGET_CRS)
 
-    # Streams that are completely whitin the whitelist ripple domain
+    # Streams that are completely within the whitelist ripple domain
     streams_within_gdf = gpd.sjoin(
         streams_gdf, merged_domain_whitelist_gdf, how="inner", predicate="within"
     ).drop(columns=["index_right"])
 
-    streams_within_gdf.to_file(join(RIPPLE_DIR, "white_streams_within.gpkg"), driver="GPKG")
+    # streams_within_gdf.to_file(join(ripple_dir, "white_streams_within.gpkg"), driver="GPKG")
 
     within_feature_ids = set(streams_within_gdf["feature_id"])
     within_count = len(within_feature_ids)
 
-    # domain_union = merged_domain_whitelist_gdf.geometry.iloc[0]
     domain_union_buffered = merged_domain_whitelist_gdf["geometry_buffered"].iloc[0]
-    # domain_union_buffered = domain_union.buffer(EDGE_TOLERANCE_M)
 
     candidates = gpd.sjoin(
         streams_gdf, merged_domain_whitelist_gdf, how="inner", predicate="intersects"
@@ -418,7 +445,9 @@ def select_valid_streams(streams_gdf, merged_domain_whitelist_gdf):
 
     candidates = candidates.drop_duplicates(subset="feature_id").reset_index(drop=True)
 
-    metrics = candidates.geometry.apply(lambda geom: downstream_domain_metrics(geom, domain_union_buffered))
+    metrics = compute_downstream_domain_metrics_parallel(
+        candidates.geometry, domain_union_buffered, n_workers=n_workers, chunksize=chunksize
+    )
 
     candidates_metrix_df = pd.concat([candidates, metrics], axis=1)
 
@@ -431,7 +460,7 @@ def select_valid_streams(streams_gdf, merged_domain_whitelist_gdf):
     )
 
     candidates_metrix_df["headwater_downstream_buffered_covered"] = (
-        (candidates_metrix_df["headwater_stream"])
+        candidates_metrix_df["headwater_stream"]
         & (
             candidates_metrix_df["downstream_tail_frac_inside_buffered"]
             >= HEADWATER_DOWNSTREAM_COVERAGE_THRESHOLD
@@ -440,13 +469,8 @@ def select_valid_streams(streams_gdf, merged_domain_whitelist_gdf):
     )
 
     candidates_metrix_df["not_headwater_buffered_covered"] = (
-        (candidates_metrix_df["not_headwater_stream"])
-        & (
-            candidates_metrix_df["frac_inside_buffered"]
-            >= NOT_HEADWATER_COVERAGE_THRESHOLD
-            # candidates_metrix_df["downstream_tail_frac_inside_buffered"]
-            # >= HEADWATER_DOWNSTREAM_COVERAGE_THRESHOLD
-        )
+        candidates_metrix_df["not_headwater_stream"]
+        & (candidates_metrix_df["frac_inside_buffered"] >= NOT_HEADWATER_COVERAGE_THRESHOLD)
         & candidates_metrix_df["downstream_endpoint_covered_buffered"]
     )
 
@@ -484,45 +508,35 @@ def select_valid_streams(streams_gdf, merged_domain_whitelist_gdf):
         crs=candidates_metrix_df.crs,
     )
 
-    return included_streams_gdf, candidates_metrix_df
+    return included_streams_gdf, candidates_metrix_df, within_count
 
 
-def save_outputs(included_streams_gdf, candidates_metrix_df, ripple_dir):
+def process_streams_save_outputs(
+    ripple_dir, ripple_whitelist_table, ripple_domain_gpkg, ripple_collections_dir, n_workers, chunksize
+):
 
-    whitelist_df = read_whitelist(RIPPLE_DIR, RIPPLE_WHITELIST_TABLE)
+    whitelist_df = read_whitelist(ripple_dir, ripple_whitelist_table)
 
     collection_model_ids = create_collection_model_ids(whitelist_df)
 
-    domain_whitelist_gdf = create_whitelist_domain(
-        RIPPLE_DIR,
-        RIPPLE_DOMAIN_GPKG,
-        collection_model_ids,
-    )
+    domain_whitelist_gdf = create_whitelist_domain(ripple_dir, ripple_domain_gpkg, collection_model_ids)
 
-    domain_whitelist_gdf.to_file(
-        join(RIPPLE_DIR, "whitelist_ripple_model_domain.gpkg"),
-        driver="GPKG",
-    )
+    domain_whitelist_gdf.to_file(join(ripple_dir, "whitelist_ripple_model_domain.gpkg"), driver="GPKG")
 
     streams_gdf = read_ripple_streams(
-        whitelist_df,
-        RIPPLE_COLLECTIONS_DIR,
-        collection_slice=None # slice(92, 94),
+        whitelist_df, ripple_collections_dir, collection_slice=None  # slice(92, 94),
     )
-    streams_gdf.to_file(
-        join(RIPPLE_DIR, "all_nwm_streams.gpkg"),
-        driver="GPKG",
-    )
+    # streams_gdf.to_file(
+    #     join(ripple_dir, "all_nwm_streams.gpkg"),
+    #     driver="GPKG",
+    # )
 
-    create_save_whitelist_streams(whitelist_df, streams_gdf, RIPPLE_DIR)
+    create_save_whitelist_streams(whitelist_df, streams_gdf, ripple_dir)
 
-    merged_domain_whitelist_gdf = create_save_whitelist_merged_domain(
-        domain_whitelist_gdf,
-        RIPPLE_DIR,
-    )
+    merged_domain_whitelist_gdf = create_save_whitelist_merged_domain(domain_whitelist_gdf, ripple_dir)
 
-    included_streams_gdf, candidates_metrix_df = select_valid_streams(
-        streams_gdf, merged_domain_whitelist_gdf
+    included_streams_gdf, candidates_metrix_df, within_count = select_valid_streams(
+        streams_gdf, merged_domain_whitelist_gdf, n_workers=n_workers, chunksize=chunksize
     )
 
     included_streams_gdf = included_streams_gdf.drop(
@@ -546,12 +560,15 @@ def save_outputs(included_streams_gdf, candidates_metrix_df, ripple_dir):
         # errors="ignore",
     )
     included_streams_gdf.to_file(
-        join(RIPPLE_DIR, "nwm_streams_WITHIN_DOWNSTREAM_GAP_whitelisted_rippledomain_union.gpkg"),
+        join(ripple_dir, "nwm_streams_WITHIN_DOWNSTREAM_GAP_whitelisted_rippledomain_union.gpkg"),
         driver="GPKG",
+    )
+    included_streams_gdf.sort_values("feature_id").to_csv(
+        join(ripple_dir, "nwm_streams_WITHIN_OR_DOWNSTREAM_whitelisted_rippledomain_union.csv"), index=False
     )
 
     print(
-        f"candidates_metrix_df intersecting: {candidates_metrix_df['feature_id'].nunique()}, "
+        f"Total number of the streams intersecting the whitelist domain: {candidates_metrix_df['feature_id'].nunique()}, "
         f"'within' count: {within_count}, "
         f"included by headwater downstream rule: "
         f"{candidates_metrix_df['headwater_downstream_buffered_covered'].sum()}, "
@@ -561,31 +578,70 @@ def save_outputs(included_streams_gdf, candidates_metrix_df, ripple_dir):
         f"total included: {included_streams_gdf['feature_id'].nunique()}"
     )
 
-    # candidates_metrix_df[diagnostic_cols].sort_values("feature_id").to_csv(
-    #     join(
-    #         ripple_dir,
-    #         "nwm_streams_WITHIN_OR_DOWNSTREAM_whitelisted_rippledomain_union.csv",
-    #     ),
-    #     index=False,
-    # )
+    included_feature_ids = included_streams_gdf["feature_id"]
 
-    # included_feature_ids = included_streams_gdf["feature_id"]
+    gap_df = whitelist_df[~whitelist_df["feature_id"].isin(included_feature_ids)].copy()
 
-    # gap_df = whitelist_df[
-    #     ~whitelist_df["feature_id"].isin(included_feature_ids)
-    # ].copy()
-
-    # gap_df.to_csv(
-    #     join(ripple_dir, "whitelist_ripple_nwm_streams_GAP_within_or_downstream.csv"),
-    #     index=False,
-    # )
-
-
-def main():
-    
-
-    save_outputs(included_streams_gdf, candidates_metrix_df, whitelist_df, RIPPLE_DIR)
+    gap_df.to_csv(join(ripple_dir, "whitelist_ripple_nwm_streams_GAP_excluded.csv"), index=False)
 
 
 if __name__ == "__main__":
-    main()
+
+    parser = argparse.ArgumentParser(
+        description="Remove blacklisted streams and identify valid Ripple streams using domain coverage rules."
+    )
+    parser.add_argument("-rip_dir", "--ripple-dir", required=True, type=str, help="Ripple output directory")
+    parser.add_argument(
+        "-wl",
+        "--ripple-whitelist-table",
+        required=True,
+        type=str,
+        help=(
+            "A CSV file containing a list of all NWM/Ripple streams maked as whitelist/blacklist."
+            "should be saved in the ripple_dir"
+        ),
+    )
+    parser.add_argument(
+        "-rd",
+        "--ripple-domain-gpkg",
+        required=True,
+        type=str,
+        help="ripple_domain_gpkg; should be saved in the ripple_dir",
+    )
+    parser.add_argument(
+        "-rc",
+        "--ripple-collections-dir",
+        required=True,
+        type=str,
+        help="ripple_collections_dir contains ripple_reaches_order_sourcemodels_huc.gpkg",
+    )
+    parser.add_argument(
+        "-j",
+        "--n-workers",
+        type=int,
+        default=None,
+        help=(
+            "Number of worker processes for downstream domain metrics. "
+            "Default: CPU count minus 1. Use 1 to disable multiprocessing."
+        ),
+    )
+    parser.add_argument(
+        "-cs",
+        "--chunksize",
+        type=int,
+        default=2,
+        help="Number of geometries sent to each worker per batch. Default: 2.",
+    )
+
+    args = vars(parser.parse_args())
+
+    ripple_dir = args["ripple_dir"]
+    ripple_whitelist_table = args["ripple_whitelist_table"]
+    ripple_domain_gpkg = args["ripple_domain_gpkg"]
+    ripple_collections_dir = args["ripple_collections_dir"]
+    n_workers = args["n_workers"]
+    chunksize = args["chunksize"]
+
+    process_streams_save_outputs(
+        ripple_dir, ripple_whitelist_table, ripple_domain_gpkg, ripple_collections_dir, n_workers, chunksize
+    )
