@@ -21,9 +21,10 @@ TARGET_CRS = "EPSG:5070"
 # EDGE_TOLERANCE_WIDTH_FRACTION = 0.20
 EDGE_TOLERANCE_M = 300
 
-# Keep the largest 80% of each collection's disconnected domain components by area.
-RETAIN_COMPONENT_COUNT_FRACTION = 0.80
+# Keep the largest 90% of each collection's disconnected domain components by area.
+RETAIN_COMPONENT_COUNT_FRACTION = 0.90
 # MIN_COMPONENT_AREA_FRACTION = 0.20
+MAX_STREAMS_FOR_COMPONENT_EXCLUSION = 2
 
 DOWNSTREAM_FRACTION = 0.50
 HEADWATER_DOWNSTREAM_COVERAGE_THRESHOLD = 0.50
@@ -107,10 +108,11 @@ def read_ripple_streams(whitelist_df, ripple_collections_dir, collection_slice=N
 
         stream_gdf = gpd.read_file(stream_path)
         stream_gdf = stream_gdf[["feature_id", "order_", "nwm_to_id", "geometry"]]
+        stream_gdf["collection_id"] = cid
         stream_gdfs.append(stream_gdf)
 
     if not stream_gdfs:
-        return gpd.GeoDataFrame(columns=["feature_id", "order_", "nwm_to_id", "geometry"])
+        return gpd.GeoDataFrame(columns=["feature_id", "order_", "nwm_to_id", "collection_id", "geometry"])
 
     streams_gdf = gpd.GeoDataFrame(
         pd.concat(stream_gdfs, ignore_index=True), geometry="geometry", crs=stream_gdfs[0].crs
@@ -164,27 +166,51 @@ def main_domain_component(geom):
     return max(components, key=lambda component: component.area)
 
 
+def component_intersecting_feature_count(component, streams_gdf):
+    if streams_gdf.empty:
+        return 0
+
+    intersecting_streams = streams_gdf[streams_gdf.intersects(component)]
+
+    return intersecting_streams["feature_id"].nunique()
+
+
+def exclude_components_with_few_streams(components, streams_gdf):
+    retained_components = []
+    excluded_component_count_by_stream_rule = 0
+
+    for component in components:
+        intersecting_feature_count = component_intersecting_feature_count(component, streams_gdf)
+
+        if intersecting_feature_count <= MAX_STREAMS_FOR_COMPONENT_EXCLUSION:
+            excluded_component_count_by_stream_rule += 1
+            continue
+
+        retained_components.append(component)
+
+    return retained_components, excluded_component_count_by_stream_rule
+
+
 # Group domains by collection_id; union each collection's geometry,
 # keep the largest components by area, and record diagnostics.
-def keep_main_collection_domain_components(domain_whitelist_gdf):  # , min_component_area_fraction
+def keep_main_collection_domain_components(
+    domain_whitelist_gdf, streams_gdf
+):  # , min_component_area_fraction
     main_domain_rows = []
 
     # domain_debug = domain_whitelist_gdf.to_crs(TARGET_CRS).copy()
     # for cid, group in domain_debug.groupby("collection_id", dropna=False):
-    #     group_geometry = group.geometry.union_all()
-    #     components = polygon_components(group_geometry)
-
-    #     print(
-    #         cid,
-    #         "rows:", len(group),
-    #         "union type:", group_geometry.geom_type,
-    #         "is empty:", group_geometry.is_empty,
-    #         "components:", len(components),
-    #         "areas:", sorted([c.area for c in components], reverse=True)[:5],
-    #     )
     for _, group in domain_whitelist_gdf.groupby("collection_id"):  # DOMAIN_GROUP_COLS
         group_geometry = group.geometry.union_all()
         components = polygon_components(group_geometry)
+        #     print(
+        #         cid,
+        #         "rows:", len(group),
+        #         "union type:", group_geometry.geom_type,
+        #         "is empty:", group_geometry.is_empty,
+        #         "components:", len(components),
+        #         "areas:", sorted([c.area for c in components], reverse=True)[:5],
+        #     )
 
         if not components:
             # print(
@@ -207,6 +233,13 @@ def keep_main_collection_domain_components(domain_whitelist_gdf):  # , min_compo
         #     if component.area >= main_area_m2 * MIN_COMPONENT_AREA_FRACTION
         # ]
 
+        collection_id = group["collection_id"].iloc[0]
+        collection_streams_gdf = streams_gdf[streams_gdf["collection_id"] == collection_id]
+
+        retained_components, stream_rule_excluded_count = exclude_components_with_few_streams(
+            retained_components, collection_streams_gdf
+        )
+
         retained_geometry = gpd.GeoSeries(retained_components, crs=domain_whitelist_gdf.crs).union_all()
 
         original_area_m2 = group_geometry.area
@@ -215,20 +248,22 @@ def keep_main_collection_domain_components(domain_whitelist_gdf):  # , min_compo
         excluded_component_count = len(components) - len(retained_components)
 
         print(
-            f"collection_id={group['collection_id'].iloc[0]} "
-            f"excluded {excluded_component_count} of {len(components)} domain components "
-            f"and retained {len(retained_components)}."
+            f"collection_id={collection_id} "
+            f"excluded {stream_rule_excluded_count} retained domain components "
+            f"because they intersected <= {MAX_STREAMS_FOR_COMPONENT_EXCLUSION} feature_ids."
         )
 
         row = group.iloc[0].copy()
         row["geometry"] = retained_geometry
         row["domain_component_count"] = len(components)
         row["retained_domain_component_count"] = len(retained_components)
+        row["excluded_domain_component_count"] = excluded_component_count
         row["disconnected_domain_area_m2"] = max(original_area_m2 - retained_area_m2, 0.0)
         row["main_domain_area_fraction"] = main_area_m2 / original_area_m2 if original_area_m2 > 0 else 0.0
         row["retained_domain_area_fraction"] = (
             retained_area_m2 / original_area_m2 if original_area_m2 > 0 else 0.0
         )
+        row["stream_rule_excluded_component_count"] = stream_rule_excluded_count
 
         main_domain_rows.append(row)
 
@@ -251,11 +286,12 @@ def keep_main_collection_domain_components(domain_whitelist_gdf):  # , min_compo
     )
 
 
-def create_save_whitelist_merged_domain(domain_whitelist_gdf, ripple_dir):
+def create_save_whitelist_merged_domain(domain_whitelist_gdf, streams_gdf, ripple_dir):
 
     domain_whitelist_gdf = domain_whitelist_gdf.to_crs(TARGET_CRS).copy()
+    streams_gdf = streams_gdf.to_crs(TARGET_CRS).copy()
     # Main river polygon + small disconnected island polygon
-    domain_whitelist_gdf = keep_main_collection_domain_components(domain_whitelist_gdf)
+    domain_whitelist_gdf = keep_main_collection_domain_components(domain_whitelist_gdf, streams_gdf)
 
     domain_whitelist_gdf.to_file(
         join(ripple_dir, "whitelist_ripple_model_domain_main_component.gpkg"), driver="GPKG"
@@ -474,6 +510,11 @@ def select_valid_streams(streams_gdf, merged_domain_whitelist_gdf, n_workers, ch
 
     candidates = candidates.drop_duplicates(subset="feature_id").reset_index(drop=True)
 
+    print(
+        "Processing stream-domain metrics for collection_ids:",
+        sorted(candidates["collection_id"].dropna().unique()),
+    )
+
     metrics = compute_downstream_domain_metrics_parallel(
         candidates.geometry, domain_union_buffered, n_workers=n_workers, chunksize=chunksize
     )
@@ -562,7 +603,9 @@ def process_streams_save_outputs(
 
     create_save_whitelist_streams(whitelist_df, streams_gdf, ripple_dir)
 
-    merged_domain_whitelist_gdf = create_save_whitelist_merged_domain(domain_whitelist_gdf, ripple_dir)
+    merged_domain_whitelist_gdf = create_save_whitelist_merged_domain(
+        domain_whitelist_gdf, streams_gdf, ripple_dir
+    )
 
     included_streams_gdf, candidates_metrix_df, within_count = select_valid_streams(
         streams_gdf, merged_domain_whitelist_gdf, n_workers=n_workers, chunksize=chunksize
