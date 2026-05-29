@@ -4,6 +4,7 @@ import argparse
 import os
 import re
 from concurrent.futures import ProcessPoolExecutor
+from math import ceil
 from os.path import join
 
 import geopandas as gpd
@@ -20,7 +21,9 @@ TARGET_CRS = "EPSG:5070"
 # EDGE_TOLERANCE_WIDTH_FRACTION = 0.20
 EDGE_TOLERANCE_M = 300
 
-MIN_COMPONENT_AREA_FRACTION = 0.20
+# Keep the largest 80% of each collection's disconnected domain components by area.
+RETAIN_COMPONENT_COUNT_FRACTION = 0.80
+# MIN_COMPONENT_AREA_FRACTION = 0.20
 
 DOWNSTREAM_FRACTION = 0.50
 HEADWATER_DOWNSTREAM_COVERAGE_THRESHOLD = 0.50
@@ -74,6 +77,8 @@ def create_whitelist_domain(ripple_dir, ripple_domain_gpkg, collection_model_ids
 
     domain_whitelist_gdf["geometry"] = domain_whitelist_gdf["geometry"].make_valid()
     domain_whitelist_gdf["geometry"] = domain_whitelist_gdf["geometry"].buffer(0)
+
+    domain_whitelist_gdf.to_file(join(ripple_dir, "whitelist_ripple_domain_test.gpkg"), driver="GPKG")
 
     return domain_whitelist_gdf
 
@@ -159,32 +164,61 @@ def main_domain_component(geom):
     return max(components, key=lambda component: component.area)
 
 
-# Group domains by collection_id + model_id; union each model’s geometry,
-# keep only the largest connected polygon, and record diagnostics.
-# Create main river polygon + small disconnected island polygon
+# Group domains by collection_id; union each collection's geometry,
+# keep the largest components by area, and record diagnostics.
 def keep_main_collection_domain_components(domain_whitelist_gdf):  # , min_component_area_fraction
     main_domain_rows = []
 
+    # domain_debug = domain_whitelist_gdf.to_crs(TARGET_CRS).copy()
+    # for cid, group in domain_debug.groupby("collection_id", dropna=False):
+    #     group_geometry = group.geometry.union_all()
+    #     components = polygon_components(group_geometry)
+
+    #     print(
+    #         cid,
+    #         "rows:", len(group),
+    #         "union type:", group_geometry.geom_type,
+    #         "is empty:", group_geometry.is_empty,
+    #         "components:", len(components),
+    #         "areas:", sorted([c.area for c in components], reverse=True)[:5],
+    #     )
     for _, group in domain_whitelist_gdf.groupby("collection_id"):  # DOMAIN_GROUP_COLS
         group_geometry = group.geometry.union_all()
         components = polygon_components(group_geometry)
 
         if not components:
+            # print(
+            #     f"WARNING: collection_id={group['collection_id'].iloc[0]} "
+            #     f"has no polygon components after union. "
+            #     f"geom_type={group_geometry.geom_type}, is_empty={group_geometry.is_empty}"
+            # )
             continue
 
-        main_geometry = max(components, key=lambda component: component.area)
+        components_by_area = sorted(components, key=lambda component: component.area, reverse=True)
+        retained_component_count = max(1, ceil(len(components_by_area) * RETAIN_COMPONENT_COUNT_FRACTION))
+
+        main_geometry = components_by_area[0]
         main_area_m2 = main_geometry.area
 
-        retained_components = [
-            component
-            for component in components
-            if component.area >= main_area_m2 * MIN_COMPONENT_AREA_FRACTION
-        ]
+        retained_components = components_by_area[:retained_component_count]
+        # retained_components = [
+        #     component
+        #     for component in components
+        #     if component.area >= main_area_m2 * MIN_COMPONENT_AREA_FRACTION
+        # ]
 
         retained_geometry = gpd.GeoSeries(retained_components, crs=domain_whitelist_gdf.crs).union_all()
 
         original_area_m2 = group_geometry.area
         retained_area_m2 = retained_geometry.area
+
+        excluded_component_count = len(components) - len(retained_components)
+
+        print(
+            f"collection_id={group['collection_id'].iloc[0]} "
+            f"excluded {excluded_component_count} of {len(components)} domain components "
+            f"and retained {len(retained_components)}."
+        )
 
         row = group.iloc[0].copy()
         row["geometry"] = retained_geometry
@@ -588,7 +622,7 @@ if __name__ == "__main__":
     # RIPPLE_DIR = "/outputs/"
     # RIPPLE_DOMAIN_GPKG = "ripple_domains.gpkg"
     # RIPPLE_WHITELIST_TABLE = "ripple_feature_list_20260310_huc_considered_delivered.csv"
-    # RIPPLE_COLLECTIONS_DIR = "/outputs/nwm_ripple_streams/"
+    # RIPPLE_COLLECTIONS_DIR = "/outputs/nwm_ripple_streams/" or "/data/ripple/ripple_20260211_merged/ripple_metrics/"
 
     python data/ripple/remove_blacklisted_streams_and_ripple_model_domain_gaps.py \
         -rd /outputs/ \
@@ -603,7 +637,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Remove blacklisted streams and identify valid Ripple streams using domain coverage rules."
     )
-    parser.add_argument("-rip_dir", "--ripple-dir", required=True, type=str, help="Ripple output directory")
+    parser.add_argument("-rd", "--ripple-dir", required=True, type=str, help="Ripple output directory")
     parser.add_argument(
         "-wl",
         "--ripple-whitelist-table",
@@ -615,7 +649,7 @@ if __name__ == "__main__":
         ),
     )
     parser.add_argument(
-        "-rd",
+        "-dg",
         "--ripple-domain-gpkg",
         required=True,
         type=str,
@@ -642,8 +676,8 @@ if __name__ == "__main__":
         "-cs",
         "--chunksize",
         type=int,
-        default=2,
-        help="Number of geometries sent to each worker per batch. Default: 2.",
+        default=100,
+        help="Number of geometries sent to each worker per batch. Default: 100.",
     )
 
     args = vars(parser.parse_args())
