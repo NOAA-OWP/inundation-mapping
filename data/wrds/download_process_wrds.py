@@ -93,7 +93,7 @@ def download_all_metadata(metadata_filepath, metadata_url, search):
     messages.append('Starting metadata download from WRDS...')
 
     # Get all forecast points
-    forecast_point_meta_list, ___ = get_metadata(
+    forecast_point_meta_list, ___, err_msg = get_metadata(
         metadata_url,
         select_by='nws_lid',
         selector=['all'],
@@ -101,9 +101,11 @@ def download_all_metadata(metadata_filepath, metadata_url, search):
         upstream_trace_distance=nwm_us_search,
         downstream_trace_distance=nwm_ds_search,
     )
+    if err_msg != '':
+        messages.append(err_msg)
 
     # Get all sites for OCONUS regions (HI, PR, and AK)
-    oconus_meta_list, ___ = get_metadata(
+    oconus_meta_list, ___, err_msg = get_metadata(
         metadata_url,
         select_by='state',
         selector=['HI', 'PR', 'AK'],
@@ -111,6 +113,8 @@ def download_all_metadata(metadata_filepath, metadata_url, search):
         upstream_trace_distance=nwm_us_search,
         downstream_trace_distance=nwm_ds_search,
     )
+    if err_msg != '':
+        messages.append(err_msg)
 
     # Append the lists
     unfiltered_meta_list = forecast_point_meta_list + oconus_meta_list

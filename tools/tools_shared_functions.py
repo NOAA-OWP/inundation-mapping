@@ -32,6 +32,7 @@ from tools_shared_variables import (
     ACCEPTED_NAD83_SPELLINGS,
     ACCEPTED_NAVD88_SPELLINGS,
     ACCEPTED_NGVD29_SPELLINGS,
+    WRDS_METADATA_COL_TYPES,
     UNKNOWN_DATUM_SPELLINGS,
     acceptable_alt_acc_thresh,
     acceptable_alt_meth_code_list,
@@ -1074,53 +1075,9 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
                 geometry=gpd.points_from_xy(df['usgs_preferred_longitude'], df['usgs_preferred_latitude']),
                 crs=src_crs,
             )
-            # Convert a list of cols to string dtype (basically the cols that often have NA values)
-            new_dtype_dict = {
-                'identifiers_nwm_feature_id': 'str',
-                'identifiers_env_can_gage_id': 'str',
-                'identifiers_goes_id': 'str',
-                'nwm_feature_data_downstream_feature_id': 'str',
-                'nwm_feature_data_latitude': 'float',
-                'nwm_feature_data_longitude': 'float',
-                'nwm_feature_data_altitude': 'float',
-                'nwm_feature_data_slope': 'float',
-                'nwm_feature_data_stream_length': 'float',
-                'nwm_feature_data_stream_order': 'float',
-                'nwm_feature_data_mannings_roughness': 'float',
-                'nwm_feature_data_channel_side_slope': 'float',
-                'nwm_feature_data_nhd_waterbody_comid': 'str',
-                'env_can_gage_data_name': 'str',
-                'env_can_gage_data_latitude': 'float',
-                'env_can_gage_data_longitude': 'float',
-                'env_can_gage_data_map_link': 'str',
-                'env_can_gage_data_water_course': 'str',
-                'env_can_gage_data_drainage_area': 'float',
-                'env_can_gage_data_contrib_drainage_area': 'float',
-                'nws_data_name': 'str',
-                'nws_data_huc': 'str',
-                'nws_data_county': 'str',
-                'nws_data_county_code': 'str',
-                'nws_data_state': 'str',
-                'nws_data_rfc': 'str',
-                'nws_data_wfo': 'str',
-                'nws_data_hsa': 'str',
-                'nws_data_longitude': 'float',
-                'nws_data_latitude': 'float',
-                'nws_data_zero_datum': 'float',
-                'nws_data_vertical_datum_name': 'str',
-                'nws_data_horizontal_datum_name': 'str',
-                'usgs_preferred_huc': 'str',
-                'usgs_data_state': 'str',
-                'usgs_data_altitude': 'float',
-                'usgs_data_drainage_area': 'float',
-                'usgs_data_alt_method_code': 'str',
-                'usgs_data_alt_accuracy_code': 'float',
-                'usgs_data_coord_method_code': 'str',
-                'usgs_data_contrib_drainage_area': 'float',
-            }
 
             # Add data type to columns, if needed (usually the ones that are sometimes/always NA)
-            for colname, new_dtype in new_dtype_dict.items():
+            for colname, new_dtype in WRDS_METADATA_COL_TYPES.items():
                 if colname in site_gdf.columns:
                     site_gdf[colname] = site_gdf[colname].astype(new_dtype)
 
