@@ -79,7 +79,7 @@ def create_whitelist_domain(ripple_dir, ripple_domain_gpkg, collection_model_ids
     domain_whitelist_gdf["geometry"] = domain_whitelist_gdf["geometry"].make_valid()
     domain_whitelist_gdf["geometry"] = domain_whitelist_gdf["geometry"].buffer(0)
 
-    domain_whitelist_gdf.to_file(join(ripple_dir, "whitelist_ripple_domain_test.gpkg"), driver="GPKG")
+    domain_whitelist_gdf.to_file(join(ripple_dir, "whitelist_ripple_domain.gpkg"), driver="GPKG")
 
     return domain_whitelist_gdf
 
