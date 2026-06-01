@@ -127,22 +127,11 @@ fi
 
 ## D8 FLOW DIR - BRANCHES (NOT 0) (NWM levelpath streams) ##
 echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber $current_branch_id"
-mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
+python3 $srcDir/run_taudem_d8flowdir.py \
+    -n $ncores_fd \
+    -t $taudemDir2 \
     -fel $tempCurrentBranchDataDir/dem_burned_filled_$current_branch_id.tif \
-    -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$current_branch_id.tif \
-    2> >(while read -r line; do
-        # Check if BOTH strings are present in the error line
-        if [[ "$line" == *"ERROR 6:"* && "$line" == *"Dataset does not support the AddBand() method."* ]]; then
-            # Do nothing (ignore the error)
-            :
-        else
-            # Print the line to the standard error stream (screen)
-            echo "$line" >&2
-        fi
-    done)
-    # May 1, 2026: Merge config between Ryan and Matt gdal PR. commented out Ryans. Can we marry the two? do we want too?    
-    # 2>&1 | sed -e 's/.*no output sd8 file specified.*/INFO: TauDEM d8flowdir running without optional sd8 slope output./I' \
-    #            -e 's/.*no output p file specified.*/INFO: TauDEM d8flowdir running without optional sd8 slope output./I'
+    -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$current_branch_id.tif
 
 ## RASTERIZE NWM Levelpath HEADWATERS (1 & 0) ##
 echo -e $startDiv"Rasterize NWM Headwaters $hucNumber $current_branch_id"
