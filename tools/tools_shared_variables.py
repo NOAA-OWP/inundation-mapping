@@ -85,7 +85,6 @@ acceptable_alt_meth_code_list = ["A", "D", "F", "G", "I", "J", "L", "N", "R", "U
 # https://help.waterdata.usgs.gov/code/site_tp_query?fmt=html
 acceptable_site_type_list = ["ST"]
 
-
 # Lists of acceptable spellings for CRSs and VCSs, for use in tools_shared_functions.py when checking for typos in CRSs and VCSs.
 # These lists are not exhaustive, but are based on the most common typos found in the test cases.
 
@@ -127,7 +126,6 @@ ACCEPTED_NGVD29_SPELLINGS = [
     'USGS NAD 1929',
 ]
 
-
 ACCEPTED_NAD83_SPELLINGS = [
     '1983',
     'NAD83',
@@ -155,7 +153,6 @@ ACCEPTED_NAVD88_SPELLINGS = [
     'NAVD-88',
     'NAVD 1988',
 ]
-
 
 # Column types for the WRDS metadata
 WRDS_METADATA_COL_TYPES = {

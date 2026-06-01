@@ -39,6 +39,10 @@ def __get_all_active_usgs_sites():
     Compile a list of all active usgs gage sites.
     Return a GeoDataFrame of all sites.
 
+    Arguments
+    ---------
+    None
+
     Returns
     -------
     gdf : GeoDataFrame
@@ -89,7 +93,8 @@ def __mp_get_flows_for_site(
     Arguments
     ---------
     site_data_json : DICT
-        A dictionary of metadata for a given site. This is used to pull the feature_id for the site, which is required for pulling flow data.
+        A dictionary of metadata for a given site. This is used to pull the feature_id for the site, which
+        is required for pulling flow data.
     nws_lid : STR
         The NWS location id for the site. This is used to pull the flow thresholds for the site.
     usgs_site_code : STR
@@ -101,23 +106,24 @@ def __mp_get_flows_for_site(
     screen_queue : MP_QUEUE
         The screen queue for the multi-processing function. This is used to print messages to the console for each site.
     task_id : STR
-        The task id for the multi-processing function. This is used for logging and to identify the site being processed in the logs and console messages.
+        The task id for the multi-processing function. This is used for logging and to identify the site being
+        processed in the logs and console messages.
 
     Returns
     -------
     status_code : INT
-        A status code indicating the result of the function. 1 indicates success, 0 indicates a non-critical error that resulted in skipping the site, and -1 indicates a critical error that should shut down the entire tool.
+        A status code indicating the result of the function. 1 indicates success, 0 indicates a non-critical error
+        that resulted in skipping the site, and -1 indicates a critical error that should shut down the entire tool.
     site_flows_df : DataFrame
-        A DataFrame containing the flow values for each flood category for the site. This is used by Sierra Testing (rating_curve_comparison.py). The DataFrame contains the following columns: feature_id, discharge_cms, recurr_interval, nws_lid, location_id.
-
-
+        A DataFrame containing the flow values for each flood category for the site. This is used by Sierra Testing
+        (rating_curve_comparison.py). The DataFrame contains the following columns: feature_id, discharge_cms,
+        recurr_interval, nws_lid, location_id.
     '''
 
     try:
         # sf.l_print(f"Processing flow data for lid: {task_id}", file_logger, "debug", screen_queue)
 
-        # there is no try catch as I want any errors to shut down the entire tool
-        # try:
+        # Note: There is no try catch because we want any errors to shut down the entire tool
         feature_id = site_data_json.get('identifiers').get('nwm_feature_id')
 
         # Get the stages and flows
@@ -357,15 +363,11 @@ def set_global_env(env_file):
     NWM_FLOWS_MS = os.getenv("NWM_FLOWS_MS")
 
 
-# Can not use the one from Shared_functions as we need to build up a
-# concat of dataframes
-
-
 # ++++++++++++++++++++++++++++++++
 # TODO: likely don't need usgs_site_code if we have the task id
 # Yes... usgs_site_code and task_id are redundant for now
 def __mp_get_site_rating_curve(
-    metadata_json, rating_curve_url, usgs_site_code, file_logger, screen_queue, task_id
+    metadata_json, rating_curve_url, file_logger, screen_queue, task_id
 ):
     '''
     Gets the rating curve for a given site and converts it to elevation (NAVD88).
@@ -376,7 +378,7 @@ def __mp_get_site_rating_curve(
         A dictionary of metadata for a given site. This is used to pull datum information for the site, which is required for converting the rating curve to elevation.
     rating_curve_url : STR
         The URL for the rating curve API. This is used to pull the rating curve for the site.
-    usgs_site_code : STR # TODO: Remove input? I think it's already included in the metadata input etc..
+    usgs_site_code : STR # TODO: Remove input? I think it's already included in the metadata input etc.. # TODO: Clean up
         The USGS site code for the site. This is used for logging and to populate the output rating curve DataFrame.
     file_logger : LOGGER
         The logger for the multi-processing function. This is used to log messages for each site.
@@ -397,18 +399,18 @@ def __mp_get_site_rating_curve(
     try:
 
         # Get datum information for site (only need usgs_data)
-        # sf.l_print(f"{usgs_site_code}: Getting rating curves...", file_logger, "info")  # too verbose
 
         # Note: debug... if you are in mp and want screen only, use screen_queue
-        # screen_queue.put(f"testing my mp code {usgs_site_code}")
+        # screen_queue.put(f"testing my mp code {task_id}")
         # for debugging, shut off when in real mode so it uses the progress bar.
-        # screen_queue.put(f"Getting rating curves for usgs location id of {usgs_site_code}")
+        # screen_queue.put(f"Getting rating curves for usgs location id of {task_id}")
 
         ___, usgs = tsf.get_datum(metadata_json)
         location_id = usgs['usgs_site_code']  # in theory we get one and exactly one here
+        # sf.l_print(f"{location_id}: Getting rating curves...", file_logger, "info")  # too verbose
 
         # If no vertical or horizontal datum, skip site
-        # if usgs['crs'] in tsv.UNKNOWN_DATUM_SPELLINGS: # TODO: Make sure we actually need to error out in this situation
+        # if usgs['crs'] in tsv.UNKNOWN_DATUM_SPELLINGS: # TODO: Make sure we actually need to error out in this situation (no CRS?)... or should we let it try?
         #     sf.l_print(f"{location_id}: Removed due to unknown CRS (CRS: {usgs['crs']})", file_logger, "warning")
         #     return 0, None  # log and continue the next task
 
@@ -756,14 +758,6 @@ def __get_usgs_metadata(list_of_gage_sites, metadata_url):
     # sites_gdf = sites_gdf[sites_gdf['usgs_site_code'].isin(sample_usgs_list)]
     ##### END TEMP DEBUG SECTION #####
 
-    # Assign column types to prevent errors later on while saving GPKG
-    # TODO: Is the coltype change still necessary? I think no...
-    # sites_gdf = sites_gdf.astype({'metadata_sources': str})
-    # sites_gdf = sites_gdf.astype({'nws_data_county_code': str})
-    # sites_gdf = sites_gdf.astype({'nwm_feature_data_stream_order': str})
-    # sites_gdf = sites_gdf.astype({'nwm_feature_data_downstream_feature_id': str})
-    # sites_gdf = sites_gdf.astype({'nwm_feature_data_nhd_waterbody_comid': str})
-
     # Drop a few columns to prevent errors downstream while saving GPKG
     sites_gdf = sites_gdf.drop(['upstream_nwm_features'], axis=1, errors='ignore')
     sites_gdf = sites_gdf.drop(['downstream_nwm_features'], axis=1, errors='ignore')
@@ -832,21 +826,10 @@ def __attrib_mainstems_filter_sites(sites_gdf, all_rating_curves, site_status_df
     sites_gdf['mainstem'] = 'no'
     sites_gdf.loc[sites_gdf.eval('feature_id in @ms_segs'), 'mainstem'] = 'yes'
 
-    # TODO: : Jun 2025: - Update Sep 9, 2025: Does not yet seem to be used.
-    # Figure out if we have a use for sites_bool_flags.gpkg and add this back in if needed.
-    # # -- Filter all_rating_curves according to acceptance criteria -- #
-    # # -- We only want acceptable gages in the rating curve CSV -- #
-    # sites_gdf['acceptable_codes'] = (
-    #     sites_gdf['usgs_data_coord_accuracy_code'].isin(acceptable_coord_acc_code_list)
-    #     & sites_gdf['usgs_data_coord_method_code'].isin(acceptable_coord_method_code_list)
-    #     & sites_gdf['usgs_data_alt_method_code'].isin(acceptable_alt_meth_code_list)
-    #     & sites_gdf['usgs_data_site_type'].isin(acceptable_site_type_list)
-    # )
-    # sites_gdf = sites_gdf.astype({'usgs_data_alt_accuracy_code': float})
-    # sites_gdf['acceptable_alt_error'] = np.where(
-    #     sites_gdf['usgs_data_alt_accuracy_code'] <= acceptable_alt_acc_thresh, True, False
-    # )
-    # sites_gdf.to_file(os.path.join(output_dir, 'sites_bool_flags.gpkg'), driver='GPKG', engine='fiona')
+    # Previously we had code here to filter sites using the following lists:
+    # acceptable_coord_acc_code_list, acceptable_coord_method_code_list, acceptable_alt_meth_code_list,
+    # acceptable_site_type_list, # usgs_data_coord_accuracy_code is in acceptable_coord_acc_code_list
+    # This filtering wasn't effective here and will now take place in the scripts that use the data. 
 
     # Filter out non stream sites (the other acceptance criteria will be filtered out the scripts where the data is used)
     num_sites_before_filtering = len(sites_gdf)
@@ -903,7 +886,39 @@ def __run_rating_curve_retrieval(
     metadata_list, site_status_df, rating_curve_url, output_dir, file_datetime_string, num_jobs, log_file_path
 ):
     '''
-    New wrapper for  __mp_get_site_rating_curve
+    New wrapper for  __mp_get_site_rating_curve (June 2026)
+
+    This function is responsible for running the multiprocessing function to get rating curves for each site,
+    and then compiling the results into a single DataFrame. It also updates the site_status_df with the availability
+    of rating curves for each site.
+
+    Arguments
+    ---------
+    metadata_list : LIST
+        A list of metadata for the USGS gage sites for which metadata was retrieved. This is used for
+        pulling rating curve data and other site-specific information.
+    site_status_df : DataFrame
+        A DataFrame to track the status of each site.
+    rating_curve_url : STR
+        The URL for the rating curve API. This is used to pull the rating curve for each site.
+    output_dir : str
+        The directory where output files will be saved.
+    file_datetime_string : str
+        A string representing the date and time, used for naming output files.
+    num_jobs : int
+        The number of parallel jobs to run in the multiprocessing function.
+    log_file_path : str
+        The file path for the log file where messages will be recorded.
+
+    Returns
+    -------
+    rating_curves_dfs : dict
+        A dictionary containing the rating curve DataFrames for each site, keyed by location_id.
+        Some values may be None if the rating curve retrieval failed for those sites.
+    all_rating_curves : DataFrame
+        A DataFrame containing the rating curves for all sites that had successful retrievals.
+    site_status_df : DataFrame
+        A DataFrame to track the status of each site, updated with the availability of rating curves for each site.
 
     '''
     # Create a list of USGS sites to get RC's for
@@ -911,12 +926,12 @@ def __run_rating_curve_retrieval(
     for i in range(len(metadata_list)):
         metadata_json = metadata_list[i]
 
-        usgs_site_code = metadata_json['identifiers']['usgs_site_code']
+        # usgs_site_code = metadata_json['identifiers']['usgs_site_code'] # TODO: Clean up after testing
         tasks_args_list.append(
             {
                 "metadata_json": metadata_json,
                 "rating_curve_url": rating_curve_url,
-                "usgs_site_code": usgs_site_code,
+                # "usgs_site_code": usgs_site_code, # TODO: Test removal of usgs site code input
             }
         )
 
@@ -1008,19 +1023,24 @@ def __write_rc_and_site_files(all_rating_curves, sites_gdf, list_of_gage_sites, 
     Arguments
     --------
     all_rating_curves : DataFrame
-        A DataFrame containing the rating curves for all sites that were successfully retrieved and processed. This DataFrame includes the stage, discharge, datum information, and elevation in NAVD88 for each site
+        A DataFrame containing the rating curves for all sites that were successfully retrieved and processed.
+        This DataFrame includes the stage, discharge, datum information, and elevation in NAVD88 for each site
     sites_gdf : GeoDataFrame
-        A geospatial layer containing the USGS gage sites for which metadata was retrieved. This layer includes attributes such as the site type, coordinate accuracy, and other metadata that can be used for filtering and mapping.
+        A geospatial layer containing the USGS gage sites for which metadata was retrieved. This layer includes
+        attributes such as the site type, coordinate accuracy, and other metadata that can be used for filtering and mapping.
     list_of_gage_sites : LIST
-        A list of USGS gage site codes that were input by the user. This is used to determine whether to save the full list of sites (if 'all' was selected) or
+        A list of USGS gage site codes that were input by the user. This is used to determine whether to save
+        the full list of sites (if 'all' was selected) or
         just the sites that were processed (if a specific list was provided).
     output_dir : str
-        The directory where output files will be saved. This includes the rating curve CSV, site status CSV, and potentially the geospatial file of sites if 'all' was selected.
+        The directory where output files will be saved. This includes the rating curve CSV, site status CSV,
+        and potentially the geospatial file of sites if 'all' was selected.
 
     Returns
     -------
     msg : str
-        A message indicating the outcome of the file writing process, including where files were saved and what files were saved. This message can be used for logging and user feedback.
+        A message indicating the outcome of the file writing process, including where files were saved and
+        what files were saved. This message can be used for logging and user feedback.
 
     '''
 
@@ -1055,6 +1075,20 @@ def make_status_summary(row):
     - if categorical_flows_avail is no, add 'no categorical flows available'
     - if all are yes, status will be 'good'
 
+    Arguments
+    ---------
+    row : Series
+        A row from the site_status_df DataFrame, containing the columns 'metadata_avail',
+        'rating_curves_avail', 'correct_site_type', and 'categorical_flows_avail',
+        which indicate the status of each of these criteria for a given site.
+
+    Returns
+    -------
+    status : str
+        A summary status string that indicates the overall status of the site based on the criteria.
+        This string will be a combination of messages indicating which criteria are not met (e.g., "No metadata
+        available; No rating curves available") or "Good" if all criteria are met.
+
     '''
     status_list = []
     if 'no' in row['metadata_avail']:
@@ -1085,8 +1119,7 @@ def make_status_summary(row):
     return status
 
 
-# Generate USGS rating curves
-def main(list_of_gage_sites, env_file, num_jobs, output_dir):
+def get_usgs_rating_curves(list_of_gage_sites, env_file, num_jobs, output_dir):
     '''
     Main function (was usgs_rating_to_elev).
 
@@ -1428,4 +1461,4 @@ if __name__ == '__main__':
     )
 
     args = vars(parser.parse_args())
-    main(**args)  # was usgs_rating_to_elev
+    get_usgs_rating_curves(**args)  # was usgs_rating_to_elev

@@ -7,6 +7,7 @@ import json
 import os
 import pathlib
 import warnings
+import time
 
 # import traceback
 from pathlib import Path
@@ -233,10 +234,6 @@ def filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order, nwm_
 
     """
 
-    #    API_BASE_URL, WBD_LAYER = get_env_paths()
-    # Define workspace and wbd_path as a pathlib Path. Convert search distances to integer.
-    #    metadata_url = f'{API_BASE_URL}/metadata'
-
     # feature ID of 0 is getting passed to WRDS and returns empty results,
     # which can cause failures on next()
     #    if '0' in unfiltered_segments:
@@ -320,7 +317,6 @@ def mask_out_lakes(input_array, huc, raster_src, fim_run_dir):
     fim_run_dir: str
         path to the fim run directory where the lakes shapefile is located
 
-
     Returns
     -------
     masked_array: xarray
@@ -328,9 +324,7 @@ def mask_out_lakes(input_array, huc, raster_src, fim_run_dir):
     mask_status: string,
         status of whether lake shapefile was available
 
-
     '''
-
     # Read in waterbodies geopackage
     preclip_lakes_path = os.path.join(fim_run_dir, huc, 'nwm_lakes_proj_subset.gpkg')
 
@@ -450,7 +444,6 @@ def profile_test_case_archive(archive_to_check, magnitude, stats_mode):
                                   *Will only add the paths to files that exist.
 
     """
-
     archive_dictionary = {}
 
     # List through previous version and check for available stats and maps. If available, add to dictionary.
@@ -534,7 +527,6 @@ def cross_walk_gval_fim(metric_df: pd.DataFrame, cell_area: int, masked_count: i
     dict
         Dictionary of statistical metrics
     """
-
     # Remove band entry
     metric_df = metric_df.iloc[:, 1:]
 
@@ -875,8 +867,6 @@ def get_stats_table_from_binary_rasters(
 ########################################################################
 # Functions related to categorical fim and ahps evaluation
 ########################################################################
-
-
 # Feb 24, 2026: TODO: The call to the api, should have a "with" and proper try/catch added.
 # See run_vdatum_for_region for an example
 def get_metadata(
@@ -1045,12 +1035,9 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
     for metadata in metadata_list:
         # Convert metadata to json
         df = pd.json_normalize(metadata)
-        # print(df.info)   # this is showing the schema  # TEMP DEBUG
-        # print(f"len of df is {len(df)} ... 1")  # TEMP DEBUG
 
         # Columns have periods due to nested dictionaries, replace with '_'
         df.columns = df.columns.str.replace('.', '_')
-        # print(f"len of df is {len(df)} ... 2")  # TEMP DEBUG
 
         # Drop any metadata sites that don't have lat/lon populated
         df.dropna(
@@ -1086,7 +1073,6 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
             for colname in site_gdf.columns:  # TEMP DEBUG
                 if site_gdf[colname].isna().any() and site_gdf[colname].dtype == object:
                     columns_with_NA_missing_dtype.append(colname)
-            ###
 
             # Field to indicate if a latlon datum was assumed
             site_gdf['assigned_crs'] = src_crs + ''.join(message)
@@ -1113,16 +1099,16 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
         # means a site can be dropped. Hummm... what if we want usgs data but it is missing the nws_lid.
 
     # Debugging information about NA columns relating to FutureWarning (May 2026)
-    columns_with_NA_missing_dtype = list(set(columns_with_NA_missing_dtype))  # TEMP DEBUG
+    columns_with_NA_missing_dtype = list(set(columns_with_NA_missing_dtype))
     if len(columns_with_NA_missing_dtype) > 0:
         print(
             f"Columns in sites GDF with NA values AND object dtype (even after fix): {columns_with_NA_missing_dtype}"
-        )  # TEMP DEBUG
+        )
 
     if len(dtype_warning_list) > 0:
-        print(f"Captured {len(dtype_warning_list)} warnings with with the following info:")  # TEMP DEBUG
-        for warning in list(set(dtype_warning_list)):  # TEMP DEBUG
-            print(warning)  # TEMP DEBUG
+        print(f"Captured {len(dtype_warning_list)} warnings with with the following info:")
+        for warning in list(set(dtype_warning_list)):
+            print(warning)
 
     # Exit if there's no metadata compiled
     if metadata_gdf.empty:
@@ -1150,6 +1136,8 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
     return dictionary, joined_gdf
 
 
+########################################################################
+# Function to define the mainstems network
 ########################################################################
 def mainstem_nwm_segs(metadata_url, list_of_sites):
     '''
@@ -1292,8 +1280,6 @@ def get_nwm_segs(metadata):
 #######################################################################
 # Thresholds
 #######################################################################
-
-
 # Feb 24, 2026: TODO: The call to the api, should have a "with" and proper try/catch added.
 # See run_vdatum_for_region for an example
 def get_thresholds(threshold_url, select_by, selector, threshold='all', source_crs_availability=None):
@@ -1347,7 +1333,7 @@ def get_thresholds(threshold_url, select_by, selector, threshold='all', source_c
     adapter = HTTPAdapter(max_retries=retry)
     session.mount('http://', adapter)
 
-    response = session.get(url, params=params, verify=False)
+    response = session.get(url, params=params, verify=False) # TODO: Put this in a try/except block
 
     if response.status_code == 200:
         thresholds_json = response.json()
@@ -1678,17 +1664,6 @@ def ngvd_to_navd_ft(datum_info):
         adjustment_ft = None
         print(err_msg)
 
-        # # If API call is not sucessful, return an error message and an adjustment of None  TODO: Clean up
-        # if response is not None:
-        #     results = response.json()
-        #     message = results
-        #     # message = results['message'] # we want the full results not the message
-        # else:
-        #     message = "An unknown internal error has occurred."
-        # Just printing the message gets lost in MP and logging, so also return err_msg
-        # print(f'VDatum error occurred: {message}')
-        # err_msg = message
-
     return adjustment_ft, err_msg
 
 
@@ -1696,10 +1671,29 @@ def run_vdatum_for_region(params, region, datum_url):
     '''
     Run API for a given region.
 
+    Parameters
+    ----------
+    params : DICT
+        Dictionary of parameters to run VDatum API.
+    region : STR
+        Region to run VDatum API for. Options are 'AK', 'SEAK', and
+        'contiguous'.
+    datum_url : STR
+        URL for VDatum API.
+
+    Returns
+    -------
+    response : requests.Response or STR
+        Response from API call if successful, otherwise a string with a default error message.
+    success : BOOL
+        Flag to indicate whether API call was successful and VDatum returned results without an error message.
+    err_msg : STR
+        Error message if applicable, otherwise blank string.
+
     '''
     params['region'] = region
 
-    # time.sleep(2) # pause for 2 seconds before each request so we don't overwhelm the API # TODO: Reimplement?
+    time.sleep(1) # pause for 1 second before each request so we don't overwhelm the API
 
     # Suppress Insecure Request Warning
     requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
@@ -1724,8 +1718,6 @@ def run_vdatum_for_region(params, region, datum_url):
         if response.status_code == 200:
             results = response.json()
 
-            # print(results) # TEMP DEBUG
-
             if "errorCode" in results:
                 # API run sucessful but VDatum returned an error message, so we can't proceed with getting the adjustment
 
@@ -1738,7 +1730,6 @@ def run_vdatum_for_region(params, region, datum_url):
                     )
                 else:
                     err_msg = f"Error {results['errorCode']} returned from NOAA VDatum API, but no message provided. Full response: {results}"
-
             else:
                 # API run was successful AND VDatum returned results without an error message, so we can proceed with getting the adjustment
                 success = 't_z' in results
@@ -1755,7 +1746,7 @@ def run_vdatum_for_region(params, region, datum_url):
 
     except requests.exceptions.RequestException as err:
         # These are for catastropic errors calling NOAA
-        err_msg = f"Other error occurred while calling NOAA vDatum service: {err}"
+        err_msg = f"Error occurred while calling NOAA vDatum service: {err}"
         print(err_msg)
         # raise err # TODO: Do we want to raise this error here? # I think no because there's already error handling for it downstream
 
