@@ -6,8 +6,8 @@ import gc
 import json
 import os
 import pathlib
-import warnings
 import time
+import warnings
 
 # import traceback
 from pathlib import Path
@@ -1333,7 +1333,7 @@ def get_thresholds(threshold_url, select_by, selector, threshold='all', source_c
     adapter = HTTPAdapter(max_retries=retry)
     session.mount('http://', adapter)
 
-    response = session.get(url, params=params, verify=False) # TODO: Put this in a try/except block
+    response = session.get(url, params=params, verify=False)  # TODO: Put this in a try/except block
 
     if response.status_code == 200:
         thresholds_json = response.json()
@@ -1693,7 +1693,7 @@ def run_vdatum_for_region(params, region, datum_url):
     '''
     params['region'] = region
 
-    time.sleep(1) # pause for 1 second before each request so we don't overwhelm the API
+    time.sleep(1)  # pause for 1 second before each request so we don't overwhelm the API
 
     # Suppress Insecure Request Warning
     requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
