@@ -829,7 +829,7 @@ def __attrib_mainstems_filter_sites(sites_gdf, all_rating_curves, site_status_df
     # Previously we had code here to filter sites using the following lists:
     # acceptable_coord_acc_code_list, acceptable_coord_method_code_list, acceptable_alt_meth_code_list,
     # acceptable_site_type_list, # usgs_data_coord_accuracy_code is in acceptable_coord_acc_code_list
-    # This filtering wasn't effective here and will now take place in the scripts that use the data. 
+    # This filtering wasn't effective here and will now take place in the scripts that use the data.
 
     # Filter out non stream sites (the other acceptance criteria will be filtered out the scripts where the data is used)
     num_sites_before_filtering = len(sites_gdf)
@@ -882,9 +882,7 @@ def __attrib_mainstems_filter_sites(sites_gdf, all_rating_curves, site_status_df
     return all_rating_curves, site_status_df
 
 
-def __run_rating_curve_retrieval(
-    metadata_list, site_status_df, rating_curve_url, output_dir, file_datetime_string, num_jobs, log_file_path
-):
+def __run_rating_curve_retrieval(metadata_list, site_status_df, rating_curve_url, output_dir, file_datetime_string, num_jobs, log_file_path):
     '''
     New wrapper for  __mp_get_site_rating_curve (June 2026)
 
