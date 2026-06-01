@@ -4,6 +4,7 @@ import argparse
 import os
 import sys
 import traceback
+import warnings
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from typing import List, Optional, Tuple, Union
 
@@ -11,8 +12,12 @@ import pandas as pd
 from inundation import NoForecastFound, hydroTableHasOnlyLakes, inundate
 from tqdm import tqdm
 
-from utils.shared_functions import FIM_Helpers as fh
-from utils.shared_functions import s3_or_local_isfile, s3_or_local_path_exists
+# Suppress only FutureWarnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
+
+from src.utils.shared_functions import FIM_Helpers as fh
+from src.utils.shared_functions import s3_or_local_isfile, s3_or_local_path_exists
 
 
 def Inundate_gms(
@@ -115,6 +120,11 @@ def Inundate_gms(
         precalb_option=precalb_option,
     )
 
+    # TODO: May 2026: This shoul be put to our more normal Processpool or threadpool.
+    # We need the try catch to manage catestropic failes that we want to forward.
+    # As is, this will just keep processing all branches even with exceptions.
+    # Also see notes below about stopping catestropic branch fails.
+
     # start up process pool
     # better results with Process pool
     if multi_process is True:
@@ -130,7 +140,11 @@ def Inundate_gms(
     branch_ids = [None] * number_of_branches
 
     executor_generator = {executor.submit(inundate, **inp): ids for inp, ids in inundate_input_generator}
+
     idx = 0
+    # TODO: we may want to consider fully dropping the option of TQDM. 
+    # Most if not all code has wrappers that already MP or MT Inundate_gms and have their
+    # own TQDM. TQDM inside an MP or MT with an parent TQDM does create problems and irradic results
     for future in tqdm(
         as_completed(executor_generator),
         total=len(executor_generator),
@@ -182,6 +196,12 @@ def Inundate_gms(
             idx += 1
 
     # power down pool
+    # TODO: May 2026 : Do we want to stop branches from processing if a fail is found?
+    # Note: We can try catch it if re-org the pool code above, but when it is ProcessPool
+    # there is no way to stop WIP processes, only stop new ones from triggering.
+    # Note: in ProcessPool,  sys.exit does not work
+    # When it is a threadpool, we have more options but it does take a fair bit of coding
+    # to track and shut down current threads and making sure we don't have collisions.
     executor.shutdown(wait=True)
 
     # make filename dataframe

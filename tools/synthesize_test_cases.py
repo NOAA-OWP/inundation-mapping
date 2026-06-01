@@ -16,7 +16,293 @@ from run_test_case import Test_Case
 from tools_shared_variables import AHPS_BENCHMARK_CATEGORIES, MAGNITUDE_DICT, PREVIOUS_FIM_DIR, TEST_CASES_DIR
 from tqdm import tqdm
 
-from utils.shared_functions import FIM_Helpers as fh
+from src.utils.shared_functions import FIM_Helpers as fh
+
+
+def synthesize_test_cases(config,
+                          calibrated,
+                          precalb_option,
+                          fim_version,
+                          job_number_huc,
+                          job_number_branch,
+                          thread_number_branch,
+                          benchmark_category,
+                          overwrite,
+                          dev_versions_to_compare,
+                          master_metrics_csv,
+                          master_metrics_only,
+                          verbose,
+                          prev_metrics_csv,
+                          cycle_previous_files
+):
+    
+    print("================================")
+    print("Start synthesize test cases")
+    start_time = datetime.now()
+    dt_string = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
+    print(f"started: {dt_string}")
+    print()
+
+    # Warn about the MP job huc to the MT (multi-thread) job number.
+    # While inconsistent, it does pop up a fair bit. It is likely the usage
+    # of those two values in relation to how inundation is using those values.
+    # TODO: Research required.
+    print("--------------------------")
+    print(
+        "Warning: If you see errors in the output of this tool with the phrase of BrokenProcessPool,"
+        " lower the -jh (huc job number) to a lower value. You can adjust the -tb (branch job number)"
+        " to offset the new -jh value."
+    )
+    print("This is a known code issue that will be fixed in a future release.")
+    print("--------------------------")
+
+    # check job numbers
+    total_cpus_requested = job_number_huc * job_number_branch
+    total_cpus_available = os.cpu_count() - 2
+    if total_cpus_requested > total_cpus_available:
+        print("Error:")
+        raise ValueError(
+            f'The HUC job number of {job_number_huc} (-jh)'
+            f' multiplied by the branch job number of {job_number_branch} (-th),'
+            f' exceeds your machine\'s available CPU count of {total_cpus_available} ({os.cpu_count()} - 2)\n'
+            'Please lower the job_number_huc or job_number_branch to create a multipled value that is less'
+            f' than {total_cpus_available} for this tool for this server.'
+        )
+
+    # Default to processing all possible versions in PREVIOUS_FIM_DIR.
+    # Otherwise, process only the user-supplied version.
+    prev_versions_to_include_list = []
+    dev_versions_to_include_list = []
+    if fim_version != "all" and cycle_previous_files is False:
+        if config == 'PREV':  # official fim model results
+            prev_versions_to_include_list = [fim_version]
+        elif config == 'DEV':  # development fim model results
+            dev_versions_to_include_list = [fim_version]
+    else:
+        prev_versions_to_include_list = os.listdir(PREVIOUS_FIM_DIR)
+        if config == 'DEV':  # development fim model results
+            dev_versions_to_include_list = [fim_version]
+
+    # Define whether or not to archive metrics in "official_versions" or "testing_versions" for each test_id.
+    if config == 'PREV':
+        archive_results = True
+    elif config == 'DEV':
+        archive_results = False
+    else:
+        print('Config (-c) option incorrectly set. Use "DEV" or "PREV"')
+
+    try:
+        # Create a list of all test_cases for which we have validation data
+        all_test_cases = Test_Case.list_all_test_cases(
+            version=fim_version,
+            archive=archive_results,
+            benchmark_categories=[] if benchmark_category == "all" else [benchmark_category],
+        )
+
+        # =================================
+        # Validate data
+        # print('all test cases', all_test_cases)
+
+        # Make sure cycle-previous-files and a previous metric CSV have not been concurrently selected
+        if prev_metrics_csv is not None and cycle_previous_files is True:
+            print(
+                "Error: Cycle previous files and previous metric CSV functionality cannot be used concurrently."
+            )
+            sys.exit(1)
+
+        # Check whether a previous metrics CSV has been provided and, if so, make sure the CSV exists
+        if prev_metrics_csv is not None:
+            if not os.path.exists(prev_metrics_csv):
+                print(f"Error: File does not exist at {prev_metrics_csv}")
+                sys.exit(1)
+            else:
+                print(f"Metrics will be combined with previous metric CSV: {prev_metrics_csv}")
+                print()
+        else:
+            print("ALERT: A previous metric CSV has not been provided (-pcsv) - this is optional.")
+            print()
+
+        if len(all_test_cases) == 0:
+            raise Exception("Error: all_test_cases is empty and should not be")
+
+        if master_metrics_csv == "":
+            raise ValueError("master metric path (-m) can not be empty")
+
+        master_metrics_folder_path, ext = os.path.splitext(os.path.basename(master_metrics_csv))
+        if ext.lower() != ".csv":
+            raise ValueError("master metric path (-m) must end in .csv")
+
+        print(f"output master metrics file will be saved at {master_metrics_csv}")
+
+        # Print whether the previous files will be cycled through
+        if cycle_previous_files is True:
+            print("ALERT: Metrics from previous directories will be compiled.")
+        else:
+            print(
+                "ALERT: Metrics from previous directories will NOT be compiled (-pfiles not provided) \n"
+                "   - pfiles is optional -"
+            )
+        print()
+
+        # =================================
+        # Set up multiprocessor
+        if not master_metrics_only:
+            has_error = False
+            with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
+                # Loop through all test cases, build the alpha test arguments, and submit them to the process pool
+                executor_dict = {}
+
+                for test_case_class in all_test_cases:
+
+                    if not os.path.exists(test_case_class.fim_dir):
+                        continue
+
+                    fh.vprint(f"test_case_class.test_id is {test_case_class.test_id}", verbose)
+
+                    alpha_test_args = {
+                        'calibrated': calibrated,
+    #                    'model': model,
+                        'mask_type': 'huc',
+                        'overwrite': overwrite,
+                        # 'verbose': gms_verbose if model == 'GMS' else verbose,
+                        'verbose': verbose,
+                        'branch_workers': job_number_branch,
+                        'precalb_option': precalb_option,
+                        'threads': thread_number_branch,
+                    }
+
+                    try:
+                        future = executor.submit(test_case_class.alpha_test, **alpha_test_args)
+                        executor_dict[future] = test_case_class.test_id
+
+                        # TODO: May 2026: we also should catch the as_complete and look for exceptions
+                        # as there are different types of exceptions. Some from the runtime child code execution
+                        # and sometimes from errors in the code itself.
+                        # see shared_functions.run_by_mp for examples of how to upgrade this
+                        # or possibly even replace this with the run_by_mp code.
+                    except Exception as ex:
+                        has_error = True
+                        print(f"*** {ex}")
+                        traceback.print_exc()
+                        executor.shutdown(
+                            wait=False, cancel_futures=True
+                        )  # tells the ProcessPoolExecutor to stop accepting new tasks. Even cancel the running tasks as soon as possible
+                        # sys.exit(1) # sys.exit does not work inside an MP. You have to rethrow after shutting down the executor
+                        # there will be a delay in shutting it down though as it does not auto kill all wip workers, just 
+                        # stops new ones.
+                        raise ex
+
+                # Send the executor to the progress bar and wait for all MS tasks to finish
+                # TQDM has been found to keep process MP and thread open sometimse and not let them
+                # shut down correctl. This is related to subprocesses of TQDM inside the process pool
+                # Best to just skip callign it if an catestropic error has occurred.
+                if not has_error:
+                    progress_bar_handler(
+                        executor_dict, True, f"Running alpha test cases with {job_number_huc} workers"
+                    )
+                # wait(executor_dict.keys())
+
+        # Composite alpha test run is initiated by a MS `model` and providing a `fr_run_dir`
+        # TODO: Apr 1, 2025: model = MS and FR, and tools relating to fim_3 shoudl be removed
+        # if not master_metrics_only:
+        #     if model == 'MS' and fr_run_dir:
+        #         # Rebuild all test cases list with the FR version, loop through them and apply the alpha test
+        #         all_test_cases = Test_Case.list_all_test_cases(
+        #             version=fr_run_dir,
+        #             archive=archive_results,
+        #             benchmark_categories=[] if benchmark_category == "all" else [benchmark_category],
+        #         )
+
+        #         with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
+        #             executor_dict = {}
+        #             for test_case_class in all_test_cases:
+        #                 if not os.path.exists(test_case_class.fim_dir):
+        #                     continue
+        #                 alpha_test_args = {
+        #                     'calibrated': calibrated,
+        #                     'model': model,
+        #                     'mask_type': 'huc',
+        #                     'verbose': verbose,
+        #                     'overwrite': overwrite,
+        #                     'precalb_option': precalb_option,
+        #                 }
+        #                 try:
+        #                     future = executor.submit(test_case_class.alpha_test, **alpha_test_args)
+        #                     executor_dict[future] = test_case_class.test_id
+        #                 except Exception as ex:
+        #                     print(f"*** {ex}")
+        #                     traceback.print_exc()
+        #                     sys.exit(1)
+
+        #             # Send the executor to the progress bar and wait for all FR tasks to finish
+        #             progress_bar_handler(
+        #                 executor_dict, True, f"Running FR test cases with {job_number_huc} workers"
+        #             )
+        #             # wait(executor_dict.keys())
+
+        #         # Loop through FR test cases, build composite arguments, and
+        #         #   submit the composite method to the process pool
+        #         with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
+        #             executor_dict = {}
+        #             for test_case_class in all_test_cases:
+        #                 composite_args = {
+        #                     'version_2': fim_version,  # this is the MS version name since `all_test_cases` are FR
+        #                     'calibrated': calibrated,
+        #                     'overwrite': overwrite,
+        #                     'verbose': verbose,
+        #                 }
+
+        #                 try:
+        #                     future = executor.submit(test_case_class.alpha_test, **alpha_test_args)
+        #                     executor_dict[future] = test_case_class.test_id
+        #                 except Exception as ex:
+        #                     print(f"*** {ex}")
+        #                     # traceback.print_exc()
+        #                     print(traceback.format_exc())
+        #                     sys.exit(1)
+
+        #             # Send the executor to the progress bar
+        #             progress_bar_handler(
+        #                 executor_dict, verbose, f"Compositing test cases with {job_number_huc} workers"
+        #             )
+
+        ## if using DEV version, include the testing versions the user included with the "-dc" flag
+        if dev_versions_to_compare is not None:
+            dev_versions_to_include_list += dev_versions_to_compare
+
+        # Specify which results to iterate through
+        if config == 'DEV':
+            iteration_list = [
+                'official',
+                'testing',
+            ]  # iterating through official model results AND testing model(s)
+        else:
+            iteration_list = ['official']  # only iterating through official model results
+
+        # Do aggregate_metrics.
+        print("Creating master metrics CSV...")
+
+        # Note: This function is not compatible with GMS
+        create_master_metrics_csv(
+            master_metrics_csv_output=master_metrics_csv,
+            dev_versions_to_include_list=dev_versions_to_include_list,
+            prev_versions_to_include_list=prev_versions_to_include_list,
+            iteration_list=iteration_list,
+            prev_metrics_csv=prev_metrics_csv,
+        )
+    # Catches will still be raise but after the finally
+    finally:
+        print("================================")
+        print("End synthesize test cases")
+
+        end_time = datetime.now()
+        dt_string = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
+        print(f"ended: {dt_string}")
+
+        # Calculate duration
+        time_duration = end_time - start_time
+        print(f"Duration: {str(time_duration).split('.')[0]}")
+        print()
 
 
 def create_master_metrics_csv(
@@ -24,7 +310,6 @@ def create_master_metrics_csv(
     dev_versions_to_include_list,
     prev_versions_to_include_list,
     iteration_list,
-    pfiles,
     prev_metrics_csv,
 ):
     """
@@ -128,7 +413,7 @@ def create_master_metrics_csv(
                     for iteration in iteration_list:
                         if (
                             iteration == "official"
-                        ):  # and str(pfiles) == "True": # "official" refers to previous finalized model versions
+                        ):  # and str(cycle_previous_files) == "True": # "official" refers to previous finalized model versions
                             versions_to_crawl = os.path.join(
                                 benchmark_test_case_dir, each_test_case, 'official_versions'
                             )
@@ -145,12 +430,14 @@ def create_master_metrics_csv(
                         # Pull version info from filepath
                         for magnitude in magnitude_list:
                             for version in versions_to_aggregate:
-                                if '_ms' in version:
-                                    extent_config = 'MS'
-                                elif ('_fr' in version) or (version == 'fim_2_3_3'):
-                                    extent_config = 'FR'
-                                else:
-                                    extent_config = 'COMP'
+                                # if '_ms' in version:
+                                #     extent_config = 'MS'
+                                # elif ('_fr' in version) or (version == 'fim_2_3_3'):
+                                #     extent_config = 'FR'
+                                # else:
+                                # TODO: May 29, 2026: We really don't need the "COMP" and "c" test anymore
+                                extent_config = 'COMP'
+
                                 if "_c" in version and version.split('_c')[1] == "":
                                     calibrated = "yes"
                                 else:
@@ -210,12 +497,14 @@ def create_master_metrics_csv(
                         # Pull model info from filepath
                         for magnitude in ['action', 'minor', 'moderate', 'major']:
                             for version in versions_to_aggregate:
-                                if '_ms' in version:
-                                    extent_config = 'MS'
-                                elif ('_fr' in version) or (version == 'fim_2_3_3'):
-                                    extent_config = 'FR'
-                                else:
-                                    extent_config = 'COMP'
+                                # if '_ms' in version:
+                                #     extent_config = 'MS'
+                                # elif ('_fr' in version) or (version == 'fim_2_3_3'):
+                                #     extent_config = 'FR'
+                                # else:
+                                # TODO: May 29, 2026: We really don't need the "COMP" and "c" test anymore
+                                extent_config = 'COMP'
+
                                 if "_c" in version and version.split('_c')[1] == "":
                                     calibrated = "yes"
                                 else:
@@ -265,7 +554,9 @@ def create_master_metrics_csv(
                                                 sub_list_to_append.append(extent_config)
                                                 sub_list_to_append.append(calibrated)
                                                 list_to_write.append(sub_list_to_append)
-                except ValueError:
+                except ValueError as ex:
+                    print("A Value exception has occurred")
+                    print(ex)
                     pass
 
     # If previous metrics are provided: read in previously compiled metrics and join to calcaulated metrics
@@ -359,14 +650,14 @@ if __name__ == '__main__':
         default=False,
         action='store_true',
     )
-    parser.add_argument(
-        '-e',
-        '--model',
-        help='Denotes model used. Options: [FR, MS, or GMS]. '
-        'This should be taken from meta-data in hydrofabric dir.',
-        default='GMS',
-        required=False,
-    )
+    # parser.add_argument(
+    #     '-e',
+    #     '--model',
+    #     help='Denotes model used. Options: [FR, MS, or GMS]. '
+    #     'This should be taken from meta-data in hydrofabric dir.',
+    #     default='GMS',
+    #     required=False,
+    # )
     parser.add_argument(
         '-v', '--fim-version', help='REQUIRED: Name of fim version to cache.', required=True, default="all"
     )
@@ -397,13 +688,15 @@ if __name__ == '__main__':
         default=1,
         type=int,
     )
-    parser.add_argument(
-        '-s',
-        '--special-string',
-        help='Add a special name to the end of the branch.',
-        required=False,
-        default="",
-    )
+
+    # variable was not being used
+    # parser.add_argument(
+    #     '-s',
+    #     '--special-string',
+    #     help='Add a special name to the end of the branch.',
+    #     required=False,
+    #     default="",
+    # )
     parser.add_argument(
         '-b',
         '--benchmark-category',
@@ -420,7 +713,7 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '-dc',
-        '--dev-version-to-compare',
+        '--dev-versions-to-compare',
         nargs='+',
         help='Specify the name(s) of a dev (testing) version to include in master '
         'metrics CSV. Pass a space-delimited list.',
@@ -442,33 +735,34 @@ if __name__ == '__main__':
         default=False,
         action='store_true',
     )
-    parser.add_argument(
-        '-d',
-        '--fr-run-dir',
-        help='Name of test case directory containing FIM for FR model',
-        required=False,
-        default=None,
-    )
+    # parser.add_argument(
+    #     '-d',
+    #     '--fr-run-dir',
+    #     help='Name of test case directory containing FIM for FR model',
+    #     required=False,
+    #     default=None,
+    # )
     parser.add_argument(
         '-vr', '--verbose', help='Verbose output', required=False, default=None, action='store_true'
     )
-    parser.add_argument(
-        '-vg',
-        '--gms-verbose',
-        help='GMS Verbose Progress Bar',
-        required=False,
-        default=None,
-        action='store_true',
-    )
+    # parser.add_argument(
+    #     '-vg',
+    #     '--gms-verbose',
+    #     help='GMS Verbose Progress Bar',
+    #     required=False,
+    #     default=None,
+    #     action='store_true',
+    # )
     parser.add_argument(
         '-pcsv',
-        '--previous-metrics-csv',
+        '--prev-metrics-csv',
         help='Optional: Filepath for a CSV with previous metrics to concatenate with new '
         'metrics to form a final aggregated metrics csv.',
         required=False,
         default=None,
     )
 
+    # TODO: May 2026: Do we even want this anymore? we onlyi use pcsv now
     parser.add_argument(
         '-pfiles',
         '--cycle-previous-files',
@@ -481,270 +775,26 @@ if __name__ == '__main__':
 
     # Assign variables from arguments.
     args = vars(parser.parse_args())
-    config = args['config']
-    fim_version = args['fim_version']
-    job_number_huc = args['job_number_huc']
-    job_number_branch = args['job_number_branch']
-    thread_number_branch = args['thread_number_branch']
-    special_string = args['special_string']
-    benchmark_category = args['benchmark_category']
-    overwrite = args['overwrite']
-    dev_versions_to_compare = args['dev_version_to_compare']
-    master_metrics_csv = args['master_metrics_csv']
-    fr_run_dir = args['fr_run_dir']
-    calibrated = args['calibrated']
-    precalb_option = args['precalb_option']
-    model = args['model']
-    verbose = bool(args['verbose'])
-    gms_verbose = bool(args['gms_verbose'])
-    prev_metrics_csv = args['previous_metrics_csv']
-    pfiles = bool(args['cycle_previous_files'])
-    master_metrics_only = bool(args['master_metrics_only'])
+    # config = args['config']
+    # fim_version = args['fim_version']
+    # job_number_huc = args['job_number_huc']
+    # job_number_branch = args['job_number_branch']
+    # thread_number_branch = args['thread_number_branch']
+    # special_string = args['special_string']
+    # benchmark_category = args['benchmark_category']
+    # overwrite = args['overwrite']
+    # dev_versions_to_compare = args['dev_versions_to_compare']
+    # master_metrics_csv = args['master_metrics_csv']
+    # fr_run_dir = args['fr_run_dir']
+    # calibrated = args['calibrated']
+    # precalb_option = args['precalb_option']
+    # # model = args['model']
+    # verbose = bool(args['verbose'])
+    # # gms_verbose = bool(args['gms_verbose'])
+    # prev_metrics_csv = args['previous_metrics_csv']
+    # pfiles = bool(args['cycle_previous_files'])
+    # master_metrics_only = bool(args['master_metrics_only'])
 
-    print("================================")
-    print("Start synthesize test cases")
-    start_time = datetime.now()
-    dt_string = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
-    print(f"started: {dt_string}")
-    print()
+    synthesize_test_cases(**args)
 
-    # Warn about the MP job huc to the MT (multi-thread) job number.
-    # While inconsistent, it does pop up a fair bit. It is likely the usage
-    # of those two values in relation to how inundation is using those values.
-    # TODO: Research required.
-    print("--------------------------")
-    print(
-        "Warning: If you see errors in the output of this tool with the phrase of BrokenProcessPool,"
-        " lower the -jh (huc job number) to a lower value. You can adjust the -tb (branch job number)"
-        " to offset the new -jh value."
-    )
-    print("This is a known code issue that will be fixed in a future release.")
-    print("--------------------------")
 
-    # check job numbers
-    total_cpus_requested = job_number_huc * job_number_branch
-    total_cpus_available = os.cpu_count() - 1
-    if total_cpus_requested > total_cpus_available:
-        print("Error:")
-        raise ValueError(
-            f'The HUC job number of {job_number_huc} (-jh)'
-            f' multiplied by the branch job number of {job_number_branch} (-th),'
-            f' exceeds your machine\'s available CPU count of {total_cpus_available} ({os.cpu_count()} - 1)\n'
-            'Please lower the job_number_huc or job_number_branch to create a multipled value that is less'
-            f' than {total_cpus_available} for this tool for this server.'
-        )
-
-    # Default to processing all possible versions in PREVIOUS_FIM_DIR.
-    # Otherwise, process only the user-supplied version.
-    prev_versions_to_include_list = []
-    dev_versions_to_include_list = []
-    if fim_version != "all" and pfiles is False:
-        if config == 'PREV':  # official fim model results
-            prev_versions_to_include_list = [fim_version]
-        elif config == 'DEV':  # development fim model results
-            dev_versions_to_include_list = [fim_version]
-    else:
-        prev_versions_to_include_list = os.listdir(PREVIOUS_FIM_DIR)
-        if config == 'DEV':  # development fim model results
-            dev_versions_to_include_list = [fim_version]
-
-    # Define whether or not to archive metrics in "official_versions" or "testing_versions" for each test_id.
-    if config == 'PREV':
-        archive_results = True
-    elif config == 'DEV':
-        archive_results = False
-    else:
-        print('Config (-c) option incorrectly set. Use "DEV" or "PREV"')
-
-    # Create a list of all test_cases for which we have validation data
-    all_test_cases = Test_Case.list_all_test_cases(
-        version=fim_version,
-        archive=archive_results,
-        benchmark_categories=[] if benchmark_category == "all" else [benchmark_category],
-    )
-
-    # =================================
-    # Validate data
-    # print('all test cases', all_test_cases)
-
-    # Make sure cycle-previous-files and a previous metric CSV have not been concurrently selected
-    if prev_metrics_csv is not None and pfiles is True:
-        print(
-            "Error: Cycle previous files and previous metric CSV functionality cannot be used concurrently."
-        )
-        sys.exit(1)
-
-    # Check whether a previous metrics CSV has been provided and, if so, make sure the CSV exists
-    if prev_metrics_csv is not None:
-        if not os.path.exists(prev_metrics_csv):
-            print(f"Error: File does not exist at {prev_metrics_csv}")
-            sys.exit(1)
-        else:
-            print(f"Metrics will be combined with previous metric CSV: {prev_metrics_csv}")
-            print()
-    else:
-        print("ALERT: A previous metric CSV has not been provided (-pcsv) - this is optional.")
-        print()
-
-    if len(all_test_cases) == 0:
-        raise Exception("Error: all_test_cases is empty and should not be")
-
-    if master_metrics_csv == "":
-        raise ValueError("master metric path (-m) can not be empty")
-
-    master_metrics_folder_path, ext = os.path.splitext(os.path.basename(master_metrics_csv))
-    if ext.lower() != ".csv":
-        raise ValueError("master metric path (-m) must end in .csv")
-
-    print(f"output master metrics file will be saved at {master_metrics_csv}")
-
-    # Print whether the previous files will be cycled through
-    if pfiles is True:
-        print("ALERT: Metrics from previous directories will be compiled.")
-    else:
-        print(
-            "ALERT: Metrics from previous directories will NOT be compiled (-pfiles not provided) \n"
-            "   - pfiles is optional -"
-        )
-    print()
-
-    # =================================
-    # Set up multiprocessor
-    if not master_metrics_only:
-        with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
-            # Loop through all test cases, build the alpha test arguments, and submit them to the process pool
-            executor_dict = {}
-
-            for test_case_class in all_test_cases:
-
-                if not os.path.exists(test_case_class.fim_dir):
-                    continue
-
-                fh.vprint(f"test_case_class.test_id is {test_case_class.test_id}", verbose)
-
-                alpha_test_args = {
-                    'calibrated': calibrated,
-                    'model': model,
-                    'mask_type': 'huc',
-                    'overwrite': overwrite,
-                    'verbose': gms_verbose if model == 'GMS' else verbose,
-                    'gms_workers': job_number_branch,
-                    'precalb_option': precalb_option,
-                    'threads': thread_number_branch,
-                }
-
-                try:
-                    future = executor.submit(test_case_class.alpha_test, **alpha_test_args)
-                    executor_dict[future] = test_case_class.test_id
-                except Exception as ex:
-                    print(f"*** {ex}")
-                    traceback.print_exc()
-                    sys.exit(1)
-
-            # Send the executor to the progress bar and wait for all MS tasks to finish
-            progress_bar_handler(
-                executor_dict, True, f"Running {model} alpha test cases with {job_number_huc} workers"
-            )
-            # wait(executor_dict.keys())
-
-    # Composite alpha test run is initiated by a MS `model` and providing a `fr_run_dir`
-    # TODO: Apr 1, 2025: model = MS and FR, and tools relating to fim_3 shoudl be removed
-    if not master_metrics_only:
-        if model == 'MS' and fr_run_dir:
-            # Rebuild all test cases list with the FR version, loop through them and apply the alpha test
-            all_test_cases = Test_Case.list_all_test_cases(
-                version=fr_run_dir,
-                archive=archive_results,
-                benchmark_categories=[] if benchmark_category == "all" else [benchmark_category],
-            )
-
-            with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
-                executor_dict = {}
-                for test_case_class in all_test_cases:
-                    if not os.path.exists(test_case_class.fim_dir):
-                        continue
-                    alpha_test_args = {
-                        'calibrated': calibrated,
-                        'model': model,
-                        'mask_type': 'huc',
-                        'verbose': verbose,
-                        'overwrite': overwrite,
-                        'precalb_option': precalb_option,
-                    }
-                    try:
-                        future = executor.submit(test_case_class.alpha_test, **alpha_test_args)
-                        executor_dict[future] = test_case_class.test_id
-                    except Exception as ex:
-                        print(f"*** {ex}")
-                        traceback.print_exc()
-                        sys.exit(1)
-
-                # Send the executor to the progress bar and wait for all FR tasks to finish
-                progress_bar_handler(
-                    executor_dict, True, f"Running FR test cases with {job_number_huc} workers"
-                )
-                # wait(executor_dict.keys())
-
-            # Loop through FR test cases, build composite arguments, and
-            #   submit the composite method to the process pool
-            with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
-                executor_dict = {}
-                for test_case_class in all_test_cases:
-                    composite_args = {
-                        'version_2': fim_version,  # this is the MS version name since `all_test_cases` are FR
-                        'calibrated': calibrated,
-                        'overwrite': overwrite,
-                        'verbose': verbose,
-                    }
-
-                    try:
-                        future = executor.submit(test_case_class.alpha_test, **alpha_test_args)
-                        executor_dict[future] = test_case_class.test_id
-                    except Exception as ex:
-                        print(f"*** {ex}")
-                        # traceback.print_exc()
-                        print(traceback.format_exc())
-                        sys.exit(1)
-
-                # Send the executor to the progress bar
-                progress_bar_handler(
-                    executor_dict, verbose, f"Compositing test cases with {job_number_huc} workers"
-                )
-
-    ## if using DEV version, include the testing versions the user included with the "-dc" flag
-    if dev_versions_to_compare is not None:
-        dev_versions_to_include_list += dev_versions_to_compare
-
-    # Specify which results to iterate through
-    if config == 'DEV':
-        iteration_list = [
-            'official',
-            'testing',
-        ]  # iterating through official model results AND testing model(s)
-    else:
-        iteration_list = ['official']  # only iterating through official model results
-
-    # Do aggregate_metrics.
-    print("Creating master metrics CSV...")
-
-    # Note: This function is not compatible with GMS
-    create_master_metrics_csv(
-        master_metrics_csv_output=master_metrics_csv,
-        dev_versions_to_include_list=dev_versions_to_include_list,
-        prev_versions_to_include_list=prev_versions_to_include_list,
-        iteration_list=iteration_list,
-        pfiles=pfiles,
-        prev_metrics_csv=prev_metrics_csv,
-    )
-
-    print("================================")
-    print("End synthesize test cases")
-
-    end_time = datetime.now()
-    dt_string = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
-    print(f"ended: {dt_string}")
-
-    # Calculate duration
-    time_duration = end_time - start_time
-    print(f"Duration: {str(time_duration).split('.')[0]}")
-    print()

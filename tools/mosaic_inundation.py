@@ -22,8 +22,8 @@ from shapely.geometry.multipolygon import MultiPolygon
 from shapely.geometry.polygon import Polygon
 from tqdm import tqdm
 
-from utils.shared_functions import FIM_Helpers as fh
-from utils.shared_variables import elev_raster_ndv
+from src.utils.shared_functions import FIM_Helpers as fh
+from src.utils.shared_variables import elev_raster_ndv
 
 
 gpd.options.io_engine = "pyogrio"
@@ -113,9 +113,11 @@ def Mosaic_inundation(
     inundation_maps_df = inundation_maps_df.set_index(unit_attribute_name, drop=True)
 
     # decide upon whether to display the progress bar
-    if verbose & len(aggregation_units) == 1:
+    # print(f"Verbose value is {verbose}")
+    # print(f"aggregations_units len is {len(aggregation_units)}")
+    if verbose is True and len(aggregation_units) == 1:
         tqdm_disable = False
-    elif verbose:
+    elif verbose is True:
         tqdm_disable = False
     else:
         tqdm_disable = True
@@ -160,7 +162,9 @@ def Mosaic_inundation(
         fh.vprint("Removing inputs ...", verbose)
 
         for remove_file in remove_at_end:
-            os.remove(remove_file)
+            if os.path.exists(remove_file):
+                # In theory, the file should exist but sometimes does not (errors? Multi-threading?)
+                os.remove(remove_file)
 
     # Return file name and path of the final mosaic output file.
     # Might be empty.

@@ -451,7 +451,7 @@ def synthesize_test_cases(huc, fim_version, hydroTable_all, job_number_branch, b
                 mask_type='huc',
                 overwrite=overwrite,
                 verbose=verbose,
-                gms_workers=job_number_branch,
+                branch_workers=job_number_branch,
             )
     # job_number_branch = 6
     # Set up multiprocessor
