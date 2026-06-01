@@ -148,6 +148,23 @@ class HucDirectory(object):
         }
         self.agg_ras_elev_table = []
 
+        self.ripple1d_dtypes = {
+            'location_id': str,
+            'nws_lid': str,
+            'feature_id': 'Int64',
+            'HydroID': 'Int64',
+            'levpa_id': str,
+            'dem_elevation': float,
+            'dem_adj_elevation': float,
+            'order_': str,
+            'LakeID': object,
+            'HUC8': str,
+            'HUC10': str,
+            'HUC12': str,
+            'snap_distance': float,
+        }
+        self.agg_ripple1d_elev_table = pd.DataFrame(columns=list(self.ripple1d_dtypes.keys()))
+
         self.bridge_dtypes = {
             'osmid': int,
             'name': str,
@@ -243,6 +260,14 @@ class HucDirectory(object):
         ras_elev_table = pd.read_csv(ras_elev_filename, dtype=self.ras_dtypes)
         self.agg_ras_elev_table.append(ras_elev_table)
 
+    def aggregate_ripple1d_elev_table(self, branch_path):
+        ripple1d_elev_filename = join(branch_path, 'ripple1d_elev_table.csv')
+        if not os.path.isfile(ripple1d_elev_filename):
+            return
+
+        ripple1d_elev_table = pd.read_csv(ripple1d_elev_filename, dtype=self.ripple1d_dtypes)
+        self.agg_ripple1d_elev_table = pd.concat([self.agg_ripple1d_elev_table, ripple1d_elev_table])
+
     def aggregate_bridge_pnts(self, branch_path, branch_id):
         bridge_filename = join(branch_path, f'osm_bridge_centroids_{branch_id}.gpkg')
         if not os.path.isfile(bridge_filename):
@@ -319,6 +344,7 @@ class HucDirectory(object):
         hydro_table_flag,
         src_cross_flag,
         ras_elev_flag,
+        ripple1d_elev_flag,
         bridge_flag,
         road_flag,
         building_flag,
@@ -331,6 +357,8 @@ class HucDirectory(object):
                     self.aggregate_usgs_elev_table(branch_path)
                 if ras_elev_flag:
                     self.aggregate_ras_elev_table(branch_path)
+                if ripple1d_elev_flag:
+                    self.aggregate_ripple1d_elev_table(branch_path)
 
                 ## Other aggregate funtions can go here
                 if hydro_table_flag:
@@ -433,6 +461,14 @@ class HucDirectory(object):
                     agg_ras_elev = pd.concat(self.agg_ras_elev_table, ignore_index=True)
                     agg_ras_elev.to_csv(ras_elev_table_file, index=False)
 
+            if ripple1d_elev_flag:
+                ripple1d_elev_table_file = join(self.huc_dir_path, 'ripple1d_elev_table.csv')
+                if os.path.isfile(ripple1d_elev_table_file):
+                    os.remove(ripple1d_elev_table_file)
+
+                if not self.agg_ripple1d_elev_table.empty:
+                    self.agg_ripple1d_elev_table.to_csv(ripple1d_elev_table_file, index=False)
+
             if bridge_flag:
                 bridge_pnts_file = join(self.huc_dir_path, 'osm_bridge_centroids.gpkg')
                 if os.path.isfile(bridge_pnts_file):
@@ -503,6 +539,7 @@ class HucDirectory(object):
                 hydro_table_flag,
                 src_cross_flag,
                 ras_elev_flag,
+                ripple1d_elev_flag,
                 bridge_flag,
                 road_flag,
                 building_flag,
@@ -520,6 +557,7 @@ def log_error(
     hydro_table_flag,
     src_cross_flag,
     ras_elev_flag,
+    ripple1d_elev_flag,
     bridge_flag,
     road_flag,
     building_flag,
@@ -535,6 +573,8 @@ def log_error(
         file_name += "_src_cross"
     if ras_elev_flag:
         file_name += "_ras"
+    if ripple1d_elev_flag:
+        file_name += "_ripple1d"
     if bridge_flag:
         file_name += "_bridge"
     if road_flag:
@@ -560,6 +600,7 @@ def aggregate_by_huc(
     hydro_table_flag,
     src_cross_flag,
     ras_elev_flag,
+    ripple1d_elev_flag,
     bridge_flag,
     road_flag,
     building_flag,
@@ -585,6 +626,8 @@ def aggregate_by_huc(
             agg_type += "_src_cross"
         if ras_elev_flag:
             agg_type += "_ras"
+        if ripple1d_elev_flag:
+            agg_type += "_ripple1d"
         if bridge_flag:
             agg_type += "_bridge"
         if road_flag:
@@ -607,6 +650,7 @@ def aggregate_by_huc(
             hydro_table_flag,
             src_cross_flag,
             ras_elev_flag,
+            ripple1d_elev_flag,
             bridge_flag,
             road_flag,
             building_flag,
@@ -622,6 +666,7 @@ def aggregate_by_huc(
             hydro_table_flag,
             src_cross_flag,
             ras_elev_flag,
+            ripple1d_elev_flag,
             bridge_flag,
             road_flag,
             building_flag,
@@ -675,6 +720,14 @@ if __name__ == '__main__':
         '-ras',
         '--ras_elev_flag',
         help='Perform aggregate on branch ras2fim elev tables',
+        required=False,
+        default=False,
+        action='store_true',
+    )
+    parser.add_argument(
+        '-ripple1d',
+        '--ripple1d_elev_flag',
+        help='Perform aggregate on branch ripple1d elev tables',
         required=False,
         default=False,
         action='store_true',

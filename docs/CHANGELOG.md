@@ -1,6 +1,29 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## vx.x.x.x - 2026-xx-xx - [PR#1720](https://github.com/NOAA-OWP/inundation-mapping/pull/1720)
+
+This PR uses Ripple1D dataset, including discharge to calibrate HAND rating curves for HUC8s where the dataset exist. It uses the same approach that has been used for rating curves calibration using RAS2FIM. 
+
+### Additions
+- `src`
+   - src_adjust_ripple1d_rating.py : This is the main script that uses src_roughness_optimization.py to calibrate HAND SRC tables using Ripple1D rating curves.
+
+### Changes
+- `src`
+    - bash_variable.env: 2 new input files have been added to this, including: `ripple_feature_list_20260310_huc_considered_delivered.csv` and `ripple1d_rating_curve.parquet`, both saved in `ripple1d_input_dir`
+    - calibrate_rating_curves.sh
+    - run_huc.sh
+    - add_crosswalk.py
+    - aggregate_branches_to_huc.py
+    - src_roughness_optimization.py
+    - usgs_gage_crosswalk.py
+    - usgs_gage_unit_setup.py
+
+- `config`
+    - deny_branches.lst
+    - deny_unit.lst
+    - params_template.env
 ## v4.9.14.0 - 2026-05-13 - [PR#1805](https://github.com/NOAA-OWP/inundation-mapping/pull/1805)
 
 Upgrades GDAL base image to v3.12.3 (ghcr.io/osgeo/gdal:ubuntu-small-3.12.3) and upgrades Python dependencies. There were a few major hurdles in upgrading beyond the previous GDAL v.3.8.4 primarily due to the fact that v3.8.4 was the last version to use Python 3.10 and GDAL v3.12.3 uses Python 3.12, including:
@@ -95,8 +118,9 @@ The scripts below were updated to address warnings. There were no changes to the
 `src/src_roughness_optimization.py`
 `src/thalweg_notches_adjustment.py`
 
+<br/>
 
-## v4.9.12.0 - 2026-05-01 - [PR#1777]([https://github.com/NOAA-OWP/inundation-mapping/pull/1777])
+## v4.9.12.0 - 2026-05-01 - [PR#1777](https://github.com/NOAA-OWP/inundation-mapping/pull/1777)
 
 This PR closes the issue #1739 and includes the following enhancements to address buildings Fimpacts:
 
@@ -141,6 +165,8 @@ Added `aggregate_wbd_hucs()` function to WRDS download script to ensure that inc
 - `tools/catfim/generate_categorical_fim_flows.py`: Removed unused imports.
 - `tools/tools_shared_functions.py`: Updated `get_thresholds()` to account for source CRS availability.
 
+<br/>
+
 ## v4.9.11.1 - 2026-04-17 - [PR#1809](https://github.com/NOAA-OWP/inundation-mapping/pull/1809)
 
 This change resolves issue where SWORD-derived slope values are producing severe over-estimated inundation extents on the Auglaize River in Ohio. The updated code logic now allows for manual removal or override of SWORD slope values as part of the input data processing script.
@@ -151,6 +177,8 @@ This change resolves issue where SWORD-derived slope values are producing severe
 - `src/add_crosswalk.py`: Removed previous logic for replacing the SWORD slope values (this is now done in `sword_slope_create_parquet_qc.py`).
 - `src/bash_variables.env`: Updated the `iris_sword_slope` parameter to point to the newly generated input parquet file
 - `tools/inundate_nation.py`: Made a minor change/enhancement to allow an optional input argument `-p` that will produce the inundation raster using the "precalb_discharge_cms" column in the SRCs rather than the defualt "discharge_cms". This makes it easier to generate inundation rasters with or without the calibration adjustments applied.
+
+<br/>
 
 ## v4.9.11.0 - 2026-04-10 - [PR#1783](https://github.com/NOAA-OWP/inundation-mapping/pull/1783)
 
