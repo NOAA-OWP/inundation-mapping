@@ -366,9 +366,7 @@ def set_global_env(env_file):
 # ++++++++++++++++++++++++++++++++
 # TODO: likely don't need usgs_site_code if we have the task id
 # Yes... usgs_site_code and task_id are redundant for now
-def __mp_get_site_rating_curve(
-    metadata_json, rating_curve_url, file_logger, screen_queue, task_id
-):
+def __mp_get_site_rating_curve(metadata_json, rating_curve_url, file_logger, screen_queue, task_id):
     '''
     Gets the rating curve for a given site and converts it to elevation (NAVD88).
 
@@ -882,7 +880,9 @@ def __attrib_mainstems_filter_sites(sites_gdf, all_rating_curves, site_status_df
     return all_rating_curves, site_status_df
 
 
-def __run_rating_curve_retrieval(metadata_list, site_status_df, rating_curve_url, output_dir, file_datetime_string, num_jobs, log_file_path):
+def __run_rating_curve_retrieval(
+    metadata_list, site_status_df, rating_curve_url, output_dir, file_datetime_string, num_jobs, log_file_path
+):
     '''
     New wrapper for  __mp_get_site_rating_curve (June 2026)
 
