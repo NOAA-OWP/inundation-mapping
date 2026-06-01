@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.9.x.x - 2026-04-23 - [PR#1816](https://github.com/NOAA-OWP/inundation-mapping/pull/1816)
+## v4.9.x.x - 2026-06-01 - [PR#1816](https://github.com/NOAA-OWP/inundation-mapping/pull/1816)
 
 This pull request introduces a dedicated preprocessing workflow to identify and fill DEM "pits" (large and deep artificial depressions). This introduces a new input data script to process a directory of DEM files and generates new input filled elevation rasters (new input files). Resolves #815 
 
@@ -15,6 +15,9 @@ This pull request introduces a dedicated preprocessing workflow to identify and 
 - `config/deny_unit.lst`: updated dem tif file names
 - `src/bash_variables.env`: added in the new input file variables for the pit_filled vrt files
 - `src/run_huc.sh`: added new logic to merge the original input DEM and the pit-filled elevation DEM.
+
+<br/>
+
 ## v4.9.14.0 - 2026-05-13 - [PR#1805](https://github.com/NOAA-OWP/inundation-mapping/pull/1805)
 
 Upgrades GDAL base image to v3.12.3 (ghcr.io/osgeo/gdal:ubuntu-small-3.12.3) and upgrades Python dependencies. There were a few major hurdles in upgrading beyond the previous GDAL v.3.8.4 primarily due to the fact that v3.8.4 was the last version to use Python 3.10 and GDAL v3.12.3 uses Python 3.12, including:
