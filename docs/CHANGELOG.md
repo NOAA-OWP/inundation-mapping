@@ -1,6 +1,76 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.14.0 - 2026-05-13 - [PR#1805](https://github.com/NOAA-OWP/inundation-mapping/pull/1805)
+
+Upgrades GDAL base image to v3.12.3 (ghcr.io/osgeo/gdal:ubuntu-small-3.12.3) and upgrades Python dependencies. There were a few major hurdles in upgrading beyond the previous GDAL v.3.8.4 primarily due to the fact that v3.8.4 was the last version to use Python 3.10 and GDAL v3.12.3 uses Python 3.12, including:
+- Numerous Python dependency conflicts
+- `numpy` versions >= 2.0.0 are incompatible with the GDAL v3.12.3 Docker image. `numpy` and `scipy` were forced to downgrade after the Python packages were installed via Pipfile.
+- Python 3.12 manages packages in a virtual environment which made them unable to be found.
+- A change in `gdal_rasterize` caused 0s to be written as nodata which tripped up `fim_pipeline.sh`.
+- Incompatibility between TauDEM v5.3 and GDAL v3.12.3 resulted in an Error message. The outputs are still valid so the error message was suppressed.
+
+In addition, an upgraded `pdal` was added to the Dockerfile and `pillow` was upgraded to v12.2.0.
+
+### Changes
+
+- `Dockerfile.dev` and `Dockerfile.owp`: Upgrade GDAL base image to v3.12.3; adds system break flag for installing Python packages in an unmanaged environment; upgrades `pdal`; downgrades `numpy` and `scipy`
+- `Pipfile` and `Pipfile.lock`: Upgrade and resolve Python dependencies and conflicts
+- `src/`
+    - `delineate_hydros_and_produce_HAND.sh`: Suppress GDAL Error message
+    - `run_by_branch.sh` and `run_huc.sh` Suppress GDAL Error message and fix `gdal_rasterize` nodata issue
+
+<br/>
+## v4.9.13.0 - 2026-05-13 - [PR#1811]([https://github.com/NOAA-OWP/inundation-mapping/pull/1811])
+
+A major reorganization of the CatFIM processing pipeline, consolidating and simplifying a complex multi-file workflow into more modular and maintainable components. New scripts (`catfim_shared_functions.py`, `catfim_process_huc.py`, `catfim_post_processing.py`) were created to centralize common operations and move CatFIM processing into a HUC-level scale (whereas previous processing was a mix of site-level, sometimes HUC-level, and sometimes full domain-scale). 
+
+### Additions
+- `tools/catfim/catfim_process_huc.py`: A new HUC-specific CatFIM processing wrapper, orchestrating all HUC-level processing steps from site validation through mapping completion. `process_huc()` is the central wrapper managing the complete HUC processing pipeline.
+- `tools/catfim/catfim_post_processing.py`: A new script that compiles all HUC-level CatFIM outputs (sites and library geopackages) into a consolidated site GeoPackage, site CSV, library GeoPackage, and library CSV. Creates post-processing logs with warnings for problematic HUCs and missing data.
+- `tools/catfim/catfim_shared_functions.py`: Stores common functions and constants used across all CatFIM processing workflows. All functions include comprehensive error handling, logging, and detailed docstrings for maintainability across the CatFIM pipeline.
+
+### Changes
+- `tools/catfim/generate_categorical_fim.py`: Refactored as the orchestration layer for CatFIM preprocessing and workflow coordination.  Initiates multi-process HUC iteration with ProcessPoolExecutor (now delegated to the new `catfim_process_huc.py` module) and initiates post-processing (now delegated to the new `catfim_post_processing.py` module). Creates `runtime_args.env` file for sharing configuration across all processing stages. `process_generate_categorical_fim()` is still the central wrapper for all processing. Optional skip-processing mode for AWS workflows.
+- `tools/catfim/generate_categorical_fim_flows.py`: Restructured from a flow-generation focused module into a threshold and flow data processing module for CatFIM (file could arguably be renamed to `generate_categorical_fim_thresholds` as "flows" is no longer descriptive enough). Multiprocessing coordination is much more simplified. Now integrates with `catfim_shared_functions` for common operations and `download_process_wrds` for threshold data management.
+- `tools/catfim/generate_categorical_fim_mapping.py`: Substantially reduced in scope and heavily rewritten/reorganized. Now focuses primarily on the mapping and post-processing workflow rather than flow generation. Much of its complex inundation logic has been moved to support files, and the workflow has been simplified and reorganized. Implemented clearer separation between threshold/flow processing and the actual inundation mapping workflow. `process_mapping()` is the new central wrapper for the function.
+- `data/wrds/download_process_wrds.py`: Removed `get_huc_dictionary()` function, now uses `aggregate_wbd_hucs()` for spatial HUC filtering. Removed unused imports (`sys`, `requests`, `urllib3)`. Added upfront validation for `API_BASE_URL` and `WBD_LAYER`. Creates and saves `lid_source_dict` as CSV.
+- `tools/catfim/ahps_restricted_sites.csv`: Rearranged data for one site.
+- `data/wrds/mimic_wrds_data.py`: File mode changed.
+- `data/usgs/get_usgs_rating_curves.py`: Added a print line.
+- `src/utils/shared_functions.py`: Updated `setup_file_logger()` and `setup_mp_file_logger()` to save a warning log file.
+- `src/utils/shared_variables.py`: Added a comment.
+- `src/bash_variables.env`: Added paths to a new WBD file, evaluate APHS sites file, NWM metadata file, NWM threshold file, and USGS metadata files.
+- `tools/tools_shared_functions.py`: Fixed dropped error processing in `filter_nwm_segments_by_stream_order()` and added `source_crs_availability` functionality to `get_thresholds()`.
+- `tools/mosaic_inundation.py`: Added a line to suppress unneeded Rasterio warnings.
+- `tools/catfim/images/screenshot_vis_settings.JPG`: File mode changed.
+- `tools/catfim/vis_categorical_fim.py`: File mode changed.
+- `tools/catfim/README.md`: File mode changed.
+
+### Removals
+- `tools/eval_alt_catfim.py`: Removed module because it is no longer in use or up-to-date.
+
+<br/>
+
+## v4.9.12.3 - 2026-05-13 - [PR#1789](https://github.com/NOAA-OWP/inundation-mapping/pull/1789)
+
+This PR fixes the AREASQKM issue in HydroTables and SRC tables. 
+
+### Changes
+
+- `/src/make_stages_and_catchlist.py` : This issue was fixed in the make_stages_and_catchlist function. 
+<br/>
+
+## v4.9.12.2 - 2026-05-13 - [PR#1830](https://github.com/NOAA-OWP/inundation-mapping/pull/1830)
+This PR closes issue #1821 by restoring the required `order_` field for roads FIMpact. Also, fixed `log_error()` argument mismatch so aggregation logs the original failure instead of raising a secondary `TypeError`.
+
+
+### Changes
+- src/process_roads_fimpact.py
+- src/aggregate_branches_to_huc.py
+
+<br/>
+
 ## v4.9.12.1 - 2026-05-01 - [PR#1815](https://github.com/NOAA-OWP/inundation-mapping/pull/1815)
 
 These changes resolve the numerous pandas 3.0 FutureWarnings as well as other miscellaneous "warning" messages that we track in our logging systems. Resolves #1799
