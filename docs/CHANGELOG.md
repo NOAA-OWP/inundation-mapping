@@ -1,7 +1,8 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.x.x.x - 2026-05-15 - [PR#1787](https://github.com/NOAA-OWP/inundation-mapping/pull/1787)
+## v4.9.16.0 - 2026-06-02 - [PR#1787](https://github.com/NOAA-OWP/inundation-mapping/pull/1787)
+
 This PR closes issues #1778, #1795, and  #1796 and includes the following enhancements to the OSM bridge data acquisition pipeline.
 
 ### Adding pdal to docker image
@@ -34,6 +35,8 @@ Updated `clip_vectors_to_wbd.py` to support the new OSM bridge data layout, wher
 ### Removals
 - data/bridges/conda_fim_bridges_enviro.yml
 - data/bridges/setup_conda_for_make_rasters.txt
+<br/>
+
 ## v4.9.15.0 - 2026-06-02 - [PR#1816](https://github.com/NOAA-OWP/inundation-mapping/pull/1816)
 
 This pull request introduces a dedicated preprocessing workflow to identify and fill DEM "pits" (large and deep artificial depressions). This introduces a new input data script to process a directory of DEM files and generates new input filled elevation rasters (new input files). Resolves #815 
@@ -48,7 +51,6 @@ This pull request introduces a dedicated preprocessing workflow to identify and 
 - `config/deny_unit.lst`: updated dem tif file names
 - `src/bash_variables.env`: added in the new input file variables for the pit_filled vrt files
 - `src/run_huc.sh`: added new logic to merge the original input DEM and the pit-filled elevation DEM.
-
 <br/>
 
 ## v4.9.14.0 - 2026-05-13 - [PR#1805](https://github.com/NOAA-OWP/inundation-mapping/pull/1805)
