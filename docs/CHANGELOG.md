@@ -1,6 +1,23 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.15.0 - 2026-06-02 - [PR#1816](https://github.com/NOAA-OWP/inundation-mapping/pull/1816)
+
+This pull request introduces a dedicated preprocessing workflow to identify and fill DEM "pits" (large and deep artificial depressions). This introduces a new input data script to process a directory of DEM files and generates new input filled elevation rasters (new input files). Resolves #815 
+
+### Additions
+
+- `data/usgs/pit_detect_fill.py`: provides a new batch-processing utility that identifies and selectively fills topographic sinks ("pits") using a two tiered approach. 1) OSM informed detection - identifies artificial pits by cross-referencing OSM polygons with terrain detected depressions (richdem filled areas). 2) Terrain-based filtering uses geometric and statistical metrics (depth, circularity, and pixel count) to identify and fill natural sinks that meet criteria but didn't coencide with OSM polys. Creates a series of new output files mimicing the input DEM file structure. 
+
+### Changes
+
+- `config/params_template.env`: updated the `thalweg_lateral_elev_threshold` parameter from 3 meters to 10 meters. This is the max elevation difference allowed in the lateral thalweg search algorithm. This was increased to 10m to allow more flexibility in detecting the terrain-defined thalweg since we've now filled in many of the deep/artificial pits that previously caused issued with the thalweg elevation.
+- `config/deny_unit.lst`: updated dem tif file names
+- `src/bash_variables.env`: added in the new input file variables for the pit_filled vrt files
+- `src/run_huc.sh`: added new logic to merge the original input DEM and the pit-filled elevation DEM.
+
+<br/>
+
 ## v4.9.14.0 - 2026-05-13 - [PR#1805](https://github.com/NOAA-OWP/inundation-mapping/pull/1805)
 
 Upgrades GDAL base image to v3.12.3 (ghcr.io/osgeo/gdal:ubuntu-small-3.12.3) and upgrades Python dependencies. There were a few major hurdles in upgrading beyond the previous GDAL v.3.8.4 primarily due to the fact that v3.8.4 was the last version to use Python 3.10 and GDAL v3.12.3 uses Python 3.12, including:
