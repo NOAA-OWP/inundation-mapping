@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.9.x.x - 2026-06-01 - [PR#1816](https://github.com/NOAA-OWP/inundation-mapping/pull/1816)
+## v4.9.15.0 - 2026-06-02 - [PR#1816](https://github.com/NOAA-OWP/inundation-mapping/pull/1816)
 
 This pull request introduces a dedicated preprocessing workflow to identify and fill DEM "pits" (large and deep artificial depressions). This introduces a new input data script to process a directory of DEM files and generates new input filled elevation rasters (new input files). Resolves #815 
 
