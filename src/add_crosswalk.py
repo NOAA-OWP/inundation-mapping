@@ -68,9 +68,7 @@ def add_crosswalk(
         input_nwmflows.feature_id = input_nwmflows.feature_id.astype(int)
 
     # Merge new HFAB slopes data with NWM flows
-    input_nwmflows = input_nwmflows.merge(
-        hfab_slopes_df, on='feature_id', how='left'
-    )
+    input_nwmflows = input_nwmflows.merge(hfab_slopes_df, on='feature_id', how='left')
 
     # Merge IRIS-SWORD slope data with NWM flows
     input_nwmflows = input_nwmflows.merge(
@@ -514,7 +512,10 @@ if __name__ == '__main__':
         "-i", "--iris-sword-slope", help="Channel slope data from IRIS-SWORD database", required=True
     )
     parser.add_argument(
-        "-p", "--hfab-slope-fileName", help="Parquet file containing hydrofabric ransac slope values", required=True
+        "-p",
+        "--hfab-slope-fileName",
+        help="Parquet file containing hydrofabric ransac slope values",
+        required=True,
     )
 
     args = vars(parser.parse_args())
