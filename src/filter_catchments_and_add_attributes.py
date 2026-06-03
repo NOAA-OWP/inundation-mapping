@@ -12,6 +12,7 @@ from utils.shared_variables import FIM_ID
 
 
 os.environ["GDAL_GPKG_NUM_FEATURES"] = "NO"
+os.environ["GDAL_GEO_BUSY_TIMEOUT"] = "60000"
 
 gpd.options.io_engine = "pyogrio"
 

@@ -18,6 +18,7 @@ from shapely.geometry import Point
 
 
 os.environ["GDAL_GPKG_NUM_FEATURES"] = "NO"
+os.environ["GDAL_GEO_BUSY_TIMEOUT"] = "60000"
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 

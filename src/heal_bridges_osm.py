@@ -14,6 +14,7 @@ from rasterstats import zonal_stats
 
 
 os.environ["GDAL_GPKG_NUM_FEATURES"] = "NO"
+os.environ["GDAL_GEO_BUSY_TIMEOUT"] = "60000"
 
 threatened_percent = 0.75
 
