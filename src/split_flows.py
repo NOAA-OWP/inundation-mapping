@@ -52,6 +52,7 @@ Description
 import argparse
 import sys
 from collections import OrderedDict
+import os
 from os import remove
 from os.path import isfile
 
@@ -68,6 +69,8 @@ from utils.fim_enums import FIM_exit_codes
 from utils.shared_functions import getDriver
 from utils.shared_variables import FIM_ID
 
+
+os.environ["GDAL_GPKG_NUM_FEATURES"] = "NO"
 
 gpd.options.io_engine = "pyogrio"
 

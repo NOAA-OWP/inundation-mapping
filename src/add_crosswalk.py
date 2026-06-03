@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import os
 import sys
 
 import geopandas as gpd
@@ -14,6 +15,8 @@ from utils.fim_enums import FIM_exit_codes
 from utils.shared_functions import getDriver
 from utils.shared_variables import FIM_ID
 
+
+os.environ["GDAL_GPKG_NUM_FEATURES"] = "NO"
 
 # Define acceptable slope range
 SLOPE_MIN = 9.999e-7

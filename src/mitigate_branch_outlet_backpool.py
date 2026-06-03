@@ -17,6 +17,8 @@ from shapely import ops
 from shapely.geometry import Point
 
 
+os.environ["GDAL_GPKG_NUM_FEATURES"] = "NO"
+
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 

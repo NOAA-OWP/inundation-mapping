@@ -11,6 +11,8 @@ from rasterio.mask import mask
 from shapely.geometry import box
 
 
+os.environ["GDAL_GPKG_NUM_FEATURES"] = "NO"
+
 # gpd.options.io_engine = "pyogrio"
 
 

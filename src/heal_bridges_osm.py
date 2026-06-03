@@ -13,6 +13,8 @@ from rasterio.warp import Resampling, reproject
 from rasterstats import zonal_stats
 
 
+os.environ["GDAL_GPKG_NUM_FEATURES"] = "NO"
+
 threatened_percent = 0.75
 
 

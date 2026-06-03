@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import os
 
 import geopandas as gpd
 import numpy as np
@@ -10,6 +11,8 @@ from shapely.geometry import Point
 from utils.shared_functions import getDriver
 from utils.shared_variables import PREP_PROJECTION
 
+
+os.environ["GDAL_GPKG_NUM_FEATURES"] = "NO"
 
 gpd.options.io_engine = "pyogrio"
 
