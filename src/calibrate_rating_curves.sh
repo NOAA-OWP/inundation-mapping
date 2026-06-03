@@ -154,7 +154,8 @@ python3 $srcDir/aggregate_branches_to_huc.py \
     -huc_dir $tempHucDataDir \
     -htable \
     -bridge \
-    -road
+    -road \
+    -building
 
 echo "---- End of Calibration for HUC $hucNumber"
 echo "---- Ended: `date -u`"

@@ -1,32 +1,29 @@
 import argparse
 import datetime as dt
 import glob
-import logging
 import os
+import shlex
+import sys
 import traceback
 import warnings
-from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 import geopandas as gpd
 import osmnx as ox
 import pandas as pd
 import pyproj
+import requests
 from dotenv import load_dotenv
 from networkx import Graph, connected_components
+from osmnx._errors import InsufficientResponseError
 from shapely.geometry import LineString, shape
+
+from src.utils.shared_functions import run_with_mp, setup_mp_file_logger
 
 
 # Set the timeout to 500 seconds (5 minutes), which is possible depending on network speed
 # and network volume (number of jobs)
 ox.settings.request_timeout = 500
-
-"""
-TODO:  Make the huc level osm files in a working dir
-but then save the "final" ones in the output_dir
-
-    MP might not be working, plug in Ali's
-"""
 
 
 # ox.settings.requests_timeout = 1200  # Set timeout to 20 minutes
@@ -37,46 +34,13 @@ ALASKA_CRS = os.getenv('ALASKA_CRS')
 GUAM_CRS = os.getenv('GUAM_CRS')
 AMERICAN_SAMOA_CRS = os.getenv('AMERICAN_SAMOA_CRS')
 
-
-# Save all OSM bridge features by HUC8 to a specified folder location.
-# Bridges will have point geometry converted to linestrings if needed
-
-"""
-Feb 4, 2025: There are a good handful of HUCs that return no data.
-Those HUC8s in the BAD_HUCS list
-
-
-NOTE: 02060006 is a weird one and times out even after 10 mins. Split that one to HUC10's
-"""
-
-BAD_HUCS = [
-    '04160001',
-    '12110102',
-    '13020206',
-    '13020210',
-    '15010006',
-    '16020303',
-    '16020302',
-    '16060003',
-    '16060004',
-    '16060005',
-    '16060006',
-    '16060009',
-    '16060010',
-    '16060011',
-    '16060013',
-    '16060014',
-    '17050109',
-    '18090201',
-    '19020203',
-    '19020800',
-    '20030000',
-    '02060006',
-]
+# TODO: HUC 02060006 remains a known special case. Prior attempts, including splitting to HUC10s,
+# have not produced usable bridge output through the standard osmnx.features_from_polygon(...) workflow.
+# Revisit with an alternative acquisition method.
 
 
 # Dissolve touching lines
-def find_touching_groups(gdf):
+def find_touching_groups(gdf, file_logger, screen_queue, task_id):
     # Create a graph
     graph = Graph()
 
@@ -101,33 +65,39 @@ def find_touching_groups(gdf):
     return groups
 
 
-def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
-    """
-    Returns: The huc number but only if it failed, so we can make a master list of failed HUCs.
-      The errors will be logged as it goes.
-    """
-
+def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom, file_logger, screen_queue, task_id):
     try:
 
         if os.path.exists(huc_bridge_file):
             # remove it
             os.remove(huc_bridge_file)
 
-        logging.info(f" ** Creating gpkg for {huc_num}")
+        file_logger.info(f" ** Creating gpkg for {huc_num}")
+        screen_queue.put(f" ** Creating gpkg for {huc_num}")
 
-        gdf = ox.features_from_polygon(shape(huc_geom), {"bridge": True})
+        try:
+            gdf = ox.features_from_polygon(shape(huc_geom), {"bridge": True})
+        except InsufficientResponseError:
+            file_logger.warning(f"osmnx pull for {huc_num} came back with no matching bridge features")
+            screen_queue.put(f"osmnx pull for {huc_num} came back with no matching bridge features")
+            return 1, [True]
+        except requests.exceptions.ReadTimeout:
+            file_logger.warning(f"osmnx pull for {huc_num} timed out while waiting on Overpass")
+            screen_queue.put(f"osmnx pull for {huc_num} timed out while waiting on Overpass")
+            return 1, [True]
 
         if gdf is None or len(gdf) == 0:
-            logging.info(f"osmnx pull for {huc_num} came back with no records")
-            return huc_num
+            file_logger.warning(f"osmnx pull for {huc_num} came back with no records")
+            screen_queue.put(f"osmnx pull for {huc_num} came back with no records")
+            return 1, [True]
 
-        # Note: Jan 31, 2025: Despite osmnx saying that it sends back a multi-index and the osmid, the field
-        # return is just named "id". The multi-index column names are "element" and "id"
-        # We just drop the "element" index level, then make a copy of of the id (index) column as the osmid.
+        # OSMnx returns a MultiIndex for feature downloads. For this bridge pull, the index levels are
+        # typically "element" and "id", where "id" is the original OSM feature identifier.
+        # Drop the "element" level and copy the remaining index into an explicit "osmid" column so the
+        # source OSM ID is preserved after index resets and when writing to file.
         gdf = gdf.droplevel('element')
 
-        # we need to put this to a temp index file and make a string column version of it
-        # as the true "index (not really)" value from OSM is a bit unstable
+        # Preserve the OSM feature ID as a regular column instead of relying on the GeoDataFrame index.
         gdf["osmid"] = gdf.index
 
         # we will always have a huc8 value but may not have a huc10, depending on what was submitted
@@ -192,6 +162,8 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
             "REF",
             "fixme:maxspeed",
             "LAYER",
+            "OBJECTID",
+            "objectid",
             "unsigned_ref",
             "Fut_Ref",
             "Ref",
@@ -201,10 +173,28 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
             if bad_cn in gdf.columns:
                 cols_to_drop.append(bad_cn)
 
-        if len(cols_to_drop) > 0:
-            gdf = gdf.drop(columns=cols_to_drop, axis=1)
+        # OSM "fixme*" tags are editorial metadata and can arrive with mixed casing
+        # (for example, "fixme:bicycle" and "FIXME:bicycle"), which can cause
+        # duplicate-column failures when writing to GeoPackage/SQLite.
+        for col in gdf.columns:
+            if str(col).lower().startswith("fixme"):
+                cols_to_drop.append(col)
 
-        gdf1 = gdf[gdf.geometry.apply(lambda x: x.geom_type == 'LineString')]
+        if len(cols_to_drop) > 0:
+            gdf = gdf.drop(columns=list(set(cols_to_drop)), axis=1)
+
+        # Keep only linear bridge geometries and rebuild as a GeoDataFrame so geometry ops remain available.
+        linear_geom_types = {'LineString', 'MultiLineString'}
+        gdf1 = gpd.GeoDataFrame(
+            gdf.loc[gdf.geometry.geom_type.isin(linear_geom_types)].copy(), geometry='geometry', crs=gdf.crs
+        )
+
+        if gdf1.empty:
+            file_logger.warning(
+                f"osmnx pull for {huc_num} returned no linear bridge geometries after filtering"
+            )
+            screen_queue.put(f"osmnx pull for {huc_num} returned no linear bridge geometries after filtering")
+            return 1, [True]
 
         if str(huc_num).startswith('19'):
             gdf1 = gdf1.to_crs(ALASKA_CRS)
@@ -219,7 +209,7 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
         buffered = gdf1.copy()
         buffered['geometry'] = buffered['geometry'].buffer(0.0001)
         # Find groups of touching geometries
-        touching_groups = find_touching_groups(buffered)
+        touching_groups = find_touching_groups(buffered, file_logger, screen_queue, task_id)
 
         # Dissolve each group separately
         warnings.filterwarnings('ignore')
@@ -244,16 +234,17 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
         )
         # Reconstruct the GeoDataFrame to remove fragmentation
         final_gdf = final_gdf.copy()
+        final_gdf["osmid"] = final_gdf["osmid"].astype(str)
 
         final_gdf.to_file(huc_bridge_file, driver="GPKG", index=True, engine='fiona')
 
-        # returns the HUC but only if it failed so we can keep a list of failed HUCs
-        return ""
+        return 1, [True]
 
     except Exception:
-        print("---------------")
-        logging.critical(f"**** ERROR: Couldn't write {huc_num}")
-        logging.critical(traceback.format_exc())
+        screen_queue.put("---------------")
+        file_logger.critical(f"**** ERROR: Couldn't write {huc_num}")
+        screen_queue.put(f"**** ERROR: Couldn't write {huc_num}")
+        file_logger.critical(traceback.format_exc())
 
         try:
             # rename and we can filter it out later. Even it fails sometimes
@@ -262,80 +253,66 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
                 new_name = huc_bridge_file.replace(".gpkg", "_bad.gpkg")
                 os.rename(huc_bridge_file, new_name)
         except Exception:
-            print("---------------")
-            logging.critical(
+            screen_queue.put("---------------")
+            file_logger.critical(
+                f"Unable to delete {huc_bridge_file} for huc {huc_num} to add '_bad' in file name"
+            )
+            screen_queue.put(
                 f"Unable to delete {huc_bridge_file} for huc {huc_num} to add '_bad' in file name"
             )
 
-        return huc_num
+        return 0, [False]
 
 
-#
-# Combine all HUC-based OSM bridges from specified folder
-#
-def combine_huc_features(output_dir, file_name_prepend):
-
-    # Becuase we send in an input of the WBD and we have seperate ones for all 4 regions
-    # we need to run this 4 times.
-
-    # only save out a subset of columns, because many hucs have different column names
-    # and data, so you could end up with thousands of columns if you keep them all!
-
-    # Note... files in error have been renamed to {xxxx}_bad.gpkg and will be skipped. To debug later
-
-    # It is ok that we have dup osmid's at this as each point as one bridge can cross a huc boundary
-    # so each huc can add the same osmid. When it gets to the final... it will be clipped and both
-    # halves of the same bridge (in each huc) will have the same osmid. So.. don't change.
-
-    # huc8 will always have the huc8 value but huc10 might be empty
-    logging.info("Combining intermediate files using pattern of huc_*_osm_bridges.gpkg")
-    cols_to_keep = ['osmid', 'name', 'bridge_type', 'huc8', 'huc10', 'geometry']
-    huc_files_paths = glob.glob(f"{output_dir}/huc_*_osm_bridges.gpkg")
-
-    if len(huc_files_paths) == 0:
-        raise Exception("No intermediate files using the pattern of huc_*_osm_bridges.gpkg found")
-
-    gdf = pd.concat((gpd.read_file(f) for f in huc_files_paths), ignore_index=True)[cols_to_keep]
-    if "osmid" in gdf.columns:
-        gdf["osmid"] = gdf["osmid"].astype(str)
-
-    out_path = os.path.join(output_dir, f"{file_name_prepend}_osm_bridges.gpkg")
-    logging.info(f"Writing final output bridge lines file to {out_path}")
-    gdf.to_file(out_path, driver="GPKG", engine="fiona")
-
-    # remove the intermediates from run as it can interfere with next runs as the tools combines
-    # all files in that directory starting with huc_*_osm_bridges.gpkg
-    logging.info(
-        ".. Removing intermediate files from previous runs, if any," " as it can interfere with future runs."
-    )
-    for file_path in huc_files_paths:
-        os.remove(file_path)
-
-
-def process_osm_bridges(wbd_file, output_folder, file_name_prepend, number_of_jobs, lst_hucs):
+def make_logger(output_folder):
     start_time = dt.datetime.now(dt.timezone.utc)
+
+    file_dt_string = start_time.strftime("%y%m%d-%H%M")
+
+    script_file_name = os.path.basename(__file__).split('.')[0]
+    file_name = f"{script_file_name}-{file_dt_string}.log"
+
+    log_file_path = os.path.join(output_folder, file_name)
 
     os.makedirs(output_folder, exist_ok=True)
 
-    # TODO: plug in shared_functions version for logger setup
-    __setup_logger(output_folder)
+    file_logger = setup_mp_file_logger(log_file_path, logger_name="pull_osm_bridges")
+    return file_logger
+
+
+def single_huc_job(huc_num, huc_boundary_path, output_folder, file_logger, screen_queue, task_id):
+    file_logger.info(f"started the process for {task_id}")
+
+    try:
+        huc_gpd = gpd.read_file(huc_boundary_path)
+        huc_gpd_projected = huc_gpd.to_crs(pyproj.CRS.from_string("EPSG:4326"))
+        huc_geom = huc_gpd_projected.iloc[0]["geometry"]
+        huc_bridge_file = os.path.join(output_folder, f"huc_{huc_num}_osm_bridges.gpkg")
+        return pull_osm_features_by_huc(
+            huc_bridge_file, huc_num, huc_geom, file_logger, screen_queue, task_id
+        )
+
+    except Exception:
+        screen_queue.put("---------------")
+        file_logger.critical(f"**** ERROR: Couldn't prepare {huc_num}")
+        screen_queue.put(f"**** ERROR: Couldn't prepare {huc_num}")
+        file_logger.critical(traceback.format_exc())
+        return 0, [False]
+
+
+def process_osm_bridges(preclip_dir, output_folder, number_of_jobs, lst_hucs, file_logger, cli_args=None):
+    start_time = dt.datetime.now(dt.timezone.utc)
 
     print("==================================")
-    logging.info("Starting load of OSM bridge data")
-    logging.info(f"Start time: {start_time.strftime('%m/%d/%Y %H:%M:%S')}")
-    logging.info("")
+    file_logger.info("Starting load of OSM bridge data")
+    if cli_args:
+        file_logger.info(f"CLI invocation: {cli_args}")
+    print("Starting load of OSM bridge data")
+    file_logger.info(f"Start time: {start_time.strftime('%m/%d/%Y %H:%M:%S')}")
+    print(f"Start time: {start_time.strftime('%m/%d/%Y %H:%M:%S')}")
 
-    # --------------------------
-    # Validation
-    if os.path.exists(wbd_file) is False:
-        raise Exception(f"The wbd file of {wbd_file} does not exist")
-
-    split_wbd_file_name = os.path.splitext(wbd_file)
-    if len(split_wbd_file_name) != 2:
-        raise Exception(f"The wbd file of {wbd_file} does not appear to valid file name")
-
-    if str(split_wbd_file_name[1]).lower() != ".gpkg":
-        raise Exception(f"The wbd file of {wbd_file} does not appear to valid a gpkg")
+    if not os.path.exists(preclip_dir):
+        raise ValueError("preclip directory not found")
 
     # -------------------
     # Validation
@@ -353,118 +330,70 @@ def process_osm_bridges(wbd_file, output_folder, file_name_prepend, number_of_jo
     else:
         # remove the intermediates from past run as it can interfere with next runs as the tools combines
         # all files in that directory starting with huc_*_osm_bridges.gpkg
-        logging.info(
+        file_logger.info(
             ".. Removing intermediate files from previous runs, if any,"
             " as it can interfere with future runs."
         )
         for file in Path(output_folder).glob("huc_*_osm_bridges.gpkg"):
             os.remove(file)
 
-    logging.info("*** Reading in and reprojecting the WBD HUC8 file")
+    # Build the HUC domain from preclip folders, matching pull_osm_roads.py.
+    huc_numbers = [
+        str(huc)
+        for huc in os.listdir(preclip_dir)
+        if os.path.isdir(os.path.join(preclip_dir, huc)) and len(huc) == 8
+    ]
 
-    hucs_all = gpd.read_file(wbd_file)
-
-    if len(hucs_all) == 0:
-        raise Exception("wbd_file does not have any records")
-
-    if 'HUC8' not in hucs_all and 'huc10' not in hucs_all:
-        raise Exception("wbd_file is must have column named either 'HUC8' or 'HUC10' (case sensitive)")
-
-    logging.info(f"WBD rec count is {len(hucs_all)} (pre-filtering if applicable)")
-    section_time = dt.datetime.now(dt.timezone.utc)
-    logging.info(f"WBD Loaded: {section_time.strftime('%m/%d/%Y %H:%M:%S')}")
-
-    print("")
-
-    if 'HUC8' in hucs_all:
-        huc_column_name = 'HUC8'
-    else:
-        huc_column_name = 'huc10'
-
-    # If filtering hucs coming in, use it, if not ocntinue
-    if lst_hucs == '':  # process all
-        hucs = hucs_all
-    else:
+    if lst_hucs != '':
         lst_hucs = lst_hucs.strip()
         selected_hucs = lst_hucs.split(" ")
-        hucs = hucs_all[hucs_all[huc_column_name].isin(selected_hucs)]
+        huc_numbers = [huc for huc in huc_numbers if huc in selected_hucs]
 
-    logging.info(f"Number of hucs to process {len(hucs)}")
+    huc_numbers.sort()
 
-    # osm seems to like 4326
-    logging.info("")
-    logging.info("Reprojecting to 4326 (osm seems to like that one)")
-    reproj_hucs = hucs.to_crs(pyproj.CRS.from_string("epsg:4326"))
-    section_time = dt.datetime.now(dt.timezone.utc)
-    logging.info(f"Reprojection done: {section_time.strftime('%m/%d/%Y %H:%M:%S')}")
+    file_logger.info(f"Number of hucs to process {len(huc_numbers)}")
+    print(f"Number of hucs to process {len(huc_numbers)}")
 
     tasks_args_list = []
-    for row in reproj_hucs.iterrows():
-        huc_row = row[1]
-
-        if str(huc_row[huc_column_name]) in BAD_HUCS:
-            logging.info(f"Skipping {huc_row[huc_column_name]} as it is on the bad huc list")
-            continue
-
-        huc_bridge_file = os.path.join(output_folder, f"huc_{huc_row[huc_column_name]}_osm_bridges.gpkg")
-        args = {
-            "huc_num": huc_row[huc_column_name],
-            "huc_bridge_file": huc_bridge_file,
-            "huc_geom": huc_row['geometry'],
-        }
-        tasks_args_list.append(args)
-
-    failed_HUCs_list = []
-    with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
-        futures = {}
-        for row in reproj_hucs.iterrows():
-            huc_row = row[1]
-
-            if str(huc_row[huc_column_name]) in BAD_HUCS:
-                logging.info(f"Skipping {huc_row[huc_column_name]} as it is on the bad huc list")
-                continue
-
-            huc_bridge_file = os.path.join(output_folder, f"huc_{huc_row[huc_column_name]}_osm_bridges.gpkg")
-            args = {
-                "huc_num": huc_row[huc_column_name],
-                "huc_bridge_file": huc_bridge_file,
-                "huc_geom": huc_row['geometry'],
+    for huc_num in huc_numbers:
+        tasks_args_list.append(
+            {
+                "huc_num": huc_num,
+                "huc_boundary_path": os.path.join(preclip_dir, huc_num, "wbd.gpkg"),
+                "output_folder": output_folder,
             }
-            future = executor.submit(pull_osm_features_by_huc, **args)
-            futures[future] = future
+        )
 
-        for future in as_completed(futures):
-            if future is not None:
-                if not future.exception():
-                    failed_huc = future.result()
-                    if failed_huc != "":
-                        failed_HUCs_list.append(failed_huc)
-                else:
-                    raise future.exception()
+    # Run multiprocessing
+    mp_results = run_with_mp(
+        task_function=single_huc_job,
+        tasks_args_list=tasks_args_list,
+        file_logger=file_logger,
+        max_workers=number_of_jobs,
+        task_id_key="huc_num",  # to label logs by HUC ID
+        show_progress=True,
+    )
 
-    logging.info("")
-    section_time = dt.datetime.now(dt.timezone.utc)
-    logging.info(f"Combining huc feature files started: {section_time.strftime('%m/%d/%Y %H:%M:%S')}")
+    # report a summary of MP tasks status
+    failed_tasks = [tid for tid, payload in mp_results.items() if not payload[0]]
 
-    # all huc8 processing must be completed before this function call
-    combine_huc_features(output_folder, file_name_prepend)
-
-    if len(failed_HUCs_list) > 0:
-        logging.info("\n+++++++++++++++++++")
-        logging.info("HUCs that failed to download from OSM correctly are:")
-        huc_error_msg = "... "
-        for huc_row in failed_HUCs_list:
-            huc_error_msg += f", {huc_row} "
-        logging.info(huc_error_msg)
-        logging.info("  See logs for more details on each HUC fail")
-        logging.info("+++++++++++++++++++")
+    if not failed_tasks:
+        file_logger.info("✅ All multiprocessing tasks Succeeded")
+        print("✅ All multiprocessing tasks Succeeded")
+    else:
+        file_logger.info(f"❌ {len(failed_tasks)} failed:")
+        print(f"❌ {len(failed_tasks)} failed:")
+        for tid in failed_tasks:
+            file_logger.info(f"  - {tid}")
+            print(f"  - {tid}")
 
     # Get time metrics
     end_time = dt.datetime.now(dt.timezone.utc)
-    logging.info("")
-    logging.info("==================================")
-    logging.info("OSM bridge data load complete")
-    logging.info(f"   End time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}")
+    file_logger.info("")
+    file_logger.info("==================================")
+    file_logger.info("OSM bridge data load complete")
+    print("OSM bridge data load complete")
+    file_logger.info(f"   End time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}")
 
     time_delta = end_time - start_time
     total_seconds = int(time_delta.total_seconds())
@@ -475,125 +404,35 @@ def process_osm_bridges(wbd_file, output_folder, file_name_prepend, number_of_jo
 
     time_fmt = f"{total_hours:02d} hours {total_mins:02d} mins {seconds:02d} secs"
 
-    logging.info(f"Duration: {time_fmt}")
-    print()
-    return
-
-
-def __setup_logger(outputs_dir):
-    '''
-    Set up logging to file. Since log file includes the date, it will be overwritten if this
-    script is run more than once on the same day.
-    '''
-    start_time = dt.datetime.now(dt.timezone.utc)
-    file_dt_string = start_time.strftime("%y%m%d-%H%M")
-
-    script_file_name = os.path.basename(__file__).split('.')[0]
-    file_name = f"{script_file_name}-{file_dt_string}.log"
-
-    log_file_path = os.path.join(outputs_dir, file_name)
-
-    if not os.path.exists(outputs_dir):
-        os.mkdir(outputs_dir)
-
-    # set up logging to file
-    logging.basicConfig(
-        filename=log_file_path, level=logging.INFO, format='[%(asctime)s] %(message)s', datefmt='%H:%M:%S'
-    )
-    logging.captureWarnings(True)
-
-    # set up logging to console
-    console = logging.StreamHandler()
-    console.setLevel(logging.DEBUG)
-    # set a format which is simpler for console use
-    # add the handler to the root logger
-    logging.getLogger('').addHandler(console)
-
-    # logger = logging.getLogger(__name__)
+    file_logger.info(f"Duration: {time_fmt}")
+    print(f"Duration: {time_fmt}")
 
 
 if __name__ == "__main__":
 
     '''
-
-    This should be run 4 times, one for CONUS, AK, Guam and American Somoa.
-    Each has a WBD folder it needs and it needs to make a seperate bridge lines output file
-    for each of the four types.
-
-    You can also consider writing to a local EC2 dir which would be faster than copy it to
-    EFS.
-
-    Sample usage (min params):
-
-        (For )
+    Sample usage:
         python3 /foss_fim/data/bridges/pull_osm_bridges.py
-            -w /data/inputs/wbd/WBD_National_HUC8_CONUS.gpkg
-            -p /data/inputs/osm/bridges/bridge_lines/20250207/
-            -fp "conus"
+            -p /data/inputs/pre_clip_huc8/20250218
+            -o /data/inputs/osm/bridges/bridge_lines/20250207/
             -j 10
             -lh '01010002 12090301'
 
-        ** The -lh flg is an optional list of HUC8 if you want to process just those hucs
-           if you want all HUC8s in the WBD you submit, leave this arg off
 
-        ** This can auto accept either a HUC8 input file or a HUC10. As long as it has a field
-           named HUC8 or HUC10 or mix/match with multiple runs of this tool. It will merge
-           all successful output files into the final combined file(s)
+    Code Usage
+    This tool follows the same HUC discovery method used by pull_osm_roads.py.
+    It reads HUC folders from the preclip directory, so one run can process all HUCs
+    present in that folder layout, including CONUS, Alaska, Guam, and American Samoa.
 
-        ** -fp is file_prepend and is added to the output file name.
-           -fp "conus" becomes an output files of conus_osm_bridges.gpkg
-            We generally us the phrases of "conus", "alaska", "guam", "samoa"
+        - One HUC8 was too big for osmnx to handle and kept timing out.
 
-
-    Note: Jan 2026.
-          This should be run 4 times, one for CONUS, AK, Guam and American Somoa.
-          Each has a WBD folder it needs and it needs to make a seperate bridge lines output file
-          for each of the four types.
-
-          Current WBD's for each of the 4 runs are:
-          - CONUS = /data/inputs/wbd/WBD_National_HUC8_CONUS.gpkg
-          - AK = /data/inputs/wbd/WBD_National_South_Alaska.gpkg
-          - GU = /data/inputs/wbd/WBD_Guam_6637.gpkg
-          - AS = /data/inputs/wbd/WBD_AmericanSamoa_32702.gpkg
-
-          There is a new WBD National in 5070 just for CONUS, HI and PR. This results in selected
-          HUCs in the 01x to 18x, but leaves out the 19x (Alaska). It does include some of the
-          20x and 21x but not Guam (22010000) or American Samoa (22030001)
-
-        - One HUC8 was too big for osmnx to handle adn kept timing out. So, we split that HUC8
-          to HUC10's and feed it through this tool again.
-          02060000  -- WBD_National_HUC10_for_osm_pull_02060006.gpkg
-
-        - This tool is meant to pull down all the Open Street Map bridge data for CONUS as a
+        - This tool is meant to pull down all the Open Street Map bridge data as a
         precursor to the bridge healing pre-processing (so, a pre-pre-processing step).
         It should be run only as often as the user thinks OSM has had any important updates.
-        - As written, the code will skip any HUC that there's already a file for if you save
-          an existing folder.
 
-        - Each HUC8/10's worth of OSM bridge features is saved out individually, then merged together
-        into one.
 
-    New Feature: Jan 31, 2025:  (re-run the tool more than once and still get a final merged valid file)
-        Scenerio:
-        You run a full WBD and let's say 3 HUCs failed for whatever reasons, let's say two failed for
-        timeouts.
-
-        Now, the successfully processed HUCs gpkgs stay in the folder. We no longer remove them. The ones
-        that failed first time, we renamed to have the word "bad.gpkg". That convention means the "bad" ones
-        fall out and are not included in the final HUC rollup gpkg.
-
-        Now, with the ability to an new input arg for just specific HUCs to be processed, you can
-        re-run this tool with no changes but use the "-lh" flag to run just those specific HUCs
-        you want to retry ie) the failed ones that are eligible for re-run.
-
-        I will re-run those hucs, but then fully recalc the final outputs gpkgs, so now you have a
-        correct final gpkg with the originally successful plus the new re-submitted ones.
-
-    '''
 
     ###############################
-    #
-    # You will need to run this twice, one for CONUS and one for AK
     #
     # When you run, this tool, a few additional tools will need to be run.
     #
@@ -604,19 +443,19 @@ if __name__ == "__main__":
     #    need new lidar or dem diffs.
     #
     ###############################
+    '''
 
     parser = argparse.ArgumentParser(description='Acquires and saves Open Street Map bridge features')
 
     parser.add_argument(
-        '-w',
-        '--wbd-file',
-        help='REQUIRED: location the gpkg file that will'
-        ' contain all the HUC8/10 clip regions in one layer. Must contain field HUC8 or HUC10.',
+        '-p',
+        '--preclip_dir',
+        help='REQUIRED: folder path where the preclip HUC folders are located.',
         required=True,
     )
 
     parser.add_argument(
-        '-p',
+        '-o',
         '--output-folder',
         help='REQUIRED: folder path location where individual HUC8 geopackages'
         ' will be saved to after being downloaded from OSM.'
@@ -626,20 +465,11 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        '-fp',
-        '--file_name_prepend',
-        help='REQUIRED: generally use values as conus, ak, guam or samoa.'
-        ' Whatever value that is prepended is add to format *_osm_bridges.gpkg,'
-        ' such as conus_osm_bridges,gpkg',
-        required=True,
-    )
-
-    parser.add_argument(
         '-j',
         '--number-of-jobs',
         help='OPTIONAL: Number of (jobs) cores/processes to used.',
         required=False,
-        default=1,
+        default=4,
         type=int,
     )
 
@@ -647,17 +477,20 @@ if __name__ == "__main__":
         '-lh',
         '--lst-hucs',
         help='OPTIONAL: Space-delimited list of HUCs to which can be used to filter osm bridge processing.'
-        ' Defaults to all HUC8s in the WBD input file.',
+        ' Defaults to all HUC8s in the preclip directory.',
         required=False,
         default='',
     )
 
     args = vars(parser.parse_args())
+    args["cli_args"] = shlex.join(sys.argv)
+
+    file_logger = make_logger(args["output_folder"])
 
     try:
-        process_osm_bridges(**args)
+        process_osm_bridges(**args, file_logger=file_logger)
 
     except Exception:
-        logging.critical(traceback.format_exc())
+        file_logger.critical(traceback.format_exc())
         end_time = dt.datetime.now(dt.timezone.utc)
-        logging.critical(f"   End time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}")
+        file_logger.critical(f"   End time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}")

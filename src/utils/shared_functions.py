@@ -44,7 +44,12 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
     ie) setup_file_logger("/ouputs/mylogs", "pull_osm_bridges")
     The log name becomes "/outputs/mylogs/pull_osm_bridges_20250925_1842.log
 
-    This one is not meant to be used for MP's.
+    This one is generally not meant to be used for MP's but this needs to be confirmed.
+    The problem with loggers being used inside some MP's is that each MP process can potentially
+    be writing to the same file at the same time.  If you have a process even if it is in an
+    MP, as long as it has its own unique MP log file names, you can use this one.
+    ie)  huc_12090301_inundate_20260217.log
+
     It prints to file and screen at the same time.
 
     This one is very similar to 'setup_mp_file_logger' but has a few critical differences.
@@ -70,7 +75,7 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
         raise ValueError("log file name prefix can not be None or empty")
 
     # Example with a different permission (e.g., full access for everyone)
-    permissions_code = 0o664
+    permissions_code = 0o776
     os.makedirs(log_file_dir, mode=permissions_code, exist_ok=True)
     # even though we used os.makedirs, it does not mean it had permission to make the dir
     # the mode is for permissions of the folder once is created.
@@ -80,7 +85,17 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
     file_dt_string = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M")
     log_file_name = f"{log_file_name_prefix}_{file_dt_string}.log"
     log_file_path = os.path.join(log_file_dir, log_file_name)
+
+    permissions_code = 0o777
+
+    # we will assume the parent folder already exists
+    os.makedirs(log_file_dir, exist_ok=True, mode=permissions_code)
     print(f"Logs saved to: {log_file_path}")
+
+    # even though we used os.makedirs, it does not mean it had permission to make the dir
+    # the mode is for permissions of the folder once is created.
+    if not os.path.isdir(log_file_dir):
+        raise Exception("This script likely does have permission to add a log folder")
 
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
@@ -100,17 +115,35 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
     err_file_handler = logging.FileHandler(error_file_name)
     err_file_handler.setLevel(logging.ERROR)
     err_file_handler.setFormatter(formatter)
+    os.chmod(error_file_name, mode=permissions_code)
 
-    # # basic file handler
+    # warning file handler
+    warning_file_name = log_file_path.replace(".log", "-warnings.log")
+    warn_file_handler = logging.FileHandler(warning_file_name)
+    warn_file_handler.setLevel(logging.WARNING)
+    warn_file_handler.setFormatter(formatter)
+    # Filter to exclude ERROR and CRITICAL from warnings file
+    warn_file_handler.addFilter(lambda record: record.levelno < logging.ERROR)
+    os.chmod(warning_file_name, mode=permissions_code)
+
+    # basic file handler
     file_handler = logging.FileHandler(log_file_path)
-    file_handler.setFormatter(formatter)
     file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(formatter)
+    os.chmod(log_file_path, mode=permissions_code)
 
     logger.handlers.clear()  # reset the custom logger settings below
     # order matters here
     logger.addHandler(err_file_handler)
+    logger.addHandler(warn_file_handler)
     logger.addHandler(file_handler)
     logger.addHandler(console_handler)
+
+    # Current functionality:
+    # .log file will get: INFO, WARNING, ERROR, CRITICAL
+    # -warnings.log file will get: WARNING (but not ERROR or CRITICAL)
+    # -errors.log file will get: ERROR and CRITICAL
+    # DEBUG will not end up in any of them
 
     return log_file_path
 
@@ -151,7 +184,7 @@ def setup_mp_file_logger(log_file_path: str, logger_name: str, level=logging.DEB
         raise Exception("log file name must end with .log")
 
     abs_path = os.path.abspath(log_file_path)
-    permissions_code = 0o664
+    permissions_code = 0o776
     log_folder = os.path.dirname(abs_path)
     os.makedirs(log_folder, mode=permissions_code, exist_ok=True)
     # even though we used os.makedirs, it does not mean it had permission to make the dir
@@ -189,11 +222,22 @@ def setup_mp_file_logger(log_file_path: str, logger_name: str, level=logging.DEB
         err_file_handler = logging.FileHandler(error_file_name)
         err_file_handler.setLevel(logging.ERROR)
         err_file_handler.setFormatter(formatter)
+        os.chmod(error_file_name, mode=permissions_code)
         logger.addHandler(err_file_handler)
+        os.chmod(error_file_name, mode=permissions_code)
+
+        # warning file handler
+        warning_file_name = log_file_path.replace(".log", "-warnings.log")
+        warning_file_handler = logging.FileHandler(warning_file_name)
+        warning_file_handler.setLevel(logging.WARNING)
+        warning_file_handler.setFormatter(formatter)
+        logger.addHandler(warning_file_handler)
+        os.chmod(warning_file_name, mode=permissions_code)
 
         file_handler = logging.FileHandler(log_file_path)
         file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(formatter)
+        os.chmod(log_file_path, mode=permissions_code)
         logger.addHandler(file_handler)
         logger.propagate = False  # avoid logging to root logger too
 
@@ -235,7 +279,7 @@ def run_with_mp(
     tasks_args_list,
     file_logger,
     max_workers=4,
-    task_id_key=None,  # must be one of the keys in the args list
+    task_id_key=None,  # must not be None and must be one of the keys in the args list.
     show_progress=True,
 ):
     '''
@@ -243,8 +287,10 @@ def run_with_mp(
 
     NOTES:
     This setup is using a shared log file and it is ok for now assuming that:
-        - we have limitted amount of logs (3-4 lines per subprocess) in multiprocessing work
+        - we have limitted amount of logs (3-4 lines per subprocess) in multiprocessing work.
+
         - total number of subprocesses is modest (e.g., less than 50), not hundreds or thousands.
+
         - if we encounter a case that this does not work correctly, then we can improve it by creating one
            log file per task and combining them afterward.
 
@@ -253,12 +299,17 @@ def run_with_mp(
         " This wrapper catches unexpected crashes (e.g., segfaults or crashes in subprocesses).
         " Inside helper functions feel free to log any information. but no need to raise errors.
         " The only exception is that when we really need to address a special case like API limits and wait and retry.
-    - Inside your task function or helpers, log live messages using screen_queue.put(msg).
-    - These will appear in the main process via tqdm.write() and won't interrupt the progress bar.
-    - Always pass three additional arguments into task_function and its helpers: file_logger ,screen_queue and task_id.
-        - Do not use any print statements after start of multiprocessing in the task function or inside its helper functions. Instead use screen_queue.put().
-        - use file_logger.info() to log the message in the log file
 
+    - Inside your task function or helpers, log live messages using screen_queue.put(msg) if the screen_queue
+        has been passed to the child mp function.
+
+    - These will appear in the main process via tqdm.write() and won't interrupt the progress bar.
+
+    - Always pass three additional arguments into task_function and its helpers: file_logger ,screen_queue and task_id.
+        - Do not use any print statements after start of multiprocessing in the task function or inside its helper
+          functions. Instead use screen_queue.put().
+
+        - Use file_logger.info() to log the message in the log file.
     '''
 
     # +++++++++++++++++++++
@@ -294,6 +345,19 @@ def run_with_mp(
     #          -1, [None]  (Catestrophic fail, shut down the entire script)
 
     # ++++++++++++++++++++++
+
+    # Validation
+    if not task_function:
+        raise Exception("task_function argument can not be None or empty")
+    if tasks_args_list is None or len(tasks_args_list) == 0:
+        raise Exception("tasks_args_list can not be None or empty")
+    if file_logger is None or not isinstance(file_logger, logging.Logger):
+        raise Exception("file_logger is either None or is not a logging class")
+    if not task_id_key:
+        raise Exception("task_id_key can not be None or empty")
+
+    # TODO: Add a validation test to ensure the task_id_key exists as a poplated key in all items
+    # in the tasks_args_list.
 
     try:
         # the thread must be inside the try catch to be closed correct in system fail.
@@ -345,7 +409,7 @@ def run_with_mp(
         # When an MP dies and we want to shut down the app, we have to let it finish the wip mps, then we can
         #   abort and stop new ones from firing.
 
-        # CTRL-C a number of times from console will stop the two program faster, but will leave orphaned memory
+        # CTRL-C entered multiple of times from console will stop the two program faster, but will leave orphaned memory
         #    leaks.  If you do this, close your container to release the memory leaks and restart a new container.
 
         results = {}
@@ -514,37 +578,79 @@ def getDriver(fileName):
     return driver
 
 
+# ============================
 # Assumes the env file has been loaded into the os.environ objects
-def get_value_from_env(arg_key, env_file_path):
+def get_value_from_env(arg_key):
     '''
     Notes:
         - This assumes the env has already been loaded. The env_file_path is for error messages only.
         - we don't actually load the file here as we could be loading more than once.
-    Params:
-        - arg_key is the variables in the loaded environment object
-        - validate_local_file_exists: if False, do not validate that the file exists
-             Note: not all uses of this tool will be for file paths
-             ** Only work on S3 paths at this time
     Returns
         - The arg_key value. The return value may also have placeholders such as "mypath/{some version}/",
           which can be subsituted somewhere else.
     '''
-
-    env_file_name = ""
-
     if arg_key is None or arg_key == "":
-        raise Exception("arg key is missing or empty")
+        raise Exception("env_var_name key is missing or empty")
 
-    arg_value = os.environ[arg_key]
+    env_value = os.environ[arg_key]
 
-    if arg_value is None or arg_value.strip() == "":
-        if env_file_path is None or env_file_path.strip() == "":
-            env_file_name = "Undefined"
-        raise ValueError(f"Env file of {env_file_name} : {arg_key} variable does not exist or empty")
+    if env_value is None or env_value.strip() == "":
+        raise ValueError(f"Env variable of {arg_key} does not exist or empty")
 
-    return arg_value.strip()
+    return env_value.strip()
 
 
+# ============================
+def get_env_value(env_var_name):
+    """
+    This function can load a variable value from the enviro.
+    If the enviro value has {} in it, it can auto use recursive subsitution
+    to fill out the entire return value.
+
+    ie) looking to load HV_PUSH_HAND_CMD:
+       First pass it comes back with  =
+         "aws s3 sync {FIM_HAND_DATASET_LOCAL_PATH} s3://{HV_S3_BUCKET_NAME}/{HV_S3_ROOT_HANDSET_PATH}..."
+       It will iterate up to 3 more times to fill in those values. Note: Some of those values
+       require additional subsitution.
+       ie) FIM_HAND_DATASET_LOCAL_PATH returned with {} above and needs to be further subsitution.
+           FIM_HAND_DATASET_LOCAL_PATH = "/data/previous_fim/hand_{HAND_VERSION}"
+       It will iterate again to subsitute {HAND_VERSION}
+
+    This can do three levels of embedded subsitution
+
+    Note: While not pretty, it knows variable names that could be used in recursion.
+    TODO: think up something smarter. likely just use recursion to call this function.
+    """
+
+    env_value = get_value_from_env(env_var_name)
+    if "{" not in env_value and "}" not in env_value:
+        return env_value
+
+    # had trouble getting recursion working, so just loop through it up to ten times
+    value_adj_done = False  # helps manage when we know there are no more subsitutions required
+    for i in range(10):
+        if value_adj_done:
+            break
+
+        # extract sub_key
+        # Find the indices of the start and end characters
+        start_index = env_value.find("{")
+        end_index = env_value.find("}")
+
+        # Check if both characters are found
+        if start_index != -1 and end_index != -1:
+            extracted_key = env_value[start_index + len("{") : end_index]
+            extracted_value = get_env_value(extracted_key)
+            env_value = env_value.replace("{" + extracted_key + "}", extracted_value)
+
+        if "{" not in env_value and "}" not in env_value:
+            value_adj_done
+            break
+
+    return env_value
+
+
+# ============================
 # Adds a starting and ending slash if not already there
 def add_slashes_to_path(file_path):
     if not file_path.endswith("/"):
@@ -757,10 +863,43 @@ def clean_huc_value(huc):
     return huc
 
 
-########################################################################
+def calculate_duration_msg(start_dt):
+    '''
+    Process:
+    -------
+    Calcuates the difference in time between the start and curerent end time (in UTC)
+    and returns is as:
+
+        Duration: 4 hours 23 mins 15 secs
+
+    Make sure your start_dt is in UTC
+
+    '''
+
+    # if include_log and not isinstance( logging_instance, logging.Logger):
+    #     raise Exception("You have requested to log the duration to file, but the logging_instance"
+    #                     " does not appear to be an instance of logging.Logger (or a custom version).")
+
+    end_dt = datetime.now(timezone.utc)
+    # dt_string = end_dt.strftime("%m/%d/%Y %H:%M:%S")
+
+    time_delta = end_dt - start_dt
+    total_seconds = int(time_delta.total_seconds())
+
+    total_days, rem_seconds = divmod(total_seconds, 60 * 60 * 24)
+    total_hours, rem_seconds = divmod(rem_seconds, 60 * 60)
+    total_mins, seconds = divmod(rem_seconds, 60)
+
+    if total_days > 0:
+        total_hours = (total_days * 24) + total_hours
+
+    time_fmt = f"Duration: {total_hours:02d} hours {total_mins:02d} mins {seconds:02d} secs"
+
+    return time_fmt
 
 
 # #####################################
+# TODO: Oct 2025: Get Rid of this class and move/adjust desired functions above.
 class FIM_Helpers:
     # -----------------------------------------------------------
     @staticmethod

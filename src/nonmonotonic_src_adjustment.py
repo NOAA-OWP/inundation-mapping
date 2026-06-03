@@ -20,6 +20,10 @@ import pandas as pd
 # Analysing each HydroID SRC for nonmonotonic SRC
 def analyze_nonmonotonic_src(srcs_df, strm_order):  # , thalweg_hydroids
 
+    # Inject the group key back into the dataframe to maintain Pandas 3.0 compatibility
+    # when include_groups=False is passed from the parent groupby
+    srcs_df['HydroID'] = srcs_df.name
+
     # Only apply on stream orders >= strm_order
     if srcs_df['order_'].iloc[0] < strm_order:
         return srcs_df
@@ -109,6 +113,7 @@ def correct_nonmonotonic_src(huc_dir, huc, strm_order):  # , bankfull_flows_file
         src_0_df = pd.read_csv(src_full_0, low_memory=False)
         ht_0_df = pd.read_csv(ht_0_path, low_memory=False)
 
+        src_0_df['Bathymetry_source'] = src_0_df['Bathymetry_source'].astype('object')
         src_0_df.loc[src_0_df['Bathymetry_source'] == str(0), 'Bathymetry_source'] = 'No Bathymetry Applied'
         src_0_df.loc[src_0_df['Bathymetry_source'] == 0, 'Bathymetry_source'] = 'No Bathymetry Applied'
         src_0_df['Bathymetry_source'] = src_0_df['Bathymetry_source'].fillna('No Bathymetry Applied')
@@ -168,7 +173,7 @@ def correct_nonmonotonic_src(huc_dir, huc, strm_order):  # , bankfull_flows_file
 
         # Adjusting src tables for nonmonotonic SRCs
         src_df4 = src_df2.groupby('HydroID', group_keys=False).apply(
-            analyze_nonmonotonic_src, strm_order=strm_order
+            analyze_nonmonotonic_src, strm_order=strm_order, include_groups=False
         )
 
         # Make sure nonmonotonic adjustment just applied within in-channel stages
@@ -192,6 +197,7 @@ def correct_nonmonotonic_src(huc_dir, huc, strm_order):  # , bankfull_flows_file
         # Write src back to file
         src_df = src_df4.copy()
         # Make sure there is no nan values
+        src_df['Bathymetry_source'] = src_df['Bathymetry_source'].astype('object')
         src_df.loc[src_df['Bathymetry_source'] == 0, 'Bathymetry_source'] = 'No Bathymetry Applied'
         src_df['Bathymetry_source'] = src_df['Bathymetry_source'].fillna('No Bathymetry Applied')
 

@@ -16,6 +16,9 @@ import pandas as pd
 # -------------------------------------------------------
 # Function to use RFC Bathymetry where available over eHydro Data
 def ohrfc_bathy_precedence(group):
+    # Re-inject the grouping column
+    group['feature_id'] = group.name
+
     ohrfc_source = 'OHRFC provided bathymetry, compiled from USACE data'
     ohrfc_data = group['Bathymetry_source'] == ohrfc_source
     if ohrfc_data.any():
@@ -100,7 +103,7 @@ def correct_rating_for_ehydro_bathymetry(huc_dir, huc, bathy_file_ehydro):
                     ['feature_id', 'missing_xs_area_m2', 'missing_wet_perimeter_m', 'Bathymetry_source']
                 ]
                 .groupby('feature_id')
-                .apply(ohrfc_bathy_precedence)  # , include_groups=False)
+                .apply(ohrfc_bathy_precedence, include_groups=False)
                 .reset_index(drop=True)
             )
 
@@ -322,6 +325,9 @@ def correct_rating_for_ai_bathymetry(huc_dir, huc, strm_order, bathy_file_aibase
             src_df = src_df.merge(aib_df, on='feature_id', how='left', validate='many_to_one')
 
             mask = src_df["Bathymetry_source_x"].isna()
+
+            # Explicitly cast the Bathymetry_source_x to 'object' dtype so it can accept strings
+            src_df["Bathymetry_source_x"] = src_df["Bathymetry_source_x"].astype(object)
 
             src_df.loc[mask, "missing_xs_area_m2_x"] = src_df.loc[mask, "missing_xs_area_m2_y"]
             src_df.loc[mask, "missing_wet_perimeter_m_x"] = src_df.loc[mask, "missing_wet_perimeter_m_y"]

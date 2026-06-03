@@ -82,7 +82,11 @@ def __mp_get_flows_for_site(
 
         # Get the stages and flows
         ___, flows, ___ = tsf.get_thresholds(
-            threshold_url, select_by='nws_lid', selector=nws_lid, threshold='all'
+            threshold_url,
+            select_by='nws_lid',
+            selector=nws_lid,
+            threshold='all',
+            source_crs_availability=None,
         )
 
         site_flows_df = pd.DataFrame()
@@ -585,6 +589,7 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir):
     try:
         logging.info("Retrieving new USGS rating curves")
         logging.info(f"Started {display_dt_string} (UTC)")
+        print(f"    Logs will be saved to {log_file_path}")
         print()
         print(f"Saving results in {output_dir}")
         print()

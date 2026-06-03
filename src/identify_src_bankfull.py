@@ -91,7 +91,7 @@ def src_bankfull_lookup(args):
 
         if negative_flows > 0:
             log_text += (
-                'WARNING: HUC: '
+                'INFO: HUC: '
                 + str(huc)
                 + '  branch id: '
                 + str(branch_id)

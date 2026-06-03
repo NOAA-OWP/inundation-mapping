@@ -81,7 +81,8 @@ read ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy\
 
 ## RASTERIZE REACH BOOLEAN (1 & 0) ##
 echo -e $startDiv"Rasterize Reach Boolean $hucNumber $current_branch_id"
-gdal_rasterize -q -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" \
+gdal_rasterize -q -at -ot Int32 -burn 1 -init 0 -a_nodata -9999 \
+    -co "BIGTIFF=YES" \
     -te $xmin $ymin $xmax $ymax \
     -ts $ncols $nrows $tempCurrentBranchDataDir/nwm_subset_streams_levelPaths_extended_$current_branch_id.gpkg \
     $tempCurrentBranchDataDir/flows_grid_boolean_$current_branch_id.tif
@@ -129,11 +130,25 @@ fi
 echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber $current_branch_id"
 mpiexec $taudemDir2/d8flowdir \
     -fel $tempCurrentBranchDataDir/dem_burned_filled_$current_branch_id.tif \
-    -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$current_branch_id.tif
+    -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$current_branch_id.tif \
+    2> >(while read -r line; do
+        # Check if BOTH strings are present in the error line
+        if [[ "$line" == *"ERROR 6:"* && "$line" == *"Dataset does not support the AddBand() method."* ]]; then
+            # Do nothing (ignore the error)
+            :
+        else
+            # Print the line to the standard error stream (screen)
+            echo "$line" >&2
+        fi
+    done)
+    # May 1, 2026: Merge config between Ryan and Matt gdal PR. commented out Ryans. Can we marry the two? do we want too?    
+    # 2>&1 | sed -e 's/.*no output sd8 file specified.*/INFO: TauDEM d8flowdir running without optional sd8 slope output./I' \
+    #            -e 's/.*no output p file specified.*/INFO: TauDEM d8flowdir running without optional sd8 slope output./I'
 
 ## RASTERIZE NWM Levelpath HEADWATERS (1 & 0) ##
-echo -e $startDiv"Rasterize NHD Headwaters $hucNumber $current_branch_id"
-gdal_rasterize -q -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" \
+echo -e $startDiv"Rasterize NWM Headwaters $hucNumber $current_branch_id"
+gdal_rasterize -q -ot Int32 -burn 1 -init 0 -a_nodata -9999 \
+     -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" \
     -te $xmin $ymin $xmax $ymax \
     -ts $ncols $nrows \
     $tempCurrentBranchDataDir/nwm_subset_streams_levelPaths_dissolved_headwaters_$current_branch_id.gpkg \
