@@ -32,9 +32,8 @@ NOT_HEADWATER_COVERAGE_THRESHOLD = 0.60
 
 _WORKER_DOMAIN_UNION_BUFFERED = None
 
-previous_hand_dir = '/data/previous_fim/hand_4_9_9_0'
-ripple_dir = '/outputs/'
-ripple_whitelist_table = 'ripple_feature_list_20260310_huc_considered_delivered.csv'
+# previous_hand_dir = '/data/previous_fim/hand_4_9_9_0'
+# ripple_whitelist_table = 'ripple_feature_list_20260310_huc_considered_delivered.csv'
 
 
 def load_huc_validated_whitelist(ripple_dir, ripple_whitelist_table, previous_hand_dir):
@@ -614,7 +613,13 @@ def select_valid_streams(streams_gdf, merged_domain_whitelist_gdf, n_workers, ch
 
 
 def process_streams_save_outputs(
-    ripple_dir, ripple_whitelist_table, ripple_domain_gpkg, ripple_collections_dir, n_workers, chunksize
+    ripple_dir,
+    ripple_whitelist_table,
+    previous_hand_dir,
+    ripple_domain_gpkg,
+    ripple_collections_dir,
+    n_workers,
+    chunksize,
 ):
 
     whitelist_df = load_huc_validated_whitelist(ripple_dir, ripple_whitelist_table, previous_hand_dir)
@@ -720,6 +725,13 @@ if __name__ == "__main__":
         ),
     )
     parser.add_argument(
+        "-hd",
+        "--previous-hand-dir",
+        required=True,
+        type=str,
+        help=("Path to previous_hand_dir: '/data/previous_fim/hand_4_9_9_0'."),
+    )
+    parser.add_argument(
         "-dg",
         "--ripple-domain-gpkg",
         required=True,
@@ -755,11 +767,18 @@ if __name__ == "__main__":
 
     ripple_dir = args["ripple_dir"]
     ripple_whitelist_table = args["ripple_whitelist_table"]
+    previous_hand_dir = args["previous_hand_dir"]
     ripple_domain_gpkg = args["ripple_domain_gpkg"]
     ripple_collections_dir = args["ripple_collections_dir"]
     n_workers = args["n_workers"]
     chunksize = args["chunksize"]
 
     process_streams_save_outputs(
-        ripple_dir, ripple_whitelist_table, ripple_domain_gpkg, ripple_collections_dir, n_workers, chunksize
+        ripple_dir,
+        ripple_whitelist_table,
+        previous_hand_dir,
+        ripple_domain_gpkg,
+        ripple_collections_dir,
+        n_workers,
+        chunksize,
     )
