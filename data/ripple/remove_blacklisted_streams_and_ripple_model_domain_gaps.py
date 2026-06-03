@@ -22,9 +22,9 @@ TARGET_CRS = "EPSG:5070"
 EDGE_TOLERANCE_M = 300
 
 # Keep the largest 90% of each collection's disconnected domain components by area.
-RETAIN_COMPONENT_COUNT_FRACTION = 0.90
-# MIN_COMPONENT_AREA_FRACTION = 0.20
-MAX_STREAMS_FOR_COMPONENT_EXCLUSION = 2
+RETAIN_COMPONENT_COUNT_FRACTION = 1.00  # 0.90
+# Keep those disconnected domain components that cover more than 1 NWM stream.
+MAX_STREAMS_FOR_COMPONENT_EXCLUSION = 1  # 2
 
 DOWNSTREAM_FRACTION = 0.50
 HEADWATER_DOWNSTREAM_COVERAGE_THRESHOLD = 0.50
@@ -32,11 +32,54 @@ NOT_HEADWATER_COVERAGE_THRESHOLD = 0.60
 
 _WORKER_DOMAIN_UNION_BUFFERED = None
 
+previous_hand_dir = '/data/previous_fim/hand_4_9_9_0'
+ripple_dir = '/outputs/'
+ripple_whitelist_table = 'ripple_feature_list_20260310_huc_considered_delivered.csv'
 
-def read_whitelist(ripple_dir, ripple_whitelist_table):
+
+def load_huc_validated_whitelist(ripple_dir, ripple_whitelist_table, previous_hand_dir):
+
     whitelist_df = pd.read_csv(join(ripple_dir, ripple_whitelist_table), dtype={"huc": str})
 
-    whitelist_df = whitelist_df[whitelist_df["is_valid_huc_considered"] == True].copy()
+    # Detect valid duplicate feature-ids across more than one HUC.
+    valid_huc_counts = whitelist_df[whitelist_df["is_valid"]].groupby("feature_id")["huc"].nunique()
+    whitelist_df["duplicate_valid"] = whitelist_df["is_valid"] & (
+        whitelist_df["feature_id"].map(valid_huc_counts).fillna(0) > 1
+    )
+
+    hucs_df = whitelist_df.loc[whitelist_df["duplicate_valid"], "huc"].drop_duplicates()
+
+    ht_dfs = []
+    for huc in hucs_df:
+        ht_path = join(previous_hand_dir, huc, "hydrotable.csv")
+
+        if os.path.isfile(ht_path):
+            ht_dfs.append(
+                pd.read_csv(ht_path, usecols=["feature_id"])
+                .drop_duplicates()
+                .assign(huc=str(huc), in_huc=True)
+            )
+
+    combined_ht = pd.concat(ht_dfs, ignore_index=True).drop_duplicates(["feature_id", "huc"])
+
+    merged_df = whitelist_df.merge(combined_ht, on=["feature_id", "huc"], how="left")
+
+    whitelist_df["huc_valid"] = whitelist_df["is_valid"]
+    in_huc = merged_df["in_huc"].eq(True)
+
+    whitelist_df.loc[merged_df["duplicate_valid"] & ~in_huc, "huc_valid"] = False
+
+    whitelist_df["is_valid_original"] = whitelist_df["is_valid"]
+    whitelist_df["is_valid"] = whitelist_df["huc_valid"]
+
+    cols = [col for col in whitelist_df.columns if col != "is_valid"] + ["is_valid"]
+    whitelist_df = whitelist_df[cols]
+
+    whitelist_df = whitelist_df.drop(columns=["is_valid_huc_considered"], errors="ignore")
+
+    whitelist_df.to_csv(join(ripple_dir, 'ripple_feature_list_20260603_huc_valid.csv'), index=False)
+
+    whitelist_df = whitelist_df[whitelist_df["is_valid"] == True].copy()
 
     whitelist_cols = ["feature_id", "huc", "model_id", "collection_id", "library_path"]
 
@@ -220,6 +263,7 @@ def keep_main_collection_domain_components(
             # )
             continue
 
+        # Keep the largest 90% of each collection's disconnected domain components by area.
         components_by_area = sorted(components, key=lambda component: component.area, reverse=True)
         retained_component_count = max(1, ceil(len(components_by_area) * RETAIN_COMPONENT_COUNT_FRACTION))
 
@@ -227,12 +271,8 @@ def keep_main_collection_domain_components(
         main_area_m2 = main_geometry.area
 
         retained_components = components_by_area[:retained_component_count]
-        # retained_components = [
-        #     component
-        #     for component in components
-        #     if component.area >= main_area_m2 * MIN_COMPONENT_AREA_FRACTION
-        # ]
 
+        # Keep those disconnected domain components that cover more than 1 NWM stream.
         collection_id = group["collection_id"].iloc[0]
         collection_streams_gdf = streams_gdf[streams_gdf["collection_id"] == collection_id]
 
@@ -306,16 +346,6 @@ def create_save_whitelist_merged_domain(domain_whitelist_gdf, streams_gdf, rippl
         f"({disconnected_area_m2:.1f} square meters)."
     )
 
-    # domain_whitelist_gdf["domain_width_m"] = domain_whitelist_gdf.geometry.apply(
-    #     estimate_ripple_domain_width_m
-    # )
-    # domain_whitelist_gdf["edge_tolerance_m"] = (
-    #     domain_whitelist_gdf["domain_width_m"] * EDGE_TOLERANCE_WIDTH_FRACTION
-    # )
-    # domain_whitelist_gdf["geometry_buffered"] = domain_whitelist_gdf.apply(
-    #     lambda row: row.geometry.buffer(row["edge_tolerance_m"]),
-    #     axis=1,
-    # )
     domain_whitelist_gdf["edge_tolerance_m"] = EDGE_TOLERANCE_M
 
     domain_whitelist_gdf["geometry_buffered"] = domain_whitelist_gdf.geometry.buffer(EDGE_TOLERANCE_M)
@@ -519,49 +549,51 @@ def select_valid_streams(streams_gdf, merged_domain_whitelist_gdf, n_workers, ch
         candidates.geometry, domain_union_buffered, n_workers=n_workers, chunksize=chunksize
     )
 
-    candidates_metrix_df = pd.concat([candidates, metrics], axis=1)
+    candidates_metrics_df = pd.concat([candidates, metrics], axis=1)
 
     downstream_target_ids = set(streams_gdf["nwm_to_id"].dropna())
-    candidates_metrix_df["headwater_stream"] = ~candidates_metrix_df["feature_id"].isin(downstream_target_ids)
-    candidates_metrix_df["not_headwater_stream"] = ~candidates_metrix_df["headwater_stream"]
+    candidates_metrics_df["headwater_stream"] = ~candidates_metrics_df["feature_id"].isin(
+        downstream_target_ids
+    )
+    candidates_metrics_df["not_headwater_stream"] = ~candidates_metrics_df["headwater_stream"]
 
-    candidates_metrix_df["strictly_within_domain"] = candidates_metrix_df["feature_id"].isin(
+    candidates_metrics_df["strictly_within_domain"] = candidates_metrics_df["feature_id"].isin(
         within_feature_ids
     )
 
-    candidates_metrix_df["headwater_downstream_buffered_covered"] = (
-        candidates_metrix_df["headwater_stream"]
+    candidates_metrics_df["headwater_downstream_buffered_covered"] = (
+        candidates_metrics_df["headwater_stream"]
         & (
-            candidates_metrix_df["downstream_tail_frac_inside_buffered"]
+            candidates_metrics_df["downstream_tail_frac_inside_buffered"]
             >= HEADWATER_DOWNSTREAM_COVERAGE_THRESHOLD
         )
-        & candidates_metrix_df["downstream_endpoint_covered_buffered"]
+        & candidates_metrics_df["downstream_endpoint_covered_buffered"]
     )
 
-    candidates_metrix_df["not_headwater_buffered_covered"] = (
-        candidates_metrix_df["not_headwater_stream"]
-        & (candidates_metrix_df["frac_inside_buffered"] >= NOT_HEADWATER_COVERAGE_THRESHOLD)
-        & candidates_metrix_df["downstream_endpoint_covered_buffered"]
+    candidates_metrics_df["not_headwater_buffered_covered"] = (
+        candidates_metrics_df["not_headwater_stream"]
+        & (candidates_metrics_df["frac_inside_buffered"] >= NOT_HEADWATER_COVERAGE_THRESHOLD)
+        & candidates_metrics_df["downstream_endpoint_covered_buffered"]
     )
 
-    candidates_metrix_df["included"] = (
-        candidates_metrix_df["strictly_within_domain"]
-        | candidates_metrix_df["headwater_downstream_buffered_covered"]
-        | candidates_metrix_df["not_headwater_buffered_covered"]
+    candidates_metrics_df["included"] = (
+        candidates_metrics_df["strictly_within_domain"]
+        | candidates_metrics_df["headwater_downstream_buffered_covered"]
+        | candidates_metrics_df["not_headwater_buffered_covered"]
     )
 
-    candidates_metrix_df["topology_bridge"] = topology_bridge_mask(candidates_metrix_df)
+    candidates_metrics_df["topology_bridge"] = topology_bridge_mask(candidates_metrics_df)
 
-    candidates_metrix_df["included"] = (
-        candidates_metrix_df["included"] | candidates_metrix_df["topology_bridge"]
+    candidates_metrics_df["included"] = (
+        candidates_metrics_df["included"] | candidates_metrics_df["topology_bridge"]
     )
 
-    candidates_metrix_df["included_by"] = np.select(
+    candidates_metrics_df["included_by"] = np.select(
         [
-            candidates_metrix_df["strictly_within_domain"],
-            candidates_metrix_df["headwater_downstream_buffered_covered"],
-            candidates_metrix_df["not_headwater_buffered_covered"],
-            candidates_metrix_df["topology_bridge"],
+            candidates_metrics_df["strictly_within_domain"],
+            candidates_metrics_df["headwater_downstream_buffered_covered"],
+            candidates_metrics_df["not_headwater_buffered_covered"],
+            candidates_metrics_df["topology_bridge"],
         ],
         [
             "within",
@@ -573,19 +605,19 @@ def select_valid_streams(streams_gdf, merged_domain_whitelist_gdf, n_workers, ch
     )
 
     included_streams_gdf = gpd.GeoDataFrame(
-        candidates_metrix_df[candidates_metrix_df["included"]].copy(),
+        candidates_metrics_df[candidates_metrics_df["included"]].copy(),
         geometry="geometry",
-        crs=candidates_metrix_df.crs,
+        crs=candidates_metrics_df.crs,
     )
 
-    return included_streams_gdf, candidates_metrix_df, within_count
+    return included_streams_gdf, candidates_metrics_df, within_count
 
 
 def process_streams_save_outputs(
     ripple_dir, ripple_whitelist_table, ripple_domain_gpkg, ripple_collections_dir, n_workers, chunksize
 ):
 
-    whitelist_df = read_whitelist(ripple_dir, ripple_whitelist_table)
+    whitelist_df = load_huc_validated_whitelist(ripple_dir, ripple_whitelist_table, previous_hand_dir)
 
     collection_model_ids = create_collection_model_ids(whitelist_df)
 
@@ -596,10 +628,6 @@ def process_streams_save_outputs(
     streams_gdf = read_ripple_streams(
         whitelist_df, ripple_collections_dir, collection_slice=None  # slice(92, 94),
     )
-    # streams_gdf.to_file(
-    #     join(ripple_dir, "all_nwm_streams.gpkg"),
-    #     driver="GPKG",
-    # )
 
     create_save_whitelist_streams(whitelist_df, streams_gdf, ripple_dir)
 
@@ -607,7 +635,7 @@ def process_streams_save_outputs(
         domain_whitelist_gdf, streams_gdf, ripple_dir
     )
 
-    included_streams_gdf, candidates_metrix_df, within_count = select_valid_streams(
+    included_streams_gdf, candidates_metrics_df, within_count = select_valid_streams(
         streams_gdf, merged_domain_whitelist_gdf, n_workers=n_workers, chunksize=chunksize
     )
 
@@ -640,13 +668,13 @@ def process_streams_save_outputs(
     )
 
     print(
-        f"Total number of the streams intersecting the whitelist domain: {candidates_metrix_df['feature_id'].nunique()}, "
+        f"Total number of the streams intersecting the whitelist domain: {candidates_metrics_df['feature_id'].nunique()}, "
         f"'within' count: {within_count}, "
         f"included by headwater downstream rule: "
-        f"{candidates_metrix_df['headwater_downstream_buffered_covered'].sum()}, "
+        f"{candidates_metrics_df['headwater_downstream_buffered_covered'].sum()}, "
         f"included by not-headwater coverage rule: "
-        f"{candidates_metrix_df['not_headwater_buffered_covered'].sum()}, "
-        f"included by topology bridge: {candidates_metrix_df['topology_bridge'].sum()}, "
+        f"{candidates_metrics_df['not_headwater_buffered_covered'].sum()}, "
+        f"included by topology bridge: {candidates_metrics_df['topology_bridge'].sum()}, "
         f"total included: {included_streams_gdf['feature_id'].nunique()}"
     )
 
