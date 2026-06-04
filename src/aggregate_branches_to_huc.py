@@ -9,6 +9,9 @@ from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime
 from os.path import join
 
+os.environ["GDAL_GPKG_NUM_FEATURES"] = "NO"
+os.environ["GDAL_GEO_BUSY_TIMEOUT"] = "60000"
+
 import geopandas as gpd
 import pandas as pd
 from dotenv import load_dotenv

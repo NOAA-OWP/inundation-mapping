@@ -3,6 +3,9 @@
 import argparse
 import os
 
+os.environ["GDAL_GPKG_NUM_FEATURES"] = "NO"
+os.environ["GDAL_GEO_BUSY_TIMEOUT"] = "60000"
+
 import geopandas as gpd
 import numpy as np
 import rasterio
@@ -11,9 +14,6 @@ from shapely.geometry import Point
 from utils.shared_functions import getDriver
 from utils.shared_variables import PREP_PROJECTION
 
-
-os.environ["GDAL_GPKG_NUM_FEATURES"] = "NO"
-os.environ["GDAL_GEO_BUSY_TIMEOUT"] = "60000"
 
 gpd.options.io_engine = "pyogrio"
 

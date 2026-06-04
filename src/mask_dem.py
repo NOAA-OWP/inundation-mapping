@@ -3,6 +3,9 @@
 import argparse
 import os
 
+os.environ["GDAL_GPKG_NUM_FEATURES"] = "NO"
+os.environ["GDAL_GEO_BUSY_TIMEOUT"] = "60000"
+
 import geopandas as gpd
 import numpy as np
 import pandas as pd
@@ -10,9 +13,6 @@ import rasterio as rio
 from rasterio.mask import mask
 from shapely.geometry import box
 
-
-os.environ["GDAL_GPKG_NUM_FEATURES"] = "NO"
-os.environ["GDAL_GEO_BUSY_TIMEOUT"] = "60000"
 
 # gpd.options.io_engine = "pyogrio"
 
