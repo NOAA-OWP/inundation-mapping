@@ -19,58 +19,6 @@ from dotenv import load_dotenv
 
 
 # ***************************************************************
-def count_db_files(directory):
-    count = 0
-    for root, dirs, files in os.walk(directory):
-        for file in files:
-            if file.endswith('.db'):
-                count += 1
-    return count
-
-
-# ***************************************************************
-def count_num_models_reaches_metrix(metrix_dir):
-
-    num_db_files = count_db_files(metrix_dir)
-    print(f"Number of .db files: {num_db_files}")
-
-    ripple_models = [d for d in os.listdir(metrix_dir) if os.path.isdir(os.path.join(metrix_dir, d))]
-    ripple_models.sort()
-
-    num_models_metrix_df = pd.DataFrame()
-    indexc = 0
-    num_models_metrix = 0
-    for rmi in range(len(ripple_models)):  # [100:133]
-        huc = re.search(r'\d+', ripple_models[rmi]).group(0)
-
-        path_ripple_collection = os.path.join(metrix_dir, ripple_models[rmi])
-        path_ripple_reaches_metrix = os.path.join(
-            path_ripple_collection, f'ripple_reaches_order_source_models_metrix_{huc}.gpkg'
-        )
-
-        if os.path.exists(path_ripple_reaches_metrix):
-
-            ripple_reaches_metrix_gdf_d = gpd.read_file(path_ripple_reaches_metrix)
-            ripple_reaches_metrix_gdf = ripple_reaches_metrix_gdf_d.drop_duplicates()
-
-            # Counting number of models/feature-ids that have metrics
-            num_rows_not_nan = ripple_reaches_metrix_gdf['avg_inundation_overlap'].notna().sum()
-            num_models_metrix_df.loc[indexc, '#notnan_metrics'] = int(num_rows_not_nan)
-            indexc += 1
-            num_models_metrix += num_rows_not_nan
-
-        else:
-            num_rows_not_nan = 0
-            num_models_metrix_df.loc[indexc, '#notnan_metrics'] = int(num_rows_not_nan)
-            indexc += 1
-            num_models_metrix += num_rows_not_nan
-
-    num_models_metrix_df = num_models_metrix_df.fillna(0)
-    path_num_models_metrix = os.path.join(metrix_dir, 'num_models_metrix.csv')
-    num_models_metrix_df.to_csv(path_num_models_metrix, index=False)
-
-
-# ***************************************************************
 def merge_nwm_streams_with_ripples(metrix_dir, ripple_model_name):
 
     srcDir = os.getenv('srcDir')
@@ -92,31 +40,31 @@ def merge_nwm_streams_with_ripples(metrix_dir, ripple_model_name):
 
         # Read just "reaches" layer
         layer_name1 = "reaches"
-        gdf_rip_reaches = gpd.read_file(ripple_gpkg, layer=layer_name1)
-        gdf_rip_reaches = gdf_rip_reaches.rename(columns={'reach_id': 'feature_id'})
+        rip_reaches_gdf = gpd.read_file(ripple_gpkg, layer=layer_name1)
+        rip_reaches_gdf = rip_reaches_gdf.rename(columns={'reach_id': 'feature_id'})
 
         # Read just "processing" layer
         con = sqlite3.connect(ripple_gpkg)
-        gdf_rip_process0 = pd.read_sql_query("SELECT * FROM processing", con)
+        rip_process_gdf = pd.read_sql_query("SELECT * FROM processing", con)
         con.close()
-        gdf_rip_process0 = gdf_rip_process0.rename(columns={'reach_id': 'feature_id'})
-        gdf_rip_process = gdf_rip_process0[['feature_id', 'collection_id', 'model_id']]
+        rip_process_gdf = rip_process_gdf.rename(columns={'reach_id': 'feature_id'})
+        rip_process_gdf = rip_process_gdf[['feature_id', 'collection_id', 'model_id']]
 
         # Merge ripple layers
-        gdf_ripple = gdf_rip_reaches.merge(gdf_rip_process, on='feature_id', how='left')
-        gdf_ripple = gdf_ripple.replace('', np.nan)
-        gdf_ripple = gdf_ripple.dropna(subset=['model_id'])
+        ripple_gdf = rip_reaches_gdf.merge(rip_process_gdf, on='feature_id', how='left')
+        ripple_gdf = ripple_gdf.replace('', np.nan)
+        ripple_gdf = ripple_gdf.dropna(subset=['model_id'])
 
         if os.path.exists(nwm_stream_gpkg):
             # Read just "reaches" layer
-            gdf_nwms = gpd.read_file(nwm_stream_gpkg)
-            gdf_nwms = gdf_nwms.rename(columns={'ID': 'feature_id'})
+            nwms_gdf = gpd.read_file(nwm_stream_gpkg)
+            nwms_gdf = nwms_gdf.rename(columns={'ID': 'feature_id'})
 
             columns_to_keep = ['feature_id', 'order_']  # , 'geometry'
-            gdf_nwms = gdf_nwms[columns_to_keep]
+            nwms_gdf = nwms_gdf[columns_to_keep]
 
             # Merge nwm_streams with ripple streams
-            ripple_reaches_gdf = gdf_ripple.merge(gdf_nwms, on='feature_id', how='left')
+            ripple_reaches_gdf = ripple_gdf.merge(nwms_gdf, on='feature_id', how='left')
             geom_col1 = (
                 ripple_reaches_gdf.geometry.name
             )  # gets the name of the current active geometry column
