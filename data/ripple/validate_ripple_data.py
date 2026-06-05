@@ -146,7 +146,6 @@ def __create_ripple_file_df(terrain_whitelist_file_path, ripple_version):
     df['huc'] = df['huc'].astype(int).astype(str).str.zfill(8)
 
     # new column flipping is_blacklist from True to False
-    df['is_valid'] = numpy.where(df['is_blacklisted'] == 'True', 'False', 'True')
     df["library_path"] = ""
     df["is_library_path_valid"] = 'False'
 

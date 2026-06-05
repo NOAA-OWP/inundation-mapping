@@ -230,7 +230,6 @@ def create_ripple_STREAMS_gdf_csv(metrics_dir, out_dir):
     all_sourcemodels_reaches_ls = []
     for rmi in range(len(ripple_collections)):
         try:
-
             # ripple_collections[rmi] = 'mip_05130202'
             huc = re.search(r'\d+', ripple_collections[rmi]).group(0)
             log_text += f'Start analyzing ripple collections for HUC {huc}\n'
@@ -256,17 +255,26 @@ def create_ripple_STREAMS_gdf_csv(metrics_dir, out_dir):
 
             if os.path.exists(path_sourcemodels_gpkg):
                 sourcemodels_gdf = gpd.read_file(path_sourcemodels_gpkg)
+
                 if 'is_blacklisted' not in sourcemodels_gdf.columns:
                     sourcemodels_gdf['is_blacklisted'] = False
+
+                if 'is_valid' not in sourcemodels_gdf.columns:
+                    sourcemodels_gdf['is_valid'] = False
+
                 sourcemodels_df = sourcemodels_gdf.drop(columns=['geometry'])
                 sourcemodels_df['huc'] = huc
+
                 if os.path.exists(path_metrics_csv):
                     metric_df = pd.read_csv(path_metrics_csv)
+
                     if 'db_path' in metric_df.columns:
                         db_path_df = metric_df[['feature_id', 'db_path']].drop_duplicates()
+
                         sourcemodels_df['feature_id'] = pd.to_numeric(
                             sourcemodels_df['feature_id'], errors='coerce'
                         ).astype('Int64')
+
                         db_path_df['feature_id'] = pd.to_numeric(
                             db_path_df['feature_id'], errors='coerce'
                         ).astype('Int64')
@@ -344,16 +352,13 @@ def create_ripple_STREAMS_gdf_csv(metrics_dir, out_dir):
 
             metrics_streams_df = metrics_streams_gdf.drop(columns=['geometry'])
             metrics_streams_conus_ls.append(metrics_streams_df)
+
         except Exception as e:
+
             error_msg = f"Error processing folder {ripple_collections[rmi]}: {str(e)}\n"
             print(error_msg)
             log_text += error_msg
             continue
-
-    # Save correlation matrix conus wise in csv format
-    # model_metrics_corr_df = pd.concat(model_metrics_corr_ls, ignore_index=False)
-    # model_metrics_corr_path = os.path.join(out_dir, 'model_metrics_corr_new.csv')
-    # model_metrics_corr_df.to_csv(model_metrics_corr_path, index=False)
 
     # Save reaches matrix conus wise in csv format
     metrics_reaches_conus_df = pd.concat(metrics_reaches_conus_ls, axis=0, ignore_index=True)
@@ -364,7 +369,7 @@ def create_ripple_STREAMS_gdf_csv(metrics_dir, out_dir):
     if not os.path.exists(path_metrics_reaches_conus):
         metrics_reaches_conus_df.to_csv(path_metrics_reaches_conus, index=False)
 
-    # Save stream matrix conus wise in gpkg format
+    # Save stream matrics conus wise in gpkg format
     metrics_streams_conus_gpkg = pd.concat(metrics_streams_conus_gpkg_ls, axis=0, ignore_index=True)
     metrics_streams_conus_gpkg = metrics_streams_conus_gpkg.replace('', np.nan)
     metrics_streams_conus_gpkg = metrics_streams_conus_gpkg.dropna(subset=['avg_inundation_overlap'])
@@ -391,7 +396,7 @@ def create_ripple_STREAMS_gdf_csv(metrics_dir, out_dir):
 
 
 # ***************************************************************
-def process_ripple_STREAMS_create_blackList(metrics_dir, out_dir):
+def process_ripple_STREAMS_create_blackList(out_dir):
 
     path_ripple_streams = os.path.join(out_dir, 'metrics_streams_ripple_submodels_conus.csv')
     path_ripple_reaches = os.path.join(out_dir, 'metrics_reaches_ripple_submodels_conus.csv')
@@ -408,7 +413,6 @@ def process_ripple_STREAMS_create_blackList(metrics_dir, out_dir):
     log_text += 'Start creating the black list ...\n'
 
     ripple_streams_metrics_df = gpd.read_csv(path_ripple_streams)
-    # ripple_streams_metrics_df = ripple_streams_metrics_df_geo.drop(columns=['geometry'])
     ripple_streams_metrics_df = ripple_streams_metrics_df.replace('', np.nan)
     ripple_streams_metrics_df = ripple_streams_metrics_df.dropna(subset=['avg_inundation_overlap'])
 
@@ -546,9 +550,6 @@ def process_ripple_STREAMS_create_blackList(metrics_dir, out_dir):
 
     if os.path.exists(path_ripple_reaches):
         ripple_reaches_metrics_df = gpd.read_file(path_ripple_reaches)
-        # ripple_reaches_metrics_df = ripple_reaches_metrics_df_geo.drop(
-        #     columns=['geometry']
-        # )  # drop_duplicates()
         ripple_streams_metrics_df = ripple_streams_metrics_df.replace('', np.nan)
         ripple_reaches_metrics_df = ripple_reaches_metrics_df.dropna(subset=['avg_inundation_overlap'])
 
@@ -561,7 +562,6 @@ def process_ripple_STREAMS_create_blackList(metrics_dir, out_dir):
         'avg_hydraulic_radius_agreement',
         'avg_r_squared',
         'huc',
-        # 'avg_spectral_angle'
     ]
     outlier_reaches_conus_df = ripple_reaches_metrics_df.merge(
         outlier_streams_conus_df[outlier_cols], on=['collection_id', 'model_id'], how='inner'
@@ -594,6 +594,7 @@ def process_ripple_STREAMS_create_blackList(metrics_dir, out_dir):
         print('Creating master CONUS whitelist csv...\n')
         log_text += 'Creating master CONUS whitelist csv...\n'
         all_sourcemodels_conus_df = pd.read_csv(path_all_sourcemodels_conus)
+
         bad_features = outlier_reaches_conus_df[['collection_id', 'feature_id']].drop_duplicates()
         bad_features['is_bad'] = True
         bad_features['feature_id'] = pd.to_numeric(bad_features['feature_id'], errors='coerce').astype(
@@ -607,6 +608,7 @@ def process_ripple_STREAMS_create_blackList(metrics_dir, out_dir):
         merged_all = all_sourcemodels_conus_df.merge(
             bad_features, on=['collection_id', 'feature_id'], how='left'
         )
+
         merged_all['is_blacklisted'] = merged_all['is_bad'].fillna(False)
         merged_all = merged_all.drop(columns=['is_bad'])
         path_master_whitelist_conus = os.path.join(out_dir, 'ripple_feature_id_whitelist_conus.csv')
@@ -620,7 +622,7 @@ def process_ripple_STREAMS_create_blackList(metrics_dir, out_dir):
 
 # --------------------------------------------------------
 # Apply ripple_streams_blacklist function on metrics_dir
-def apply_ripple_streams_blacklist(metrics_dir, out_dir, log_file_path):  # bankfull_flows_file,
+def apply_ripple_streams_blacklist(metrics_dir, out_dir, log_file_path):
     """
     Function for processing ripple STREAMS and create a black list of bad models.
 
@@ -714,12 +716,15 @@ if __name__ == '__main__':
     """
     parser = ArgumentParser(description="Process Ripple Streams and Create a Black List")
     parser.add_argument('-md', '--metrics-dir', help='saved ripple matrics dir', required=True, type=str)
+    parser.add_argument('-od', '--out-dir', help='saved output dir', required=True, type=str)
+
     args = vars(parser.parse_args())
 
     metrics_dir = args['metrics_dir']
+    out_dir = args['out_dir']
 
-    parent_dir = os.path.dirname(os.path.normpath(metrics_dir))
-    out_dir = os.path.join(parent_dir, 'ripple_metrics')
-    os.makedirs(out_dir, exist_ok=True)
+    # parent_dir = os.path.dirname(os.path.normpath(metrics_dir))
+    # out_dir = os.path.join(parent_dir, 'ripple_metrics')
+    # os.makedirs(out_dir, exist_ok=True)
 
     log_create_blacklist(metrics_dir, out_dir)
