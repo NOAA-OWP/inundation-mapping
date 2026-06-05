@@ -122,6 +122,8 @@ def Mosaic_inundation(
     else:
         tqdm_disable = True
 
+    logging.info(f"tqdm_disable is {tqdm_disable}")
+
     ag_mosaic_output = ""
     remove_at_end = []
 
@@ -141,6 +143,7 @@ def Mosaic_inundation(
         if (is_mosaic_for_branches) and (ag not in mosaic_output):
             ag_mosaic_output = fh.append_id_to_file_name(mosaic_output, ag)  # change it
 
+        # what
         remove_list = mosaic_by_unit(
             inundation_maps_list,
             ag_mosaic_output,
@@ -159,7 +162,8 @@ def Mosaic_inundation(
         mosaic_final_inundation_extent_to_poly(ag_mosaic_output, inundation_polygon)
 
     if remove_inputs:
-        fh.vprint("Removing inputs ...", verbose)
+        # fh.vprint("Removing inputs ...", verbose)
+        print(f"Removing inputs ... (in Mosiac_inundation) .. {mosaic_output}")
 
         for remove_file in remove_at_end:
             if os.path.exists(remove_file):
@@ -214,11 +218,15 @@ def mosaic_by_unit(
         merge(inundation_maps_list, method='max', nodata=nodata, dst_path=mosaic_output)
 
         if mask:
-            fh.vprint("Masking ...", verbose)
+            # fh.vprint("Masking ...", verbose)
+            logging.info(f"Masking ... ({mosaic_output})")
+            # def mask_mosaic(mosaic, polys, polys_layer=None, outfile=None, workers=4, quiet=True):
             mask_mosaic(mosaic_output, mask, outfile=mosaic_output, workers=workers)
 
     if remove_inputs:
-        fh.vprint("Removing inputs ...", verbose)
+        # fh.vprint("Removing inputs ...", verbose)
+        # print(f"removing inputs for {mosaic_output} (inside mosaic_by_unit)")
+        logging.info(f"removing inputs for {mosaic_output} (inside mosaic_by_unit)")
 
         remove_list = []
         for inun_map in inundation_maps_list:
@@ -228,12 +236,11 @@ def mosaic_by_unit(
         return remove_list
 
 
-def _vprint(message, verbose):
-    if verbose:
-        print(message)
+# def _vprint(message, verbose):
+#     if verbose:
+#         print(message)
 
-
-def mask_mosaic(mosaic, polys, polys_layer=None, outfile=None, workers=4, quiet=True):
+def mask_mosaic(mosaic, polys, polys_layer=None, outfile=None, workers=4):
 
     if isinstance(mosaic, str):
         with rasterio.open(mosaic, 'r') as rst:
@@ -288,15 +295,24 @@ def mask_mosaic(mosaic, polys, polys_layer=None, outfile=None, workers=4, quiet=
 
         for future in as_completed(results):
             try:
-                future.result()
-            except Exception as exc:
-                _vprint("Exception {} for {}".format(exc, results[future]), not quiet)
-            else:
-                if results[future] is not None:
-                    _vprint("... {} complete".format(results[future]), not quiet)
+                # TODO: Jun 2026: Upgrade this to look for future.result
+                # future.exception, etc.
+                # future.result()
+                if future is not None:
+                    if not future.exception():
+                        if future.result() is None:
+                            logging.info(f"... data_generator complete for {outfile}")
+                        else:
+                            logging.info(f"... data_generator complete for {outfile}."
+                                         f" future result is {future.result()}")
+                    else:
+                        raise future.exception()
                 else:
-                    _vprint("... complete", not quiet)
+                    logging.info(f"... complete future result is {results[future]}")
 
+            except Exception as exc:
+                # _vprint("Exception {} for {}".format(exc, results[future]), not quiet)
+                logging.critical("Exception {} for {}".format(exc, results[future]))
 
 def mosaic_final_inundation_extent_to_poly(
     inundation_raster: Optional[str] = None,

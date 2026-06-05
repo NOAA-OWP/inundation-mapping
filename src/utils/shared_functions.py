@@ -4,10 +4,10 @@ import glob
 import inspect
 import logging
 import os
-import pathlib
+# import pathlib
 import re
 import shutil
-import sys
+# import sys
 import threading
 import traceback
 from concurrent.futures import Future, ProcessPoolExecutor, as_completed
@@ -34,8 +34,13 @@ gp.options.io_engine = "pyogrio"
 # log file tools
 
 
-# This one is a standard Python logger, NOT MEANT for multi-proc
-# def setup_file_logger(log_file_path):
+# This one is a standard Python logger.
+# If you want the MP's to share a log file (not recommended), 
+# then use the setup_mp_file_logger which shares a screenqueue object.
+# You can use this one in an MP but only if you ensure that each MP process
+# has its own log file. There is now a new log rollup function in here to
+# roll all of the child log files back into the parent log if you like.
+# merge_child_logs_into_parent_log
 def setup_file_logger(log_file_dir, log_file_name_prefix):
     """
 
@@ -270,6 +275,61 @@ def l_print(msg, file_logger, log_level="info", screen_queue=None):
             file_logger.critical(msg)
         case _:
             raise Exception("Invalid log level value. Options are debug, info, warning, error and critical")
+
+
+# This is helpful when using MP. You can setup the parent log, then in the MP child code, you
+# can set them up with there own files with the child_prefix. Each MP will start with that prefix
+# and some sort of unique identifer at the end of the file name. This avoids MP child functions
+# from colliding with them all writing to the same log file. If you do let each MP write to a file of any type,
+# they will drop records or lock it.
+# This just searches for the prefix and concats to the parent so the parent have rollups.
+# it does assume the child logs are in the same dir as the parent file.
+# This will also auto cover -error.log and -warning.log files as well.
+def merge_child_logs_into_parent_log(parent_log_file, child_prefix, remove_old_src_file=True):
+    
+    if (parent_log_file is None or parent_log_file == ""):
+        raise Exception("parent log file can not be none or empty")
+
+    if (child_prefix is None or child_prefix == ""):
+        raise Exception("child_prefix can not be none or empty")
+
+    parent_log_folder = os.path.dirname(parent_log_file)
+    # calc the default parent error and warnign file.
+    parent_log_error_file = parent_log_file.replace(".log", "-errors.log")
+    parent_log_warning_file = parent_log_file.replace(".log", "-warnings.log")
+
+    child_log_files = list(glob.glob(os.path.join(parent_log_folder, 'child_prefix*'), recursive=True))
+    num_child_files_found = child_log_files.count
+    
+    for child_log in child_log_files:
+        if "-error" in child_log:
+            concat_files(child_log, parent_log_error_file, remove_old_src_file)
+        elif "-warning" in child_log:
+            concat_files(child_log, parent_log_warning_file, remove_old_src_file)
+        else:
+            concat_files(child_log, parent_log_file, remove_old_src_file)
+            
+    return num_child_files_found
+
+
+def concat_files(src_file, trg_file, remove_old_src_file=True):
+    # Sometimes we want to append log file onto another file.
+    # For example, a temp mp log file into the parent log.
+
+    # This will not error out if the files do not exist
+    # only send back a True / False (successful)
+
+    if not os.path.exists(src_file) or not os.path.exists(trg_file):
+        return False
+
+    with open(src_file, 'r') as src:
+        with open(trg_file, 'a') as trg:
+            shutil.copyfileobj(src, trg)
+
+    if remove_old_src_file:
+        os.remove(src_file)
+
+    return True
 
 
 # #################################
@@ -551,25 +611,6 @@ def run_with_mp(
 
 # #################################
 # Misc tools#
-def concat_files(src_file, trg_file, remove_old_src_file=True):
-    # Sometimes we want to append log file onto another file.
-    # For example, a temp mp log file into the parent log.
-
-    # This will not error out if the files do not exist
-    # only send back a True / False (successful)
-
-    if not os.path.exists(src_file) or not os.path.exists(trg_file):
-        return False
-
-    with open(src_file, 'r') as src:
-        with open(trg_file, 'a') as trg:
-            shutil.copyfileobj(src, trg)
-
-    if remove_old_src_file:
-        os.remove(src_file)
-
-    return True
-
 
 def getDriver(fileName):
     driverDictionary = {'.gpkg': 'GPKG', '.geojson': 'GeoJSON', '.shp': 'ESRI Shapefile'}

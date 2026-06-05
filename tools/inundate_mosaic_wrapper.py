@@ -1,5 +1,6 @@
 import argparse
 import errno
+import logging
 import os
 from timeit import default_timer as timer
 from typing import List, Optional, Union
@@ -96,12 +97,15 @@ def produce_mosaicked_inundation(
             continue
         parent_dir = os.path.split(output_file)[0]
         if not os.path.exists(parent_dir):
-            fh.vprint(
-                "Parent directory for "
-                + os.path.split(output_file)[1]
-                + " does not exist. The parent directory will be produced.",
-                verbose,
-            )
+            msg=f"Parent directory for {os.path.split(output_file)[1]} does not exist."
+            " The parent directory will be produced."
+            logging.info(msg)
+            # fh.vprint(
+            #     "Parent directory for "
+            #     + os.path.split(output_file)[1]
+            #     + " does not exist. The parent directory will be produced.",
+            #     verbose,
+            # )
             os.makedirs(parent_dir)
 
     # Check that hydrofabric_dir exists
@@ -155,7 +159,8 @@ def produce_mosaicked_inundation(
 
         map_file.to_csv(map_filename, index=False)
 
-    fh.vprint("Mosaicking extent...", verbose)
+    # fh.vprint("Mosaicking extent...", verbose)
+    # print("Mosaicking extent...")
 
     for mosaic_attribute in ["depths_rasters", "inundation_rasters"]:
         mosaic_output = None
@@ -183,7 +188,10 @@ def produce_mosaicked_inundation(
                 workers=num_threads,
             )
 
-    fh.vprint("Mosaicking complete.", verbose)
+    # fh.vprint("Mosaicking complete.", verbose)
+
+    # TODO: Debug
+    logging.info(f"Mosaic_inundation complete, calculated mosiac path is {mosaic_file_path}")
 
     return mosaic_file_path
 

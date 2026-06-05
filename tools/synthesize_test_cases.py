@@ -3,20 +3,28 @@
 import argparse
 import csv
 import json
+import logging
 import os
 import re
+import shutil
 import sys
 import traceback
 from concurrent.futures import ProcessPoolExecutor, as_completed, wait
-from datetime import datetime
+from datetime import datetime, timezone
 from multiprocessing import Pool
 
 import pandas as pd
-from run_test_case import Test_Case
-from tools_shared_variables import AHPS_BENCHMARK_CATEGORIES, MAGNITUDE_DICT, PREVIOUS_FIM_DIR, TEST_CASES_DIR
 from tqdm import tqdm
 
+import src.utils.shared_functions as sf
+from run_test_case import Test_Case
 from src.utils.shared_functions import FIM_Helpers as fh
+from tools_shared_variables import (
+     AHPS_BENCHMARK_CATEGORIES,
+     MAGNITUDE_DICT,
+     PREVIOUS_FIM_DIR,
+     TEST_CASES_DIR,
+     OUTPUTS_DIR)
 
 
 def synthesize_test_cases(config,
@@ -35,12 +43,37 @@ def synthesize_test_cases(config,
                           prev_metrics_csv,
                           cycle_previous_files
 ):
-    
+
+    # TODO: Jun 2026: We likely want to change this to accept a output path
+    # versus calc it. There are pros/cons, mostly based in enforcement of "PREV" versus "DEV"
+    # including test cases folder pathing
+    # for now, lets just calc the hand output folder to put these logs in it.
+
+    # Define whether or not to archive metrics in "official_versions" or "testing_versions" for each test_id.
+    # and also setup logging
+    log_folder=""
+    if config == 'PREV':
+        archive_results = True
+        log_folder = os.path.join(PREVIOUS_FIM_DIR, fim_version, "alpha_logs")
+    elif config == 'DEV':
+        archive_results = False
+        log_folder = os.path.join(OUTPUTS_DIR, fim_version, "alpha_logs")
+    else:
+        print('Config (-c) option incorrectly set. Use "DEV" or "PREV"')
+
+    if os.path.isdir(log_folder):
+        shutil.rmtree(log_folder)
+
+    # NOTE: Careful with this logger as you dont' want to use the same logger
+    # inside MP processes as they will collide writing to the same log file.
+    # Best to let each MP have its own logging object, then concat all at the end.
+    # NOTE: logger does screen and log file
+    log_file_path = sf.setup_file_logger(log_folder, "synthesize_test_cases")
+
     print("================================")
-    print("Start synthesize test cases")
-    start_time = datetime.now()
-    dt_string = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
-    print(f"started: {dt_string}")
+    logging.info("Start synthesize test cases")
+    overall_start_dt = datetime.now(timezone.utc)
+    logging.info(f"started: {datetime.now().strftime('%m/%d/%Y %H:%M:%S')}")
     print()
 
     # Warn about the MP job huc to the MT (multi-thread) job number.
@@ -60,7 +93,7 @@ def synthesize_test_cases(config,
     total_cpus_requested = job_number_huc * job_number_branch
     total_cpus_available = os.cpu_count() - 2
     if total_cpus_requested > total_cpus_available:
-        print("Error:")
+        logging.error("Error: CPU count invalid")
         raise ValueError(
             f'The HUC job number of {job_number_huc} (-jh)'
             f' multiplied by the branch job number of {job_number_branch} (-th),'
@@ -83,14 +116,6 @@ def synthesize_test_cases(config,
         if config == 'DEV':  # development fim model results
             dev_versions_to_include_list = [fim_version]
 
-    # Define whether or not to archive metrics in "official_versions" or "testing_versions" for each test_id.
-    if config == 'PREV':
-        archive_results = True
-    elif config == 'DEV':
-        archive_results = False
-    else:
-        print('Config (-c) option incorrectly set. Use "DEV" or "PREV"')
-
     try:
         # Create a list of all test_cases for which we have validation data
         all_test_cases = Test_Case.list_all_test_cases(
@@ -101,11 +126,10 @@ def synthesize_test_cases(config,
 
         # =================================
         # Validate data
-        # print('all test cases', all_test_cases)
-
+        # logging.info('all test cases', all_test_cases)
         # Make sure cycle-previous-files and a previous metric CSV have not been concurrently selected
         if prev_metrics_csv is not None and cycle_previous_files is True:
-            print(
+            logging.critical(
                 "Error: Cycle previous files and previous metric CSV functionality cannot be used concurrently."
             )
             sys.exit(1)
@@ -113,13 +137,13 @@ def synthesize_test_cases(config,
         # Check whether a previous metrics CSV has been provided and, if so, make sure the CSV exists
         if prev_metrics_csv is not None:
             if not os.path.exists(prev_metrics_csv):
-                print(f"Error: File does not exist at {prev_metrics_csv}")
+                logging.critical(f"Error: File does not exist at {prev_metrics_csv}")
                 sys.exit(1)
             else:
-                print(f"Metrics will be combined with previous metric CSV: {prev_metrics_csv}")
+                logging.info(f"Metrics will be combined with previous metric CSV: {prev_metrics_csv}")
                 print()
         else:
-            print("ALERT: A previous metric CSV has not been provided (-pcsv) - this is optional.")
+            logging.info("ALERT: A previous metric CSV has not been provided (-pcsv) - this is optional.")
             print()
 
         if len(all_test_cases) == 0:
@@ -132,13 +156,13 @@ def synthesize_test_cases(config,
         if ext.lower() != ".csv":
             raise ValueError("master metric path (-m) must end in .csv")
 
-        print(f"output master metrics file will be saved at {master_metrics_csv}")
+        logging.info(f"output master metrics file will be saved at {master_metrics_csv}")
 
         # Print whether the previous files will be cycled through
         if cycle_previous_files is True:
-            print("ALERT: Metrics from previous directories will be compiled.")
+            logging.info("ALERT: Metrics from previous directories will be compiled.")
         else:
-            print(
+            logging.info(
                 "ALERT: Metrics from previous directories will NOT be compiled (-pfiles not provided) \n"
                 "   - pfiles is optional -"
             )
@@ -147,8 +171,16 @@ def synthesize_test_cases(config,
         # =================================
         # Set up multiprocessor
         if not master_metrics_only:
+
+            # Each log file lcreated by each MP alpha test will start with the prefix
+            # alpha_test. Each MP will add its own suffix to avoid log collisions
+            # at the end of the process pool, we will aggregate the log files
+            # which include this prefix
+            mp_log_prefix="alpha_test"
             has_error = False
-            with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
+            # By default, maxtasksperchild is set to None, meaning worker processes live as long as the process pool itself
+            # If a memory leaks exist, it can overload the system
+            with ProcessPoolExecutor(max_workers=job_number_huc, max_tasks_per_child=job_number_huc) as executor:
                 # Loop through all test cases, build the alpha test arguments, and submit them to the process pool
                 executor_dict = {}
 
@@ -157,7 +189,8 @@ def synthesize_test_cases(config,
                     if not os.path.exists(test_case_class.fim_dir):
                         continue
 
-                    fh.vprint(f"test_case_class.test_id is {test_case_class.test_id}", verbose)
+                    # fh.vprint(f"test_case_class.test_id is {test_case_class.test_id}", verbose)
+                    # logging.info(f"test_case_class.test_id is {test_case_class.test_id}")
 
                     alpha_test_args = {
                         'calibrated': calibrated,
@@ -169,6 +202,8 @@ def synthesize_test_cases(config,
                         'branch_workers': job_number_branch,
                         'precalb_option': precalb_option,
                         'threads': thread_number_branch,
+                        'log_folder': log_folder,
+                        'log_prefix': mp_log_prefix
                     }
 
                     try:
@@ -182,8 +217,8 @@ def synthesize_test_cases(config,
                         # or possibly even replace this with the run_by_mp code.
                     except Exception as ex:
                         has_error = True
-                        print(f"*** {ex}")
-                        traceback.print_exc()
+                        logging.critical(f"*** Error: {ex}")
+                        logging.critica(traceback.print_exc())
                         executor.shutdown(
                             wait=False, cancel_futures=True
                         )  # tells the ProcessPoolExecutor to stop accepting new tasks. Even cancel the running tasks as soon as possible
@@ -202,69 +237,73 @@ def synthesize_test_cases(config,
                     )
                 # wait(executor_dict.keys())
 
-        # Composite alpha test run is initiated by a MS `model` and providing a `fr_run_dir`
-        # TODO: Apr 1, 2025: model = MS and FR, and tools relating to fim_3 shoudl be removed
-        # if not master_metrics_only:
-        #     if model == 'MS' and fr_run_dir:
-        #         # Rebuild all test cases list with the FR version, loop through them and apply the alpha test
-        #         all_test_cases = Test_Case.list_all_test_cases(
-        #             version=fr_run_dir,
-        #             archive=archive_results,
-        #             benchmark_categories=[] if benchmark_category == "all" else [benchmark_category],
-        #         )
+        # This will also merge -error.log and -warning.log files into the
+        # respective parent error, warning files.
+        sf.merge_child_logs_into_parent_log(log_file_path, mp_log_prefix)
 
-        #         with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
-        #             executor_dict = {}
-        #             for test_case_class in all_test_cases:
-        #                 if not os.path.exists(test_case_class.fim_dir):
-        #                     continue
-        #                 alpha_test_args = {
-        #                     'calibrated': calibrated,
-        #                     'model': model,
-        #                     'mask_type': 'huc',
-        #                     'verbose': verbose,
-        #                     'overwrite': overwrite,
-        #                     'precalb_option': precalb_option,
-        #                 }
-        #                 try:
-        #                     future = executor.submit(test_case_class.alpha_test, **alpha_test_args)
-        #                     executor_dict[future] = test_case_class.test_id
-        #                 except Exception as ex:
-        #                     print(f"*** {ex}")
-        #                     traceback.print_exc()
-        #                     sys.exit(1)
+        '''
+        if not master_metrics_only:
+            if model == 'MS' and fr_run_dir:
+                # Rebuild all test cases list with the FR version, loop through them and apply the alpha test
+                all_test_cases = Test_Case.list_all_test_cases(
+                    version=fr_run_dir,
+                    archive=archive_results,
+                    benchmark_categories=[] if benchmark_category == "all" else [benchmark_category],
+                )
 
-        #             # Send the executor to the progress bar and wait for all FR tasks to finish
-        #             progress_bar_handler(
-        #                 executor_dict, True, f"Running FR test cases with {job_number_huc} workers"
-        #             )
-        #             # wait(executor_dict.keys())
+                with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
+                    executor_dict = {}
+                    for test_case_class in all_test_cases:
+                        if not os.path.exists(test_case_class.fim_dir):
+                            continue
+                        alpha_test_args = {
+                            'calibrated': calibrated,
+                            'model': model,
+                            'mask_type': 'huc',
+                            'verbose': verbose,
+                            'overwrite': overwrite,
+                            'precalb_option': precalb_option,
+                        }
+                        try:
+                            future = executor.submit(test_case_class.alpha_test, **alpha_test_args)
+                            executor_dict[future] = test_case_class.test_id
+                        except Exception as ex:
+                            print(f"*** {ex}")
+                            traceback.print_exc()
+                            sys.exit(1)
 
-        #         # Loop through FR test cases, build composite arguments, and
-        #         #   submit the composite method to the process pool
-        #         with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
-        #             executor_dict = {}
-        #             for test_case_class in all_test_cases:
-        #                 composite_args = {
-        #                     'version_2': fim_version,  # this is the MS version name since `all_test_cases` are FR
-        #                     'calibrated': calibrated,
-        #                     'overwrite': overwrite,
-        #                     'verbose': verbose,
-        #                 }
+                    # Send the executor to the progress bar and wait for all FR tasks to finish
+                    progress_bar_handler(
+                        executor_dict, True, f"Running FR test cases with {job_number_huc} workers"
+                    )
+                    # wait(executor_dict.keys())
 
-        #                 try:
-        #                     future = executor.submit(test_case_class.alpha_test, **alpha_test_args)
-        #                     executor_dict[future] = test_case_class.test_id
-        #                 except Exception as ex:
-        #                     print(f"*** {ex}")
-        #                     # traceback.print_exc()
-        #                     print(traceback.format_exc())
-        #                     sys.exit(1)
+                # Loop through FR test cases, build composite arguments, and
+                #   submit the composite method to the process pool
+                with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
+                    executor_dict = {}
+                    for test_case_class in all_test_cases:
+                        composite_args = {
+                            'version_2': fim_version,  # this is the MS version name since `all_test_cases` are FR
+                            'calibrated': calibrated,
+                            'overwrite': overwrite,
+                            'verbose': verbose,
+                        }
 
-        #             # Send the executor to the progress bar
-        #             progress_bar_handler(
-        #                 executor_dict, verbose, f"Compositing test cases with {job_number_huc} workers"
-        #             )
+                        try:
+                            future = executor.submit(test_case_class.alpha_test, **alpha_test_args)
+                            executor_dict[future] = test_case_class.test_id
+                        except Exception as ex:
+                            print(f"*** {ex}")
+                            # traceback.print_exc()
+                            print(traceback.format_exc())
+                            sys.exit(1)
+
+                    # Send the executor to the progress bar
+                    progress_bar_handler(
+                        executor_dict, verbose, f"Compositing test cases with {job_number_huc} workers"
+                    )
+        '''
 
         ## if using DEV version, include the testing versions the user included with the "-dc" flag
         if dev_versions_to_compare is not None:
@@ -280,7 +319,7 @@ def synthesize_test_cases(config,
             iteration_list = ['official']  # only iterating through official model results
 
         # Do aggregate_metrics.
-        print("Creating master metrics CSV...")
+        logging.info("Creating master metrics CSV...")
 
         # Note: This function is not compatible with GMS
         create_master_metrics_csv(
@@ -290,18 +329,16 @@ def synthesize_test_cases(config,
             iteration_list=iteration_list,
             prev_metrics_csv=prev_metrics_csv,
         )
-    # Catches will still be raise but after the finally
+    except Exception:
+        logging.critical("An exception has occurred")
+        logging.critical(traceback.format_exc())
     finally:
         print("================================")
-        print("End synthesize test cases")
+        logging.info("End synthesize test cases")
+        print(f"Log files were saved to {log_file_path}")
 
-        end_time = datetime.now()
-        dt_string = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
-        print(f"ended: {dt_string}")
-
-        # Calculate duration
-        time_duration = end_time - start_time
-        print(f"Duration: {str(time_duration).split('.')[0]}")
+        logging.info(f"ended: {datetime.now().strftime('%m/%d/%Y %H:%M:%S')}")
+        logging.info(sf.calculate_duration_msg(overall_start_dt))
         print()
 
 
@@ -555,8 +592,8 @@ def create_master_metrics_csv(
                                                 sub_list_to_append.append(calibrated)
                                                 list_to_write.append(sub_list_to_append)
                 except ValueError as ex:
-                    print("A Value exception has occurred")
-                    print(ex)
+                    logging.critical("A Value exception has occurred")
+                    logging.critical(ex)
                     pass
 
     # If previous metrics are provided: read in previously compiled metrics and join to calcaulated metrics
@@ -743,7 +780,7 @@ if __name__ == '__main__':
     #     default=None,
     # )
     parser.add_argument(
-        '-vr', '--verbose', help='Verbose output', required=False, default=None, action='store_true'
+        '-vr', '--verbose', help='Verbose output', required=False, default=False, action='store_true'
     )
     # parser.add_argument(
     #     '-vg',

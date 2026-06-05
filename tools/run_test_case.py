@@ -1,33 +1,36 @@
 #!/usr/bin/env python3
+import os
 
 import json
-import os
+import logging
 import re
 import shutil
-import sys
+# import sys
 import traceback
+from datetime import datetime, timezone
 
 import pandas as pd
+
+import src.utils.shared_functions as sf
+from src.utils.shared_functions import FIM_Helpers as fh
 from inundate_mosaic_wrapper import produce_mosaicked_inundation
 # from inundation import inundate
-from mosaic_inundation import Mosaic_inundation
+# from mosaic_inundation import Mosaic_inundation
 from tools_shared_functions import compute_contingency_stats_from_rasters
 from tools_shared_variables import (
     AHPS_BENCHMARK_CATEGORIES,
-    INPUTS_DIR,
+#      INPUTS_DIR,
     MAGNITUDE_DICT,
     OUTPUTS_DIR,
     PREVIOUS_FIM_DIR,
     TEST_CASES_DIR,
-    elev_raster_ndv,
+#   elev_raster_ndv,
 )
-
-from src.utils.shared_functions import FIM_Helpers as fh
 
 # TODO: May 2026: This is highly inefficent. We can load much smaller WBD files, or even use something
 # from the HUC dir or preclip ti speed this up.
 # This also might trigger thread or MP collisions.
-WBD_FILE = "WBD_National.gpkg"
+# WBD_FILE = "WBD_National.gpkg"
 
 class Benchmark(object):
     AHPS_BENCHMARK_CATEGORIES = AHPS_BENCHMARK_CATEGORIES
@@ -115,6 +118,8 @@ class Test_Case(Benchmark):
         self.version = version
         self.archive = archive
         # FIM run directory path - uses HUC 6 for FIM 1 & 2
+
+        # TODO: Jun 2026, This really could be changed to an argument and not calculated paths
         self.fim_dir = os.path.join(
             PREVIOUS_FIM_DIR if archive else OUTPUTS_DIR,
             self.version,
@@ -128,6 +133,7 @@ class Test_Case(Benchmark):
             'official_versions' if archive else 'testing_versions',
             version,
         )
+
         if not os.path.exists(self.dir):
             os.makedirs(self.dir)
         # Benchmark data path
@@ -197,7 +203,9 @@ class Test_Case(Benchmark):
         verbose=False,
         branch_workers=1,
         precalb_option=False,
-        threads=8,
+        threads=1,
+        log_folder='', 
+        log_prefix='',
     ):
         '''Compares a FIM directory with benchmark data from a variety of sources.
 
@@ -221,15 +229,27 @@ class Test_Case(Benchmark):
             Number of worker processes assigned to branch processing.
         threads : int
             Number of threads assigned to processing.
+        log_folder: string
+            As this function is being called as part of a MP, it needs its own log file and folder
+        log_prefix: string
+            This is the prefix of the log file name to be used. This code will add a unique value
+            to ensure unique log files per MP
         '''
 
+        start_time = datetime.now(timezone.utc)
         try:
+            # NOTE: logger does screen and log file
+            # NOTE: If not set, it will use the default logging folder and path, likely were the script is.
+            if (log_folder != ""):
+                log_file_path = sf.setup_file_logger(log_folder, f"{log_prefix}_{self.test_id}")
+            logging.info(f"Started Alpha Test for {self.test_id}")
+
             if not overwrite and os.path.isdir(self.dir):
-                print(f"Metrics for {self.dir} already exist. Use overwrite flag (-o) to overwrite metrics.")
+                logging.warning(f"Metrics for {self.dir} already exist. Use overwrite flag (-o) to overwrite metrics.")
                 return
 
             # fh.vprint(f"Starting alpha test for {self.dir}", verbose)
-            # print(f"Starting alpha test for {self.dir}")
+            # logging.info(f"Starting alpha test for {self.dir}")
 
             self.stats_modes_list = ['total_area']
 
@@ -254,10 +274,8 @@ class Test_Case(Benchmark):
                 )
             self.hydro_table = os.path.join(self.fim_dir, 'hydroTable.csv')
 
-            # Map necessary inputs for inundate().
-            # TODO: May 29th. This is loading this over and over and it is highly inefficent
-            # see note at top of the file.
-            self.hucs, self.hucs_layerName = os.path.join(INPUTS_DIR, 'wbd', WBD_FILE), 'WBDHU8'
+            # No longer needed (fim3)
+            # self.hucs = os.path.join(INPUTS_DIR, 'wbd', WBD_FILE)
 
             if inclusion_area != '':
                 inclusion_area_name = os.path.split(inclusion_area)[1].split('.')[0]  # Get layer name
@@ -281,9 +299,10 @@ class Test_Case(Benchmark):
             if os.path.exists(self.dir):
                 shutil.rmtree(self.dir, ignore_errors=True)
             # os.mkdir(self.dir)
-            os.makedirs(self.dir, exist_ok=True)
+            os.makedirs(self.dir)
 
             # Get the magnitudes and lids for the current huc and loop through them
+
             validation_data = self.data(self.huc)
             for magnitude in validation_data:
                 for instance in validation_data[
@@ -298,6 +317,7 @@ class Test_Case(Benchmark):
                         branch_workers=branch_workers,
                         precalb_option=precalb_option,
                         threads=threads,
+                        log_file_path=log_file_path,
                     )
 
                 # Clean up 'total_area' outputs from AHPS sites
@@ -308,15 +328,22 @@ class Test_Case(Benchmark):
             # self.write_metadata(calibrated, model)
             self.write_metadata(calibrated)
 
-        except KeyboardInterrupt:
-            print("Program aborted via keyboard interrupt")
-            sys.exit(1)
+        except KeyboardInterrupt as kiex:
+            logging.critical(f"Program aborted via keyboard interrupt: {self.test_id}")
+            # sys.exit(1)  # Note: you can not have this inside an MP as it won't really work
+            raise kiex
         except Exception as ex:
-            print(ex)
+            logging.critical(f"ERROR: {ex}: {self.test_id}")
             # Temporarily adding stack trace
-            print(f"trace for {self.test_id} -------------\n", traceback.format_exc())
-            sys.exit(1)
+            logging.critical(traceback.format_exc())
+            # sys.exit(1)  # Note: you can not have this inside an MP as it won't really work
+            raise ex
+        finally:
+            logging.info(f"Complete Alpha Test for {self.test_id}")
+            logging.info(sf.calculate_duration_msg(start_time))            
 
+    # NOTE: Jun 2026: At this point, we do not use the verbose flag, but if we add the
+    # logging.debug system, that would have value.
     def _inundate_and_compute(
         self,
         magnitude,
@@ -326,7 +353,8 @@ class Test_Case(Benchmark):
         # model='',
         verbose=False,
         branch_workers=1,
-        threads=8,
+        threads=1,
+        log_file_path="",
     ):
         '''Method for inundating and computing contingency rasters as part of the alpha_test.
         Used by both the alpha_test() and composite() methods.
@@ -342,6 +370,9 @@ class Test_Case(Benchmark):
         '''
         # Output files
         # fh.vprint("Creating output files", verbose)
+
+        # TODO: Debugging ?? the (temp keepign the self.huc output)
+        logging.info(f"Creating output files for {self.dir} - ({self.huc})")
 
         test_case_out_dir = os.path.join(self.dir, magnitude)
         inundation_prefix = lid + '_' if lid else ''
@@ -390,7 +421,9 @@ class Test_Case(Benchmark):
                 num_workers=branch_workers,
                 precalb_option=precalb_option,
                 windowed=True,
-                gms_multi_process=True
+                # gms_multi_process=True,  # This means use threads not MP
+                gms_multi_process=False,  # This means use MP instead of threads
+                log_file=log_file_path
             )
 
             # TODO: May 2026: adding verbose as True in produce_mosiacked_inundation
@@ -398,30 +431,32 @@ class Test_Case(Benchmark):
             # fundamentally a TQDM inside a TQDM. We will fix that later. See notes in
             # produce_mosaicked_inunation -> Inundate_gms
 
-            # FIM v3 and before
-            # else:
-            #     fh.vprint("Begin FIM v3 (or earlier) Inundation", verbose)
-            #     inundate_result = inundate(
-            #         self.rem,
-            #         self.catchments,
-            #         self.catchment_poly,
-            #         self.hydro_table,
-            #         benchmark_flows,
-            #         self.mask_type,
-            #         hucs=self.hucs,
-            #         hucs_layerName=self.hucs_layerName,
-            #         subset_hucs=self.huc,
-            #         num_workers=1,
-            #         aggregate=False,
-            #         inundation_raster=inundation_path,
-            #         inundation_polygon=None,
-            #         depths=None,
-            #         out_raster_profile=None,
-            #         out_vector_profile=None,
-            #         quiet=True,
-            #     )
-            #     if inundate_result != 0:
-            #         return inundate_result
+            '''
+            FIM v3 and before
+            else:
+                fh.vprint("Begin FIM v3 (or earlier) Inundation", verbose)
+                inundate_result = inundate(
+                    self.rem,
+                    self.catchments,
+                    self.catchment_poly,
+                    self.hydro_table,
+                    benchmark_flows,
+                    self.mask_type,
+                    hucs=self.hucs,
+                    hucs_layerName=self.hucs_layerName,
+                    subset_hucs=self.huc,
+                    num_workers=1,
+                    aggregate=False,
+                    inundation_raster=inundation_path,
+                    inundation_polygon=None,
+                    depths=None,
+                    out_raster_profile=None,
+                    out_vector_profile=None,
+                    quiet=True,
+                )
+                if inundate_result != 0:
+                    return inundate_result
+            '''
 
         # Create contingency rasters and stats
         # fh.vprint("Begin creating contingency rasters and stats", verbose)
@@ -437,6 +472,8 @@ class Test_Case(Benchmark):
             )
         return
 
+    # TODO: Jun 2026: Should add logging like we did in the function called alpha_test
+    # This version, run_alpha_test, is currently only used by cache_metrics.py
     @classmethod
     def run_alpha_test(
         cls,
@@ -471,101 +508,103 @@ class Test_Case(Benchmark):
             threads,
         )
 
-    def composite(self, version_2, calibrated=False, overwrite=True, verbose=False):
-        '''Class method for compositing MS and FR inundation and creating an agreement raster with stats
+    # Depecated: Jun 4, 2026: No longer being used.
+    # def composite(self, version_2, calibrated=False, overwrite=True, verbose=False):
+    #     '''Class method for compositing MS and FR inundation and creating an agreement raster with stats
 
-        Parameters
-        ----------
-        version_2 : str
-            Version with which to composite.
-        calibrated : bool
-            Whether or not this FIM version is calibrated.
-        overwrite : bool
-            If True, overwites pre-existing test cases within the test_cases directory.
-        '''
+    #     Parameters
+    #     ----------
+    #     version_2 : str
+    #         Version with which to composite.
+    #     calibrated : bool
+    #         Whether or not this FIM version is calibrated.
+    #     overwrite : bool
+    #         If True, overwites pre-existing test cases within the test_cases directory.
+    #     '''
 
-        if re.match(r'(.*)(_ms|_fr)', self.version):
-            composite_version_name = re.sub(r'(.*)(_ms|_fr)', r'\1_comp', self.version, count=1)
-        else:
-            composite_version_name = re.sub(r'(.*)(_ms|_fr)', r'\1_comp', version_2, count=1)
+    #     if re.match(r'(.*)(_ms|_fr)', self.version):
+    #         composite_version_name = re.sub(r'(.*)(_ms|_fr)', r'\1_comp', self.version, count=1)
+    #     else:
+    #         composite_version_name = re.sub(r'(.*)(_ms|_fr)', r'\1_comp', version_2, count=1)
 
-        fh.vprint(f"Begin composite for version : {composite_version_name}", verbose)
+    #     # fh.vprint(f"Begin composite for version : {composite_version_name}", verbose)
+    #     logging.info(f"Begin composite for version : {composite_version_name}")
 
-        composite_test_case = Test_Case(self.test_id, composite_version_name, self.archive)
-        input_test_case_2 = Test_Case(self.test_id, version_2, self.archive)
-        composite_test_case.stats_modes_list = ['total_area']
+    #     composite_test_case = Test_Case(self.test_id, composite_version_name, self.archive)
+    #     input_test_case_2 = Test_Case(self.test_id, version_2, self.archive)
+    #     composite_test_case.stats_modes_list = ['total_area']
 
-        if not overwrite and os.path.isdir(composite_test_case.dir):
-            return
+    #     if not overwrite and os.path.isdir(composite_test_case.dir):
+    #         return
 
-        # Delete the directory if it exists
-        if os.path.exists(composite_test_case.dir):
-            shutil.rmtree(composite_test_case.dir, ignore_errors=True)
+    #     # Delete the directory if it exists
+    #     if os.path.exists(composite_test_case.dir):
+    #         shutil.rmtree(composite_test_case.dir, ignore_errors=True)
 
-        validation_data = composite_test_case.data(composite_test_case.huc)
-        for magnitude in validation_data:
-            for instance in validation_data[
-                magnitude
-            ]:  # instance will be the lid for AHPS sites and '' for other sites (ble/ifc/ras2fim)
-                inundation_prefix = instance + '_' if instance else ''
+    #     validation_data = composite_test_case.data(composite_test_case.huc)
+    #     for magnitude in validation_data:
+    #         for instance in validation_data[
+    #             magnitude
+    #         ]:  # instance will be the lid for AHPS sites and '' for other sites (ble/ifc/ras2fim)
+    #             inundation_prefix = instance + '_' if instance else ''
 
-                input_inundation = os.path.join(
-                    self.dir, magnitude, f'{inundation_prefix}inundation_extent_{self.huc}.tif'
-                )
-                input_inundation_2 = os.path.join(
-                    input_test_case_2.dir,
-                    magnitude,
-                    f'{inundation_prefix}inundation_extent_{input_test_case_2.huc}.tif',
-                )
-                output_inundation = os.path.join(
-                    composite_test_case.dir, magnitude, f'{inundation_prefix}inundation_extent.tif'
-                )
+    #             input_inundation = os.path.join(
+    #                 self.dir, magnitude, f'{inundation_prefix}inundation_extent_{self.huc}.tif'
+    #             )
+    #             input_inundation_2 = os.path.join(
+    #                 input_test_case_2.dir,
+    #                 magnitude,
+    #                 f'{inundation_prefix}inundation_extent_{input_test_case_2.huc}.tif',
+    #             )
+    #             output_inundation = os.path.join(
+    #                 composite_test_case.dir, magnitude, f'{inundation_prefix}inundation_extent.tif'
+    #             )
 
-                if os.path.isfile(input_inundation) and os.path.isfile(input_inundation_2):
-                    inundation_map_file = pd.DataFrame(
-                        {
-                            'huc8': [composite_test_case.huc] * 2,
-                            'branchID': [None] * 2,
-                            'inundation_rasters': [input_inundation, input_inundation_2],
-                            'depths_rasters': [None] * 2,
-                            'inundation_polygons': [None] * 2,
-                        }
-                    )
-                    os.makedirs(os.path.dirname(output_inundation), exist_ok=True)
+    #             if os.path.isfile(input_inundation) and os.path.isfile(input_inundation_2):
+    #                 inundation_map_file = pd.DataFrame(
+    #                     {
+    #                         'huc8': [composite_test_case.huc] * 2,
+    #                         'branchID': [None] * 2,
+    #                         'inundation_rasters': [input_inundation, input_inundation_2],
+    #                         'depths_rasters': [None] * 2,
+    #                         'inundation_polygons': [None] * 2,
+    #                     }
+    #                 )
+    #                 os.makedirs(os.path.dirname(output_inundation), exist_ok=True)
 
-                    # fh.vprint(f"Begin mosaic inundation for version : {composite_version_name}", verbose)
-                    print(f"Begin mosaic inundation for version : {composite_version_name}")
-                    Mosaic_inundation(
-                        inundation_map_file,
-                        mosaic_attribute='inundation_rasters',
-                        mosaic_output=output_inundation,
-                        mask=None,
-                        unit_attribute_name='huc8',
-                        nodata=elev_raster_ndv,
-                        workers=1,
-                        remove_inputs=False,
-                        subset=None,
-                        verbose=False,
-                    )
-                    composite_test_case._inundate_and_compute(magnitude, instance, compute_only=True)
+    #                 # fh.vprint(f"Begin mosaic inundation for version : {composite_version_name}", verbose)
+    #                 # print(f"Begin mosaic inundation for version : {composite_version_name}")
+    #                 Mosaic_inundation(
+    #                     inundation_map_file,
+    #                     mosaic_attribute='inundation_rasters',
+    #                     mosaic_output=output_inundation,
+    #                     mask=None,
+    #                     unit_attribute_name='huc8',
+    #                     nodata=elev_raster_ndv,
+    #                     workers=1,
+    #                     remove_inputs=False,
+    #                     subset=None,
+    #                     verbose=False,
+    #                 )
+    #                 composite_test_case._inundate_and_compute(magnitude, instance, compute_only=True)
 
-                elif os.path.isfile(input_inundation) or os.path.isfile(input_inundation_2):
-                    # If only one model (MS or FR) has inundation, simply copy over all files as the composite
-                    single_test_case = self if os.path.isfile(input_inundation) else input_test_case_2
-                    shutil.copytree(
-                        single_test_case.dir,
-                        re.sub(r'(.*)(_ms|_fr)', r'\1_comp', single_test_case.dir, count=1),
-                    )
-                    # composite_test_case.write_metadata(calibrated, 'COMP')
-                    composite_test_case.write_metadata(calibrated)
-                    return
+    #             elif os.path.isfile(input_inundation) or os.path.isfile(input_inundation_2):
+    #                 # If only one model (MS or FR) has inundation, simply copy over all files as the composite
+    #                 single_test_case = self if os.path.isfile(input_inundation) else input_test_case_2
+    #                 shutil.copytree(
+    #                     single_test_case.dir,
+    #                     re.sub(r'(.*)(_ms|_fr)', r'\1_comp', single_test_case.dir, count=1),
+    #                 )
+    #                 # composite_test_case.write_metadata(calibrated, 'COMP')
+    #                 composite_test_case.write_metadata(calibrated)
+    #                 return
 
-            # Clean up 'total_area' outputs from AHPS sites
-            if composite_test_case.is_ahps:
-                composite_test_case.clean_ahps_outputs(os.path.join(composite_test_case.dir, magnitude))
+    #         # Clean up 'total_area' outputs from AHPS sites
+    #         if composite_test_case.is_ahps:
+    #             composite_test_case.clean_ahps_outputs(os.path.join(composite_test_case.dir, magnitude))
 
-        # composite_test_case.write_metadata(calibrated, 'COMP')
-        composite_test_case.write_metadata(calibrated)
+    #     # composite_test_case.write_metadata(calibrated, 'COMP')
+    #     composite_test_case.write_metadata(calibrated)
 
     #def write_metadata(self, calibrated, model):
     # With us no longer using models (gms and fr, they now are all fundamentally "COMP")

@@ -2,6 +2,7 @@
 
 import argparse
 import os
+import logging
 import sys
 import traceback
 import warnings
@@ -13,6 +14,8 @@ from inundation import NoForecastFound, hydroTableHasOnlyLakes, inundate
 from tqdm import tqdm
 
 # Suppress only FutureWarnings
+# TODO: Jun 2026: This is a temp fix as gval is what is issuing this
+# A new gval is already ready to plug into fix this. We can remove it later.
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
@@ -86,13 +89,16 @@ def Inundate_gms(
     num_workers = int(num_workers)
 
     # log file
-    if log_file is not None:
-        if os.path.exists(log_file):
-            os.remove(log_file)
+    # if log_file is not None and log_file != "":
+    #     # if os.path.exists(log_file):
+    #     #     os.remove(log_file)
 
-        if verbose:
-            with open(log_file, 'a') as f:
-                f.write("HUC8,BranchID,Exception")
+    #     if verbose:
+    #         with open(log_file, 'a') as f:
+    #             f.write("HUC8,BranchID,Exception")
+
+    # TODO: temp debugging
+    logging.info(f"Starting Inundate_gms for {hucs}")
 
     # load fim inputs
     hucs_branches = pd.read_csv(
@@ -120,17 +126,13 @@ def Inundate_gms(
         precalb_option=precalb_option,
     )
 
+    # TODO:  Temp debugging
+    logging.info(f"back from __inundate_gms_generator for {hucs} with number of branches of {len(hucs_branches)}")
+
     # TODO: May 2026: This shoul be put to our more normal Processpool or threadpool.
     # We need the try catch to manage catestropic failes that we want to forward.
     # As is, this will just keep processing all branches even with exceptions.
     # Also see notes below about stopping catestropic branch fails.
-
-    # start up process pool
-    # better results with Process pool
-    if multi_process is True:
-        executor = ProcessPoolExecutor(max_workers=num_workers)
-    else:
-        executor = ThreadPoolExecutor(max_workers=num_workers)
 
     # collect output filenames
     inundation_raster_fileNames = [None] * number_of_branches
@@ -139,70 +141,118 @@ def Inundate_gms(
     hucCodes = [None] * number_of_branches
     branch_ids = [None] * number_of_branches
 
-    executor_generator = {executor.submit(inundate, **inp): ids for inp, ids in inundate_input_generator}
+    try:
+        # start up process pool
+        # better results with Process pool
 
-    idx = 0
-    # TODO: we may want to consider fully dropping the option of TQDM. 
-    # Most if not all code has wrappers that already MP or MT Inundate_gms and have their
-    # own TQDM. TQDM inside an MP or MT with an parent TQDM does create problems and irradic results
-    for future in tqdm(
-        as_completed(executor_generator),
-        total=len(executor_generator),
-        desc=f"Inundating branches with {num_workers} workers",
-        disable=(not verbose),
-    ):
-        hucCode, branch_id = executor_generator[future]
+        if multi_process is True:
+            executor = ProcessPoolExecutor(max_workers=num_workers, max_tasks_per_child=num_workers)
+            # TODO: debugging
+            logging.info(f"Using ProcessPoolExecutor for {hucs}")
 
-        try:
-            future.result()
-
-        except NoForecastFound as exc:
-            if log_file is not None:
-                print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=open(log_file, "a"))
-            elif verbose:
-                print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
-
-        except hydroTableHasOnlyLakes as exc:
-            if log_file is not None:
-                print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=open(log_file, "a"))
-            elif verbose:
-                print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
-
-        except Exception as exc:
-            traceback.print_exc(file=sys.stdout)
-            if log_file is not None:
-                print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=open(log_file, "a"))
-            else:
-                print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
         else:
-            hucCodes[idx] = hucCode
-            branch_ids[idx] = branch_id
+            executor = ThreadPoolExecutor(max_workers=num_workers)
+
+            # TODO: debugging
+            logging.info(f"Using ThreadPoolExecutor for {hucs}")
+
+
+        executor_generator = {executor.submit(inundate, **inp): ids for inp, ids in inundate_input_generator}
+
+        idx = 0
+        stop_executor=False
+        # TODO: we may want to consider fully dropping the option of TQDM. 
+
+        # TODO: Rob.. yes... take out TQDM
+
+
+
+        # Most if not all code has wrappers that already MP or MT Inundate_gms and have their
+        # own TQDM. TQDM inside an MP or MT with an parent TQDM does create problems and irradic results
+        for future in tqdm(
+            as_completed(executor_generator),
+            total=len(executor_generator),
+            desc=f"Inundating branches with {num_workers} workers",
+            disable=(not verbose),
+        ):
+
+            hucCode, branch_id = executor_generator[future]
 
             try:
-                inundation_raster_fileNames[idx] = future.result()[0][0]
-            except TypeError:
-                pass
+                future.result()
 
-            try:
-                depths_raster_fileNames[idx] = future.result()[1][0]
-            except TypeError:
-                pass
+            except NoForecastFound as exc:
+                if log_file is not None and log_file != "":
+                    # print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=open(log_file, "a"))
+                    msg = f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}"
+                    # , file=open(log_file, "a")
+                    logging.warning(msg)
+                elif verbose:
+                    print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
 
-            try:
-                inundation_polygon_fileNames[idx] = future.result()[2][0]
-            except TypeError:
-                pass
+            except hydroTableHasOnlyLakes as exc:
+                if log_file is not None and log_file != "":
+                    # print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=open(log_file, "a"))
+                    msg = f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}"
+                    # , file=open(log_file, "a")
+                    logging.warning(msg)
+                elif verbose:
+                    print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
 
-            idx += 1
+            except Exception as exc:
+                # traceback.print_exc(file=sys.stdout)
+                
+                if log_file is not None and log_file != "":
+                    # print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=open(log_file, "a"))
+                    logging.critical(f"Critical Error: {hucCode},{branch_id},{exc.__class__.__name__}")
+                    logging.critical(traceback.format_exc())
+                else:
+                    print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
+                
+                if isinstance(executor, ProcessPoolExecutor):
+                    # Note: You can not sys.exit from a ProcessPoolExecutor directly
+                    # all processes inside the ProcessPoolExecutor can not be aborted
+                    # but you can shutdown and stop the executor from creating more.
+                    # The trick is recongizing that each child process can throw an
+                    # exception 
+                    executor.shutdown(
+                        wait=False, cancel_futures=True
+                    )  # tells the ProcessPoolExecutor to stop accepting new tasks. Even cancel the running tasks as soon as possible                
 
-    # power down pool
-    # TODO: May 2026 : Do we want to stop branches from processing if a fail is found?
-    # Note: We can try catch it if re-org the pool code above, but when it is ProcessPool
-    # there is no way to stop WIP processes, only stop new ones from triggering.
-    # Note: in ProcessPool,  sys.exit does not work
-    # When it is a threadpool, we have more options but it does take a fair bit of coding
-    # to track and shut down current threads and making sure we don't have collisions.
-    executor.shutdown(wait=True)
+                # else:  # assume it is ThreadPoolExecutor
+
+                raise exc  # yes.. reraise
+            
+            else: # excutes only if the try was successful
+                hucCodes[idx] = hucCode
+                branch_ids[idx] = branch_id
+
+                try:
+                    inundation_raster_fileNames[idx] = future.result()[0][0]
+                except TypeError:
+                    pass
+
+                try:
+                    depths_raster_fileNames[idx] = future.result()[1][0]
+                except TypeError:
+                    pass
+
+                try:
+                    inundation_polygon_fileNames[idx] = future.result()[2][0]
+                except TypeError:
+                    pass
+
+                idx += 1
+
+    except Exception as ex:
+        msg = f"Critical Error: {hucs},{exc.__class__.__name__}"
+        if log_file is not None and log_file != "":  # do we even need this?
+            logging.critical(msg)
+            logging.critical(traceback.format_exc())
+        else:
+            print(msg)
+            print(traceback.format_exc())
+        raise ex  # yes.. reraise
 
     # make filename dataframe
     output_fileNames_df = pd.DataFrame(
@@ -263,12 +313,18 @@ def __inundate_gms_generator(
 
     """
     # Iterate over branches
+    # TODO: temp debugging
+    logging.info("In __inundate_gms_generator")
+
     for idx, row in hucs_branches.iterrows():
         huc = str(row[0])
         branch_id = str(row[1])
 
         huc_dir = os.path.join(hydrofabric_dir, huc)
         branch_dir = os.path.join(huc_dir, "branches", branch_id)
+
+        # TODO: temp debugging
+        logging.info(f"Start __inundate_gms_generator for {branch_dir}")
 
         rem_file_name = f"rem_zeroed_masked_{branch_id}.tif"
         rem_branch = os.path.join(branch_dir, rem_file_name)
@@ -294,6 +350,7 @@ def __inundate_gms_generator(
                 "LakeID": int,
             }
 
+            # TODO: Jun 2026: we no longer produce a feather file
             if (
                 s3_or_local_path_exists(os.path.join(huc_dir, "hydrotable.feather"))
                 and precalb_option == False
