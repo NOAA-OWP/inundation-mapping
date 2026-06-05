@@ -36,6 +36,7 @@ _WORKER_DOMAIN_UNION_BUFFERED = None
 # ripple_whitelist_table = 'ripple_feature_list_20260310_huc_considered_delivered.csv'
 
 
+# -----------------------------------------------------------------------------
 def load_huc_validated_whitelist(ripple_dir, ripple_whitelist_table, previous_hand_dir):
 
     whitelist_df = pd.read_csv(join(ripple_dir, ripple_whitelist_table), dtype={"huc": str})
@@ -85,6 +86,7 @@ def load_huc_validated_whitelist(ripple_dir, ripple_whitelist_table, previous_ha
     return whitelist_df[whitelist_cols].reset_index(drop=True)
 
 
+# -----------------------------------------------------------------------------
 def create_collection_model_ids(whitelist_df):
     collection_model_ids = (
         whitelist_df[["collection_id", "model_id"]].drop_duplicates(keep="first").reset_index(drop=True)
@@ -97,6 +99,7 @@ def create_collection_model_ids(whitelist_df):
     return collection_model_ids
 
 
+# -----------------------------------------------------------------------------
 def create_whitelist_domain(ripple_dir, ripple_domain_gpkg, collection_model_ids):
 
     # Please note that all feature_ids in a single ripple model is on whitelist.
@@ -126,6 +129,7 @@ def create_whitelist_domain(ripple_dir, ripple_domain_gpkg, collection_model_ids
     return domain_whitelist_gdf
 
 
+# -----------------------------------------------------------------------------
 def read_ripple_streams(whitelist_df, ripple_collections_dir, collection_slice=None):
     collection_ids = sorted(
         whitelist_df["collection_id"].drop_duplicates(keep="first").reset_index(drop=True)
@@ -163,6 +167,7 @@ def read_ripple_streams(whitelist_df, ripple_collections_dir, collection_slice=N
     return streams_gdf
 
 
+# -----------------------------------------------------------------------------
 def create_save_whitelist_streams(whitelist_df, streams_gdf, ripple_dir):
     whitelist_streams_df = whitelist_df.merge(streams_gdf, on="feature_id", how="left")
 
@@ -176,6 +181,7 @@ def create_save_whitelist_streams(whitelist_df, streams_gdf, ripple_dir):
     # return whitelist_streams_gdf
 
 
+# -----------------------------------------------------------------------------
 # Break a Polygon, MultiPolygon, or geometry collection into individual polygon pieces
 def polygon_components(geom):
     if geom is None or geom.is_empty:
@@ -198,6 +204,7 @@ def polygon_components(geom):
     return []
 
 
+# -----------------------------------------------------------------------------
 # Pick the largest polygon component by area
 def main_domain_component(geom):
     components = polygon_components(geom)
@@ -208,6 +215,7 @@ def main_domain_component(geom):
     return max(components, key=lambda component: component.area)
 
 
+# -----------------------------------------------------------------------------
 def component_intersecting_feature_count(component, streams_gdf):
     if streams_gdf.empty:
         return 0
@@ -217,6 +225,7 @@ def component_intersecting_feature_count(component, streams_gdf):
     return intersecting_streams["feature_id"].nunique()
 
 
+# -----------------------------------------------------------------------------
 def exclude_components_with_few_streams(components, streams_gdf):
     retained_components = []
     excluded_component_count_by_stream_rule = 0
@@ -233,6 +242,7 @@ def exclude_components_with_few_streams(components, streams_gdf):
     return retained_components, excluded_component_count_by_stream_rule
 
 
+# -----------------------------------------------------------------------------
 # Group domains by collection_id; union each collection's geometry,
 # keep the largest components by area, and record diagnostics.
 def keep_main_collection_domain_components(
@@ -325,6 +335,7 @@ def keep_main_collection_domain_components(
     )
 
 
+# -----------------------------------------------------------------------------
 def create_save_whitelist_merged_domain(domain_whitelist_gdf, streams_gdf, ripple_dir):
 
     domain_whitelist_gdf = domain_whitelist_gdf.to_crs(TARGET_CRS).copy()
@@ -372,6 +383,7 @@ def create_save_whitelist_merged_domain(domain_whitelist_gdf, streams_gdf, rippl
     return merged_domain_whitelist_gdf
 
 
+# -----------------------------------------------------------------------------
 def as_single_linestring(geom):
     if geom is None or geom.is_empty:
         return None
@@ -390,6 +402,7 @@ def as_single_linestring(geom):
     return None
 
 
+# -----------------------------------------------------------------------------
 def topology_bridge_mask(candidates, included_col="included", max_bridge_reaches=3):
 
     included_ids = set(candidates.loc[candidates[included_col], "feature_id"].dropna())
@@ -436,6 +449,7 @@ def topology_bridge_mask(candidates, included_col="included", max_bridge_reaches
     return (~candidates[included_col]) & candidates["feature_id"].isin(bridge_ids)
 
 
+# -----------------------------------------------------------------------------
 def downstream_domain_metrics(geom, domain_union_buffered):  # domain_union
 
     line = as_single_linestring(geom)
@@ -490,15 +504,18 @@ def downstream_domain_metrics(geom, domain_union_buffered):  # domain_union
     )
 
 
+# -----------------------------------------------------------------------------
 def _init_domain_metrics_worker(domain_union_buffered):
     global _WORKER_DOMAIN_UNION_BUFFERED
     _WORKER_DOMAIN_UNION_BUFFERED = domain_union_buffered
 
 
+# -----------------------------------------------------------------------------
 def _downstream_domain_metrics_worker(geom):
     return downstream_domain_metrics(geom, _WORKER_DOMAIN_UNION_BUFFERED).to_dict()
 
 
+# -----------------------------------------------------------------------------
 def compute_downstream_domain_metrics_parallel(geometries, domain_union_buffered, n_workers, chunksize):
     geometries = list(geometries)
 
@@ -516,6 +533,7 @@ def compute_downstream_domain_metrics_parallel(geometries, domain_union_buffered
     return pd.DataFrame.from_records(records)
 
 
+# -----------------------------------------------------------------------------
 def select_valid_streams(streams_gdf, merged_domain_whitelist_gdf, n_workers, chunksize):
 
     merged_domain_whitelist_gdf = merged_domain_whitelist_gdf.to_crs(TARGET_CRS)
@@ -612,6 +630,7 @@ def select_valid_streams(streams_gdf, merged_domain_whitelist_gdf, n_workers, ch
     return included_streams_gdf, candidates_metrics_df, within_count
 
 
+# -----------------------------------------------------------------------------
 def process_streams_save_outputs(
     ripple_dir,
     ripple_whitelist_table,

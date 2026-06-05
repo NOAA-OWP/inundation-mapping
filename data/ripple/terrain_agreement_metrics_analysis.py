@@ -6,7 +6,6 @@ import re
 import sqlite3
 import traceback
 from argparse import ArgumentParser
-from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 import geopandas as gpd
@@ -15,12 +14,15 @@ import pandas as pd
 from dotenv import load_dotenv
 
 
-# import matplotlib.pyplot as plt
+metrics_dir = '/outputs/test_blacklist_metrics/collections/'
+out_dir = '/outputs/test_blacklist_metrics/outputs_metrics/'
+ripple_collection_name = 'mip_07140102'
 
 
-# ***************************************************************
+# -----------------------------------------------------------------------------
 def merge_nwm_streams_with_ripples(metrics_dir, out_dir, ripple_collection_name):
 
+    # Load nwm_streams gpkg
     srcDir = os.getenv('srcDir')
     load_dotenv(f'{srcDir}/bash_variables.env')
     pre_clip_huc_dir = os.getenv("pre_clip_huc_dir")
@@ -33,7 +35,7 @@ def merge_nwm_streams_with_ripples(metrics_dir, out_dir, ripple_collection_name)
     nwm_stream_gpkg = os.path.join(pre_clip_huc_dir, huc, 'nwm_subset_streams.gpkg')
     ripple_gpkg = os.path.join(metrics_dir, ripple_collection_name, 'ripple.gpkg')
 
-    # Read ripple geopackage
+    # Load ripple geopackage
     if os.path.exists(ripple_gpkg):
         ## List all layers in the GeoPackage
         # layers = fiona.listlayers(ripple_gpkg)
@@ -65,6 +67,11 @@ def merge_nwm_streams_with_ripples(metrics_dir, out_dir, ripple_collection_name)
 
             # Merge nwm_streams with ripple streams
             ripple_reaches_gdf = ripple_gdf.merge(nwms_gdf, on='feature_id', how='left')
+
+            # Add a column to tag feature_id
+            ripple_reaches_gdf['is_blacklisted'] = False
+            ripple_reaches_gdf['is_valid'] = False
+
             geom_col1 = (
                 ripple_reaches_gdf.geometry.name
             )  # gets the name of the current active geometry column
@@ -75,8 +82,6 @@ def merge_nwm_streams_with_ripples(metrics_dir, out_dir, ripple_collection_name)
             ripple_reaches_gdf['collection_id'] = np.where(
                 ripple_reaches_gdf['model_id'].notna(), ripple_collection_name, None
             )
-            # Add a column to tag feature_id
-            ripple_reaches_gdf['is_blacklisted'] = False
 
             # Create the HUC folder
             huc_out_folder = os.path.join(out_dir, ripple_collection_name)
@@ -84,7 +89,7 @@ def merge_nwm_streams_with_ripples(metrics_dir, out_dir, ripple_collection_name)
 
             # Save as a new GeoPackage
             path_ripple_reaches = os.path.join(
-                huc_out_folder, ripple_collection_name, f'ripple_reaches_order_sourcemodels_{huc}.gpkg'
+                huc_out_folder, f'ripple_reaches_order_sourcemodels_{huc}.gpkg'
             )
             if not os.path.exists(path_ripple_reaches):
                 ripple_reaches_gdf.to_file(path_ripple_reaches, driver="GPKG")
@@ -92,7 +97,7 @@ def merge_nwm_streams_with_ripples(metrics_dir, out_dir, ripple_collection_name)
     return log_text
 
 
-# ***************************************************************
+# -----------------------------------------------------------------------------
 def merge_ripple_reaches_sourcemodels_with_metrics_db(metrics_dir, out_dir, ripple_collection_name):
 
     huc = re.search(r'\d+', ripple_collection_name).group(0)
@@ -176,45 +181,10 @@ def merge_ripple_reaches_sourcemodels_with_metrics_db(metrics_dir, out_dir, ripp
             if not os.path.exists(path_ripple_reaches_metrics):
                 ripple_reaches_metrics_gdf.to_file(path_ripple_reaches_metrics)
 
-            # # Covariance of metrics
-            # corr_columns = [
-            #     'avg_inundation_overlap',
-            #     'avg_flow_area_overlap',
-            #     'avg_top_width_agreement',
-            #     'avg_flow_area_agreement',
-            #     'avg_hydraulic_radius_agreement',
-            #     'avg_r_squared',
-            #     'avg_spectral_angle',
-            #     'avg_spectral_correlation',
-            #     'avg_correlation',
-            #     'avg_max_cross_correlation',
-            #     'avg_thalweg_elevation_difference',
-            # ]
-            # cov_matrix = ripple_reaches_metrics_gdf[corr_columns].cov().round(4)
-            # path_t0_save_cov = os.path.join(path_ripple_collection_out, f'ripple_reaches_cov_{huc}.csv')
-            # if not os.path.exists(path_t0_save_cov):
-            #     cov_matrix.to_csv(path_t0_save_cov, index=False)
-
-            # # Correlation of metrics
-            # corr_matrix = ripple_reaches_metrics_gdf[corr_columns].corr().round(4)
-            # corr_matrix['ripple_collection'] = ripple_collection_name
-            # corr_matrix['HUC'] = huc
-
-            # cols_to_move = ['HUC', 'ripple_collection']
-            # cols2 = corr_matrix.columns
-            # # Create the new order: the two columns first, then all others except these two
-            # new_order = cols_to_move + [col for col in cols2 if col not in cols_to_move]
-            # # Reorder the dataframe
-            # corr_matrix = corr_matrix[new_order]
-
-            # path_t0_save_corr = os.path.join(path_ripple_collection_out, f'ripple_reaches_order_corr_{huc}.csv')
-            # if not os.path.exists(path_t0_save_corr):
-            #     corr_matrix.to_csv(path_t0_save_corr, index=False)
-
     return log_text
 
 
-# ***************************************************************
+# -----------------------------------------------------------------------------
 def create_ripple_STREAMS_gdf_csv(metrics_dir, out_dir):
 
     ripple_collections = [d for d in os.listdir(metrics_dir) if os.path.isdir(os.path.join(metrics_dir, d))]
@@ -395,7 +365,7 @@ def create_ripple_STREAMS_gdf_csv(metrics_dir, out_dir):
     return log_text
 
 
-# ***************************************************************
+# -----------------------------------------------------------------------------
 def process_ripple_STREAMS_create_blackList(out_dir):
 
     path_ripple_streams = os.path.join(out_dir, 'metrics_streams_ripple_submodels_conus.csv')
@@ -620,7 +590,7 @@ def process_ripple_STREAMS_create_blackList(out_dir):
     return log_text
 
 
-# --------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Apply ripple_streams_blacklist function on metrics_dir
 def apply_ripple_streams_blacklist(metrics_dir, out_dir, log_file_path):
     """
@@ -654,7 +624,7 @@ def apply_ripple_streams_blacklist(metrics_dir, out_dir, log_file_path):
         print(f"Error trying to write to the log file of {log_file_path}\n")
 
 
-# -------------------------------------------------------
+# -----------------------------------------------------------------------------
 def log_create_blacklist(metrics_dir, out_dir):
     """
     Function for correcting synthetic rating curves using Multi-Proc approach.
