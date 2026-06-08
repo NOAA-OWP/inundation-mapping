@@ -30,3 +30,5 @@ config/*.swp
 !**/.ipynb
 **/.ipynb_checkpoints
 **checkpoint.ipynb
+
+.git_local_repo_credentials

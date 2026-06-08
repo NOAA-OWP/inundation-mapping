@@ -95,7 +95,7 @@ def process_roads_fimpact(
         roads_gdf_splitted = roads_gdf_splitted.loc[min_idx]
 
         # make sure to record ids as str for csv output file
-        cols_to_str = ['osmid', 'huc8', 'HydroID', 'feature_id', 'branch']
+        cols_to_str = ['osmid', 'huc8', 'HydroID', 'feature_id', 'order_', 'branch']
         roads_gdf_splitted[cols_to_str] = roads_gdf_splitted[cols_to_str].astype(str)
 
         roads_gdf_splitted.to_csv(output_path, index=False)
@@ -116,7 +116,7 @@ if __name__ == "__main__":
 
     '''
 
-    parser = argparse.ArgumentParser(description='Heals HAND for osm bridges')
+    parser = argparse.ArgumentParser(description='Process roads FIMpacts')
 
     parser.add_argument(
         '-g', '--hand_grid_raster', help='REQUIRED: Path for HAND grid raster file', required=True

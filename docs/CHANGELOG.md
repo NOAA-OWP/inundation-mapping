@@ -10,6 +10,217 @@ This PR updates the FLASH FIM workflow to make it more efficient for development
 
 ### Changes
 - `tools/flashfim/conflate_flash_flows.py`: Restructured reading of FLASH grib file for efficiency.
+## v4.9.16.0 - 2026-06-02 - [PR#1787](https://github.com/NOAA-OWP/inundation-mapping/pull/1787)
+
+This PR closes issues #1778, #1795, and  #1796 and includes the following enhancements to the OSM bridge data acquisition pipeline.
+
+### Adding pdal to docker image
+Updated the lidar bridge workflow to run PDAL from the standard Docker image instead of requiring a separate conda environment. In [`data/bridges/make_rasters_using_lidar.py`](c:/Users/ali.forghani/Desktop/dev-lidar-bridge-upgrade/inundation-mapping/data/bridges/make_rasters_using_lidar.py), the two PDAL execution points were changed from Python `pdal` bindings to the PDAL CLI by writing the pipeline JSON to a temporary file and invoking `pdal pipeline` with `subprocess`. The pipeline definitions themselves were unchanged.
+
+Docker image changes (Implemented through PR #1805):
+- Added a dedicated PDAL runtime inside the image using `micromamba`, installed at `/opt/pdal-env`.
+- Installed `pdal=2.9.3` in that isolated environment, along with matching `gdal`, `proj`, and `proj-data`.
+- Kept the main container Python and geospatial stack unchanged to avoid interfering with existing GDAL/geopandas behavior.
+- Exposed the isolated PDAL binary through environment variables, using `PDAL_CLI_PATH=/opt/pdal-env/bin/pdal` and `PDAL_ENV_ROOT=/opt/pdal-env`.
+
+How `make_rasters_using_lidar.py` uses that environment:
+- The script now runs PDAL through the CLI with `subprocess.run(...)` instead of relying on Python PDAL bindings.
+- Before invoking PDAL, the script sets `PROJ_LIB`, `PROJ_DATA`, and `GDAL_DATA` only for the PDAL subprocess so it uses the matching runtime data in `/opt/pdal-env`.
+
+
+### Updates for the Pre-clipping tool
+Updated `clip_vectors_to_wbd.py` to support the new OSM bridge data layout, where bridge files are already pre-clipped by HUC. The tool no longer expects regional bridge GeoPackages for the normal preclip path. Instead, when `osm_bridges` is selected for preclip/transfer, it reads `osm_bridges_modified_dir` from `bash_variables.env` and transfers the matching `huc_<HUC>_osm_bridges_modified.gpkg` file into the HUC preclip folder as `osm_bridges_subset.gpkg`. 
+
+### Changes
+- data/bridges/pull_osm_bridges.py
+- data/bridges/make_rasters_using_lidar.py
+- data/bridges/make_dem_dif_for_bridges.py
+- data/wbd/generate_pre_clip_fim_huc8.py
+- data/wbd/clip_vectors_to_wbd.py
+- src/bash_variables.env
+- Dockerfile.dev (Implemented through PR #1805)
+- Dockerfile.owp (Implemented through PR #1805)
+
+### Removals
+- data/bridges/conda_fim_bridges_enviro.yml
+- data/bridges/setup_conda_for_make_rasters.txt
+<br/>
+
+## v4.9.15.0 - 2026-06-02 - [PR#1816](https://github.com/NOAA-OWP/inundation-mapping/pull/1816)
+
+This pull request introduces a dedicated preprocessing workflow to identify and fill DEM "pits" (large and deep artificial depressions). This introduces a new input data script to process a directory of DEM files and generates new input filled elevation rasters (new input files). Resolves #815 
+
+### Additions
+
+- `data/usgs/pit_detect_fill.py`: provides a new batch-processing utility that identifies and selectively fills topographic sinks ("pits") using a two tiered approach. 1) OSM informed detection - identifies artificial pits by cross-referencing OSM polygons with terrain detected depressions (richdem filled areas). 2) Terrain-based filtering uses geometric and statistical metrics (depth, circularity, and pixel count) to identify and fill natural sinks that meet criteria but didn't coencide with OSM polys. Creates a series of new output files mimicing the input DEM file structure. 
+
+### Changes
+
+- `config/params_template.env`: updated the `thalweg_lateral_elev_threshold` parameter from 3 meters to 10 meters. This is the max elevation difference allowed in the lateral thalweg search algorithm. This was increased to 10m to allow more flexibility in detecting the terrain-defined thalweg since we've now filled in many of the deep/artificial pits that previously caused issued with the thalweg elevation.
+- `config/deny_unit.lst`: updated dem tif file names
+- `src/bash_variables.env`: added in the new input file variables for the pit_filled vrt files
+- `src/run_huc.sh`: added new logic to merge the original input DEM and the pit-filled elevation DEM.
+<br/>
+
+## v4.9.14.0 - 2026-05-13 - [PR#1805](https://github.com/NOAA-OWP/inundation-mapping/pull/1805)
+
+Upgrades GDAL base image to v3.12.3 (ghcr.io/osgeo/gdal:ubuntu-small-3.12.3) and upgrades Python dependencies. There were a few major hurdles in upgrading beyond the previous GDAL v.3.8.4 primarily due to the fact that v3.8.4 was the last version to use Python 3.10 and GDAL v3.12.3 uses Python 3.12, including:
+- Numerous Python dependency conflicts
+- `numpy` versions >= 2.0.0 are incompatible with the GDAL v3.12.3 Docker image. `numpy` and `scipy` were forced to downgrade after the Python packages were installed via Pipfile.
+- Python 3.12 manages packages in a virtual environment which made them unable to be found.
+- A change in `gdal_rasterize` caused 0s to be written as nodata which tripped up `fim_pipeline.sh`.
+- Incompatibility between TauDEM v5.3 and GDAL v3.12.3 resulted in an Error message. The outputs are still valid so the error message was suppressed.
+
+In addition, an upgraded `pdal` was added to the Dockerfile and `pillow` was upgraded to v12.2.0.
+
+### Changes
+
+- `Dockerfile.dev` and `Dockerfile.owp`: Upgrade GDAL base image to v3.12.3; adds system break flag for installing Python packages in an unmanaged environment; upgrades `pdal`; downgrades `numpy` and `scipy`
+- `Pipfile` and `Pipfile.lock`: Upgrade and resolve Python dependencies and conflicts
+- `src/`
+    - `delineate_hydros_and_produce_HAND.sh`: Suppress GDAL Error message
+    - `run_by_branch.sh` and `run_huc.sh` Suppress GDAL Error message and fix `gdal_rasterize` nodata issue
+
+<br/>
+## v4.9.13.0 - 2026-05-13 - [PR#1811]([https://github.com/NOAA-OWP/inundation-mapping/pull/1811])
+
+A major reorganization of the CatFIM processing pipeline, consolidating and simplifying a complex multi-file workflow into more modular and maintainable components. New scripts (`catfim_shared_functions.py`, `catfim_process_huc.py`, `catfim_post_processing.py`) were created to centralize common operations and move CatFIM processing into a HUC-level scale (whereas previous processing was a mix of site-level, sometimes HUC-level, and sometimes full domain-scale). 
+
+### Additions
+- `tools/catfim/catfim_process_huc.py`: A new HUC-specific CatFIM processing wrapper, orchestrating all HUC-level processing steps from site validation through mapping completion. `process_huc()` is the central wrapper managing the complete HUC processing pipeline.
+- `tools/catfim/catfim_post_processing.py`: A new script that compiles all HUC-level CatFIM outputs (sites and library geopackages) into a consolidated site GeoPackage, site CSV, library GeoPackage, and library CSV. Creates post-processing logs with warnings for problematic HUCs and missing data.
+- `tools/catfim/catfim_shared_functions.py`: Stores common functions and constants used across all CatFIM processing workflows. All functions include comprehensive error handling, logging, and detailed docstrings for maintainability across the CatFIM pipeline.
+
+### Changes
+- `tools/catfim/generate_categorical_fim.py`: Refactored as the orchestration layer for CatFIM preprocessing and workflow coordination.  Initiates multi-process HUC iteration with ProcessPoolExecutor (now delegated to the new `catfim_process_huc.py` module) and initiates post-processing (now delegated to the new `catfim_post_processing.py` module). Creates `runtime_args.env` file for sharing configuration across all processing stages. `process_generate_categorical_fim()` is still the central wrapper for all processing. Optional skip-processing mode for AWS workflows.
+- `tools/catfim/generate_categorical_fim_flows.py`: Restructured from a flow-generation focused module into a threshold and flow data processing module for CatFIM (file could arguably be renamed to `generate_categorical_fim_thresholds` as "flows" is no longer descriptive enough). Multiprocessing coordination is much more simplified. Now integrates with `catfim_shared_functions` for common operations and `download_process_wrds` for threshold data management.
+- `tools/catfim/generate_categorical_fim_mapping.py`: Substantially reduced in scope and heavily rewritten/reorganized. Now focuses primarily on the mapping and post-processing workflow rather than flow generation. Much of its complex inundation logic has been moved to support files, and the workflow has been simplified and reorganized. Implemented clearer separation between threshold/flow processing and the actual inundation mapping workflow. `process_mapping()` is the new central wrapper for the function.
+- `data/wrds/download_process_wrds.py`: Removed `get_huc_dictionary()` function, now uses `aggregate_wbd_hucs()` for spatial HUC filtering. Removed unused imports (`sys`, `requests`, `urllib3)`. Added upfront validation for `API_BASE_URL` and `WBD_LAYER`. Creates and saves `lid_source_dict` as CSV.
+- `tools/catfim/ahps_restricted_sites.csv`: Rearranged data for one site.
+- `data/wrds/mimic_wrds_data.py`: File mode changed.
+- `data/usgs/get_usgs_rating_curves.py`: Added a print line.
+- `src/utils/shared_functions.py`: Updated `setup_file_logger()` and `setup_mp_file_logger()` to save a warning log file.
+- `src/utils/shared_variables.py`: Added a comment.
+- `src/bash_variables.env`: Added paths to a new WBD file, evaluate APHS sites file, NWM metadata file, NWM threshold file, and USGS metadata files.
+- `tools/tools_shared_functions.py`: Fixed dropped error processing in `filter_nwm_segments_by_stream_order()` and added `source_crs_availability` functionality to `get_thresholds()`.
+- `tools/mosaic_inundation.py`: Added a line to suppress unneeded Rasterio warnings.
+- `tools/catfim/images/screenshot_vis_settings.JPG`: File mode changed.
+- `tools/catfim/vis_categorical_fim.py`: File mode changed.
+- `tools/catfim/README.md`: File mode changed.
+
+### Removals
+- `tools/eval_alt_catfim.py`: Removed module because it is no longer in use or up-to-date.
+
+<br/>
+
+## v4.9.12.3 - 2026-05-13 - [PR#1789](https://github.com/NOAA-OWP/inundation-mapping/pull/1789)
+
+This PR fixes the AREASQKM issue in HydroTables and SRC tables. 
+
+### Changes
+
+- `/src/make_stages_and_catchlist.py` : This issue was fixed in the make_stages_and_catchlist function. 
+<br/>
+
+## v4.9.12.2 - 2026-05-13 - [PR#1830](https://github.com/NOAA-OWP/inundation-mapping/pull/1830)
+This PR closes issue #1821 by restoring the required `order_` field for roads FIMpact. Also, fixed `log_error()` argument mismatch so aggregation logs the original failure instead of raising a secondary `TypeError`.
+
+
+### Changes
+- src/process_roads_fimpact.py
+- src/aggregate_branches_to_huc.py
+
+<br/>
+
+## v4.9.12.1 - 2026-05-01 - [PR#1815](https://github.com/NOAA-OWP/inundation-mapping/pull/1815)
+
+These changes resolve the numerous pandas 3.0 FutureWarnings as well as other miscellaneous "warning" messages that we track in our logging systems. Resolves #1799
+
+### Changes
+The scripts below were updated to address warnings. There were no changes to the resulting outputs.
+`src/add_crosswalk.py`
+`src/aggregate_branches_to_huc.py`
+`src/bathymetric_adjustment.py`
+`src/build_stream_traversal.py`
+`src/delineate_hydros_and_produce_HAND.sh`
+`src/heal_bridges_osm.py`
+`src/identify_src_bankfull.py`
+`src/longitudinal_flow_adjustment.py`
+`src/mask_dem.py`
+`src/mitigate_branch_outlet_backpool.py`
+`src/nonmonotonic_src_adjustment.py`
+`src/reset_htable_src.py`
+`src/run_by_branch.sh`
+`src/run_huc.sh`
+`src/src_adjust_usgs_rating_trace.py`
+`src/src_roughness_optimization.py`
+`src/thalweg_notches_adjustment.py`
+
+
+## v4.9.12.0 - 2026-05-01 - [PR#1777]([https://github.com/NOAA-OWP/inundation-mapping/pull/1777])
+
+This PR closes the issue #1739 and includes the following enhancements to address buildings Fimpacts:
+
+- Ingests FEMA buildings as a new input data for FIM. 
+
+- Derives the threshold discharge required for buildings inundation. To achieve this, the minimum non-zero HAND value within each building is extracted as the inundation threshold stage. The corresponding threshold discharge values are then interpolated from the HydroTables.
+
+- Enhances `tools/fimpacts_flood_depth.py` (formerly `road_inundation.py`) to identify inundated buildings and calculate corresponding flood depths for specific events.
+
+In addition to introducing building pre-clipping in the `data/wbd/generate_pre_clip_fim_huc8.py` script, this PR refactors the interface from `--copy_*` arguments (e.g., `--copy_osm_roads`) to direct layer arguments (e.g., `--osm_roads`). Listed layers are pre-clipped by default, while unlisted layers are copied, simplifying the interface and making layer selection more intuitive.
+
+### Additions
+- data/buildings/get_fema_buildings.py  
+- data/buildings/make_buildings_parts_per_huc.py  
+- src/process_buildings_fimpact.py
+         
+
+### Changes
+- **Renamed** `tools/road_inundation.py` to `tools/fimpacts_inundation.py` and extended the script to support **building** inundation processing in addition to roads.
+- data/wbd/clip_vectors_to_wbd.py -> Updated to enable pre-clipping of buildings dataset
+- data/wbd/generate_pre_clip_fim_huc8.py -> Updated to enable pre-clipping of buildings dataset. Also refactored the CLI to switch from copy-first arguments to preclip-first arguments (as described above). 
+- src/aggregate_branches_to_huc.py  -> Aggregates branch-level building FIMpact results by HUC
+- src/delineate_hydros_and_produce_HAND.sh  -> Calls the new `src/process_buildings_fimpact.py` script
+- src/bash_variables.env    -> Updated the reference to the new pre-clipped dataset and added a reference to the building parts dataset required for pre-clipping
+- src/calibrate_rating_curves.sh   -> Enables aggregating buildings FIMpact results by HUC
+
+<br/>
+
+## v4.9.11.2 - 2026-05-01 - [PR#1786](https://github.com/NOAA-OWP/inundation-mapping/pull/1786)
+
+Resolves numerous issues that arose during the March 2026 full-scale CatFIM runs for the FIM 6.1 release. Updates the CatFIM readme.
+
+Added `aggregate_wbd_hucs()` function to WRDS download script to ensure that incomplete WRDS HUC data was not interfering with pulling a complete set of the site metadata and thresholds. Implemented logic into CatFIM to catch and remedy (where possible) sites where the CRS, datum, or VCS are misspelled or incorrect. Resolved a bug where postprocessing would error out if a site was missing a status.  
+
+### Changes
+- `tools/catfim/README.md`: Updates to documentation about site filtering, site status context, and data flow.
+- `data/wrds/download_process_wrds.py`: Added `aggregate_wbd_hucs()` and `check_metadata_CRS_availability()` functions, updated `get_thresholds()`.
+- `data/nws/preprocess_ahps_nws.py`: Updated `get_thresholds()` inputs.
+- `data/usgs/get_usgs_rating_curves.py`: Updated `get_thresholds()` inputs.
+- `data/usgs/preprocess_ahps_usgs.py`: Updated `get_thresholds()` inputs.
+- `tools/catfim/generate_categorical_fim.py`: Added `aggregate_wbd_hucs()` function, fixed status bug, added typo workaround.
+- `tools/catfim/generate_categorical_fim_flows.py`: Removed unused imports.
+- `tools/tools_shared_functions.py`: Updated `get_thresholds()` to account for source CRS availability.
+
+## v4.9.11.1 - 2026-04-17 - [PR#1809](https://github.com/NOAA-OWP/inundation-mapping/pull/1809)
+
+This change resolves issue where SWORD-derived slope values are producing severe over-estimated inundation extents on the Auglaize River in Ohio. The updated code logic now allows for manual removal or override of SWORD slope values as part of the input data processing script.
+
+### Changes
+
+- `data/slope/sword_slope_create_parquet_qc.py`: Added logic to remove or replace slope values by providing dictionary of feature_ids.
+- `src/add_crosswalk.py`: Removed previous logic for replacing the SWORD slope values (this is now done in `sword_slope_create_parquet_qc.py`).
+- `src/bash_variables.env`: Updated the `iris_sword_slope` parameter to point to the newly generated input parquet file
+- `tools/inundate_nation.py`: Made a minor change/enhancement to allow an optional input argument `-p` that will produce the inundation raster using the "precalb_discharge_cms" column in the SRCs rather than the defualt "discharge_cms". This makes it easier to generate inundation rasters with or without the calibration adjustments applied.
+
+## v4.9.11.0 - 2026-04-10 - [PR#1783](https://github.com/NOAA-OWP/inundation-mapping/pull/1783)
+
+Resolves an issue causing stream outlet lines extending outside of the buffered WBD to be snapped back to the buffered WBD.
+
+### Changes
+
+- `data/wbd/clip_vectors_to_wbd.py`: Ignores `linegeom` assignment if already assigned
+- `src/bash_variables.env`: Updates preclip date
 
 <br/>
 
@@ -22,8 +233,8 @@ Also updates `tornado` to v6.5.5, `gval` to v0.2.12, `dask` to v2026.1.1, `dask-
 ### Changes
 
 - `Pipfile` and `Pipfile.lock`: Updated Python packages.
-<br/>
 
+<br/>
 
 ## v4.9.10.9 - 2026-04-03 - [PR#1780](https://github.com/NOAA-OWP/inundation-mapping/pull/1780)
 
