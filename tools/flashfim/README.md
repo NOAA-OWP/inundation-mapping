@@ -13,14 +13,17 @@ FLASH forecasts are derived using the current radar-only MRMS precipitation valu
 The resulting products are 1km x 1km resolution gridded forecasts of the maximum 6 hr flow value assuming precipitation stops at the time of model initialization.
 
 
-## How to use the tool
-The tool found within this folder `/tools/flashfim/conflate_flash_flows.py` conflates the gridded flow values from the three FLASH forecasts to NWM feature_ids and outputs a flow file in a compatible format to input into `/tools/inundate_mosaic_wrapper.py` or other similar inundation scripts in the repository. To use this tool you need:
-- The reference hydrofabric flowpaths version 3.0 or newer.
-    - Can be accessed here: https://www.lynker-spatial.com/
-- A geopackage of HUC8s to use to subset the flowpaths.
-    - Download the Watershed Boundary Dataset (WBD) from here: https://www.usgs.gov/national-hydrography/access-national-hydrography-products
-- A list of HUC8s to conflate flows for.
-- The timestep you want to conflate the flows for. 
-    - If the timestep parameter is left blank it defaults to pulling the latest or most current FLASH flow predictions. To select a historical timestep use the format YYYYMMDD-HHMMSS to the nearest 10 minutes Ex. 20250704-083000. 
+## How to use the tools
+1) The tool found within this folder `/tools/flashfim/conflate_flash_flows.py` conflates the gridded flow values from the three FLASH forecasts to NWM feature_ids and outputs a flow file in a compatible format to input into `/tools/inundate_mosaic_wrapper.py` or other similar inundation scripts in the repository. To use this tool you need:
+    - The reference hydrofabric flowpaths version 3.0 or newer.
+        - Can be accessed here: https://www.lynker-spatial.com/
+    - A geopackage of HUC8s to use to subset the flowpaths.
+        - Download the Watershed Boundary Dataset (WBD) from here: https://www.usgs.gov/national-hydrography/access-national-hydrography-products
+    - A list of HUC8s to conflate flows for.
+    - The timestep you want to conflate the flows for. 
+        - If the timestep parameter is left blank it defaults to pulling the latest or most current FLASH flow predictions. To select a historical timestep use the format YYYYMMDD-HHMMSS to the nearest 10 minutes Ex. 20250704-083000. 
+
+2) The second tool within this folder `/tools/flashfim/optimized_flash_conflation.py` contains a workflow that enables the conflation of FLASH flows based on
+a lookup table of nwm feature_ids and their associated FLASH grid location. This lookup table can be found on the FIM esip bucket with the other inputs. 
 
 

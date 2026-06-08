@@ -1,4 +1,5 @@
 import argparse
+import datetime
 import os
 from timeit import default_timer as timer
 
@@ -26,6 +27,8 @@ def optimized_flash_flow_conflation(lookup_table, timestep, output):
     -o /user/Documents/latest_flow.csv -t 20250704-083000
 
     """
+    if os.path.exists(os.path.dirname(output)) == False:
+        os.makedirs(os.path.dirname(output), exist_ok=True)
 
     if isinstance(lookup_table, (str, os.PathLike)):
         lookup_table = pd.read_csv(lookup_table)
@@ -40,11 +43,8 @@ def optimized_flash_flow_conflation(lookup_table, timestep, output):
         if timestep == "latest":
             url = f"https://mrms.ncep.noaa.gov/2D/FLASH/{model}_MAXSTREAMFLOW/MRMS_FLASH_{model}_MAXSTREAMFLOW.latest.grib2.gz"
         else:
-            yr = timestep.split("-")[0][:4]
-            mo = timestep.split("-")[0][4:6]
-            day = timestep.split("-")[0][6:]
-            url = f"https://mtarchive.geol.iastate.edu/{yr}/{mo}/{day}/mrms/ncep/FLASH/{model}_MAXSTREAMFLOW/{model}_MAXSTREAMFLOW_00.00_{timestep}.grib2.gz"
-
+            time = datetime.datetime.strptime(timestep, "%Y%m%d-%H%M%S")
+            url = f"https://mtarchive.geol.iastate.edu/{time.year}/{time.strftime("%m")}/{time.strftime("%d")}/mrms/ncep/FLASH/{model}_MAXSTREAMFLOW/{model}_MAXSTREAMFLOW_00.00_{timestep}.grib2.gz"
         flash_raster_url = f"/vsigzip//vsicurl/{url}"
 
         with rasterio.open(flash_raster_url) as src:
@@ -83,9 +83,8 @@ if __name__ == "__main__":
         type=str,
     )
 
+    start = timer()
 
-start = timer()
+    optimized_flash_flow_conflation(**vars(parser.parse_args()))
 
-optimized_flash_flow_conflation(**vars(parser.parse_args()))
-
-print(f"Completed in {round((timer() - start)/60, 2)} minutes.")
+    print(f"Completed in {round((timer() - start)/60, 2)} minutes.")

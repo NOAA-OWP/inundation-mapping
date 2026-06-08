@@ -1,4 +1,5 @@
 import argparse
+import datetime
 import os
 from time import perf_counter as timer
 
@@ -64,10 +65,8 @@ def flash_flow_conflation(model, huc_flows, output, timestep, min_order):
     if timestep == "latest":
         url = f"https://mrms.ncep.noaa.gov/2D/FLASH/{model}_MAXSTREAMFLOW/MRMS_FLASH_{model}_MAXSTREAMFLOW.latest.grib2.gz"
     else:
-        yr = timestep.split("-")[0][:4]
-        mo = timestep.split("-")[0][4:6]
-        day = timestep.split("-")[0][6:]
-        url = f"https://mtarchive.geol.iastate.edu/{yr}/{mo}/{day}/mrms/ncep/FLASH/{model}_MAXSTREAMFLOW/{model}_MAXSTREAMFLOW_00.00_{timestep}.grib2.gz"
+        time = datetime.datetime.strptime(timestep, "%Y%m%d-%H%M%S")
+        url = f"https://mtarchive.geol.iastate.edu/{time.year}/{time.strftime("%m")}/{time.strftime("%d")}/mrms/ncep/FLASH/{model}_MAXSTREAMFLOW/{model}_MAXSTREAMFLOW_00.00_{timestep}.grib2.gz"
 
     flash_raster_url = f"/vsigzip//vsicurl/{url}"
 
