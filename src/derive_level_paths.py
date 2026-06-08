@@ -10,7 +10,6 @@ from stream_branches import StreamNetwork
 from utils.fim_enums import FIM_exit_codes
 from utils.shared_variables import HIGH_STREAM_DENSITY_HUCS, MEDIUM_HIGH_STREAM_DENSITY_HUCS
 
-
 gpd.options.io_engine = "pyogrio"
 
 
@@ -173,7 +172,7 @@ def Derive_level_paths(
             inlets_attribute=inlets_attribute, outlet_linestring_index=outlet_linestring_index
         )
         # headwaters write
-        headwaters.to_file(headwaters_outfile, index=False, driver="GPKG", engine='fiona')
+        headwaters.to_parquet(headwaters_outfile, index=False)
 
     if out_stream_network is not None:
         if verbose:
@@ -228,7 +227,7 @@ def Derive_level_paths(
         )
 
         if not branch_inlets.empty:
-            branch_inlets.to_file(branch_inlets_outfile, index=False, driver="GPKG", engine='fiona')
+            branch_inlets.to_parquet(branch_inlets_outfile, index=False)
 
 
 if __name__ == "__main__":

@@ -101,17 +101,18 @@ fi
 
 ## DERIVE LEVELPATH  ##
 echo -e $startDiv"Generating Level Paths for $hucNumber"
-$srcDir/derive_level_paths.py -i $tempHucDataDir/nwm_subset_streams.gpkg \
+$srcDir/derive_level_paths.py \
+    -i $tempHucDataDir/nwm_subset_streams.gpkg \
     -s $tempHucDataDir/wbd_buffered_streams.gpkg \
     -b $branch_id_attribute \
     -r "ID" \
-    -o $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg \
-    -d $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg \
-    -de $tempHucDataDir/nwm_subset_streams_levelPaths_extended.gpkg \
+    -o $tempHucDataDir/nwm_subset_streams_levelPaths.parquet \
+    -d $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.parquet \
+    -de $tempHucDataDir/nwm_subset_streams_levelPaths_extended.parquet \
     -e $tempHucDataDir/nwm_headwaters.gpkg \
     -c $tempHucDataDir/nwm_catchments_proj_subset.gpkg \
-    -t $tempHucDataDir/nwm_catchments_proj_subset_levelPaths.gpkg \
-    -n $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved_headwaters.gpkg \
+    -t $tempHucDataDir/nwm_catchments_proj_subset_levelPaths.parquet \
+    -n $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved_headwaters.parquet \
     -w $tempHucDataDir/nwm_lakes_proj_subset.gpkg \
     -wbd $tempHucDataDir/wbd.gpkg \
     -u $hucNumber
@@ -127,14 +128,14 @@ $srcDir/derive_level_paths.py -i $tempHucDataDir/nwm_subset_streams.gpkg \
 
 # check if level paths exists
 levelpaths_exist=1
-if [ ! -f $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg ]; then levelpaths_exist=0; fi
+if [ ! -f $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.parquet ]; then levelpaths_exist=0; fi
 
 ## ASSOCIATE LEVEL PATHS WITH LEVEES
 echo -e $startDiv"Associate level paths with levees"
 [ -f $tempHucDataDir/nld_subset_levees.gpkg ] && \
 python3 $srcDir/associate_levelpaths_with_levees.py \
     -nld $tempHucDataDir/nld_subset_levees.gpkg \
-    -s $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg \
+    -s $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.parquet \
     -lpa $tempHucDataDir/LeveeProtectedAreas_subset.gpkg \
     -out $tempHucDataDir/levee_levelpaths.csv \
     -w $levee_buffer \
@@ -144,15 +145,15 @@ python3 $srcDir/associate_levelpaths_with_levees.py \
 ## STREAM BRANCH POLYGONS
 echo -e $startDiv"Generating Stream Branch Polygons for $hucNumber"
 $srcDir/buffer_stream_branches.py \
-    -s $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg \
+    -s $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.parquet \
     -i $branch_id_attribute \
     -d $branch_buffer_distance_meters \
-    -b $tempHucDataDir/branch_polygons.gpkg \
+    -b $tempHucDataDir/branch_polygons.parquet \
     -w $tempHucDataDir/wbd_buffered.gpkg
 
 ## CREATE BRANCHID LIST FILE
 echo -e $startDiv"Create list file of branch ids for $hucNumber"
-$srcDir/generate_branch_list.py -d $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg \
+$srcDir/generate_branch_list.py -d $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.parquet \
     -b $branch_id_attribute \
     -o $branch_list_lst_file
 
@@ -235,7 +236,7 @@ if [ "$levelpaths_exist" = "1" ]; then
     gdal_rasterize -q -ot Int32 -burn 1 -init 0 -a_nodata -9999 \
         -co "BIGTIFF=YES" \
         -te $xmin $ymin $xmax $ymax -ts $ncols $nrows \
-        $tempHucDataDir/nwm_subset_streams_levelPaths_extended.gpkg $tempHucDataDir/flows_grid_boolean.tif
+        $tempHucDataDir/nwm_subset_streams_levelPaths_extended.parquet $tempHucDataDir/flows_grid_boolean.tif
 fi
 
 ## RASTERIZE NWM Levelpath HEADWATERS (1 & 0) ##
@@ -306,11 +307,11 @@ $srcDir/delineate_hydros_and_produce_HAND.sh "unit"
 
 ## CREATE USGS GAGES FILE
 ## Note: the usgs_gages.gpkg was renamed during copying into the unit folder
-if [ -f $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg ]; then
+if [ -f $tempHucDataDir/nwm_subset_streams_levelPaths.parquet ]; then
     echo -e $startDiv"Assigning USGS gages to branches for $hucNumber"
     python3 $srcDir/usgs_gage_unit_setup.py \
         -gages $tempHucDataDir/usgs_gages.gpkg \
-        -nwm $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg \
+        -nwm $tempHucDataDir/nwm_subset_streams_levelPaths.parquet \
         -ras $tempHucDataDir/$ras_rating_curve_gpkg_filename \
         -o $tempHucDataDir/usgs_subset_gages.gpkg \
         -huc $hucNumber \
@@ -325,8 +326,8 @@ if [ -f $tempHucDataDir/usgs_subset_gages_$branch_zero_id.gpkg ]; then
     echo -e $startDiv"USGS Crosswalk $hucNumber $branch_zero_id"
     python3 $srcDir/usgs_gage_crosswalk.py \
         -gages $tempHucDataDir/usgs_subset_gages_$branch_zero_id.gpkg \
-        -flows $tempCurrentBranchDataDir/demDerived_reaches_split_filtered_$branch_zero_id.gpkg \
-        -cat $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked_$branch_zero_id.gpkg \
+        -flows $tempCurrentBranchDataDir/demDerived_reaches_split_filtered_$branch_zero_id.parquet \
+        -cat $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked_$branch_zero_id.parquet \
         -dem $tempCurrentBranchDataDir/dem_meters_$branch_zero_id.tif \
         -dem_adj $tempCurrentBranchDataDir/dem_thalwegCond_$branch_zero_id.tif \
         -out $tempCurrentBranchDataDir -b $branch_zero_id \

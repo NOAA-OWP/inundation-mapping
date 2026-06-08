@@ -23,7 +23,6 @@ from tqdm import tqdm
 from utils.fim_enums import FIM_exit_codes
 from utils.shared_variables import PREP_CRS
 
-
 gpd.options.io_engine = "pyogrio"
 
 
@@ -96,7 +95,10 @@ class StreamNetwork(gpd.GeoDataFrame):
         if verbose:
             print("Loading file")
 
-        raw_df = gpd.read_file(filename, *args, **kwargs)
+        if os.path.splitext(filename)[1] == ".parquet":
+            raw_df = gpd.read_parquet(filename, *args, **kwargs)
+        else:
+            raw_df = gpd.read_file(filename, *args, **kwargs)
 
         # Reproject
         if raw_df.crs.to_authority() != PREP_CRS.to_authority():
@@ -138,11 +140,14 @@ class StreamNetwork(gpd.GeoDataFrame):
         if verbose:
             print("Writing to {}".format(fileName))
 
-        # sets driver
-        driverDictionary = {".gpkg": "GPKG", ".geojson": "GeoJSON", ".shp": "ESRI Shapefile"}
-        driver = driverDictionary[splitext(fileName)[1]]
+        if os.path.splitext(fileName)[1] == ".parquet":
+            self.to_parquet(fileName, index=index)
+        else:
+            # sets driver
+            driverDictionary = {".gpkg": "GPKG", ".geojson": "GeoJSON", ".shp": "ESRI Shapefile"}
+            driver = driverDictionary[splitext(fileName)[1]]
 
-        self.to_file(fileName, driver=driver, layer=layer, index=index, engine='fiona')
+            self.to_file(fileName, driver=driver, layer=layer, index=index, engine='fiona')
 
     def set_index_fim(self, reach_id_attribute, drop=True):
         branch_id_attribute = self.branch_id_attribute

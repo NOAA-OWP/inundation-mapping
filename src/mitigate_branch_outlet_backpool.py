@@ -16,7 +16,6 @@ from rasterio.mask import mask
 from shapely import ops
 from shapely.geometry import Point
 
-
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
@@ -266,7 +265,10 @@ def mitigate_branch_outlet_backpool(
 
     # --------------------------------------------------------------
     # Read in nwm lines, explode to ensure linestrings are the only geometry
-    nwm_streams = gpd.read_file(nwm_streams_filename, engine='fiona').explode(index_parts=True)
+    if os.path.splitext(nwm_streams_filename)[1] == '.parquet':
+        nwm_streams = gpd.read_parquet(nwm_streams_filename).explode(index_parts=True)
+    else:
+        nwm_streams = gpd.read_file(nwm_streams_filename, engine='fiona').explode(index_parts=True)
 
     # Check whether it's branch zero
     if 'levpa_id' in nwm_streams.columns:
@@ -342,10 +344,8 @@ def mitigate_branch_outlet_backpool(
                 # --------------------------------------------------------------
                 # Trim flowline and flow points to penultimate vertex
 
-                print(
-                    'Incorrectly-large outlet pixel catchment detected. \
-                      Snapping line points to penultimate vertex.'
-                )
+                print('Incorrectly-large outlet pixel catchment detected. \
+                      Snapping line points to penultimate vertex.')
 
                 # Count coordinates in 'geometry' column
                 split_flows_last_geom['num_coordinates'] = split_flows_last_geom['geometry'].apply(
@@ -411,10 +411,8 @@ def mitigate_branch_outlet_backpool(
 
                     # print('Polygonizing pixel catchments...')  # verbose
 
-                    gdal_args = [
-                        f'gdal_polygonize.py -8 -f GPKG {catchment_pixels_filename} \
-                                 {catchment_pixels_polygonized_filename} catchments HydroID'
-                    ]
+                    gdal_args = [f'gdal_polygonize.py -8 -f Parquet {catchment_pixels_filename} \
+                                 {catchment_pixels_polygonized_filename} catchments HydroID']
                     return_code = subprocess.call(gdal_args, shell=True)
 
                     if return_code != 0:
@@ -423,7 +421,7 @@ def mitigate_branch_outlet_backpool(
                     # print("gdal_polygonize executed successfully.")  # verbose
 
                     # Read in the polygonized catchment pixels
-                    cp_poly_geom = gpd.read_file(catchment_pixels_polygonized_filename, engine='fiona')
+                    cp_poly_geom = gpd.read_parquet(catchment_pixels_polygonized_filename)
 
                     # --------------------------------------------------------------
                     # Mask problematic pixel catchment from the catchments rasters

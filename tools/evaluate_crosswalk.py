@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
 import argparse
+import os
 
 import geopandas as gpd
 import numpy as np
 import pandas as pd
-
 
 gpd.options.io_engine = "pyogrio"
 
@@ -95,8 +95,11 @@ def _evaluate_crosswalk_intersections(input_flows_fileName: str, input_nwmflows_
     # Crosswalk check
     # fh.vprint('Checking for crosswalks between NWM and DEM-derived flowlines', verbose)
 
-    flows = gpd.read_file(input_flows_fileName)
-    nwm_streams = gpd.read_file(input_nwmflows_fileName)
+    flows = gpd.read_parquet(input_flows_fileName)
+    if os.path.splitext(input_nwmflows_fileName)[-1].lower() == '.parquet':
+        nwm_streams = gpd.read_parquet(input_nwmflows_fileName)
+    else:
+        nwm_streams = gpd.read_file(input_nwmflows_fileName)
 
     # Compute the number of intersections between the NWM and DEM-derived flowlines
     streams = nwm_streams

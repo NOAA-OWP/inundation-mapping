@@ -14,7 +14,6 @@ from utils.fim_enums import FIM_exit_codes
 from utils.shared_functions import getDriver
 from utils.shared_variables import FIM_ID
 
-
 # Define acceptable slope range
 SLOPE_MIN = 9.999e-7
 SLOPE_MAX = 0.5
@@ -472,10 +471,8 @@ def add_crosswalk(
         output_src_json[str(hid)] = {'q_list': q_list, 'stage_list': stage_list}
 
     # write out
-    output_catchments.to_file(
-        output_catchments_fileName, driver=getDriver(output_catchments_fileName), index=False
-    )
-    output_flows.to_file(output_flows_fileName, driver=getDriver(output_flows_fileName), index=False)
+    output_catchments.to_parquet(output_catchments_fileName, index=False)
+    output_flows.to_parquet(output_flows_fileName, index=False)
     output_src.to_csv(output_src_fileName, index=False)
     output_crosswalk.to_csv(output_crosswalk_fileName, index=False)
     output_hydro_table.to_csv(output_hydro_table_fileName, index=False)

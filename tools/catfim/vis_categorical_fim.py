@@ -19,7 +19,6 @@ from shapely.geometry import LineString, Point
 from shapely.geometry.polygon import Polygon
 from shapely.ops import substring
 
-
 '''
 This script contains functions that are useful for exploring Categorical FIM outputs. The
 functions are designed to be run in a Juputer notebook so that the plots and maps can be
@@ -73,7 +72,7 @@ def read_catfim_outputs(catfim_inputs_path, catfim_outputs_path, huc):
     '''
 
     # Read in HAND output flowlines
-    flowline_path = os.path.join(catfim_inputs_path, huc, 'nwm_subset_streams_levelPaths_dissolved.gpkg')
+    flowline_path = os.path.join(catfim_inputs_path, huc, 'nwm_subset_streams_levelPaths_dissolved.parquet')
     flowline_gdf = gpd.read_file(flowline_path)
 
     # Read in CatFIM outputs

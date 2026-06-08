@@ -9,7 +9,6 @@ import numpy as np
 from utils.fim_enums import FIM_exit_codes
 from utils.shared_variables import FIM_ID
 
-
 gpd.options.io_engine = "pyogrio"
 
 
@@ -25,9 +24,9 @@ def filter_catchments_and_add_attributes(
     # the pyogrio + arrow engine was giving random segmentation faults that
     # we think may be due to many branches trying to read the same GPKG.
     # See issue #1376 for details.
-    input_catchments = gpd.read_file(input_catchments_filename, engine='fiona')
+    input_catchments = gpd.read_parquet(input_catchments_filename)
     wbd = gpd.read_file(wbd_filename, engine='fiona')
-    input_flows = gpd.read_file(input_flows_filename, engine='fiona')
+    input_flows = gpd.read_parquet(input_flows_filename)
 
     # filter segments within huc boundary
     select_flows = tuple(map(str, map(int, wbd[wbd.HUC8.str.contains(huc_code)][FIM_ID])))
@@ -88,12 +87,8 @@ def filter_catchments_and_add_attributes(
 
         if not output_catchments.empty:
             try:
-                output_catchments.to_file(
-                    output_catchments_filename, driver="GPKG", index=False, engine='fiona'
-                )
-                output_flows_filtered.to_file(
-                    output_flows_filename, driver="GPKG", index=False, engine='fiona'
-                )
+                output_catchments.to_parquet(output_catchments_filename, index=False)
+                output_flows_filtered.to_parquet(output_flows_filename, index=False)
             except ValueError:
                 # this is not an exception, but a custom exit code that can be trapped
                 print("There are no flowlines in the HUC after stream order filtering.")

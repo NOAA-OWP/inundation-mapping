@@ -68,7 +68,6 @@ from utils.fim_enums import FIM_exit_codes
 from utils.shared_functions import getDriver
 from utils.shared_variables import FIM_ID
 
-
 gpd.options.io_engine = "pyogrio"
 
 
@@ -185,7 +184,10 @@ def split_flows(
     print('Trimming DEM stream to NWM branch terminus...')
 
     # Read in nwm lines, explode to ensure linestrings are the only geometry
-    nwm_streams = gpd.read_file(nwm_streams_filename, engine='fiona').explode(index_parts=True)
+    if os.path.splitext(nwm_streams_filename)[1] == '.parquet':
+        nwm_streams = gpd.read_parquet(nwm_streams_filename).explode(index_parts=False)
+    else:
+        nwm_streams = gpd.read_file(nwm_streams_filename, engine='fiona').explode(index_parts=True)
 
     # If it's NOT branch 0: Dissolve levelpath
     if 'levpa_id' in nwm_streams.columns:
@@ -456,15 +458,11 @@ def split_flows(
         print("There are no flowlines after stream order filtering.")
         sys.exit(FIM_exit_codes.NO_FLOWLINES_EXIST.value)  # Note: Will send a 61 back
 
-    split_flows_gdf.to_file(
-        split_flows_filename, driver=getDriver(split_flows_filename), index=False, engine='fiona'
-    )
+    split_flows_gdf.to_parquet(split_flows_filename, index=False)
 
     if len(split_points_gdf) == 0:
         raise Exception("No points exist.")
-    split_points_gdf.to_file(
-        split_points_filename, driver=getDriver(split_points_filename), index=False, engine='fiona'
-    )
+    split_points_gdf.to_parquet(split_points_filename, index=False)
 
     del split_flows_gdf, split_points_gdf
 

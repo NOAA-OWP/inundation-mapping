@@ -10,7 +10,6 @@ from shapely.geometry import Point
 from utils.shared_functions import getDriver
 from utils.shared_variables import PREP_PROJECTION
 
-
 gpd.options.io_engine = "pyogrio"
 
 
@@ -25,7 +24,7 @@ def convert_grid_cells_to_points(raster, index_option, output_points_filename=Fa
     else:
         raise TypeError("Pass raster dataset or filepath for raster")
 
-    (upper_left_x, x_size, x_rotation, upper_left_y, y_rotation, y_size) = raster.get_transform()
+    upper_left_x, x_size, x_rotation, upper_left_y, y_rotation, y_size = raster.get_transform()
     indices = np.nonzero(raster.read(1) >= 1)
 
     id = [None] * len(indices[0])
@@ -55,9 +54,7 @@ def convert_grid_cells_to_points(raster, index_option, output_points_filename=Fa
     if output_points_filename is False:
         return pointGDF
     else:
-        pointGDF.to_file(
-            output_points_filename, driver=getDriver(output_points_filename), index=False, engine='fiona'
-        )
+        pointGDF.to_parquet(output_points_filename, index=False)
 
 
 if __name__ == '__main__':
