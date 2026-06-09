@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import os
 import sys
 
 import geopandas as gpd
@@ -45,7 +46,10 @@ def add_crosswalk(
     input_catchments = gpd.read_parquet(input_catchments_fileName)
     input_flows = gpd.read_parquet(input_flows_fileName)
     input_huc = gpd.read_file(input_huc_fileName, engine='fiona')
-    input_nwmflows = gpd.read_file(input_nwmflows_fileName, engine='fiona')
+    if os.path.splitext(input_nwmflows_fileName)[-1] == '.parquet':
+        input_nwmflows = gpd.read_parquet(input_nwmflows_fileName)
+    else:
+        input_nwmflows = gpd.read_file(input_nwmflows_fileName, engine='fiona')
     iris_df = pd.read_parquet(iris_sword_slope).rename(
         columns={'slope_iris_sword': 'SLOPE_IRIS_SWORD', 'id': 'feature_id'}
     )

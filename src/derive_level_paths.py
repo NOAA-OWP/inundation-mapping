@@ -164,7 +164,7 @@ def Derive_level_paths(
 
         catchments = catchments.reset_index(drop=True)
 
-        catchments.to_file(catchments_outfile, index=False, driver="GPKG", engine='fiona')
+        catchments.to_parquet(catchments_outfile, index=False)
 
     # derive headwaters
     if headwaters_outfile is not None:

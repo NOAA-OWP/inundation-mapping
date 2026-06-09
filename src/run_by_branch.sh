@@ -53,10 +53,10 @@ python3 $srcDir/subset_vectors_to_branches.py \
     --crs "$huc_CRS" \
     --where "${branch_id_attribute}='${current_branch_id}'" \
     --files \
-        "${tempHucDataDir}/nwm_subset_streams_levelPaths.gpkg" "${tempCurrentBranchDataDir}/nwm_subset_streams_levelPaths_${current_branch_id}.parquet" \
-        "${tempHucDataDir}/nwm_subset_streams_levelPaths_extended.gpkg" "${tempCurrentBranchDataDir}/nwm_subset_streams_levelPaths_extended_${current_branch_id}.parquet" \
-        "${tempHucDataDir}/nwm_catchments_proj_subset_levelPaths.gpkg" "${tempCurrentBranchDataDir}/nwm_catchments_proj_subset_levelPaths_${current_branch_id}.parquet" \
-        "${tempHucDataDir}/nwm_subset_streams_levelPaths_dissolved_headwaters.gpkg" "${tempCurrentBranchDataDir}/nwm_subset_streams_levelPaths_dissolved_headwaters_${current_branch_id}.parquet"
+        "${tempHucDataDir}/nwm_subset_streams_levelPaths.parquet" "${tempCurrentBranchDataDir}/nwm_subset_streams_levelPaths_${current_branch_id}.parquet" \
+        "${tempHucDataDir}/nwm_subset_streams_levelPaths_extended.parquet" "${tempCurrentBranchDataDir}/nwm_subset_streams_levelPaths_extended_${current_branch_id}.parquet" \
+        "${tempHucDataDir}/nwm_catchments_proj_subset_levelPaths.parquet" "${tempCurrentBranchDataDir}/nwm_catchments_proj_subset_levelPaths_${current_branch_id}.parquet" \
+        "${tempHucDataDir}/nwm_subset_streams_levelPaths_dissolved_headwaters.parquet" "${tempCurrentBranchDataDir}/nwm_subset_streams_levelPaths_dissolved_headwaters_${current_branch_id}.parquet"
 
 ## GET RASTERS FROM ROOT HUC DIRECTORY AND CLIP TO CURRENT BRANCH BUFFER ##
 echo -e $startDiv"Clipping rasters to branches ${hucNumber} ${current_branch_id}"
@@ -73,7 +73,7 @@ read ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy\
 
 ## RASTERIZE REACH BOOLEAN (1 & 0) ##
 echo -e $startDiv"Rasterize Reach Boolean ${hucNumber} ${current_branch_id}"
-gdal_rasterize -q -at -ot Int32 -burn 1 -init 0 -a_nodata -9999 \
+python3 $srcDir/rasterize_parquet.py -q -at -ot Int32 -burn 1 -init 0 -a_nodata -9999 \
     -co "BIGTIFF=YES" \
     -co "TILED=YES" \
     -co "BLOCKXSIZE=512" \
@@ -106,13 +106,13 @@ python3 "$srcDir/adjust_floodplains.py" \
     -t "${floodplain_distance_threshold}" \
     -s "${floodplain_slope_exponent}" \
     -z "${floodplain_z_factor}" \
-    -p "${tempHucDataDir}/branch_polygons.gpkg" \
+    -p "${tempHucDataDir}/branch_polygons.parquet" \
     -b "${current_branch_id}" \
     -f "${input_fema_flood_hazard_zones}/nfhl_${hucNumber}.gpkg" \
     -l "${fema_floodplain_layer}" \
     -c "${tempHucDataDir}/nwm_catchments_proj_subset.gpkg" \
     -n "${tempHucDataDir}/nwm_subset_streams.gpkg" \
-    -lp "${tempHucDataDir}/nwm_subset_streams_levelPaths.gpkg"
+    -lp "${tempHucDataDir}/nwm_subset_streams_levelPaths.parquet"
 
 ## PIT REMOVE BURNED DEM - BRANCHES (NOT 0) (NWM levelpath streams) ##
 echo -e $startDiv"Pit remove Burned DEM ${hucNumber} ${current_branch_id}"
@@ -145,7 +145,7 @@ mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
 
 ## RASTERIZE NWM Levelpath HEADWATERS (1 & 0) ##
 echo -e $startDiv"Rasterize NWM Headwaters ${hucNumber} ${current_branch_id}"
-gdal_rasterize -q -ot Int32 -burn 1 -init 0 -a_nodata -9999 \
+python3 $srcDir/rasterize_parquet.py -q -ot Int32 -burn 1 -init 0 -a_nodata -9999 \
     -co "BIGTIFF=YES" \
     -co "TILED=YES" \
     -co "BLOCKXSIZE=512" \
@@ -176,8 +176,8 @@ if [ -f ${tempHucDataDir}/usgs_subset_gages.gpkg ]; then
     echo -e $startDiv"USGS Crosswalk ${hucNumber} ${current_branch_id}"
     python3 $srcDir/usgs_gage_crosswalk.py \
         -gages ${tempHucDataDir}/usgs_subset_gages.gpkg \
-        -flows ${tempCurrentBranchDataDir}/demDerived_reaches_split_filtered_${current_branch_id}.gpkg \
-        -cat ${tempCurrentBranchDataDir}/gw_catchments_reaches_filtered_addedAttributes_crosswalked_${current_branch_id}.gpkg \
+        -flows ${tempCurrentBranchDataDir}/demDerived_reaches_split_filtered_${current_branch_id}.parquet \
+        -cat ${tempCurrentBranchDataDir}/gw_catchments_reaches_filtered_addedAttributes_crosswalked_${current_branch_id}.parquet \
         -dem ${tempCurrentBranchDataDir}/dem_meters_${current_branch_id}.tif \
         -dem_adj ${tempCurrentBranchDataDir}/dem_thalwegCond_${current_branch_id}.tif \
         -out ${tempCurrentBranchDataDir} \

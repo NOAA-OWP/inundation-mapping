@@ -296,8 +296,8 @@ def mitigate_branch_outlet_backpool(
         #     print(f'No catchment pixels geome at {catchment_reaches_filename}.')
 
         # Read in split_flows_file and split_points_filename
-        split_flows_geom = gpd.read_file(split_flows_filename, engine='fiona')
-        split_points_geom = gpd.read_file(split_points_filename, engine='fiona')
+        split_flows_geom = gpd.read_parquet(split_flows_filename)
+        split_points_geom = gpd.read_parquet(split_points_filename)
 
         # Subset the split flows to get the last one
         split_flows_last_geom = split_flows_geom[split_flows_geom['NextDownID'] == '-1'].copy()

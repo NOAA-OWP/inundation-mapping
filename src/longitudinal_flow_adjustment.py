@@ -294,7 +294,7 @@ def filter_longitudinal_discharge_jitters(huc_dir, huc, stage_interval):
                 huc_dir,
                 'branches',
                 str(branch),
-                f'gw_catchments_reaches_filtered_addedAttributes_crosswalked_{branch}.gpkg',
+                f'gw_catchments_reaches_filtered_addedAttributes_crosswalked_{branch}.parquet',
             )
             if os.path.isfile(src_full):
                 src_all_branches_path.append(src_full)
@@ -308,7 +308,7 @@ def filter_longitudinal_discharge_jitters(huc_dir, huc, stage_interval):
         print(f'Processing Longitudinal flow adjustment for HUC {huc} Branch: {branch}')
         log_text += f'Processing Longitudinal flow adjustment for HUC {huc} Branch: {branch}\n'
 
-        catchment_gdf0 = gpd.read_file(cathment_gpkg_path[isrc])
+        catchment_gdf0 = gpd.read_parquet(cathment_gpkg_path[isrc])
         catchment_gdf = catchment_gdf0.drop_duplicates(subset=['HydroID'], keep='first')
         lakeID_df = catchment_gdf[['HydroID', 'LakeID']].drop_duplicates(subset=['HydroID'])
         # Read src tables
