@@ -42,8 +42,8 @@ def add_crosswalk(
     # the pyogrio + arrow engine was giving random segmentation faults that
     # we think may be due to many branches trying to read the same GPKG.
     # See issue #1376 for details.
-    input_catchments = gpd.read_file(input_catchments_fileName, engine='fiona')
-    input_flows = gpd.read_file(input_flows_fileName, engine='fiona')
+    input_catchments = gpd.read_parquet(input_catchments_fileName)
+    input_flows = gpd.read_parquet(input_flows_fileName)
     input_huc = gpd.read_file(input_huc_fileName, engine='fiona')
     input_nwmflows = gpd.read_file(input_nwmflows_fileName, engine='fiona')
     iris_df = pd.read_parquet(iris_sword_slope).rename(

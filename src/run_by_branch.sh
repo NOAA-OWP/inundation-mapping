@@ -61,7 +61,7 @@ python3 $srcDir/subset_vectors_to_branches.py \
 ## GET RASTERS FROM ROOT HUC DIRECTORY AND CLIP TO CURRENT BRANCH BUFFER ##
 echo -e $startDiv"Clipping rasters to branches ${hucNumber} ${current_branch_id}"
 $srcDir/clip_rasters_to_branches.py -d ${current_branch_id} \
-    -b ${tempHucDataDir}/branch_polygons.gpkg \
+    -b ${tempHucDataDir}/branch_polygons.parquet \
     -i $branch_id_attribute \
     -r ${tempHucDataDir}/dem_meters.tif ${tempHucDataDir}/bridge_elev_diff_meters.tif \
     -c ${tempCurrentBranchDataDir}/dem_meters.tif ${tempCurrentBranchDataDir}/bridge_elev_diff_meters.tif

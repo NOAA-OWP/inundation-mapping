@@ -140,10 +140,18 @@ $srcDir/split_flows.py -f $tempCurrentBranchDataDir/demDerived_reaches_${current
 
 ## GAGE WATERSHED FOR REACHES ##
 echo -e $startDiv"Gage Watershed for Reaches ${hucNumber} ${current_branch_id}"
+# 1. Quickly convert the Parquet outlets to a temporary GeoPackage using Python
+python3 -c "
+import geopandas as gpd
+gdf = gpd.read_parquet('$tempCurrentBranchDataDir/demDerived_reaches_split_points_${current_branch_id}.parquet')
+gdf.to_file('$tempCurrentBranchDataDir/demDerived_reaches_split_points_${current_branch_id}.gpkg', driver='GPKG', engine='fiona')
+"
+
+# 2. Run TauDEM using the temporary GeoPackage input
 mpiexec -n $ncores_gw $taudemDir/gagewatershed \
     -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_${current_branch_id}.tif \
     -gw $tempCurrentBranchDataDir/gw_catchments_reaches_${current_branch_id}.tif \
-    -o $tempCurrentBranchDataDir/demDerived_reaches_split_points_${current_branch_id}.parquet \
+    -o $tempCurrentBranchDataDir/demDerived_reaches_split_points_${current_branch_id}.gpkg \
     -id $tempCurrentBranchDataDir/idFile_${current_branch_id}.txt \
     2> >(while read -r line; do
         # Check if BOTH strings are present in the error line
@@ -155,6 +163,9 @@ mpiexec -n $ncores_gw $taudemDir/gagewatershed \
             echo "$line" >&2
         fi
     done)
+
+# 3. Clean up the temporary vector file
+rm "$tempCurrentBranchDataDir/demDerived_reaches_split_points_${current_branch_id}.gpkg"
 
 ## VECTORIZE FEATURE ID CENTROIDS ##
 echo -e $startDiv"Vectorize Pixel Centroids ${hucNumber} ${current_branch_id}"
@@ -165,10 +176,17 @@ $srcDir/reachID_grid_to_vector_points.py \
 
 ## GAGE WATERSHED FOR PIXELS ##
 echo -e $startDiv"Gage Watershed for Pixels ${hucNumber} ${current_branch_id}"
+# 1. Quickly convert the Parquet outlets to a temporary GeoPackage using Python
+python3 -c "
+import geopandas as gpd
+gdf = gpd.read_parquet('$tempCurrentBranchDataDir/flows_points_pixels_${current_branch_id}.parquet')
+gdf.to_file('$tempCurrentBranchDataDir/flows_points_pixels_${current_branch_id}.gpkg', driver='GPKG', engine='fiona')
+"
+
 mpiexec -n $ncores_gw $taudemDir/gagewatershed \
     -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_"${current_branch_id}".tif \
     -gw $tempCurrentBranchDataDir/gw_catchments_pixels_${current_branch_id}.tif \
-    -o $tempCurrentBranchDataDir/flows_points_pixels_${current_branch_id}.parquet \
+    -o $tempCurrentBranchDataDir/flows_points_pixels_${current_branch_id}.gpkg \
     -id $tempCurrentBranchDataDir/idFile_${current_branch_id}.txt \
     2> >(while read -r line; do
         # Check if BOTH strings are present in the error line
@@ -180,6 +198,10 @@ mpiexec -n $ncores_gw $taudemDir/gagewatershed \
             echo "$line" >&2
         fi
     done)
+
+# 3. Clean up the temporary vector file
+rm "$tempCurrentBranchDataDir/flows_points_pixels_${current_branch_id}.gpkg"
+
 
 ## CATCH AND MITIGATE BRANCH OUTLET BACKPOOL ERROR ##
 echo -e $startDiv"Catching and mitigating branch outlet backpool issue ${hucNumber} ${current_branch_id}"
@@ -205,7 +227,7 @@ $srcDir/make_rem.py -d $tempCurrentBranchDataDir/dem_thalwegCond_"${current_bran
     -o $tempCurrentBranchDataDir/rem_${current_branch_id}.tif \
     -t $tempCurrentBranchDataDir/demDerived_streamPixels_${current_branch_id}.tif
 
-## BRING DISTANCE DOWN TO ZERO & MASK TO CATCHMENTS##
+## BRING DISTANCE DOWN TO ZERO & MASK TO CATCHMENTS ##
 echo -e $startDiv"Bring negative values in REM to zero and mask to catchments ${hucNumber} ${current_branch_id}"
 gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" \
     -A $tempCurrentBranchDataDir/rem_${current_branch_id}.tif \
@@ -216,15 +238,19 @@ gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIF
 ## RASTERIZE LANDSEA (OCEAN AREA) POLYGON (IF APPLICABLE) ##
 if [ -f $tempHucDataDir/LandSea_subset.gpkg ]; then
     echo -e $startDiv"Rasterize filtered/dissolved ocean/Glake polygon ${hucNumber} ${current_branch_id}"
-    gdal_rasterize -q -ot Int32 -burn $ndv -a_nodata $ndv -init 1 -co "COMPRESS=LZW" -co "BIGTIFF=YES" \
-        -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $tempHucDataDir/LandSea_subset.gpkg \
+    gdal_rasterize -q -ot Int32 -burn $ndv -init 1 -a_nodata $ndv \
+        -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" \
+        -te $xmin $ymin $xmax $ymax -ts $ncols $nrows \
+        $tempHucDataDir/LandSea_subset.gpkg \
         $tempCurrentBranchDataDir/LandSea_subset_${current_branch_id}.tif
 fi
 
 ## POLYGONIZE REACH WATERSHEDS ##
 echo -e $startDiv"Polygonize Reach Watersheds ${hucNumber} ${current_branch_id}"
-gdal_polygonize.py -q -8 -f Parquet $tempCurrentBranchDataDir/gw_catchments_reaches_${current_branch_id}.tif \
-    $tempCurrentBranchDataDir/gw_catchments_reaches_${current_branch_id}.parquet catchments HydroID
+python3 $srcDir/polygonize_raster.py -q -8 \
+    $tempCurrentBranchDataDir/gw_catchments_reaches_${current_branch_id}.tif \
+    $tempCurrentBranchDataDir/gw_catchments_reaches_${current_branch_id}.parquet \
+    catchments HydroID
 
 ## PROCESS CATCHMENTS AND MODEL STREAMS STEP 1 ##
 echo -e $startDiv"Process catchments and model streams ${hucNumber} ${current_branch_id}"
@@ -238,7 +264,8 @@ python3 $srcDir/filter_catchments_and_add_attributes.py \
 
 ## RASTERIZE NEW CATCHMENTS AGAIN ##
 echo -e $startDiv"Rasterize filtered catchments ${hucNumber} ${current_branch_id}"
-gdal_rasterize -q -ot Int32 -a HydroID -a_nodata 0 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" \
+python3 ${srcDir}/rasterize_parquet.py  -q -ot Int32 -a HydroID -a_nodata 0 -init 0 \
+    -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" \
     -te $xmin $ymin $xmax $ymax -ts $ncols $nrows \
     $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_${current_branch_id}.parquet \
     $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_${current_branch_id}.tif
@@ -305,8 +332,8 @@ $taudemDir/catchhydrogeo -hand $tempCurrentBranchDataDir/rem_zeroed_masked_${cur
 ## FINALIZE CATCHMENTS AND MODEL STREAMS ##
 echo -e $startDiv"Finalize catchments and model streams ${hucNumber} ${current_branch_id}"
 python3 $srcDir/add_crosswalk.py \
-    -d $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_${current_branch_id}.gpkg \
-    -a $tempCurrentBranchDataDir/demDerived_reaches_split_filtered_${current_branch_id}.gpkg \
+    -d $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_${current_branch_id}.parquet \
+    -a $tempCurrentBranchDataDir/demDerived_reaches_split_filtered_${current_branch_id}.parquet \
     -s $tempCurrentBranchDataDir/src_base_${current_branch_id}.csv \
     -l $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked_${current_branch_id}.parquet \
     -f $tempCurrentBranchDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked_${current_branch_id}.parquet \

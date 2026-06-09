@@ -233,7 +233,7 @@ gdal_rasterize -q -ot Int32 -burn 1 -init 0 -a_nodata -9999 \
 ## RASTERIZE REACH BOOLEAN (1 & 0) - BRANCHES (Not 0) (NWM levelpath streams) ##
 if [ "$levelpaths_exist" = "1" ]; then
     echo -e $startDiv"Rasterize Reach Boolean $hucNumber (Branches)"
-    python3 ${srcDir}/vector_to_raster.py -q -ot Int32 -burn 1 -init 0 -a_nodata -9999 \
+    python3 ${srcDir}/rasterize_parquet.py -q -ot Int32 -burn 1 -init 0 -a_nodata -9999 \
         -co "BIGTIFF=YES" \
         -te $xmin $ymin $xmax $ymax -ts $ncols $nrows \
         ${tempHucDataDir}/nwm_subset_streams_levelPaths_extended.parquet \
