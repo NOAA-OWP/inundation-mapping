@@ -16,9 +16,9 @@ from dotenv import load_dotenv
 
 
 MAX_BRIDGE_REACHES = 1
-metrics_dir = '/outputs/test_blacklist_metrics/collections/'
-out_dir = '/outputs/test_blacklist_metrics/output_metrics_codex_test/'
-ripple_collection_name = 'mip_07140102'
+# metrics_dir = '/outputs/test_blacklist_metrics/collections/'
+# out_dir = '/outputs/test_blacklist_metrics/output_metrics_codex_test/'
+# ripple_collection_name = 'mip_07140102'
 
 
 # -----------------------------------------------------------------------------
@@ -26,12 +26,6 @@ def retrieve_tiny_unmodeled_ripple_reaches(ripple_gdf, max_bridge_reaches=MAX_BR
     """
     Return unmodeled reaches that are short topology gaps between modeled reaches.
 
-    Use this after:
-        ripple_gdf = rip_reaches_gdf.merge(rip_process_gdf, on='feature_id', how='left')
-        ripple_gdf = ripple_gdf.replace('', np.nan)
-
-    and before:
-        ripple_gdf = ripple_gdf.dropna(subset=['model_id'])
     """
 
     if 'feature_id' not in ripple_gdf.columns:
