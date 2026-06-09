@@ -52,6 +52,7 @@ Description
 import argparse
 import sys
 from collections import OrderedDict
+import os
 from os import remove
 from os.path import isfile
 
