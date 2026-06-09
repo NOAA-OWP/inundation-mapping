@@ -371,7 +371,7 @@ if  [ -f $tempHucDataDir/osm_bridges_subset.gpkg ]; then
         -b1 10 \
         -b2 1.5 \
         -p $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked_${current_branch_id}.parquet \
-        -c $tempCurrentBranchDataDir/osm_bridge_centroids_${current_branch_id}.gpkg
+        -c $tempCurrentBranchDataDir/osm_bridge_centroids_${current_branch_id}.parquet
 
 
 else

@@ -179,7 +179,7 @@ def process_bridges_in_huc(
     # Check if the GeoDataFrame is empty
     if not osm_gdf.empty:
         # Write the bridge points to a geopackage
-        osm_gdf.to_file(bridge_centroids, index=False, engine='fiona')
+        osm_gdf.to_parquet(bridge_centroids, index=False)
     else:
         print('The geoDataFrame is empty. File not saved.')
 
