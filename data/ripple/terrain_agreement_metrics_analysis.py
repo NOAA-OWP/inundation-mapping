@@ -15,9 +15,99 @@ import pandas as pd
 from dotenv import load_dotenv
 
 
+MAX_BRIDGE_REACHES = 1
 metrics_dir = '/outputs/test_blacklist_metrics/collections/'
-out_dir = '/outputs/test_blacklist_metrics/output_metrics_codex_f/'
+out_dir = '/outputs/test_blacklist_metrics/output_metrics_codex_test/'
 ripple_collection_name = 'mip_07140102'
+
+
+# -----------------------------------------------------------------------------
+def retrieve_tiny_unmodeled_ripple_reaches(ripple_gdf, max_bridge_reaches=MAX_BRIDGE_REACHES):
+    """
+    Return unmodeled reaches that are short topology gaps between modeled reaches.
+
+    Use this after:
+        ripple_gdf = rip_reaches_gdf.merge(rip_process_gdf, on='feature_id', how='left')
+        ripple_gdf = ripple_gdf.replace('', np.nan)
+
+    and before:
+        ripple_gdf = ripple_gdf.dropna(subset=['model_id'])
+    """
+
+    if 'feature_id' not in ripple_gdf.columns:
+        raise ValueError('ripple_gdf is missing feature_id')
+
+    if 'model_id' not in ripple_gdf.columns:
+        raise ValueError('ripple_gdf is missing model_id')
+
+    downstream_col = None
+    for col in ['nwm_to_id', 'to', 'to_id', 'NextDownID']:
+        if col in ripple_gdf.columns:
+            downstream_col = col
+            break
+
+    if downstream_col is None:
+        raise ValueError(
+            'ripple_gdf is missing a downstream pointer column. '
+            'Expected one of: nwm_to_id, to, to_id, NextDownID'
+        )
+
+    candidates = ripple_gdf.replace('', np.nan).copy()
+    candidates = candidates.drop_duplicates(subset='feature_id')
+    candidates['has_model_id'] = candidates['model_id'].notna()
+
+    candidate_ids = set(candidates['feature_id'].dropna())
+    modeled_ids = set(candidates.loc[candidates['has_model_id'], 'feature_id'].dropna())
+
+    downstream_by_feature_id = candidates.set_index('feature_id')[downstream_col].to_dict()
+
+    bridge_ids = set()
+    bridge_upstream_by_id = {}
+    bridge_downstream_by_id = {}
+
+    for upstream_modeled_id in modeled_ids:
+        gap_ids = []
+        seen_ids = {upstream_modeled_id}
+        current_id = downstream_by_feature_id.get(upstream_modeled_id)
+
+        for _ in range(max_bridge_reaches):
+            if pd.isna(current_id) or current_id not in candidate_ids or current_id in seen_ids:
+                break
+
+            seen_ids.add(current_id)
+
+            if current_id in modeled_ids:
+                break
+
+            gap_ids.append(current_id)
+            next_id = downstream_by_feature_id.get(current_id)
+
+            if pd.isna(next_id):
+                break
+
+            if next_id in modeled_ids:
+                bridge_ids.update(gap_ids)
+                for gap_id in gap_ids:
+                    bridge_upstream_by_id[gap_id] = upstream_modeled_id
+                    bridge_downstream_by_id[gap_id] = next_id
+                break
+
+            current_id = next_id
+
+    bridge_reaches_gdf = candidates.loc[candidates['feature_id'].isin(bridge_ids)].copy()
+    bridge_reaches_gdf['bridge_upstream_feature_id'] = bridge_reaches_gdf['feature_id'].map(
+        bridge_upstream_by_id
+    )
+    bridge_reaches_gdf['bridge_downstream_feature_id'] = bridge_reaches_gdf['feature_id'].map(
+        bridge_downstream_by_id
+    )
+
+    bridge_reaches_gdf = bridge_reaches_gdf.drop(columns=['has_model_id'])
+
+    geom_col = bridge_reaches_gdf.geometry.name
+    cols = [col for col in bridge_reaches_gdf.columns if col != geom_col] + [geom_col]
+
+    return bridge_reaches_gdf[cols]
 
 
 # -----------------------------------------------------------------------------
@@ -91,7 +181,14 @@ def merge_nwm_streams_with_ripples(metrics_dir, out_dir, ripple_collection_name)
 
     ripple_gdf = rip_reaches_gdf.merge(rip_process_gdf, on='feature_id', how='left')
     ripple_gdf = ripple_gdf.replace('', np.nan)
-    ripple_gdf = ripple_gdf.dropna(subset=['model_id'])
+    # ripple_gdf = ripple_gdf.dropna(subset=['model_id'])
+
+    tiny_reaches_gdf = retrieve_tiny_unmodeled_ripple_reaches(ripple_gdf, MAX_BRIDGE_REACHES)
+
+    modeled_reaches_gdf = ripple_gdf.dropna(subset=['model_id'])
+
+    ripple_gdf = pd.concat([modeled_reaches_gdf, tiny_reaches_gdf], ignore_index=True)
+    ripple_gdf = ripple_gdf.drop_duplicates(subset=['feature_id'])
 
     nwms_gdf = gpd.read_file(nwm_stream_gpkg)
     nwms_gdf = nwms_gdf.rename(columns={'ID': 'feature_id'})
