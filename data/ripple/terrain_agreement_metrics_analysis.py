@@ -15,10 +15,34 @@ import pandas as pd
 from dotenv import load_dotenv
 
 
+# Parameters
 MAX_BRIDGE_REACHES = 1
-# metrics_dir = '/outputs/test_blacklist_metrics/collections/'
-# out_dir = '/outputs/test_blacklist_metrics/output_metrics_codex_test/'
-# ripple_collection_name = 'mip_07140102'
+
+OUTGOING_COL_ORDER = [
+    'huc',
+    'feature_id',
+    'nwm_to_id',
+    'order_',
+    'collection_id',
+    'model_id',
+    'db_path',
+    'is_blacklisted',
+    'is_bridge',
+    'is_valid',
+]
+
+
+# -----------------------------------------------------------------------------
+def arrange_outgoing_columns(df):
+    geom_col = df.geometry.name if isinstance(df, gpd.GeoDataFrame) else None
+
+    front_cols = [col for col in OUTGOING_COL_ORDER if col in df.columns]
+    remaining_cols = [col for col in df.columns if col not in front_cols and col != geom_col]
+
+    if geom_col is not None and geom_col in df.columns:
+        return df[front_cols + remaining_cols + [geom_col]]
+
+    return df[front_cols + remaining_cols]
 
 
 # -----------------------------------------------------------------------------
@@ -181,6 +205,27 @@ def merge_nwm_streams_with_ripples(metrics_dir, out_dir, ripple_collection_name)
 
     modeled_reaches_gdf = ripple_gdf.dropna(subset=['model_id'])
 
+    # Assigning the upstream 'collection_id' and 'model_id' to the tiny bridge reaches
+    upstream_model_lookup = modeled_reaches_gdf[['feature_id', 'collection_id', 'model_id']].rename(
+        columns={
+            'feature_id': 'bridge_upstream_feature_id',
+            'collection_id': 'upstream_collection_id',
+            'model_id': 'upstream_model_id',
+        }
+    )
+
+    tiny_reaches_gdf = tiny_reaches_gdf.merge(
+        upstream_model_lookup, on='bridge_upstream_feature_id', how='left'
+    )
+
+    tiny_reaches_gdf['collection_id'] = tiny_reaches_gdf['collection_id'].fillna(
+        tiny_reaches_gdf['upstream_collection_id']
+    )
+    tiny_reaches_gdf['model_id'] = tiny_reaches_gdf['model_id'].fillna(tiny_reaches_gdf['upstream_model_id'])
+
+    tiny_reaches_gdf = tiny_reaches_gdf.drop(columns=['upstream_collection_id', 'upstream_model_id'])
+
+    # Concat tiny_reaches with modeled_reaches
     ripple_gdf = pd.concat([modeled_reaches_gdf, tiny_reaches_gdf], ignore_index=True)
     ripple_gdf = ripple_gdf.drop_duplicates(subset=['feature_id'])
 
@@ -776,8 +821,15 @@ def process_ripple_STREAMS_create_blackList(metrics_dir, out_dir):
         merged_all['is_valid'] = ~merged_all['is_blacklisted']
         merged_all = merged_all.drop(columns=['is_bad'])
 
+        bridge_cols = ['bridge_upstream_feature_id', 'bridge_downstream_feature_id']
+        if all(col in merged_all.columns for col in bridge_cols):
+            merged_all['is_bridge'] = merged_all[bridge_cols].notna().any(axis=1)
+        else:
+            merged_all['is_bridge'] = False
+
         path_master_whitelist_conus = os.path.join(out_dir, 'ripple_feature_id_whitelist_conus.csv')
-        merged_all.to_csv(path_master_whitelist_conus, index=False)
+        whitelist_csv_df = merged_all.drop(columns=bridge_cols, errors='ignore')
+        whitelist_csv_df.to_csv(path_master_whitelist_conus, index=False)
 
         # Create a gpkg of whitelist reaches and metrics
         path_all_sourcemodels_conus_gpkg = os.path.join(out_dir, 'all_reaches_sourcemodels_conus.gpkg')
