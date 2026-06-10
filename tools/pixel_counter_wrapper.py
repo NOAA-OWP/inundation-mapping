@@ -8,6 +8,8 @@ from multiprocessing import Pool
 import pandas as pd
 from pixel_counter import zonal_stats
 
+# TODO: review to see if logging is required, either explicit or implicit (based)
+# on logging set up in calling functions.
 
 def queue_zonal_stats(fim_run_dir, raster_path_dict, output_dir, job_number):
     """
@@ -59,6 +61,16 @@ def process_zonal_stats(args):
 
     # Save traceback to error file if error is encountered.
     except Exception:
+
+        # TODO: review to see if logging is required, either explicit or implicit (based)
+        # on logging set up in calling functions.
+
+        # TODO: consider changing traceback.print_exc() to 
+        # logging.critical(traceback.format_exc())
+        # traceback.print_exc() goes straight to native logs if set up
+        # traceback.format_exc() returns a string that you can log, print or whatever
+
+        # Note: This is functional and will work, maybe not optimum but it is ok
         error_file = csv.replace('.csv', '_error.txt')
         with open(error_file, 'w+') as f:
             traceback.print_exc(file=f)

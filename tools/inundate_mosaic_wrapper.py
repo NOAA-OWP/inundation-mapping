@@ -35,6 +35,7 @@ def produce_mosaicked_inundation(
     log_file: Optional[str] = None,
     nodata: Optional[int] = elev_raster_ndv,
     gms_multi_process: Optional[bool] = False,
+    debug: Optional[bool] = False,
 ):
     """
     This function calls Inundate_gms and Mosaic_inundation to produce inundation maps.
@@ -85,6 +86,8 @@ def produce_mosaicked_inundation(
         Nodata to pass to the mosaic_inundation function
     gms_multi_process : Optional[bool], default=False
         Use processes for parallel processing instead of threads
+    debug: Optional[bool], default=False
+        If True, extra logging lines will print to file only.
     """
 
     # Check that inundation_raster or depths_raster is supplied
@@ -99,13 +102,15 @@ def produce_mosaicked_inundation(
         if not os.path.exists(parent_dir):
             msg=f"Parent directory for {os.path.split(output_file)[1]} does not exist."
             " The parent directory will be produced."
-            logging.info(msg)
+
             # fh.vprint(
             #     "Parent directory for "
             #     + os.path.split(output_file)[1]
             #     + " does not exist. The parent directory will be produced.",
             #     verbose,
             # )
+            if debug:
+                logging.debug(msg)
             os.makedirs(parent_dir)
 
     # Check that hydrofabric_dir exists
@@ -137,6 +142,8 @@ def produce_mosaicked_inundation(
         )
 
     # Call Inundate_gms
+    if debug:
+        logging.debug(f"About to go into Inudate_gms for {hydrofabric_dir}")
     map_file = Inundate_gms(
         hydrofabric_dir=hydrofabric_dir,
         forecast=flow_file,
@@ -150,6 +157,7 @@ def produce_mosaicked_inundation(
         windowed=windowed,
         log_file=log_file,
         multi_process=gms_multi_process,
+        debug=debug,
     )
 
     # Write map file if designated
@@ -161,7 +169,8 @@ def produce_mosaicked_inundation(
 
     # fh.vprint("Mosaicking extent...", verbose)
     # print("Mosaicking extent...")
-
+    if debug:
+        logging.debug(f"Mosaicking extent... for {hydrofabric_dir}")
     for mosaic_attribute in ["depths_rasters", "inundation_rasters"]:
         mosaic_output = None
         if mosaic_attribute == "inundation_rasters":
@@ -172,6 +181,8 @@ def produce_mosaicked_inundation(
                 mosaic_output = depths_raster
 
         if mosaic_output is not None:
+            if debug:
+                logging.debug(f"Going into Mosaic_inundation... for {hydrofabric_dir}")
 
             # Call Mosaic_inundation
             mosaic_file_path = Mosaic_inundation(
@@ -186,12 +197,13 @@ def produce_mosaicked_inundation(
                 is_mosaic_for_branches=is_mosaic_for_branches,
                 inundation_polygon=inundation_polygon,
                 workers=num_threads,
+                debug=debug,
             )
 
     # fh.vprint("Mosaicking complete.", verbose)
 
-    # TODO: Debug
-    logging.info(f"Mosaic_inundation complete, calculated mosiac path is {mosaic_file_path}")
+    if debug:
+        logging.debug(f"Mosaic_inundation complete, calculated mosiac path is {mosaic_file_path}")
 
     return mosaic_file_path
 

@@ -451,7 +451,7 @@ def synthesize_test_cases(huc, fim_version, hydroTable_all, job_number_branch, b
                 mask_type='huc',
                 overwrite=overwrite,
                 verbose=verbose,
-                branch_workers=job_number_branch,
+                gms_workers=job_number_branch,
             )
     # job_number_branch = 6
     # Set up multiprocessor
@@ -785,7 +785,16 @@ def multi_process_optimization(
                 executor_dict[future] = huc
             except Exception as ex:
                 print(f"*** {ex}")
+                # TODO: consider changing traceback.print_exc() to 
+                # logging.critical(traceback.format_exc())
+                # traceback.print_exc() goes straight to native logs if set up
+                # traceback.format_exc() returns a string that you can log, print or whatever
+
                 traceback.print_exc()
+
+                # TODO: this won't work. sys.exit inside a ProcessPool will not be honored
+                # Need to use:
+                #    executor.shutdown(wait=False, cancel_futures=True)
                 sys.exit(1)
 
     end_time = datetime.now()

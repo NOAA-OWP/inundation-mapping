@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import logging
 from os.path import splitext
 from typing import List, Optional, Tuple, Union
 from warnings import warn
@@ -15,6 +16,7 @@ from numba import njit, typed, types
 from rasterio.mask import mask
 from shapely.geometry import shape
 
+import src.utils.shared_functions as sf
 
 gpd.options.io_engine = "pyogrio"
 
@@ -49,7 +51,8 @@ def inundate(
     quiet: Optional[bool] = False,
     precalb_option: Optional[bool] = False,
     windowed: Optional[bool] = False,
-) -> Tuple[List[str], List[str], List[str]]:
+    debug: Optional[bool] = False,
+):
     """
 
     Run inundation on FIM >=3.0 outputs at job-level scale or aggregated scale
@@ -98,6 +101,8 @@ def inundate(
         Whether to use precalb discharge in hydrotable. If True, will use precalb_discharge_cms column
     windowed : Optional[bool], default=False
         Memory efficient operation to process inundation
+    debug: Optional[bool], default=False
+        If True, extra logging lines will print to file only.
 
     Returns
     -------
@@ -162,6 +167,9 @@ def inundate(
         == (catchments.transform * (catchments.width, catchments.height))
     ), "REM and catchments rasters require same upper left and lower right extents"
 
+    if debug:
+        logging.info(f"Starting inundation for {inundation_raster}")
+
     # open hucs
     if hucs is None:
         pass
@@ -176,8 +184,15 @@ def inundate(
     if hydro_table is None:
         raise TypeError("Pass hydro table csv")
 
-    depths_profile = rem.profile
-    inundation_profile = catchments.profile
+    # TODO: Jun 2026: This needs a try except so we don't leave the rasters open on fails
+    # and we can close them earlier.
+    # try: # t
+
+    depths_profile = rem.profile.copy()
+    inundation_profile = catchments.profile.copy()
+
+    # logging.info(f"Depth Profile for {hucs} is {depths_profile} - pre update")
+    # logging.info(f"Depth inundation_profile for {hucs} is {inundation_profile} - pre update")
 
     int_16 = inundation_profile['dtype'] == 'int16'
 
@@ -193,9 +208,33 @@ def inundate(
         if src_table is not None:
             create_src_subset_csv(hydro_table, catchmentStagesDict, src_table)
 
-        depths_profile.update(driver='GTiff', blockxsize=256, blockysize=256, tiled=True)
 
+        # Possible test code.. just a Rob comment for now
+        # Jun 2026: Rasterio no longer supports direct arguments, and wants a json format            
+        # depths_profile = {
+        #     'driver': 'GTiff',
+        #     'tiled': True,
+        #     'blockxsize': 256,  # Creation options
+        #     'blockysize': 256
+        # }
+        # with rasterio.open('output.tif', 'w', **profile) as dst:
+        #     dst.write(data)
+
+
+        
+        # Jun 2026: Can't use blockxsize and blockysize (seeing as we are using COG GeoTiffs)
+        depths_profile.update(driver='GTiff', blockxsize=256, blockysize=256, tiled=True)
         inundation_profile.update(driver='GTiff', blockxsize=256, blockysize=256, tiled=True, nodata=0)
+
+        # depths_profile.update(driver='GTiff', blocksize=256, tiled=True)
+        # inundation_profile.update(driver='GTiff', blocksize=256, tiled=True, nodata=0)
+
+        # logging.info(f"Depth Profile for {hucs} is {depths_profile} - post update")
+        # logging.info(f"Depth inundation_profile for {hucs} is {inundation_profile} - post update")        
+        # logging.info("*******************")
+
+
+        # depth_rst = rasterio.open(depths, "w+", **depths_profile) if depths is not None else None
 
         depth_rst = rasterio.open(depths, "w+", **depths_profile) if depths is not None else None
         inundation_rst = (
@@ -223,6 +262,7 @@ def inundate(
             inundation_rst=inundation_rst,
             inundation_nodata=nodata,
             min_value=30 if int_16 else 0.03048,
+            debug=debug,
         )
 
         inundation_rasters = []
@@ -241,7 +281,7 @@ def inundate(
         if inundation_rst is not None:
             inundation_rst.close()
 
-    return inundation_rasters, depth_rasters, inundation_polys
+    # return inundation_rasters, depth_rasters, inundation_polys
 
 
 def __inundate_in_huc(
@@ -396,6 +436,7 @@ def __make_windows_generator(
     inundation_rst: Optional[str] = None,
     inundation_nodata: Optional[int] = None,
     min_value: int = 30,
+    debug: Optional[bool] = False,
 ):
     """
     Generator to split processing in to windows or different masked datasets
@@ -430,6 +471,8 @@ def __make_windows_generator(
         Name of inundation raster to output
     inundation_nodata: Optional[int] = None
         Value of nodata value in inundation extent
+    debug: Optional[bool], default=False
+        If True, extra logging lines will print to file only.
 
     Returns
     -------
@@ -456,7 +499,8 @@ def __make_windows_generator(
         Whether to use memory optimization
     inundation_nodata : int
         Value for inundation extent nodata
-
+    debug: bool
+        If True, extra logging lines will print to file only.
     """
 
     if hucs is not None:
@@ -563,29 +607,29 @@ def __make_windows_generator(
                 "min_value": min_value,
             }
 
+# Not used
+# def __append_huc_code_to_file_name(fileName: str, hucCode: str) -> str:
+#     """
+#     Append huc code to a file name
 
-def __append_huc_code_to_file_name(fileName: str, hucCode: str) -> str:
-    """
-    Append huc code to a file name
+#     Parameters
+#     ----------
+#     fileName : str
+#         Name of the file
+#     hucCode : str
+#         HUC Code
 
-    Parameters
-    ----------
-    fileName : str
-        Name of the file
-    hucCode : str
-        HUC Code
+#     Returns
+#     -------
+#     str
+#         Filename with huc appended to the end
+#     """
+#     if hucCode is None:
+#         return fileName
 
-    Returns
-    -------
-    str
-        Filename with huc appended to the end
-    """
-    if hucCode is None:
-        return fileName
+#     base_file_path, extension = splitext(fileName)
 
-    base_file_path, extension = splitext(fileName)
-
-    return "{}_{}{}".format(base_file_path, hucCode, extension)
+#     return "{}_{}{}".format(base_file_path, hucCode, extension)
 
 
 def __subset_hydroTable_to_forecast(

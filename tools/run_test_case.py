@@ -206,6 +206,7 @@ class Test_Case(Benchmark):
         threads=1,
         log_folder='', 
         log_prefix='',
+        debug=False,
     ):
         '''Compares a FIM directory with benchmark data from a variety of sources.
 
@@ -242,7 +243,10 @@ class Test_Case(Benchmark):
             # NOTE: If not set, it will use the default logging folder and path, likely were the script is.
             if (log_folder != ""):
                 log_file_path = sf.setup_file_logger(log_folder, f"{log_prefix}_{self.test_id}")
-            logging.info(f"Started Alpha Test for {self.test_id}")
+            if verbose:
+                logging.info(f"Started Alpha Test for {self.test_id}")
+            elif debug:
+                logging.debug(f"Started Alpha Test for {self.test_id}")
 
             if not overwrite and os.path.isdir(self.dir):
                 logging.warning(f"Metrics for {self.dir} already exist. Use overwrite flag (-o) to overwrite metrics.")
@@ -318,6 +322,7 @@ class Test_Case(Benchmark):
                         precalb_option=precalb_option,
                         threads=threads,
                         log_file_path=log_file_path,
+                        debug=debug,
                     )
 
                 # Clean up 'total_area' outputs from AHPS sites
@@ -326,6 +331,8 @@ class Test_Case(Benchmark):
 
             # Write out evaluation meta-data
             # self.write_metadata(calibrated, model)
+            if debug:
+                logging.debug(f"Starting to write metadata file to {self.dir}")
             self.write_metadata(calibrated)
 
         except KeyboardInterrupt as kiex:
@@ -333,14 +340,18 @@ class Test_Case(Benchmark):
             # sys.exit(1)  # Note: you can not have this inside an MP as it won't really work
             raise kiex
         except Exception as ex:
-            logging.critical(f"ERROR: {ex}: {self.test_id}")
+            logging.critical(f"CRITICAL ERROR: {ex}: {self.test_id}")
             # Temporarily adding stack trace
             logging.critical(traceback.format_exc())
             # sys.exit(1)  # Note: you can not have this inside an MP as it won't really work
             raise ex
         finally:
-            logging.info(f"Complete Alpha Test for {self.test_id}")
-            logging.info(sf.calculate_duration_msg(start_time))            
+            if verbose:
+                logging.info(f"Complete Alpha Test for {self.test_id}")
+                logging.info(sf.calculate_duration_msg(start_time))
+            elif debug:
+                logging.debug(f"Complete Alpha Test for {self.test_id}")
+                logging.debug(sf.calculate_duration_msg(start_time))
 
     # NOTE: Jun 2026: At this point, we do not use the verbose flag, but if we add the
     # logging.debug system, that would have value.
@@ -355,6 +366,7 @@ class Test_Case(Benchmark):
         branch_workers=1,
         threads=1,
         log_file_path="",
+        debug=False
     ):
         '''Method for inundating and computing contingency rasters as part of the alpha_test.
         Used by both the alpha_test() and composite() methods.
@@ -372,7 +384,10 @@ class Test_Case(Benchmark):
         # fh.vprint("Creating output files", verbose)
 
         # TODO: Debugging ?? the (temp keepign the self.huc output)
-        logging.info(f"Creating output files for {self.dir} - ({self.huc})")
+        if verbose:
+            logging.info(f"Creating output files for {self.dir} - ({self.huc})")
+        elif debug:
+            logging.debug(f"Creating output files for {self.dir} - ({self.huc})")
 
         test_case_out_dir = os.path.join(self.dir, magnitude)
         inundation_prefix = lid + '_' if lid else ''
@@ -399,6 +414,8 @@ class Test_Case(Benchmark):
             domain = os.path.join(self.benchmark_dir, lid, f'{lid}_domain.shp')
             mask_dict_indiv.update({lid: {'path': domain, 'buffer': None, 'operation': 'include'}})
         # Check to make sure all relevant files exist
+        if debug:
+            logging.debug(f"benchmark_rast is {benchmark_rast} and benchmark_flows is {benchmark_flows}")
         if (
             not os.path.isfile(benchmark_rast)
             or not os.path.isfile(benchmark_flows)
@@ -423,7 +440,8 @@ class Test_Case(Benchmark):
                 windowed=True,
                 # gms_multi_process=True,  # This means use threads not MP
                 gms_multi_process=False,  # This means use MP instead of threads
-                log_file=log_file_path
+                log_file=log_file_path,
+                debug=debug
             )
 
             # TODO: May 2026: adding verbose as True in produce_mosiacked_inundation
@@ -461,7 +479,9 @@ class Test_Case(Benchmark):
         # Create contingency rasters and stats
         # fh.vprint("Begin creating contingency rasters and stats", verbose)
         # print("Begin creating contingency rasters and stats")
+        logging.info("Begin creating contingency rasters and stats")
         if os.path.isfile(predicted_raster_path):
+            logging.info("in it")
             compute_contingency_stats_from_rasters(
                 predicted_raster_path,
                 benchmark_rast,

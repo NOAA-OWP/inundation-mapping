@@ -4,6 +4,7 @@
 import argparse
 import logging
 import os
+import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
 from typing import Optional, Union
@@ -30,7 +31,10 @@ gpd.options.io_engine = "pyogrio"
 
 
 # Set rasterio logger to only show errors, not warnings
-logging.getLogger('rasterio').setLevel(logging.ERROR)
+# TODO: Jun 2026: We will likely want to change this as we upgrade logging everywhere (see run_test_case.py)
+# The newer system has a bunch of new features, but the biggest is that if we use our python.logging
+# it logs everything we might want
+# logging.getLogger('rasterio').setLevel(logging.ERROR)  (Update: the rasterio version might not have been in.. checking)
 
 
 def Mosaic_inundation(
@@ -46,6 +50,7 @@ def Mosaic_inundation(
     verbose: Optional[bool] = True,
     is_mosaic_for_branches: Optional[bool] = False,
     inundation_polygon: Optional[str] = None,
+    debug: Optional[bool] = True,
 ) -> str:
     """
     Mosaic inundation extents or depths
@@ -113,15 +118,16 @@ def Mosaic_inundation(
     inundation_maps_df = inundation_maps_df.set_index(unit_attribute_name, drop=True)
 
     # decide upon whether to display the progress bar
-    # print(f"Verbose value is {verbose}")
+    # print(f"Verbose value is {verbose}")  (some were coming in as None ??)
     # print(f"aggregations_units len is {len(aggregation_units)}")
-    if verbose is True and len(aggregation_units) == 1:
+    if verbose and len(aggregation_units) == 1:
         tqdm_disable = False
-    elif verbose is True:
+    elif verbose:
         tqdm_disable = False
     else:
         tqdm_disable = True
 
+    # TODO: Temp debug
     logging.info(f"tqdm_disable is {tqdm_disable}")
 
     ag_mosaic_output = ""
@@ -143,7 +149,6 @@ def Mosaic_inundation(
         if (is_mosaic_for_branches) and (ag not in mosaic_output):
             ag_mosaic_output = fh.append_id_to_file_name(mosaic_output, ag)  # change it
 
-        # what
         remove_list = mosaic_by_unit(
             inundation_maps_list,
             ag_mosaic_output,
@@ -163,7 +168,9 @@ def Mosaic_inundation(
 
     if remove_inputs:
         # fh.vprint("Removing inputs ...", verbose)
-        print(f"Removing inputs ... (in Mosiac_inundation) .. {mosaic_output}")
+        if verbose:
+            #print(f"Removing inputs ... (in Mosiac_inundation) .. {mosaic_output}")
+            logging.info(f"Removing inputs ... (in Mosiac_inundation) .. {mosaic_output}")
 
         for remove_file in remove_at_end:
             if os.path.exists(remove_file):
@@ -217,16 +224,21 @@ def mosaic_by_unit(
 
         merge(inundation_maps_list, method='max', nodata=nodata, dst_path=mosaic_output)
 
-        if mask:
-            # fh.vprint("Masking ...", verbose)
-            logging.info(f"Masking ... ({mosaic_output})")
-            # def mask_mosaic(mosaic, polys, polys_layer=None, outfile=None, workers=4, quiet=True):
-            mask_mosaic(mosaic_output, mask, outfile=mosaic_output, workers=workers)
+        # Jun 2026:
+        #     This was adjusted as part of PR 1605, 4.8.10.0 in Oct 2025, but never worked.
+        #     tracing it showed that it always failed and appears to not be needed.
+        #     Commenting it out for now.
+        # if mask:
+        #     # fh.vprint("Masking ...", verbose)
+        #     if verbose:
+        #         logging.info(f"Masking ... ({mosaic_output})")
+        #     mask_mosaic(mosaic_output, mask, outfile=mosaic_output, workers=workers)
 
     if remove_inputs:
         # fh.vprint("Removing inputs ...", verbose)
         # print(f"removing inputs for {mosaic_output} (inside mosaic_by_unit)")
-        logging.info(f"removing inputs for {mosaic_output} (inside mosaic_by_unit)")
+        if verbose:
+            logging.info(f"removing inputs for {mosaic_output} (inside mosaic_by_unit)")
 
         remove_list = []
         for inun_map in inundation_maps_list:
@@ -240,79 +252,112 @@ def mosaic_by_unit(
 #     if verbose:
 #         print(message)
 
-def mask_mosaic(mosaic, polys, polys_layer=None, outfile=None, workers=4):
 
-    if isinstance(mosaic, str):
-        with rasterio.open(mosaic, 'r') as rst:
-            windows = [windows for _, windows in rst.block_windows()]
-            profile = rst.profile
-    elif isinstance(mosaic, rasterio.DatasetReader):
-        pass
-    else:
-        raise TypeError("Pass rasterio dataset or filepath for mosaic")
+# Jun 2026:
+#     This was adjusted as part of PR 1605, 4.8.10.0 in Oct 2025, but never worked.
+#     tracing it showed that it always failed and appears to not be needed.
+#     Commenting it out for now.
+# def mask_mosaic(mosaic, polys, polys_layer=None, outfile=None, workers=4, quiet=True):
 
-    if isinstance(polys, str):
-        polys = gpd.read_file(polys, layer=polys_layer)
-    elif isinstance(polys, gpd.GeoDataFrame):
-        pass
-    else:
-        raise TypeError("Pass geopandas dataset or filepath for catchment polygons")
+#     if isinstance(mosaic, str):
+#         logging.info(f"if isinstance(mosaic, str): {mosaic} - 1")
+#         with rasterio.open(mosaic, 'r') as rst:
+#             logging.info(f"if isinstance(mosaic, str): {mosaic} - 2")
+#             windows = [windows for _, windows in rst.block_windows()]
+#             logging.info(f"if isinstance(mosaic, str): {mosaic} - 3")
+#             profile = rst.profile
+#             logging.info(f"if isinstance(mosaic, str): {mosaic} - 4")
+#         logging.info(f"if isinstance(mosaic, str): {mosaic} - 5")
 
-    mosaic_read = rxr.open_rasterio(mosaic)
-    mosaic_read = mosaic_read.sel({'band': 1})
-    geom = polys['geometry'].values[0]
+#     elif isinstance(mosaic, rasterio.DatasetReader):
+#         pass
+#     else:
+#         raise TypeError("Pass rasterio dataset or filepath for mosaic")
 
-    def write_window(geom, window, wrst, lock):
-        mosaic_slice = mosaic.isel(
-            y=slice(window.row_off, window.row_off + window.height),
-            x=slice(window.col_off, window.col_off + window.width),
-        )
-        bbox = box(*mosaic_slice.rio.bounds())
+#     if isinstance(polys, str):
+#         polys = gpd.read_file(polys, layer=polys_layer)
+#     elif isinstance(polys, gpd.GeoDataFrame):
+#         pass
+#     else:
+#         raise TypeError("Pass geopandas dataset or filepath for catchment polygons")
 
-        if geom.intersects(bbox):
+#     mosaic_read = rxr.open_rasterio(mosaic)
+#     mosaic_read = mosaic_read.sel({'band': 1})
+#     geom = polys['geometry'].values[0]
 
-            inter = geom.intersection(bbox)
+#     # def write_window(geom, window, wrst, lock):
+#     def write_window(mosaic, geom, window, wrst, lock, outfile):
+#         mosaic_slice = mosaic.isel(
+#             y=slice(window.row_off, window.row_off + window.height),
+#             x=slice(window.col_off, window.col_off + window.width),
+#         )
+#         logging.info(f"write_window - 1 {outfile}")
+#         bbox = box(*mosaic_slice.rio.bounds())
+#         logging.info(f"write_window - 2 {outfile}")
 
-            if inter.area != bbox.area:
-                gdf_temp = gpd.GeoDataFrame(geometry=[inter], crs=mosaic_slice.rio.crs)
-                gdf_temp['arb'] = np.int8(1)
-                temp_rast = make_geocube(vector_data=gdf_temp, measurements=['arb'], like=mosaic_slice)
-                mosaic_slice.data = xr.where(np.isnan(temp_rast['arb']), 0, mosaic_slice.data)
-                # with lock:
-                wrst.write_band(1, mosaic_slice.data.squeeze(), window=window)
+#         if geom.intersects(bbox):
 
-    executor = ThreadPoolExecutor(max_workers=workers)
+#             logging.info(f"write_window - 3 {outfile}")
+#             inter = geom.intersection(bbox)
 
-    def __data_generator(windows, mosaic, geom, wrst, lock):
-        for window in windows:
-            yield mosaic, geom, window, wrst, lock
+#             if inter.area != bbox.area:
+#                 logging.info(f"write_window - 4 {outfile}")
 
-    lock = Lock()
+#                 gdf_temp = gpd.GeoDataFrame(geometry=[inter], crs=mosaic_slice.rio.crs)
+#                 gdf_temp['arb'] = np.int8(1)
+#                 temp_rast = make_geocube(vector_data=gdf_temp, measurements=['arb'], like=mosaic_slice)
+#                 mosaic_slice.data = xr.where(np.isnan(temp_rast['arb']), 0, mosaic_slice.data)
+#                 with lock:  # Will slow it down a little
+#                     wrst.write_band(1, mosaic_slice.data.squeeze(), window=window)
+#                 logging.info(f"write_window - 5 {outfile}")
 
-    with rasterio.open(outfile, "r+", **profile) as wrst:
-        dgen = __data_generator(windows, mosaic_read, geom, wrst, lock)
-        results = {executor.submit(write_window, *wg): 1 for wg in dgen}
+#         logging.info(f"write_window - 6 {outfile}")
 
-        for future in as_completed(results):
-            try:
-                # TODO: Jun 2026: Upgrade this to look for future.result
-                # future.exception, etc.
-                # future.result()
-                if future is not None:
-                    if not future.exception():
-                        if future.result() is None:
-                            logging.info(f"... data_generator complete for {outfile}")
-                        else:
-                            logging.info(f"... data_generator complete for {outfile}."
-                                         f" future result is {future.result()}")
-                    else:
-                        raise future.exception()
-                else:
-                    logging.info(f"... complete future result is {results[future]}")
+#     executor = ThreadPoolExecutor(max_workers=workers)
 
-            except Exception as exc:
-                # _vprint("Exception {} for {}".format(exc, results[future]), not quiet)
-                logging.critical("Exception {} for {}".format(exc, results[future]))
+#     def __data_generator(windows, mosaic, geom, wrst, lock, outfile):
+#         for window in windows:
+#             yield mosaic, geom, window, wrst, lock, outfile
+
+#     lock = Lock()
+
+#     with rasterio.open(outfile, "r+", **profile) as wrst:
+#         logging.info(f"start of opening via rasterio the outfile is {outfile}")
+#         dgen = __data_generator(windows, mosaic_read, geom, wrst, lock, outfile)
+#         logging.info(f"After generator {outfile}")
+#         results = {executor.submit(write_window, *wg): 1 for wg in dgen}  # ThreadPoolExector
+
+#         for future in as_completed(results):
+#             try:
+#                 # TODO: Jun 2026: Upgrade this to look for future.result
+#                 # future.exception, etc.
+#                 # future.result()
+#                 if future is not None:
+#                     if not future.exception():
+#                         if future.result() is None:
+#                             logging.info(f"... data_generator complete for {outfile}")
+#                         else:
+#                             logging.info(f"... data_generator complete for {outfile}."
+#                                          f" future result is {future.result()}")
+#                     else:
+#                         raise future.exception()
+#                 else:
+#                     logging.info(f"... complete future result is {results[future]} for {outfile}")
+
+#             except Exception as exc:
+#                 # _vprint("Exception {} for {}".format(exc, results[future]), not quiet)
+#                 # logging.error instead of .critical as we leave .critical for places that the app down
+#                 # logging.error("Exception {} for {}".format(exc, results[future]))
+#                 logging.critical(f"Critical Error in mask_mosaic opening {outfile}")
+#                 logging.critical(traceback.format_exc())
+#                 # do not shut it down
+
+#             # else:  # will always execute, like a "finally"
+#             #     if results[future] is not None and not quiet:
+#             #         # _vprint("... {} complete".format(results[future]), not quiet)
+#             #         # if not quiet:
+#             #         logging.info(f"... complete future result is {results[future]}")
+
 
 def mosaic_final_inundation_extent_to_poly(
     inundation_raster: Optional[str] = None,

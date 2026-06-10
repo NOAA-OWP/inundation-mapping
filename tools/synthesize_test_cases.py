@@ -41,8 +41,11 @@ def synthesize_test_cases(config,
                           master_metrics_only,
                           verbose,
                           prev_metrics_csv,
-                          cycle_previous_files
+                          cycle_previous_files,
+                          debug
 ):
+
+    # Note: debug value of True, means when using logging.debug, it will go to the log files only
 
     # TODO: Jun 2026: We likely want to change this to accept a output path
     # versus calc it. There are pros/cons, mostly based in enforcement of "PREV" versus "DEV"
@@ -54,17 +57,16 @@ def synthesize_test_cases(config,
     log_folder=""
     if config == 'PREV':
         archive_results = True
-        log_folder = os.path.join(PREVIOUS_FIM_DIR, fim_version, "alpha_logs")
+        log_root = PREVIOUS_FIM_DIR
     elif config == 'DEV':
         archive_results = False
-        log_folder = os.path.join(OUTPUTS_DIR, fim_version, "alpha_logs")
+        log_root = OUTPUTS_DIR
     else:
         print('Config (-c) option incorrectly set. Use "DEV" or "PREV"')
 
-    if os.path.isdir(log_folder):
-        shutil.rmtree(log_folder)
+    log_folder = os.path.join(log_root, fim_version, "logs", "alpha_logs")
 
-    # NOTE: Careful with this logger as you dont' want to use the same logger
+    # NOTE: Careful with this logger as you don't want to use the same logger
     # inside MP processes as they will collide writing to the same log file.
     # Best to let each MP have its own logging object, then concat all at the end.
     # NOTE: logger does screen and log file
@@ -170,75 +172,98 @@ def synthesize_test_cases(config,
 
         # =================================
         # Set up multiprocessor
+        # TODO: Jun 2026: Do we even want a "master_metric_only" system?
+        # If we just use the pcsv file exclusively, we always are faster 
+        # and it never needs to rescan test case dirs to recalc metrics for
+        # older runs. And we will always went it re-calc for the current run.
+        mp_log_prefix="alpha_test"
+        # clear out any files that already pre-existed as mp files with this prefix.
+        sf.remove_child_logs(log_file_path, mp_log_prefix)
+                
         if not master_metrics_only:
 
             # Each log file lcreated by each MP alpha test will start with the prefix
             # alpha_test. Each MP will add its own suffix to avoid log collisions
             # at the end of the process pool, we will aggregate the log files
             # which include this prefix
-            mp_log_prefix="alpha_test"
-            has_error = False
+
             # By default, maxtasksperchild is set to None, meaning worker processes live as long as the process pool itself
             # If a memory leaks exist, it can overload the system
             with ProcessPoolExecutor(max_workers=job_number_huc, max_tasks_per_child=job_number_huc) as executor:
                 # Loop through all test cases, build the alpha test arguments, and submit them to the process pool
                 executor_dict = {}
 
-                for test_case_class in all_test_cases:
+                try:
+                    for test_case_class in all_test_cases:
+                        if not os.path.exists(test_case_class.fim_dir):
+                            continue
 
-                    if not os.path.exists(test_case_class.fim_dir):
-                        continue
+                        # logging.info(f"test_case_class.test_id is {test_case_class.test_id}")
 
-                    # fh.vprint(f"test_case_class.test_id is {test_case_class.test_id}", verbose)
-                    # logging.info(f"test_case_class.test_id is {test_case_class.test_id}")
+                        alpha_test_args = {
+                            'calibrated': calibrated,
+        #                    'model': model,
+                            'mask_type': 'huc',
+                            'overwrite': overwrite,
+                            # 'verbose': gms_verbose if model == 'GMS' else verbose,
+                            'verbose': verbose,
+                            'branch_workers': job_number_branch,
+                            'precalb_option': precalb_option,
+                            'threads': thread_number_branch,
+                            'log_folder': log_folder,
+                            'log_prefix': mp_log_prefix,
+                            'debug':debug
+                        }
 
-                    alpha_test_args = {
-                        'calibrated': calibrated,
-    #                    'model': model,
-                        'mask_type': 'huc',
-                        'overwrite': overwrite,
-                        # 'verbose': gms_verbose if model == 'GMS' else verbose,
-                        'verbose': verbose,
-                        'branch_workers': job_number_branch,
-                        'precalb_option': precalb_option,
-                        'threads': thread_number_branch,
-                        'log_folder': log_folder,
-                        'log_prefix': mp_log_prefix
-                    }
-
-                    try:
                         future = executor.submit(test_case_class.alpha_test, **alpha_test_args)
                         executor_dict[future] = test_case_class.test_id
 
-                        # TODO: May 2026: we also should catch the as_complete and look for exceptions
-                        # as there are different types of exceptions. Some from the runtime child code execution
-                        # and sometimes from errors in the code itself.
-                        # see shared_functions.run_by_mp for examples of how to upgrade this
-                        # or possibly even replace this with the run_by_mp code.
-                    except Exception as ex:
-                        has_error = True
-                        logging.critical(f"*** Error: {ex}")
-                        logging.critica(traceback.print_exc())
-                        executor.shutdown(
-                            wait=False, cancel_futures=True
-                        )  # tells the ProcessPoolExecutor to stop accepting new tasks. Even cancel the running tasks as soon as possible
-                        # sys.exit(1) # sys.exit does not work inside an MP. You have to rethrow after shutting down the executor
-                        # there will be a delay in shutting it down though as it does not auto kill all wip workers, just 
-                        # stops new ones.
-                        raise ex
+                    # Any one alpha_test class can fail in multiple ways. The original defination
+                    # call to test_case_class.alpha_test can fail which is covered by the try/except
+                    # and inside the running of test_case_class.alpha_test can also fail.
+                    # it may let the try catch come out or capture it itself. So.. as_complete
+                    # can get a future back that is future.exception()
+                    # By catching it better, we can shut down the pool if we need to
+                    # Remember.. you can't really stop each WIP child proc, but you can
+                    # catch the errors and stop new processes from starting up.
+                    for future in as_completed(executor_dict):
+                        try:
+                            if future is not None:
+                                if future.cancelled():
+                                    continue
+                                if future.exception():
+                                    raise future.exception()  # re-raise it
+                        except Exception as fex:
+                            logging.critical(f"Error returned by future from {future}")
+                            logging.critical(traceback.format_exc())
+
+                            executor.shutdown(wait=False, cancel_futures=True)
+                            # Note: you can not use sys.exit in ProcessPools.
+
+                except Exception as ex:
+                    # this covers fails in the original call to test_case_class.alpha_test such as
+                    # bad definition.
+                    logging.critical(f"*** Error: {ex}")
+                    logging.critical(traceback.format_exc())
+                    executor.shutdown(
+                        wait=False, cancel_futures=True
+                    )  # tells the ProcessPoolExecutor to stop accepting new tasks. Even cancel the running tasks as soon as possible
+                    # sys.exit(1) # sys.exit does not work inside an MP. You have to rethrow after shutting down the executor
+                    # there will be a delay in shutting it down though as it does not auto kill all wip workers, just 
+                    # stops new ones.
 
                 # Send the executor to the progress bar and wait for all MS tasks to finish
-                # TQDM has been found to keep process MP and thread open sometimse and not let them
-                # shut down correctl. This is related to subprocesses of TQDM inside the process pool
-                # Best to just skip callign it if an catestropic error has occurred.
-                if not has_error:
-                    progress_bar_handler(
-                        executor_dict, True, f"Running alpha test cases with {job_number_huc} workers"
-                    )
+                # TODO: Jun 2026: check this...
+                # If at catestropic error occurs, MP's will finish processing the in progress.
+                # But, this progress bar might continue ??
+                progress_bar_handler(
+                    executor_dict, True, f"Running alpha test cases with {job_number_huc} workers"
+                )
                 # wait(executor_dict.keys())
 
         # This will also merge -error.log and -warning.log files into the
         # respective parent error, warning files.
+        logging.info(f"Merging child log files into parent logs. {log_file_path} - {mp_log_prefix}")
         sf.merge_child_logs_into_parent_log(log_file_path, mp_log_prefix)
 
         '''
@@ -305,7 +330,7 @@ def synthesize_test_cases(config,
                     )
         '''
 
-        ## if using DEV version, include the testing versions the user included with the "-dc" flag
+        # if using DEV version, include the testing versions the user included with the "-dc" flag
         if dev_versions_to_compare is not None:
             dev_versions_to_include_list += dev_versions_to_compare
 
@@ -328,6 +353,7 @@ def synthesize_test_cases(config,
             prev_versions_to_include_list=prev_versions_to_include_list,
             iteration_list=iteration_list,
             prev_metrics_csv=prev_metrics_csv,
+            debug=debug,
         )
     except Exception:
         logging.critical("An exception has occurred")
@@ -348,6 +374,7 @@ def create_master_metrics_csv(
     prev_versions_to_include_list,
     iteration_list,
     prev_metrics_csv,
+    debug,
 ):
     """
     This function searches for and collates metrics into a single CSV file that can queried database-style.
@@ -433,6 +460,7 @@ def create_master_metrics_csv(
         benchmark_test_case_dir = os.path.join(TEST_CASES_DIR, benchmark_source + '_test_cases')
         if not os.path.exists(benchmark_test_case_dir):
             continue
+        logging.debug(f"Processing metrics for benchmark source: {benchmark_test_case_dir}")
 
         test_cases_list = [d for d in os.listdir(benchmark_test_case_dir) if re.match(r'\d{8}_\w{3,7}', d)]
 
@@ -445,9 +473,13 @@ def create_master_metrics_csv(
                     # Get HUC id
                     int(each_test_case.split('_')[0])
                     huc = each_test_case.split('_')[0]
+                    logging.debug(f"metrics for {benchmark_source}: {huc}")
 
                     # Update filepaths based on whether the official or dev versions should be included
+
+                    # TODO: Why are we iterating both?
                     for iteration in iteration_list:
+                        logging.debug("iteration type: iteration")
                         if (
                             iteration == "official"
                         ):  # and str(cycle_previous_files) == "True": # "official" refers to previous finalized model versions
@@ -463,6 +495,8 @@ def create_master_metrics_csv(
                                 benchmark_test_case_dir, each_test_case, 'testing_versions'
                             )
                             versions_to_aggregate = dev_versions_to_include_list
+
+                        logging.debug(f"Versions to agg: {versions_to_aggregate}")
 
                         # Pull version info from filepath
                         for magnitude in magnitude_list:
@@ -502,7 +536,10 @@ def create_master_metrics_csv(
                                                 sub_list_to_append.append(calibrated)
 
                                                 list_to_write.append(sub_list_to_append)
-                except ValueError:
+                except ValueError as ve:
+                    # TODO: Is this really an error? it was just a pass. .lets see what we have
+                    logging.error(f"value error issued: {ve}")
+                    logging.error(traceback.format_exc())
                     pass
 
         # Iterate through AHPS benchmark data
@@ -805,6 +842,15 @@ if __name__ == '__main__':
         '--cycle-previous-files',
         help='Optional: Specifies whether previous metrics should be compiled by cycling '
         'through files (True). Cannot be used if a previous metrics CSV is provided.',
+        required=False,
+        default=False,
+        action="store_true",
+    )
+
+    parser.add_argument(
+        '--debug',
+        help='Optional: defaulted to False. If True, logs with the level of debug will be' \
+        ' sent to the log files only.',
         required=False,
         default=False,
         action="store_true",

@@ -70,6 +70,11 @@ def download_lidar_points(osmid, poly_geo, lidar_url, output_dir, bridges_crs):
     except Exception as e:
         error_message = f"Error processing {osmid}: {str(e)}"
         print(error_message)
+
+        # TODO: consider changing traceback.print_exc() to 
+        # logging.critical(traceback.format_exc())
+        # traceback.print_exc() goes straight to native logs if set up
+        # traceback.format_exc() returns a string that you can log, print or whatever
         logging.error(error_message)
         traceback.print_exc()
 
@@ -226,6 +231,11 @@ def make_rasters_in_parallel(osmid, points_path, output_dir, raster_resolution, 
     except Exception as e:
         error_message = f"Error processing {osmid}: {str(e)}"
         print(error_message)
+
+        # TODO: consider changing traceback.print_exc() to 
+        # logging.critical(traceback.format_exc())
+        # traceback.print_exc() goes straight to native logs if set up
+        # traceback.format_exc() returns a string that you can log, print or whatever
         logging.error(error_message)
         traceback.print_exc()
 

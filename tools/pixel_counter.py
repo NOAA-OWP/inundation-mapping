@@ -26,6 +26,9 @@ from pixel_counter_functions import (
 # in place, then 15130205 crashes. Issue card added.
 # gdal.UseExceptions()
 
+# TODO: Jun 2026: Called by at least test_case_by_hydro_id.py. Consider adding our standard logging
+# system.
+
 '''Created on 02/21/2022.
 Written by:
 Anuska Narayanan (The University of Alabama Department of Geography, anarayanan1@crimson.ua.edu;

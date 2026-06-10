@@ -38,6 +38,11 @@ def process_alpha_test(args):
             mask_type=mask_type,
         )
     except Exception:
+        # TODO: consider changing traceback.print_exc() to 
+        # logging.critical(traceback.format_exc())
+        # traceback.print_exc() goes straight to native logs if set up
+        # traceback.format_exc() returns a string that you can log, print or whatever
+
         traceback.print_exc()
 
 

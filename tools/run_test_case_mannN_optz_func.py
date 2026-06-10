@@ -26,11 +26,12 @@ from tools_shared_variables import (  # INPUTS_DIR,
 )
 from tqdm import tqdm
 
-from utils.shared_functions import FIM_Helpers as fh
+from src.utils.shared_functions import FIM_Helpers as fh
 
-
-# May 29, 2026: Possibly deprecated:
-
+# TODO: Jun 2026: Why do we have so much duplication to run_test_cases.py
+# if we do want to keep this and not rebuild... consider rebuilding it to use our
+# standard logging system. See synthesize_test_case.py, run_test_case.py and various
+# inundation files under it.
 
 # *******************************************************
 # def list_all_test_cases(huc, version, archive, benchmark_categories=[]):
@@ -182,7 +183,7 @@ def alpha_test(
     inclusion_area_buffer=0,
     overwrite=True,
     verbose=False,
-    branch_workers=1,
+    gms_workers=1,
 ):
     '''Compares a FIM directory with benchmark data from a variety of sources.
 
@@ -202,7 +203,7 @@ def alpha_test(
         If True, overwites pre-existing test cases within the test_cases directory.
     verbose : bool
         If True, prints out all pertinent data.
-    branch_workers : int
+    gms_workers : int
         Number of worker processes assigned to processing.
     '''
     try:
@@ -267,7 +268,7 @@ def alpha_test(
                     instance,
                     model=model,
                     verbose=verbose,
-                    gms_workers=branch_workers,
+                    gms_workers=gms_workers,
                 )
 
             # Clean up 'total_area' outputs from AHPS sites
@@ -497,6 +498,10 @@ def produce_mosaicked_inundation(
 
     if mosaic_output is not None:
         # Call Mosaic_inundation
+        # TODO: Jun 2026: Mosaic_inundation has our standard logging added to it
+        # To test: Will it blow up now with logging not being added here?  Likely not
+        # A python logger default, (not ours in shared_functions), knows how
+        # to compensate if a log file does not exist. Google "python logger what if file is not set"
         mosaic_file_path = Mosaic_inundation(
             map_file.copy(),
             mosaic_attribute=mosaic_attribute,
