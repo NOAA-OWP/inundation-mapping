@@ -40,7 +40,7 @@ fi
 mkdir -p ${tempCurrentBranchDataDir}
 
 ## START MESSAGE ##
-echo -e $startDiv"Processing HUC: ${hucNumber} - branch_id: ${current_branch_id}"
+echo -e "${startDiv}Processing HUC: ${hucNumber} - branch_id: ${current_branch_id}"
 
 ## INITIALIZE TOTAL BRANCH TIMER ##
 T_total_start
@@ -48,7 +48,7 @@ branch_start_time=`date +%s`
 date -u
 
 ## SUBSET VECTORS
-echo -e $startDiv"Subsetting vectors to branches ${hucNumber} ${current_branch_id}"
+echo -e "${startDiv}Subsetting vectors to branches ${hucNumber} ${current_branch_id}"
 python3 ${srcDir}/subset_vectors_to_branches.py \
     --crs "$huc_CRS" \
     --where "${branch_id_attribute}='${current_branch_id}'" \
@@ -59,7 +59,7 @@ python3 ${srcDir}/subset_vectors_to_branches.py \
         "${tempHucDataDir}/nwm_subset_streams_levelPaths_dissolved_headwaters.parquet" "${tempCurrentBranchDataDir}/nwm_subset_streams_levelPaths_dissolved_headwaters_${current_branch_id}.parquet"
 
 ## GET RASTERS FROM ROOT HUC DIRECTORY AND CLIP TO CURRENT BRANCH BUFFER ##
-echo -e $startDiv"Clipping rasters to branches ${hucNumber} ${current_branch_id}"
+echo -e "${startDiv}Clipping rasters to branches ${hucNumber} ${current_branch_id}"
 ${srcDir}/clip_rasters_to_branches.py -d ${current_branch_id} \
     -b "${tempHucDataDir}/branch_polygons.parquet" \
     -i ${branch_id_attribute} \
@@ -67,12 +67,12 @@ ${srcDir}/clip_rasters_to_branches.py -d ${current_branch_id} \
     -c "${tempCurrentBranchDataDir}/dem_meters.tif" "${tempCurrentBranchDataDir}/bridge_elev_diff_meters.tif"
 
 ## GET RASTER METADATA
-echo -e $startDiv"Get DEM Metadata ${hucNumber} ${current_branch_id}"
+echo -e "${startDiv}Get DEM Metadata ${hucNumber} ${current_branch_id}"
 read ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy\
 <<<$(${srcDir}/getRasterInfoNative.py -r "${tempCurrentBranchDataDir}/dem_meters_${current_branch_id}.tif")
 
 ## RASTERIZE REACH BOOLEAN (1 & 0) ##
-echo -e $startDiv"Rasterize Reach Boolean ${hucNumber} ${current_branch_id}"
+echo -e "${startDiv}Rasterize Reach Boolean ${hucNumber} ${current_branch_id}"
 python3 ${srcDir}/rasterize_parquet.py -q -at -ot Int32 -burn 1 -init 0 -a_nodata -9999 \
     -co "BIGTIFF=YES" \
     -co "TILED=YES" \
@@ -86,7 +86,7 @@ python3 ${srcDir}/rasterize_parquet.py -q -at -ot Int32 -burn 1 -init 0 -a_nodat
     "${tempCurrentBranchDataDir}/flows_grid_boolean_${current_branch_id}.tif"
 
 ## DEM Reconditioning - BRANCHES (NOT 0) (NWM levelpath streams) ##
-echo -e $startDiv"Creating AGREE DEM using ${agree_DEM_buffer} meter buffer ${hucNumber} (Branches)"
+echo -e "${startDiv}Creating AGREE DEM using ${agree_DEM_buffer} meter buffer ${hucNumber} (Branches)"
 python3 ${srcDir}/agreedem.py \
     -r ${tempCurrentBranchDataDir}/flows_grid_boolean_${current_branch_id}.tif \
     -d ${tempCurrentBranchDataDir}/dem_meters_${current_branch_id}.tif \
@@ -116,7 +116,7 @@ python3 "${srcDir}/adjust_floodplains.py" \
     -lp "${tempHucDataDir}/nwm_subset_streams_levelPaths.parquet"
 
 ## PIT REMOVE BURNED DEM - BRANCHES (NOT 0) (NWM levelpath streams) ##
-echo -e $startDiv"Pit remove Burned DEM ${hucNumber} ${current_branch_id}"
+echo -e "${startDiv}Pit remove Burned DEM ${hucNumber} ${current_branch_id}"
 if [ -f ${tempCurrentBranchDataDir}/dem_burned_adjusted_${current_branch_id}.tif ]; then
     rd_depression_filling ${tempCurrentBranchDataDir}/dem_burned_adjusted_${current_branch_id}.tif \
         "${tempCurrentBranchDataDir}/dem_burned_filled_${current_branch_id}.tif"
@@ -126,7 +126,7 @@ else
 fi
 
 ## D8 FLOW DIR - BRANCHES (NOT 0) (NWM levelpath streams) ##
-echo -e $startDiv"D8 Flow Directions on Burned DEM ${hucNumber} ${current_branch_id}"
+echo -e "${startDiv}D8 Flow Directions on Burned DEM ${hucNumber} ${current_branch_id}"
 mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
     -fel "${tempCurrentBranchDataDir}/dem_burned_filled_${current_branch_id}.tif" \
     -p "${tempCurrentBranchDataDir}/flowdir_d8_burned_filled_${current_branch_id}.tif" \
@@ -145,7 +145,7 @@ mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
     #            -e 's/.*no output p file specified.*/INFO: TauDEM d8flowdir running without optional sd8 slope output./I'
 
 ## RASTERIZE NWM Levelpath HEADWATERS (1 & 0) ##
-echo -e $startDiv"Rasterize NWM Headwaters ${hucNumber} ${current_branch_id}"
+echo -e "${startDiv}Rasterize NWM Headwaters ${hucNumber} ${current_branch_id}"
 python3 ${srcDir}/rasterize_parquet.py -q -ot Int32 -burn 1 -init 0 -a_nodata -9999 \
     -co "BIGTIFF=YES" \
     -co "TILED=YES" \
@@ -174,7 +174,7 @@ ${srcDir}/delineate_hydros_and_produce_HAND.sh "branch"
 
 ## USGS CROSSWALK ##
 if [ -f ${tempHucDataDir}/usgs_subset_gages.gpkg ]; then
-    echo -e $startDiv"USGS Crosswalk ${hucNumber} ${current_branch_id}"
+    echo -e "${startDiv}USGS Crosswalk ${hucNumber} ${current_branch_id}"
     python3 ${srcDir}/usgs_gage_crosswalk.py \
         -gages ${tempHucDataDir}/usgs_subset_gages.gpkg \
         -flows ${tempCurrentBranchDataDir}/demDerived_reaches_split_filtered_${current_branch_id}.parquet \
@@ -188,11 +188,11 @@ fi
 
 ## REMOVE FILES FROM DENY LIST ##
 if [ -f $deny_branches_list ]; then
-    echo -e $startDiv"Remove files ${hucNumber} ${current_branch_id}"
+    echo -e "${startDiv}Remove files ${hucNumber} ${current_branch_id}"
     ${srcDir}/outputs_cleanup.py -d ${tempCurrentBranchDataDir} -l $deny_branches_list -b ${current_branch_id}
 fi
 
-echo -e $startDiv"End Branch Processing ${hucNumber} ${current_branch_id} ..."
+echo -e "${startDiv}End Branch Processing ${hucNumber} ${current_branch_id} ..."
 date -u
 Calc_Duration "Duration : " $branch_start_time
 echo

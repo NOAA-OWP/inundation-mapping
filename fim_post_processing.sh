@@ -95,20 +95,20 @@ python3 ${srcDir}/duration_system.py -fim ${outputDestDir} -o $csvFile
 
 
 ## AGGREGATE BRANCH LISTS INTO ONE ##
-l_echo $startDiv"Start branch aggregation"
+l_echo "${startDiv}Start branch aggregation"
 Tstart
 python3 ${srcDir}/aggregate_branch_lists.py -d ${outputDestDir} -f "branch_ids.csv" -o $fim_inputs
 Tcount
 
 ## GET NON ZERO EXIT CODES FOR BRANCHES ##
-l_echo $startDiv"Start non-zero exit code checking"
+l_echo "${startDiv}Start non-zero exit code checking"
 #find ${outputDestDir}/logs/branch -name "*_branch_*.log" -type f | \
 find ${outputDestDir} -path "*/logs/branch/*_branch_*.log" -type f | \
     xargs grep -E "Exit status: ([1-9][0-9]{0,2})" > \
     "${outputDestDir}/branch_errors/non_zero_exit_codes.log" &
 
 
-l_echo $startDiv"Combining crosswalk tables"
+l_echo "${startDiv}Combining crosswalk tables"
 Tstart
 python3 $toolsDir/combine_crosswalk_tables.py \
     -d ${outputDestDir} \
@@ -116,7 +116,7 @@ python3 $toolsDir/combine_crosswalk_tables.py \
 Tcount
 
 
-l_echo $startDiv"Compile all HUCs error files"
+l_echo "${startDiv}Compile all HUCs error files"
 echo "Results will be saved in log folder."
 Tstart
     outfile="${outputDestDir}/logs/all_errors.log"
@@ -126,7 +126,7 @@ Tstart
     echo "Collected errors into: $outfile"
 Tcount
 
-l_echo $startDiv"Resetting Permissions"
+l_echo "${startDiv}Resetting Permissions"
 Tstart
     # HUC folders took care of their own perms, but the other folders such as 
     # logs and branch_errors did not

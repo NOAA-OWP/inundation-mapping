@@ -58,7 +58,7 @@ else
 
 fi
 
-echo -e $startDiv"Using CRS: $huc_CRS" ## debug
+echo -e "${startDiv}Using CRS: $huc_CRS" ## debug
 
 ## INITIALIZE TOTAL TIME TIMER ##
 T_total_start
@@ -66,7 +66,7 @@ huc_start_time=`date +%s`
 date -u
 
 ## Copy HUC's pre-clipped .gpkg files from $pre_clip_huc_dir (use -a & /. -- only copies folder's contents)
-echo -e $startDiv"Copying staged wbd and .gpkg files from $pre_clip_huc_dir/${hucNumber}"
+echo -e "${startDiv}Copying staged wbd and .gpkg files from $pre_clip_huc_dir/${hucNumber}"
 cp -R $pre_clip_huc_dir/${hucNumber}/. ${tempHucDataDir}
 
 # Copy necessary files from $inputsDir into ${tempHucDataDir} to avoid File System Collisions
@@ -100,23 +100,25 @@ if [ -d "$ras2fim_input_dir/${hucNumber}" ]; then
 fi
 
 ## DERIVE LEVELPATH  ##
-echo -e $startDiv"Generating Level Paths for ${hucNumber}"
-${srcDir}/derive_level_paths.py \
-    -i ${tempHucDataDir}/nwm_subset_streams.gpkg \
-    -s ${tempHucDataDir}/wbd_buffered_streams.gpkg \
-    -b $branch_id_attribute \
+echo -e "${startDiv}Generating Level Paths for ${hucNumber}"
+args=(
+    -i "${tempHucDataDir}/nwm_subset_streams.gpkg"
+    -s "${tempHucDataDir}/wbd_buffered_streams.gpkg"
+    -b "$branch_id_attribute"
     -r "ID" \
-    -o ${tempHucDataDir}/nwm_subset_streams_levelPaths.parquet \
-    -d ${tempHucDataDir}/nwm_subset_streams_levelPaths_dissolved.parquet \
-    -de ${tempHucDataDir}/nwm_subset_streams_levelPaths_extended.parquet \
-    -e ${tempHucDataDir}/nwm_headwaters.gpkg \
-    -c ${tempHucDataDir}/nwm_catchments_proj_subset.gpkg \
-    -t ${tempHucDataDir}/nwm_catchments_proj_subset_levelPaths.parquet \
-    -n ${tempHucDataDir}/nwm_subset_streams_levelPaths_dissolved_headwaters.parquet \
-    -w ${tempHucDataDir}/nwm_lakes_proj_subset.gpkg \
-    -wbd ${tempHucDataDir}/wbd.gpkg \
-    -u ${hucNumber}
+    -o "${tempHucDataDir}/nwm_subset_streams_levelPaths.parquet"
+    -d "${tempHucDataDir}/nwm_subset_streams_levelPaths_dissolved.parquet"
+    -de "${tempHucDataDir}/nwm_subset_streams_levelPaths_extended.parquet"
+    -e "${tempHucDataDir}/nwm_headwaters.gpkg"
+    -c "${tempHucDataDir}/nwm_catchments_proj_subset.gpkg"
+    -t "${tempHucDataDir}/nwm_catchments_proj_subset_levelPaths.parquet"
+    -n "${tempHucDataDir}/nwm_subset_streams_levelPaths_dissolved_headwaters.parquet"
+    -w "${tempHucDataDir}/nwm_lakes_proj_subset.gpkg"
+    -wbd "${tempHucDataDir}/wbd.gpkg"
+    -u "${hucNumber}"
+)
 
+${srcDir}/derive_level_paths.py "${args[@]}"
 
 # test if we received a non-zero code back from derive_level_paths.py
 #subscript_exit_code=$?
@@ -131,108 +133,165 @@ levelpaths_exist=1
 if [ ! -f ${tempHucDataDir}/nwm_subset_streams_levelPaths_dissolved.parquet ]; then levelpaths_exist=0; fi
 
 ## ASSOCIATE LEVEL PATHS WITH LEVEES
-echo -e $startDiv"Associate level paths with levees"
-[ -f ${tempHucDataDir}/nld_subset_levees.gpkg ] && \
-python3 ${srcDir}/associate_levelpaths_with_levees.py \
-    -nld ${tempHucDataDir}/nld_subset_levees.gpkg \
-    -s ${tempHucDataDir}/nwm_subset_streams_levelPaths_dissolved.parquet \
-    -lpa ${tempHucDataDir}/LeveeProtectedAreas_subset.gpkg \
-    -out ${tempHucDataDir}/levee_levelpaths.csv \
-    -w $levee_buffer \
-    -b $branch_id_attribute \
-    -l $levee_id_attribute
+echo -e "${startDiv}Associate level paths with levees"
+if [[ -f "${tempHucDataDir}/nld_subset_levees.gpkg" ]]; then
+    args=(
+        -nld "${tempHucDataDir}/nld_subset_levees.gpkg"
+        -s "${tempHucDataDir}/nwm_subset_streams_levelPaths_dissolved.parquet"
+        -lpa "${tempHucDataDir}/LeveeProtectedAreas_subset.gpkg"
+        -out "${tempHucDataDir}/levee_levelpaths.csv"
+        -w "$levee_buffer"
+        -b "$branch_id_attribute"
+        -l "$levee_id_attribute"
+    )
+    python3 "${srcDir}/associate_levelpaths_with_levees.py" "${args[@]}"
+fi
 
 ## STREAM BRANCH POLYGONS
-echo -e $startDiv"Generating Stream Branch Polygons for ${hucNumber}"
-${srcDir}/buffer_stream_branches.py \
+echo -e "${startDiv}Generating Stream Branch Polygons for ${hucNumber}"
+args=(
     -s ${tempHucDataDir}/nwm_subset_streams_levelPaths_dissolved.parquet \
     -i $branch_id_attribute \
     -d $branch_buffer_distance_meters \
     -b ${tempHucDataDir}/branch_polygons.parquet \
     -w ${tempHucDataDir}/wbd_buffered.gpkg
+)
+python3 "${srcDir}/buffer_stream_branches.py" "${args[@]}"
 
 ## CREATE BRANCHID LIST FILE
-echo -e $startDiv"Create list file of branch ids for ${hucNumber}"
-${srcDir}/generate_branch_list.py -d ${tempHucDataDir}/nwm_subset_streams_levelPaths_dissolved.parquet \
-    -b $branch_id_attribute \
-    -o $branch_list_lst_file
+echo -e "${startDiv}Create list file of branch ids for ${hucNumber}"
+args=(
+    -d "${tempHucDataDir}/nwm_subset_streams_levelPaths_dissolved.parquet"
+    -b "${branch_id_attribute}"
+    -o "${branch_list_lst_file}"
+)
+python3 "${srcDir}/generate_branch_list.py" "${args[@]}"
 
 ## CREATE BRANCH ZERO ##
 branch0_start_time=`date +%s`
 
-echo -e $startDiv"Creating branch zero for ${hucNumber}"
+echo -e "${startDiv}Creating branch zero for ${hucNumber}"
 tempCurrentBranchDataDir=$tempBranchDataDir/$branch_zero_id
 
 ## MAKE OUTPUT BRANCH DIRECTORY
-mkdir -p $tempCurrentBranchDataDir
+mkdir -p ${tempCurrentBranchDataDir}
 
 ## CLIP RASTERS
-echo -e $startDiv"Clipping rasters to branches ${hucNumber} $branch_zero_id"
+echo -e "${startDiv}Clipping rasters to branches ${hucNumber} $branch_zero_id"
 # Note: don't need to use gdalwarp -cblend as we are using a buffered wbd
-[ ! -f $tempCurrentBranchDataDir/dem_meters_orig.tif ] && {
-gdalwarp -cutline ${tempHucDataDir}/wbd_buffered.gpkg -crop_to_cutline -ot Float32 -r near -of "GTiff" \
-    -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" \
-    -co "BIGTIFF=YES" -t_srs $huc_CRS -tr $res $res -tap $input_DEM ${tempHucDataDir}/dem_meters_orig.tif
-# Clip the DEM pit filled rasters from the vrt
-gdalwarp -cutline ${tempHucDataDir}/wbd_buffered.gpkg -crop_to_cutline -ot Float32 -r near -of "GTiff" \
-    -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" \
-    -co "BIGTIFF=YES" -t_srs $huc_CRS -tr $res $res -tap $input_pit_fill ${tempHucDataDir}/dem_meters_pit_fill.tif
+if [[ ! -f ${tempCurrentBranchDataDir}/dem_meters_orig.tif ]]; then
+    # gdalwarp -cutline ${tempHucDataDir}/wbd_buffered.gpkg -crop_to_cutline -ot Float32 -r near -of "GTiff" \
+    #     -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" \
+    #     -co "BIGTIFF=YES" -t_srs $huc_CRS -tr $res $res -tap $input_DEM ${tempHucDataDir}/dem_meters_orig.tif
+    # # Clip the DEM pit filled rasters from the vrt
+    # gdalwarp -cutline ${tempHucDataDir}/wbd_buffered.gpkg -crop_to_cutline -ot Float32 -r near -of "GTiff" \
+    #     -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" \
+    #     -co "BIGTIFF=YES" -t_srs $huc_CRS -tr $res $res -tap $input_pit_fill ${tempHucDataDir}/dem_meters_pit_fill.tif
 
-# Clip the bridge elevation diff raster (DEM_diff). Used 'near' to make sure neighboring cells do not get any interpolated value
-gdalwarp -cutline ${tempHucDataDir}/wbd_buffered.gpkg -crop_to_cutline -ot Float32 -r near -of "GTiff" \
-    -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" \
-    -co "BIGTIFF=YES" -t_srs $huc_CRS -tr $res $res -tap $input_bridge_elev_diff ${tempHucDataDir}/bridge_elev_diff_meters.tif
-}
+    # # Clip the bridge elevation diff raster (DEM_diff). Used 'near' to make sure neighboring cells do not get any interpolated value
+    # gdalwarp -cutline ${tempHucDataDir}/wbd_buffered.gpkg -crop_to_cutline -ot Float32 -r near -of "GTiff" \
+    #     -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" \
+    #     -co "BIGTIFF=YES" -t_srs $huc_CRS -tr $res $res -tap $input_bridge_elev_diff ${tempHucDataDir}/bridge_elev_diff_meters.tif
+
+    gdal_opts=(
+        -cutline "${tempHucDataDir}/wbd_buffered.gpkg"
+        -crop_to_cutline
+        -ot Float32
+        -r near
+        -of "GTiff"
+        -overwrite
+        -co "BLOCKXSIZE=512"
+        -co "BLOCKYSIZE=512"
+        -co "TILED=YES"
+        -co "COMPRESS=LZW"
+        -co "BIGTIFF=YES"
+        -t_srs "${huc_CRS}"
+        -tr "${res}" "${res}"
+        -tap
+    )
+
+    # 3. Run the clean, readable commands
+    gdalwarp "${gdal_opts[@]}" "${input_DEM}" "${tempHucDataDir}/dem_meters_orig.tif"
+    gdalwarp "${gdal_opts[@]}" "${input_pit_fill}" "${tempHucDataDir}/dem_meters_pit_fill.tif"
+    gdalwarp "${gdal_opts[@]}" "${input_bridge_elev_diff}" "${tempHucDataDir}/bridge_elev_diff_meters.tif"
+
+fi
 
 ## Combine Raw DEM with Pit Fill DEM (use pit fill elev)
-# The pit fill is listed second so it draws on top of the original DEM.
-gdalbuildvrt ${tempHucDataDir}/combined_dem.vrt \
-    ${tempHucDataDir}/dem_meters_orig.tif \
-    ${tempHucDataDir}/dem_meters_pit_fill.tif
-# Translate the VRT back into a compressed GeoTIFF
-gdal_translate -ot Float32 -of "GTiff" \
-    -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" \
-    ${tempHucDataDir}/combined_dem.vrt \
-    ${tempHucDataDir}/dem_meters.tif
-# Clean up the temporary VRT file
-rm ${tempHucDataDir}/combined_dem.vrt
+# # The pit fill is listed second so it draws on top of the original DEM.
+# gdalbuildvrt ${tempHucDataDir}/combined_dem.vrt \
+#     ${tempHucDataDir}/dem_meters_orig.tif \
+#     ${tempHucDataDir}/dem_meters_pit_fill.tif
+# # Translate the VRT back into a compressed GeoTIFF
+# gdal_translate -ot Float32 -of "GTiff" \
+#     -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" \
+#     "${tempHucDataDir}/combined_dem.vrt" \
+#     "${tempHucDataDir}/dem_meters.tif"
+# # Clean up the temporary VRT file
+# rm "${tempHucDataDir}/combined_dem.vrt"
+gdal_opts=(
+    -ot Float32
+    -of "GTiff"
+    -co "BLOCKXSIZE=512"
+    -co "BLOCKYSIZE=512"
+    -co "TILED=YES"
+    -co "COMPRESS=LZW"
+    -co "BIGTIFF=YES"
+    -overwrite
+)
+
+input_tifs=(
+    "${tempHucDataDir}/dem_meters_orig.tif"
+    "${tempHucDataDir}/dem_meters_pit_fill.tif"
+)
+
+output_tif="${tempHucDataDir}/dem_meters.tif"
+
+gdalwarp "${gdal_opts[@]}" "${input_tifs[@]}" "${output_tif}"
 
 ## GET RASTER METADATA
-echo -e $startDiv"Get DEM Metadata ${hucNumber} $branch_zero_id"
+echo -e "${startDiv}Get DEM Metadata ${hucNumber} $branch_zero_id"
 read ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy \
     <<<$(${srcDir}/getRasterInfoNative.py -r ${tempHucDataDir}/dem_meters.tif)
 
 ## RASTERIZE NLD MULTILINES ##
-echo -e $startDiv"Rasterize all NLD multilines using zelev vertices ${hucNumber} $branch_zero_id"
+echo -e "${startDiv}Rasterize all NLD multilines using zelev vertices ${hucNumber} $branch_zero_id"
 # REMAINS UNTESTED FOR AREAS WITH LEVEES
-[ -f ${tempHucDataDir}/3d_nld_subset_levees_burned.gpkg ] && \
-gdal_rasterize -q -l 3d_nld_subset_levees_burned -3d -at -a_nodata $ndv \
-    -te $xmin $ymin $xmax $ymax -ts $ncols $nrows \
-    -ot Float32 -of GTiff -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "COMPRESS=LZW" -co "BIGTIFF=YES" \
-    -co "TILED=YES" ${tempHucDataDir}/3d_nld_subset_levees_burned.gpkg \
-    $tempCurrentBranchDataDir/nld_rasterized_elev_$branch_zero_id.tif
+if [[ -f ${tempHucDataDir}/3d_nld_subset_levees_burned.gpkg ]]; then
+    args=(-q -l 3d_nld_subset_levees_burned -3d -at -a_nodata $ndv
+        -te $xmin $ymin $xmax $ymax -ts $ncols $nrows
+        -ot Float32 -of GTiff -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "COMPRESS=LZW" -co "BIGTIFF=YES"
+        -co "TILED=YES"
+        "${tempHucDataDir}/3d_nld_subset_levees_burned.gpkg"
+        "${tempCurrentBranchDataDir}/nld_rasterized_elev_${branch_zero_id}.tif"
+    )
+    gdal_rasterize "${args[@]}"
+fi
 
 ## BURN LEVEES INTO DEM ##
-echo -e $startDiv"Burn nld levees into dem & convert nld elev to meters"
+echo -e "${startDiv}Burn nld levees into dem & convert nld elev to meters"
 echo -e "(*Overwrite dem_meters.tif output) ${hucNumber} $branch_zero_id"
 # REMAINS UNTESTED FOR AREAS WITH LEVEES
-[ -f $tempCurrentBranchDataDir/nld_rasterized_elev_$branch_zero_id.tif ] && \
-python3 ${srcDir}/burn_in_levees.py \
-    -dem ${tempHucDataDir}/dem_meters.tif \
-    -nld $tempCurrentBranchDataDir/nld_rasterized_elev_$branch_zero_id.tif \
-    -out ${tempHucDataDir}/dem_meters.tif
+if [[ -f "${tempCurrentBranchDataDir}/nld_rasterized_elev_$branch_zero_id.tif" ]]; then
+    args=(
+        -dem "${tempHucDataDir}/dem_meters.tif"
+        -nld "${tempCurrentBranchDataDir}/nld_rasterized_elev_$branch_zero_id.tif"
+        -out "${tempHucDataDir}/dem_meters.tif"
+    )
+    python3 "${srcDir}/burn_in_levees.py" "${args[@]}"
+fi
 
 ## RASTERIZE REACH BOOLEAN (1 & 0) - BRANCH 0 (include all NWM streams) ##
-echo -e $startDiv"Rasterize Reach Boolean ${hucNumber} $branch_zero_id"
+echo -e "${startDiv}Rasterize Reach Boolean ${hucNumber} ${branch_zero_id}"
 gdal_rasterize -q -ot Int32 -burn 1 -init 0 -a_nodata -9999 \
     -co "BIGTIFF=YES" \
     -te $xmin $ymin $xmax $ymax -ts $ncols $nrows \
     ${tempHucDataDir}/nwm_subset_streams.gpkg \
-    $tempCurrentBranchDataDir/flows_grid_boolean_$branch_zero_id.tif
+    ${tempCurrentBranchDataDir}/flows_grid_boolean_$branch_zero_id.tif
 
 ## RASTERIZE REACH BOOLEAN (1 & 0) - BRANCHES (Not 0) (NWM levelpath streams) ##
 if [ "$levelpaths_exist" = "1" ]; then
-    echo -e $startDiv"Rasterize Reach Boolean ${hucNumber} (Branches)"
+    echo -e "${startDiv}Rasterize Reach Boolean ${hucNumber} (Branches)"
     python3 ${srcDir}/rasterize_parquet.py -q -ot Int32 -burn 1 -init 0 -a_nodata -9999 \
         -co "BIGTIFF=YES" \
         -te $xmin $ymin $xmax $ymax -ts $ncols $nrows \
@@ -241,35 +300,41 @@ if [ "$levelpaths_exist" = "1" ]; then
 fi
 
 ## RASTERIZE NWM Levelpath HEADWATERS (1 & 0) ##
-echo -e $startDiv"Rasterize NWM Headwaters ${hucNumber} $branch_zero_id"
-gdal_rasterize -q -at -ot Int32 -burn 1 -init 0 -a_nodata -9999 \
-    -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" \
-    -te $xmin $ymin $xmax $ymax -ts $ncols $nrows \
-    ${tempHucDataDir}/nwm_headwater_points_subset.gpkg $tempCurrentBranchDataDir/headwaters_$branch_zero_id.tif
+echo -e "${startDiv}Rasterize NWM Headwaters ${hucNumber} ${branch_zero_id}"
+args=(
+    -q -at -ot Int32 -burn 1 -init 0 -a_nodata -9999
+    -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES"
+    -te $xmin $ymin $xmax $ymax -ts $ncols $nrows
+    "${tempHucDataDir}/nwm_headwater_points_subset.gpkg"
+    "${tempCurrentBranchDataDir}/headwaters_$branch_zero_id.tif"
+)
+gdal_rasterize "${args[@]}"
 
 ## DEM Reconditioning - BRANCH 0 (include all NWM streams) ##
 # Using AGREE methodology, hydroenforce the DEM so that it is consistent with the supplied stream network.
 # This allows for more realistic catchment delineation which is ultimately reflected in the output FIM mapping.
-echo -e $startDiv"Creating AGREE DEM using $agree_DEM_buffer meter buffer ${hucNumber} $branch_zero_id"
-python3 ${srcDir}/agreedem.py \
-    -r $tempCurrentBranchDataDir/flows_grid_boolean_$branch_zero_id.tif \
-    -d ${tempHucDataDir}/dem_meters.tif \
-    -w $tempCurrentBranchDataDir \
-    -o $tempCurrentBranchDataDir/dem_burned_$branch_zero_id.tif \
-    -b $agree_DEM_buffer \
-    -sm 10 \
+echo -e "${startDiv}Creating AGREE DEM using $agree_DEM_buffer meter buffer ${hucNumber} ${branch_zero_id}"
+args=(
+    -r "${tempCurrentBranchDataDir}/flows_grid_boolean_$branch_zero_id.tif"
+    -d "${tempHucDataDir}/dem_meters.tif"
+    -w "${tempCurrentBranchDataDir}"
+    -o "${tempCurrentBranchDataDir}/dem_burned_$branch_zero_id.tif"
+    -b "$agree_DEM_buffer"
+    -sm 10
     -sh 1000
+)
+python3 ${srcDir}/agreedem.py "${args[@]}"
 
 ## PIT REMOVE BURNED DEM - BRANCH 0 (include all NWM streams) ##
-echo -e $startDiv"Pit remove Burned DEM ${hucNumber} $branch_zero_id"
-rd_depression_filling $tempCurrentBranchDataDir/dem_burned_$branch_zero_id.tif \
-    $tempCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif
+echo -e "${startDiv}Pit remove Burned DEM ${hucNumber} $branch_zero_id"
+rd_depression_filling ${tempCurrentBranchDataDir}/dem_burned_$branch_zero_id.tif \
+    ${tempCurrentBranchDataDir}/dem_burned_filled_$branch_zero_id.tif
 
 ## D8 FLOW DIR - BRANCH 0 (include all NWM streams) ##
-echo -e $startDiv"D8 Flow Directions on Burned DEM ${hucNumber} $branch_zero_id"
+echo -e "${startDiv}D8 Flow Directions on Burned DEM ${hucNumber} $branch_zero_id"
 mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
-    -fel $tempCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif \
-    -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$branch_zero_id.tif \
+    -fel ${tempCurrentBranchDataDir}/dem_burned_filled_$branch_zero_id.tif \
+    -p ${tempCurrentBranchDataDir}/flowdir_d8_burned_filled_$branch_zero_id.tif \
     2> >(while read -r line; do
         # Check if BOTH strings are present in the error line
         if [[ "$line" == *"ERROR 6:"* && "$line" == *"Dataset does not support the AddBand() method."* ]]; then
@@ -285,59 +350,51 @@ mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
     #            -e 's/.*no output p file specified.*/INFO: TauDEM d8flowdir running without optional sd8 slope output./I'
 
 ## MAKE A COPY OF THE DEM and DEM DIFF FOR BRANCH 0
-echo -e $startDiv"Copying DEM to Branch 0"
-cp ${tempHucDataDir}/dem_meters.tif $tempCurrentBranchDataDir/dem_meters_$branch_zero_id.tif
-cp ${tempHucDataDir}/bridge_elev_diff_meters.tif $tempCurrentBranchDataDir/bridge_elev_diff_meters_$branch_zero_id.tif
+echo -e "${startDiv}Copying DEM to Branch 0"
+cp ${tempHucDataDir}/dem_meters.tif ${tempCurrentBranchDataDir}/dem_meters_$branch_zero_id.tif
+cp ${tempHucDataDir}/bridge_elev_diff_meters.tif ${tempCurrentBranchDataDir}/bridge_elev_diff_meters_$branch_zero_id.tif
 
 
 ## PRODUCE THE REM AND OTHER HAND FILE OUTPUTS ##
-export hucNumber=${hucNumber}
-export current_branch_id=$current_branch_id
-export tempCurrentBranchDataDir=$tempCurrentBranchDataDir
-export tempHucDataDir=${tempHucDataDir}
-export ndv=$ndv
-export xmin=$xmin
-export ymin=$ymin
-export xmax=$xmax
-export ymax=$ymax
-export ncols=$ncols
-export nrows=$nrows
+export hucNumber current_branch_id tempCurrentBranchDataDir tempHucDataDir ndv xmin ymin xmax ymax ncols nrows
 
 ## PRODUCE BRANCH ZERO HAND
-${srcDir}/delineate_hydros_and_produce_HAND.sh "unit"
+"${srcDir}/delineate_hydros_and_produce_HAND.sh" "unit"
 
 ## CREATE USGS GAGES FILE
 ## Note: the usgs_gages.gpkg was renamed during copying into the unit folder
 if [ -f ${tempHucDataDir}/nwm_subset_streams_levelPaths.parquet ]; then
-    echo -e $startDiv"Assigning USGS gages to branches for ${hucNumber}"
-    python3 ${srcDir}/usgs_gage_unit_setup.py \
-        -gages ${tempHucDataDir}/usgs_gages.gpkg \
-        -nwm ${tempHucDataDir}/nwm_subset_streams_levelPaths.parquet \
-        -ras ${tempHucDataDir}/$ras_rating_curve_gpkg_filename \
-        -o ${tempHucDataDir}/usgs_subset_gages.gpkg \
-        -huc ${hucNumber} \
-        -ahps ${tempHucDataDir}/nws_lid.gpkg \
-        -bzero_id $branch_zero_id \
-        -huc_CRS $huc_CRS
+    echo -e "${startDiv}Assigning USGS gages to branches for ${hucNumber}"
+    args=(
+        -gages "${tempHucDataDir}/usgs_gages.gpkg"
+        -nwm "${tempHucDataDir}/nwm_subset_streams_levelPaths.parquet"
+        -ras "${tempHucDataDir}/$ras_rating_curve_gpkg_filename"
+        -o "${tempHucDataDir}/usgs_subset_gages.gpkg"
+        -huc "${hucNumber}"
+        -ahps "${tempHucDataDir}/nws_lid.gpkg"
+        -bzero_id "${branch_zero_id}"
+        -huc_CRS "${huc_CRS}"
+    )
+    python3 "${srcDir}/usgs_gage_unit_setup.py" "${args[@]}"
 fi
 
 
 ## USGS CROSSWALK ##
 if [ -f ${tempHucDataDir}/usgs_subset_gages_$branch_zero_id.gpkg ]; then
-    echo -e $startDiv"USGS Crosswalk ${hucNumber} $branch_zero_id"
+    echo -e "${startDiv}USGS Crosswalk ${hucNumber} $branch_zero_id"
     python3 ${srcDir}/usgs_gage_crosswalk.py \
         -gages ${tempHucDataDir}/usgs_subset_gages_$branch_zero_id.gpkg \
-        -flows $tempCurrentBranchDataDir/demDerived_reaches_split_filtered_$branch_zero_id.parquet \
-        -cat $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked_$branch_zero_id.parquet \
-        -dem $tempCurrentBranchDataDir/dem_meters_$branch_zero_id.tif \
-        -dem_adj $tempCurrentBranchDataDir/dem_thalwegCond_$branch_zero_id.tif \
-        -out $tempCurrentBranchDataDir -b $branch_zero_id \
+        -flows ${tempCurrentBranchDataDir}/demDerived_reaches_split_filtered_$branch_zero_id.parquet \
+        -cat ${tempCurrentBranchDataDir}/gw_catchments_reaches_filtered_addedAttributes_crosswalked_$branch_zero_id.parquet \
+        -dem ${tempCurrentBranchDataDir}/dem_meters_$branch_zero_id.tif \
+        -dem_adj ${tempCurrentBranchDataDir}/dem_thalwegCond_$branch_zero_id.tif \
+        -out ${tempCurrentBranchDataDir} -b $branch_zero_id \
         -huc_CRS $huc_CRS
 fi
 
 ## CLEANUP BRANCH ZERO OUTPUTS ##
-echo -e $startDiv"Cleaning up outputs in branch zero ${hucNumber}"
-${srcDir}/outputs_cleanup.py -d $tempCurrentBranchDataDir -l $deny_branch_zero_list -b $branch_zero_id
+echo -e "${startDiv}Cleaning up outputs in branch zero ${hucNumber}"
+${srcDir}/outputs_cleanup.py -d ${tempCurrentBranchDataDir} -l $deny_branch_zero_list -b $branch_zero_id
 
 
 # -------------------
@@ -370,7 +427,7 @@ branches_percent=$(Calc_Time_Minutes_in_Percent $branch_processing_start_time)
 
 ## REMOVE FILES FROM DENY LIST ##
 if [ -f $deny_unit_list ]; then
-    echo -e $startDiv"Remove files ${hucNumber}"
+    echo -e "${startDiv}Remove files ${hucNumber}"
     date -u
     Tstart
     ${srcDir}/outputs_cleanup.py -d ${tempHucDataDir} -l $deny_unit_list -b ${hucNumber}
