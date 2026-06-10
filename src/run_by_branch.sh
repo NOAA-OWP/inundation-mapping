@@ -69,7 +69,7 @@ ${srcDir}/clip_rasters_to_branches.py -d ${current_branch_id} \
 ## GET RASTER METADATA
 echo -e $startDiv"Get DEM Metadata ${hucNumber} ${current_branch_id}"
 read ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy\
-<<<$(${srcDir}/getRasterInfoNative.py -r ${tempCurrentBranchDataDir}/dem_meters_${current_branch_id}.tif)
+<<<$(${srcDir}/getRasterInfoNative.py -r "${tempCurrentBranchDataDir}/dem_meters_${current_branch_id}.tif")
 
 ## RASTERIZE REACH BOOLEAN (1 & 0) ##
 echo -e $startDiv"Rasterize Reach Boolean ${hucNumber} ${current_branch_id}"
@@ -86,12 +86,13 @@ python3 ${srcDir}/rasterize_parquet.py -q -at -ot Int32 -burn 1 -init 0 -a_nodat
     "${tempCurrentBranchDataDir}/flows_grid_boolean_${current_branch_id}.tif"
 
 ## DEM Reconditioning - BRANCHES (NOT 0) (NWM levelpath streams) ##
-echo -e $startDiv"Creating AGREE DEM using $agree_DEM_buffer meter buffer ${hucNumber} (Branches)"
-python3 ${srcDir}/agreedem.py -r ${tempCurrentBranchDataDir}/flows_grid_boolean_${current_branch_id}.tif \
+echo -e $startDiv"Creating AGREE DEM using ${agree_DEM_buffer} meter buffer ${hucNumber} (Branches)"
+python3 ${srcDir}/agreedem.py \
+    -r ${tempCurrentBranchDataDir}/flows_grid_boolean_${current_branch_id}.tif \
     -d ${tempCurrentBranchDataDir}/dem_meters_${current_branch_id}.tif \
     -w ${tempCurrentBranchDataDir} \
     -o ${tempCurrentBranchDataDir}/dem_burned_${current_branch_id}.tif \
-    -b $agree_DEM_buffer \
+    -b ${agree_DEM_buffer} \
     -sm 10 \
     -sh 1000
 

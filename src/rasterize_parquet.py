@@ -126,16 +126,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Pass the CLI arguments to the executor function
-    rasterize_parquet(
-        input_src=args.input_src,
-        output_dst=args.output_dst,
-        te=args.te,
-        ts=args.ts,
-        quiet=args.quiet,
-        ot=args.ot,
-        burn=args.burn,
-        attribute=args.attribute,
-        init=args.init,
-        a_nodata=args.a_nodata,
-        co=args.co
-    )
+    rasterize_parquet(**vars(args))
