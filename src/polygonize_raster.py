@@ -66,7 +66,7 @@ def polygonize_raster(input_raster, output_file, layer_name="catchments", field_
         )
         
         # Save straight to Parquet bypassing missing GDAL OGR drivers
-        if os.path.splitext(output_file)[-1] == '.parquet':
+        if os.path.splitext(output_file)[-1].lower() == '.parquet':
             gdf.to_parquet(output_file, index=False)
         else:
             gdf.to_file(output_file, index=False, engine='fiona')

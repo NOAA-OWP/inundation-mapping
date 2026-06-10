@@ -4,7 +4,7 @@
 T_total_start
 
 ## SOURCE BASH FUNCTIONS
-source $srcDir/bash_functions.env
+source ${srcDir}/bash_functions.env
 
 ## SET VARIABLES AND FILE INPUTS ##
 hucNumber="$1"
@@ -49,7 +49,7 @@ date -u
 
 ## SUBSET VECTORS
 echo -e $startDiv"Subsetting vectors to branches ${hucNumber} ${current_branch_id}"
-python3 $srcDir/subset_vectors_to_branches.py \
+python3 ${srcDir}/subset_vectors_to_branches.py \
     --crs "$huc_CRS" \
     --where "${branch_id_attribute}='${current_branch_id}'" \
     --files \
@@ -60,20 +60,20 @@ python3 $srcDir/subset_vectors_to_branches.py \
 
 ## GET RASTERS FROM ROOT HUC DIRECTORY AND CLIP TO CURRENT BRANCH BUFFER ##
 echo -e $startDiv"Clipping rasters to branches ${hucNumber} ${current_branch_id}"
-$srcDir/clip_rasters_to_branches.py -d ${current_branch_id} \
-    -b ${tempHucDataDir}/branch_polygons.parquet \
-    -i $branch_id_attribute \
-    -r ${tempHucDataDir}/dem_meters.tif ${tempHucDataDir}/bridge_elev_diff_meters.tif \
-    -c ${tempCurrentBranchDataDir}/dem_meters.tif ${tempCurrentBranchDataDir}/bridge_elev_diff_meters.tif
+${srcDir}/clip_rasters_to_branches.py -d ${current_branch_id} \
+    -b "${tempHucDataDir}/branch_polygons.parquet" \
+    -i ${branch_id_attribute} \
+    -r "${tempHucDataDir}/dem_meters.tif" "${tempHucDataDir}/bridge_elev_diff_meters.tif" \
+    -c "${tempCurrentBranchDataDir}/dem_meters.tif" "${tempCurrentBranchDataDir}/bridge_elev_diff_meters.tif"
 
 ## GET RASTER METADATA
 echo -e $startDiv"Get DEM Metadata ${hucNumber} ${current_branch_id}"
 read ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy\
-<<<$($srcDir/getRasterInfoNative.py -r ${tempCurrentBranchDataDir}/dem_meters_${current_branch_id}.tif)
+<<<$(${srcDir}/getRasterInfoNative.py -r ${tempCurrentBranchDataDir}/dem_meters_${current_branch_id}.tif)
 
 ## RASTERIZE REACH BOOLEAN (1 & 0) ##
 echo -e $startDiv"Rasterize Reach Boolean ${hucNumber} ${current_branch_id}"
-python3 $srcDir/rasterize_parquet.py -q -at -ot Int32 -burn 1 -init 0 -a_nodata -9999 \
+python3 ${srcDir}/rasterize_parquet.py -q -at -ot Int32 -burn 1 -init 0 -a_nodata -9999 \
     -co "BIGTIFF=YES" \
     -co "TILED=YES" \
     -co "BLOCKXSIZE=512" \
@@ -87,7 +87,7 @@ python3 $srcDir/rasterize_parquet.py -q -at -ot Int32 -burn 1 -init 0 -a_nodata 
 
 ## DEM Reconditioning - BRANCHES (NOT 0) (NWM levelpath streams) ##
 echo -e $startDiv"Creating AGREE DEM using $agree_DEM_buffer meter buffer ${hucNumber} (Branches)"
-python3 $srcDir/agreedem.py -r ${tempCurrentBranchDataDir}/flows_grid_boolean_${current_branch_id}.tif \
+python3 ${srcDir}/agreedem.py -r ${tempCurrentBranchDataDir}/flows_grid_boolean_${current_branch_id}.tif \
     -d ${tempCurrentBranchDataDir}/dem_meters_${current_branch_id}.tif \
     -w ${tempCurrentBranchDataDir} \
     -o ${tempCurrentBranchDataDir}/dem_burned_${current_branch_id}.tif \
@@ -98,7 +98,7 @@ python3 $srcDir/agreedem.py -r ${tempCurrentBranchDataDir}/flows_grid_boolean_${
 ## ADJUST FLOODPLAINS ##
 echo -e "${startDiv}Adjust floodplains ${hucNumber} ${current_branch_id}"
 echo -e "Using FEMA floodplain layer: ${fema_floodplain_layer}"
-python3 "$srcDir/adjust_floodplains.py" \
+python3 "${srcDir}/adjust_floodplains.py" \
     -i "${tempCurrentBranchDataDir}/flows_grid_boolean_${current_branch_id}.tif" \
     -e "${tempCurrentBranchDataDir}/flows_grid_boolean_euclidean_distance_${current_branch_id}.tif" \
     -d "${tempCurrentBranchDataDir}/dem_burned_${current_branch_id}.tif" \
@@ -145,7 +145,7 @@ mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
 
 ## RASTERIZE NWM Levelpath HEADWATERS (1 & 0) ##
 echo -e $startDiv"Rasterize NWM Headwaters ${hucNumber} ${current_branch_id}"
-python3 $srcDir/rasterize_parquet.py -q -ot Int32 -burn 1 -init 0 -a_nodata -9999 \
+python3 ${srcDir}/rasterize_parquet.py -q -ot Int32 -burn 1 -init 0 -a_nodata -9999 \
     -co "BIGTIFF=YES" \
     -co "TILED=YES" \
     -co "BLOCKXSIZE=512" \
@@ -169,12 +169,12 @@ export xmax=$xmax
 export ymax=$ymax
 export ncols=$ncols
 export nrows=$nrows
-$srcDir/delineate_hydros_and_produce_HAND.sh "branch"
+${srcDir}/delineate_hydros_and_produce_HAND.sh "branch"
 
 ## USGS CROSSWALK ##
 if [ -f ${tempHucDataDir}/usgs_subset_gages.gpkg ]; then
     echo -e $startDiv"USGS Crosswalk ${hucNumber} ${current_branch_id}"
-    python3 $srcDir/usgs_gage_crosswalk.py \
+    python3 ${srcDir}/usgs_gage_crosswalk.py \
         -gages ${tempHucDataDir}/usgs_subset_gages.gpkg \
         -flows ${tempCurrentBranchDataDir}/demDerived_reaches_split_filtered_${current_branch_id}.parquet \
         -cat ${tempCurrentBranchDataDir}/gw_catchments_reaches_filtered_addedAttributes_crosswalked_${current_branch_id}.parquet \
@@ -188,7 +188,7 @@ fi
 ## REMOVE FILES FROM DENY LIST ##
 if [ -f $deny_branches_list ]; then
     echo -e $startDiv"Remove files ${hucNumber} ${current_branch_id}"
-    $srcDir/outputs_cleanup.py -d ${tempCurrentBranchDataDir} -l $deny_branches_list -b ${current_branch_id}
+    ${srcDir}/outputs_cleanup.py -d ${tempCurrentBranchDataDir} -l $deny_branches_list -b ${current_branch_id}
 fi
 
 echo -e $startDiv"End Branch Processing ${hucNumber} ${current_branch_id} ..."

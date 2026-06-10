@@ -174,57 +174,57 @@ else
 fi
 
 # Safety feature to avoid accidental overwrites
-if [ -d $outputDestDir ] && [ $overwrite -eq 0 ]; then
+if [ -d ${outputDestDir} ] && [ $overwrite -eq 0 ]; then
     echo
-    echo "ERROR: Output dir $outputDestDir exists. Use overwrite -o to run."
+    echo "ERROR: Output dir ${outputDestDir} exists. Use overwrite -o to run."
     echo
     usage
     exit 22
 fi
 
 ## SOURCE ENV FILE AND FUNCTIONS ##
-source $srcDir/bash_functions.env
-source $srcDir/bash_variables.env
+source ${srcDir}/bash_functions.env
+source ${srcDir}/bash_variables.env
 
 # these export are for fim_pipeline only.
 export runName=$runName
 export jobHucLimit=$jobHucLimit
 
-num_hucs=$(python3 $srcDir/check_huc_inputs.py -u ${hucList} -i ${full_huc_list_file})
+num_hucs=$(python3 ${srcDir}/check_huc_inputs.py -u ${hucList} -i ${full_huc_list_file})
 echo
 echo "--- Number of HUCs to process is $num_hucs"
 
 # make dirs
-if [ ! -d $outputDestDir ]; then
-    mkdir -p $outputDestDir
-    chmod 777 -R $outputDestDir
+if [ ! -d ${outputDestDir} ]; then
+    mkdir -p ${outputDestDir}
+    chmod 777 -R ${outputDestDir}
     mkdir -p $tempRunDir
 	chmod 777 -R $tempRunDir
 else
     # remove these directories and files on a new or overwrite run
-    rm -rdf $outputDestDir/logs
-    rm -rdf $outputDestDir/branch_errors
-    rm -rdf $outputDestDir/eval
-    rm -f $outputDestDir/crosswalk_table.csv
-    rm -f $outputDestDir/fim_inputs*
-    rm -f $outputDestDir/*.env
+    rm -rdf ${outputDestDir}/logs
+    rm -rdf ${outputDestDir}/branch_errors
+    rm -rdf ${outputDestDir}/eval
+    rm -f ${outputDestDir}/crosswalk_table.csv
+    rm -f ${outputDestDir}/fim_inputs*
+    rm -f ${outputDestDir}/*.env
 fi
 
-mkdir -p $outputDestDir/logs
-mkdir -p $outputDestDir/branch_errors
+mkdir -p ${outputDestDir}/logs
+mkdir -p ${outputDestDir}/branch_errors
 
 # copy over config file and rename it (note.. yes, the envFile file can still be
 # loaded from command line and have its own values, it simply gets renamed and saved)
-cp $envFile $outputDestDir/params.env
+cp $envFile ${outputDestDir}/params.env
 
 # create an new .env file on the fly that contains all runtime values
 # that any unit can load it independently (in seperate AWS objects, AWS fargates)
 # or via pipeline. There is likely a more elegent way to do this.
 
-args_file=$outputDestDir/runtime_args.env
+args_file=${outputDestDir}/runtime_args.env
 
 # reset it again (this time recursive for the new incoming folders
-chmod 777 -R $outputDestDir
+chmod 777 -R ${outputDestDir}
 
 # the jobHucLimit is not from the args files, only jobBranchLimit
 echo "export runName=$runName" >> $args_file

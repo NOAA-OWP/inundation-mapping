@@ -45,7 +45,7 @@ fi
 outputDestDir=$outputsDir/$runName
 
 ## Check for output destination directory ##
-if [ ! -d "$outputDestDir" ]; then
+if [ ! -d "${outputDestDir}" ]; then
     echo "Depends on output from units and branches. "
     echo "Please provide an output folder name that has hucs/branches run."
     exit 1
@@ -64,16 +64,16 @@ fi
 rm -f $log_file_name
 
 # load up enviromental information
-args_file=$outputDestDir/runtime_args.env
-fim_inputs=$outputDestDir/fim_inputs.csv
+args_file=${outputDestDir}/runtime_args.env
+fim_inputs=${outputDestDir}/fim_inputs.csv
 
 source $args_file
-source $outputDestDir/params.env
-source $srcDir/bash_functions.env
-source $srcDir/bash_variables.env
+source ${outputDestDir}/params.env
+source ${srcDir}/bash_functions.env
+source ${srcDir}/bash_variables.env
 
 # Tell the system the name and location of the post processing log
-log_file_name=$outputDestDir/logs/post_processing.log
+log_file_name=${outputDestDir}/logs/post_processing.log
 Set_log_file_path $log_file_name
 
 l_echo ""
@@ -85,10 +85,10 @@ T_total_start
 post_proc_start_time=`date +%s`
 
 echo "Concatenate all processing time files into a CSV file"
-csvFile=$outputDestDir/logs/total_duration_run_by_unit_all_HUCs.csv
+csvFile=${outputDestDir}/logs/total_duration_run_by_unit_all_HUCs.csv
 
 # if [[ ! -f "$csvFile" ]]; then
-python3 $srcDir/duration_system.py -fim $outputDestDir -o $csvFile
+python3 ${srcDir}/duration_system.py -fim ${outputDestDir} -o $csvFile
 # else
 #     echo "Duration CSV file already exists, skipping..."
 # fi
@@ -97,31 +97,31 @@ python3 $srcDir/duration_system.py -fim $outputDestDir -o $csvFile
 ## AGGREGATE BRANCH LISTS INTO ONE ##
 l_echo $startDiv"Start branch aggregation"
 Tstart
-python3 $srcDir/aggregate_branch_lists.py -d $outputDestDir -f "branch_ids.csv" -o $fim_inputs
+python3 ${srcDir}/aggregate_branch_lists.py -d ${outputDestDir} -f "branch_ids.csv" -o $fim_inputs
 Tcount
 
 ## GET NON ZERO EXIT CODES FOR BRANCHES ##
 l_echo $startDiv"Start non-zero exit code checking"
-#find $outputDestDir/logs/branch -name "*_branch_*.log" -type f | \
-find $outputDestDir -path "*/logs/branch/*_branch_*.log" -type f | \
+#find ${outputDestDir}/logs/branch -name "*_branch_*.log" -type f | \
+find ${outputDestDir} -path "*/logs/branch/*_branch_*.log" -type f | \
     xargs grep -E "Exit status: ([1-9][0-9]{0,2})" > \
-    "$outputDestDir/branch_errors/non_zero_exit_codes.log" &
+    "${outputDestDir}/branch_errors/non_zero_exit_codes.log" &
 
 
 l_echo $startDiv"Combining crosswalk tables"
 Tstart
 python3 $toolsDir/combine_crosswalk_tables.py \
-    -d $outputDestDir \
-    -o $outputDestDir/crosswalk_table.csv
+    -d ${outputDestDir} \
+    -o ${outputDestDir}/crosswalk_table.csv
 Tcount
 
 
 l_echo $startDiv"Compile all HUCs error files"
 echo "Results will be saved in log folder."
 Tstart
-    outfile="$outputDestDir/logs/all_errors.log"
+    outfile="${outputDestDir}/logs/all_errors.log"
     # Collect all matching files into new output
-    find "$outputDestDir" -type f -name "huc_*_errors.log" \
+    find "${outputDestDir}" -type f -name "huc_*_errors.log" \
        -exec sh -c 'for f; do echo "=== $f ==="; cat "$f"; done' _ {} + > "$outfile"
     echo "Collected errors into: $outfile"
 Tcount
@@ -130,9 +130,9 @@ l_echo $startDiv"Resetting Permissions"
 Tstart
     # HUC folders took care of their own perms, but the other folders such as 
     # logs and branch_errors did not
-    find $outputDestDir/branch_errors -type d -exec chmod -R 777 {} +
-    find $outputDestDir/logs -type d -exec chmod -R 777 {} +
-    find $outputDestDir -maxdepth 1 -type f -exec chmod 777 {} +  # just root level files
+    find ${outputDestDir}/branch_errors -type d -exec chmod -R 777 {} +
+    find ${outputDestDir}/logs -type d -exec chmod -R 777 {} +
+    find ${outputDestDir} -maxdepth 1 -type f -exec chmod 777 {} +  # just root level files
 Tcount
 
 echo

@@ -46,28 +46,28 @@ then
     usage
 fi
 
-if [ "$hucNumber" = "" ]
+if [ "${hucNumber}" = "" ]
 then
     echo "ERROR: Missing hucNumber argument (2nd argument)"
     usage
 fi
 
 re='^[0-9]+$'
-if ! [[ $hucNumber =~ $re ]] ; then
+if ! [[ ${hucNumber} =~ $re ]] ; then
    echo "Error: hucNumber is not a number" >&2; exit 1
    usage
 fi
 
 echo "=========================================================================="
-echo "---- Start of huc processing for $hucNumber"
+echo "---- Start of huc processing for ${hucNumber}"
 
 
 # outputsDir, srcDir, workDir and others come from the Dockerfile
 export tempRunDir=$workDir/$runName
 export outputDestDir=$outputsDir/$runName
-export tempHucDataDir=$tempRunDir/$hucNumber
-export outputHucDataDir=$outputDestDir/$hucNumber
-export tempBranchDataDir=$tempHucDataDir/branches
+export tempHucDataDir=$tempRunDir/${hucNumber}
+export outputHucDataDir=${outputDestDir}/${hucNumber}
+export tempBranchDataDir=${tempHucDataDir}/branches
 export current_branch_id=0
 
 ## huc data
@@ -76,24 +76,24 @@ if [ -d "$outputHucDataDir" ]; then
 fi
 
 # make outputs directory
-mkdir -p $tempHucDataDir
+mkdir -p ${tempHucDataDir}
 mkdir -p $tempBranchDataDir
-mkdir -p $tempHucDataDir/logs
-mkdir -p $tempHucDataDir/logs/branch
-chmod 777 -R $tempHucDataDir
+mkdir -p ${tempHucDataDir}/logs
+mkdir -p ${tempHucDataDir}/logs/branch
+chmod 777 -R ${tempHucDataDir}
 chmod 777 -R $tempBranchDataDir
-chmod 777 -R $tempHucDataDir/logs
+chmod 777 -R ${tempHucDataDir}/logs
 
 # Clean out previous unit logs and branch logs starting with this huc
-rm -f $tempHucDataDir/logs/"$hucNumber"_unit.log
-rm -f $tempHucDataDir/logs/branch/"$hucNumber"_summary_branch.log
-rm -f $tempHucDataDir/logs/branch/"$hucNumber"*.log
-rm -f $outputDestDir/branch_errors/"$hucNumber"*.log
+rm -f ${tempHucDataDir}/logs/"${hucNumber}"_unit.log
+rm -f ${tempHucDataDir}/logs/branch/"${hucNumber}"_summary_branch.log
+rm -f ${tempHucDataDir}/logs/branch/"${hucNumber}"*.log
+rm -f ${outputDestDir}/branch_errors/"${hucNumber}"*.log
 
-hucLogFileName=$tempHucDataDir/logs/"$hucNumber"_unit.log
+hucLogFileName=${tempHucDataDir}/logs/"${hucNumber}"_unit.log
 
 # Process the actual huc
-/usr/bin/time -v $srcDir/run_huc.sh 2>&1 | tee $hucLogFileName
+/usr/bin/time -v ${srcDir}/run_huc.sh 2>&1 | tee $hucLogFileName
 
 #exit ${PIPESTATUS[0]} (and yes.. there can be more than one)
 # and yes.. we can not use the $? as we are messing with exit codes
@@ -127,22 +127,22 @@ do
 done
 
 if [ "$err_exists" = "1" ]; then
-    error_log_filename=$tempHucDataDir/logs/huc_"$hucNumber"_errors.log
-    err_msg="Error: "$hucNumber". Invalid return status code. Exit status: $return_codes"
+    error_log_filename=${tempHucDataDir}/logs/huc_"${hucNumber}"_errors.log
+    err_msg="Error: "${hucNumber}". Invalid return status code. Exit status: $return_codes"
     echo $err_msg >> $error_log_filename
 fi
 
 # Move the contents of the temp directory into the outputs directory and update file permissions
-# find $tempHucDataDir -type d -exec chmod -R 777 {} +
+# find ${tempHucDataDir} -type d -exec chmod -R 777 {} +
 # In the OWP enviros, the perms are different, we have to copy them using a special copy
 # flag which is not available in mv. We have to copy, then remove the temp version
-# mv -f $tempHucDataDir $outputHucDataDir
-cp -r --no-preserve=ownership $tempHucDataDir $outputHucDataDir
-rm -rdf $tempHucDataDir
+# mv -f ${tempHucDataDir} $outputHucDataDir
+cp -r --no-preserve=ownership ${tempHucDataDir} $outputHucDataDir
+rm -rdf ${tempHucDataDir}
 
 echo "============================================================================================="
 echo
-echo "***** Moved temp directory: $tempHucDataDir to output directory: $outputHucDataDir  *****"
+echo "***** Moved temp directory: ${tempHucDataDir} to output directory: $outputHucDataDir  *****"
 echo
 echo "============================================================================================="
 

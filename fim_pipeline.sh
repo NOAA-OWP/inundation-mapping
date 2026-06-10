@@ -85,11 +85,11 @@ echo "======================= Start of fim_pipeline.sh =========================
 echo "---- Started: `date -u`"
 
 ## LOAD AND VALIDATE INCOMING ARGUMENTS
-source $srcDir/bash_functions.env
+source ${srcDir}/bash_functions.env
 . $projectDir/fim_pre_processing.sh "$@"
 
 
-logFile=$outputDestDir/logs/pipeline_summary_unit.log
+logFile=${outputDestDir}/logs/pipeline_summary_unit.log
 process_wb_file=$projectDir/fim_process_huc.sh
 
 pipeline_start_time=`date +%s`

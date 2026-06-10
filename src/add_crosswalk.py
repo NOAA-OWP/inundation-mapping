@@ -46,7 +46,7 @@ def add_crosswalk(
     input_catchments = gpd.read_parquet(input_catchments_fileName)
     input_flows = gpd.read_parquet(input_flows_fileName)
     input_huc = gpd.read_file(input_huc_fileName, engine='fiona')
-    if os.path.splitext(input_nwmflows_fileName)[-1] == '.parquet':
+    if os.path.splitext(input_nwmflows_fileName)[-1].lower() == '.parquet':
         input_nwmflows = gpd.read_parquet(input_nwmflows_fileName)
     else:
         input_nwmflows = gpd.read_file(input_nwmflows_fileName, engine='fiona')
