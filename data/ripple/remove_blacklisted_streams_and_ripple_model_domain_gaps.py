@@ -19,20 +19,23 @@ TARGET_CRS = "EPSG:5070"
 # EDGE_TOLERANCE_WIDTH_FRACTION = 0.20
 EDGE_TOLERANCE_M = 300
 
-# Keep the largest 90% of each collection's disconnected domain components by area.
-RETAIN_COMPONENT_COUNT_FRACTION = 1.00  # 0.90
+# # Keep the largest 90% of each collection's disconnected domain components by area.
+# RETAIN_COMPONENT_COUNT_FRACTION = 1.00  # 0.90
 # Keep only those disconnected domain components that cover more than 1 NWM stream.
 MAX_STREAMS_FOR_COMPONENT_EXCLUSION = 1  # 2
 
+# At least 50% of downstream tail of headwaters stream is inside the domain.
+# and downstream_endpoint covered by the domain.
 DOWNSTREAM_FRACTION = 0.50
 HEADWATER_DOWNSTREAM_COVERAGE_THRESHOLD = 0.50
+# At least 60% of middle stream is inside the domain and downstream_endpoint covered by the domain.
 NOT_HEADWATER_COVERAGE_THRESHOLD = 0.60
 
 _WORKER_DOMAIN_UNION_BUFFERED = None
 
 previous_hand_dir = '/data/previous_fim/hand_4_9_9_0'
 ripple_whitelist_table = 'ripple_feature_id_whitelist_conus.csv'
-ripple_dir = 'outputs'
+ripple_dir = '/outputs/'
 
 
 # -----------------------------------------------------------------------------
@@ -76,14 +79,21 @@ def load_huc_validated_whitelist(ripple_dir, ripple_whitelist_table, previous_ha
     cols = [col for col in whitelist_df.columns if col != "is_valid"] + ["is_valid"]
     whitelist_df = whitelist_df[cols]
 
-    whitelist_df = whitelist_df.drop(columns=["is_valid_huc_considered"], errors="ignore")
-
-    whitelist_df.to_csv(join(ripple_dir, 'ripple_feature_list_20260603_huc_valid.csv'), index=False)
+    whitelist_df.to_csv(join(ripple_dir, 'ripple_feature_list_20260611.csv'), index=False)
 
     whitelist_df = whitelist_df[whitelist_df["is_valid"] == True].copy()
 
-    # Ne cols should be add
-    whitelist_cols = ["feature_id", "huc", "model_id", "collection_id"]  # , "library_path"
+    whitelist_cols = [
+        "huc",
+        "feature_id",
+        "nwm_to_id",
+        "order_",
+        "collection_id",
+        "model_id" ", db_path",
+        "is_blacklisted",
+        "is_bridge",
+        "is_valid",
+    ]  # , "library_path"
 
     return whitelist_df[whitelist_cols].reset_index(drop=True)
 
