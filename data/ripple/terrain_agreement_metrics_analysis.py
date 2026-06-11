@@ -132,14 +132,9 @@ def retrieve_tiny_unmodeled_ripple_reaches(ripple_gdf, max_bridge_reaches=MAX_BR
 def merge_nwm_streams_with_ripples(metrics_dir, out_dir, ripple_collection_name):
 
     src_dir = os.getenv('srcDir')
-    if src_dir is None:
-        raise EnvironmentError('Environment variable srcDir is not set')
-
     load_dotenv(os.path.join(src_dir, 'bash_variables.env'))
 
     pre_clip_huc_dir = os.getenv('pre_clip_huc_dir')
-    if pre_clip_huc_dir is None:
-        raise EnvironmentError('Environment variable pre_clip_huc_dir is not set')
 
     huc_match = re.search(r'\d+', ripple_collection_name)
     if huc_match is None:
@@ -281,10 +276,8 @@ def merge_nwm_streams_with_ripples(metrics_dir, out_dir, ripple_collection_name)
 
 # -----------------------------------------------------------------------------
 def merge_ripple_reaches_sourcemodels_with_metrics_db(metrics_dir, out_dir, ripple_collection_name):
-    huc_match = re.search(r'\d+', ripple_collection_name)
-    if huc_match is None:
-        raise ValueError(f'Could not determine HUC from ripple collection name: {ripple_collection_name}')
 
+    huc_match = re.search(r'\d+', ripple_collection_name)
     huc = huc_match.group(0)
 
     path_ripple_collection_out = os.path.join(out_dir, ripple_collection_name)
@@ -372,12 +365,6 @@ def merge_ripple_reaches_sourcemodels_with_metrics_db(metrics_dir, out_dir, ripp
     cols = [col for col in ripple_reaches_metrics_gdf.columns if col != geom_col] + [geom_col]
     ripple_reaches_metrics_gdf = ripple_reaches_metrics_gdf[cols]
 
-    if 'avg_inundation_overlap' not in ripple_reaches_metrics_gdf.columns:
-        msg = 'Column avg_inundation_overlap is missing, skipping metrics geopackage write\n'
-        print(msg)
-        log_text += msg
-        return log_text
-
     ripple_reaches_metrics_gdf = ripple_reaches_metrics_gdf.replace('', np.nan)
     # ripple_reaches_metrics_gdf = ripple_reaches_metrics_gdf.dropna(subset=['avg_inundation_overlap'])
 
@@ -422,9 +409,6 @@ def create_ripple_STREAMS_gdf_csv(metrics_dir, out_dir):
     for ripple_collection in ripple_collections:
         try:
             huc_match = re.search(r'\d+', ripple_collection)
-            if huc_match is None:
-                log_text += log(f'Skipping collection without HUC digits: {ripple_collection}')
-                continue
 
             huc = huc_match.group(0)
             log_text += log(f'Start analyzing ripple collection for HUC {huc}')
@@ -699,7 +683,7 @@ def process_ripple_STREAMS_create_blackList(metrics_dir, out_dir):
             (streams_for_blacklist['avg_thalweg_elevation_difference'] >= 100)
             | (streams_for_blacklist['avg_thalweg_elevation_difference'] <= -50)
         ],
-        streams_for_blacklist[streams_for_blacklist['avg_inundation_overlap'] <= 0.3],
+        streams_for_blacklist[streams_for_blacklist['avg_inundation_overlap'] <= 0.35],  # 0.3
         streams_for_blacklist[
             (streams_for_blacklist['order_'] <= 3)
             & (streams_for_blacklist['avg_inundation_overlap'] < 0.55)
@@ -844,7 +828,7 @@ def process_ripple_STREAMS_create_blackList(metrics_dir, out_dir):
             bad_features, on=['collection_id', 'feature_id'], how='left'
         )
 
-        merged_all['is_blacklisted'] = merged_all['is_bad'].fillna(False)
+        merged_all['is_blacklisted'] = merged_all['is_bad'].fillna(False).astype(bool)
         merged_all['is_valid'] = ~merged_all['is_blacklisted']
         merged_all = merged_all.drop(columns=['is_bad'])
 

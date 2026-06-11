@@ -16,14 +16,12 @@ from shapely.ops import linemerge, substring
 
 TARGET_CRS = "EPSG:5070"
 
-# 20% of each domain's estimated average width
-# This will be used for creating the domain buffer
 # EDGE_TOLERANCE_WIDTH_FRACTION = 0.20
 EDGE_TOLERANCE_M = 300
 
 # Keep the largest 90% of each collection's disconnected domain components by area.
 RETAIN_COMPONENT_COUNT_FRACTION = 1.00  # 0.90
-# Keep those disconnected domain components that cover more than 1 NWM stream.
+# Keep only those disconnected domain components that cover more than 1 NWM stream.
 MAX_STREAMS_FOR_COMPONENT_EXCLUSION = 1  # 2
 
 DOWNSTREAM_FRACTION = 0.50
@@ -32,8 +30,9 @@ NOT_HEADWATER_COVERAGE_THRESHOLD = 0.60
 
 _WORKER_DOMAIN_UNION_BUFFERED = None
 
-# previous_hand_dir = '/data/previous_fim/hand_4_9_9_0'
-# ripple_whitelist_table = 'ripple_feature_list_20260310_huc_considered_delivered.csv'
+previous_hand_dir = '/data/previous_fim/hand_4_9_9_0'
+ripple_whitelist_table = 'ripple_feature_id_whitelist_conus.csv'
+ripple_dir = 'outputs'
 
 
 # -----------------------------------------------------------------------------
@@ -60,14 +59,16 @@ def load_huc_validated_whitelist(ripple_dir, ripple_whitelist_table, previous_ha
                 .assign(huc=str(huc), in_huc=True)
             )
 
-    combined_ht = pd.concat(ht_dfs, ignore_index=True).drop_duplicates(["feature_id", "huc"])
-
-    merged_df = whitelist_df.merge(combined_ht, on=["feature_id", "huc"], how="left")
-
     whitelist_df["huc_valid"] = whitelist_df["is_valid"]
-    in_huc = merged_df["in_huc"].eq(True)
 
-    whitelist_df.loc[merged_df["duplicate_valid"] & ~in_huc, "huc_valid"] = False
+    if ht_dfs:
+        combined_ht = pd.concat(ht_dfs, ignore_index=True).drop_duplicates(["feature_id", "huc"])
+
+        merged_df = whitelist_df.merge(combined_ht, on=["feature_id", "huc"], how="left")
+
+        in_huc = merged_df["in_huc"].eq(True)
+
+        whitelist_df.loc[merged_df["duplicate_valid"] & ~in_huc, "huc_valid"] = False
 
     whitelist_df["is_valid_original"] = whitelist_df["is_valid"]
     whitelist_df["is_valid"] = whitelist_df["huc_valid"]
@@ -81,7 +82,8 @@ def load_huc_validated_whitelist(ripple_dir, ripple_whitelist_table, previous_ha
 
     whitelist_df = whitelist_df[whitelist_df["is_valid"] == True].copy()
 
-    whitelist_cols = ["feature_id", "huc", "model_id", "collection_id", "library_path"]
+    # Ne cols should be add
+    whitelist_cols = ["feature_id", "huc", "model_id", "collection_id"]  # , "library_path"
 
     return whitelist_df[whitelist_cols].reset_index(drop=True)
 
@@ -131,6 +133,7 @@ def create_whitelist_domain(ripple_dir, ripple_domain_gpkg, collection_model_ids
 
 # -----------------------------------------------------------------------------
 def read_ripple_streams(whitelist_df, ripple_collections_dir, collection_slice=None):
+
     collection_ids = sorted(
         whitelist_df["collection_id"].drop_duplicates(keep="first").reset_index(drop=True)
     )
@@ -274,12 +277,13 @@ def keep_main_collection_domain_components(
 
         # Keep the largest 90% of each collection's disconnected domain components by area.
         components_by_area = sorted(components, key=lambda component: component.area, reverse=True)
-        retained_component_count = max(1, ceil(len(components_by_area) * RETAIN_COMPONENT_COUNT_FRACTION))
+        # retained_component_count = max(1, ceil(len(components_by_area) * RETAIN_COMPONENT_COUNT_FRACTION))
 
         main_geometry = components_by_area[0]
         main_area_m2 = main_geometry.area
 
-        retained_components = components_by_area[:retained_component_count]
+        # retained_components = components_by_area[:retained_component_count
+        retained_components = components_by_area
 
         # Keep those disconnected domain components that cover more than 1 NWM stream.
         collection_id = group["collection_id"].iloc[0]
