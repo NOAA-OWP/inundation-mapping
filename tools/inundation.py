@@ -50,8 +50,7 @@ def inundate(
     src_table: Optional[str] = None,
     quiet: Optional[bool] = False,
     precalb_option: Optional[bool] = False,
-    windowed: Optional[bool] = False,
-    debug: Optional[bool] = False,
+    windowed: Optional[bool] = False
 ):
     """
 
@@ -101,8 +100,6 @@ def inundate(
         Whether to use precalb discharge in hydrotable. If True, will use precalb_discharge_cms column
     windowed : Optional[bool], default=False
         Memory efficient operation to process inundation
-    debug: Optional[bool], default=False
-        If True, extra logging lines will print to file only.
 
     Returns
     -------
@@ -128,13 +125,15 @@ def inundate(
 
     """
 
+    logging.debug(f"Starting inundation for {inundation_raster}")
+    
     # check for num_workers
     num_workers = int(num_workers)
     assert num_workers >= 1, "Number of workers should be 1 or greater"
     if (num_workers > 1) & (hucs is None):
         raise AssertionError("Pass a HUCs file to batch process inundation mapping")
 
-        # check that aggregate is only done for hucs mode
+    # check that aggregate is only done for hucs mode
     aggregate = bool(aggregate)
     if aggregate:
         warn("Aggregate feature currently not working. Setting to false for now.")
@@ -166,9 +165,6 @@ def inundate(
         (rem.transform * (rem.width, rem.height))
         == (catchments.transform * (catchments.width, catchments.height))
     ), "REM and catchments rasters require same upper left and lower right extents"
-
-    if debug:
-        logging.info(f"Starting inundation for {inundation_raster}")
 
     # open hucs
     if hucs is None:
@@ -261,8 +257,7 @@ def inundate(
             depth_rst=depth_rst,
             inundation_rst=inundation_rst,
             inundation_nodata=nodata,
-            min_value=30 if int_16 else 0.03048,
-            debug=debug,
+            min_value=30 if int_16 else 0.03048
         )
 
         inundation_rasters = []
@@ -435,8 +430,7 @@ def __make_windows_generator(
     depth_rst: Optional[str] = None,
     inundation_rst: Optional[str] = None,
     inundation_nodata: Optional[int] = None,
-    min_value: int = 30,
-    debug: Optional[bool] = False,
+    min_value: int = 30
 ):
     """
     Generator to split processing in to windows or different masked datasets
@@ -471,8 +465,6 @@ def __make_windows_generator(
         Name of inundation raster to output
     inundation_nodata: Optional[int] = None
         Value of nodata value in inundation extent
-    debug: Optional[bool], default=False
-        If True, extra logging lines will print to file only.
 
     Returns
     -------
@@ -499,8 +491,6 @@ def __make_windows_generator(
         Whether to use memory optimization
     inundation_nodata : int
         Value for inundation extent nodata
-    debug: bool
-        If True, extra logging lines will print to file only.
     """
 
     if hucs is not None:

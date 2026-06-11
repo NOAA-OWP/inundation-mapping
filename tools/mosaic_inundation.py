@@ -49,8 +49,7 @@ def Mosaic_inundation(
     subset: Optional[str] = None,
     verbose: Optional[bool] = True,
     is_mosaic_for_branches: Optional[bool] = False,
-    inundation_polygon: Optional[str] = None,
-    debug: Optional[bool] = True,
+    inundation_polygon: Optional[str] = None
 ) -> str:
     """
     Mosaic inundation extents or depths
@@ -104,8 +103,13 @@ def Mosaic_inundation(
     else:
         raise TypeError("Pass Pandas Dataframe or file path string to csv for map_file argument")
 
-    # remove NaNs
-    inundation_maps_df = inundation_maps_df.dropna(axis=0, how="all")
+
+    # inundation_maps_df = inundation_maps_df.dropna(axis=0, how="all")
+    # remove all records where the three inudation paths are empty
+    inundation_maps_df = inundation_maps_df.dropna(subset=['inundation_rasters',
+                                                            'depths_rasters',
+                                                            'inundation_polygons'])
+    raise Exception(f"inundation_maps_df has no values in the three raster/polygon columns for {mosaic_output}")
 
     # subset
     if subset is not None:
@@ -128,16 +132,22 @@ def Mosaic_inundation(
         tqdm_disable = True
 
     # TODO: Temp debug
-    logging.info(f"tqdm_disable is {tqdm_disable}")
+    logging.debug(f"tqdm_disable is {tqdm_disable}")
 
     ag_mosaic_output = ""
     remove_at_end = []
-
     for ag in tqdm(aggregation_units, disable=tqdm_disable, desc="Mosaicing FIMs"):
+        logging.debug("about to find inundation map")
+        logging.debug(f"ag is {ag}")
         try:
             inundation_maps_list = inundation_maps_df.loc[ag, mosaic_attribute].tolist()
-        except AttributeError:
+            logging.debug("finished attempt to get list")
+        except AttributeError as ae:
+            logging.warning(f"Attribute error while processing {mosaic_output}")
             inundation_maps_list = [inundation_maps_df.loc[ag, mosaic_attribute]]
+            logging.debug("did we get here?")
+
+        logging.debug(f"inundation_maps_list is {inundation_maps_list} for {mosaic_output}")
 
         # Some processes may have already added the ag value (if it is a huc) to
         # the file name, so don't re-add it.
@@ -148,6 +158,16 @@ def Mosaic_inundation(
         ag_mosaic_output = mosaic_output
         if (is_mosaic_for_branches) and (ag not in mosaic_output):
             ag_mosaic_output = fh.append_id_to_file_name(mosaic_output, ag)  # change it
+
+    # inundation_maps_list: list,
+    # mosaic_output: str,
+    # nodata: Optional[int] = elev_raster_ndv,
+    # workers: Optional[int] = 1,
+    # remove_inputs: Optional[bool] = False,
+    # mask: Optional[str] = None,
+    # verbose: Optional[bool] = False,
+
+        # are we no longer using the "mask" object?
 
         remove_list = mosaic_by_unit(
             inundation_maps_list,
@@ -222,6 +242,11 @@ def mosaic_by_unit(
 
     if mosaic_output is not None:
 
+        logging.debug("+++++++++++++++++")
+        logging.debug("about to merge")
+        logging.debug(locals())
+        logging.debug("+++++++++++++++++")        
+
         merge(inundation_maps_list, method='max', nodata=nodata, dst_path=mosaic_output)
 
         # Jun 2026:
@@ -232,13 +257,12 @@ def mosaic_by_unit(
         #     # fh.vprint("Masking ...", verbose)
         #     if verbose:
         #         logging.info(f"Masking ... ({mosaic_output})")
-        #     mask_mosaic(mosaic_output, mask, outfile=mosaic_output, workers=workers)
+            # mask_mosaic(mosaic_output, mask, outfile=mosaic_output, workers=workers)
 
     if remove_inputs:
         # fh.vprint("Removing inputs ...", verbose)
         # print(f"removing inputs for {mosaic_output} (inside mosaic_by_unit)")
-        if verbose:
-            logging.info(f"removing inputs for {mosaic_output} (inside mosaic_by_unit)")
+        logging.debug(f"removing inputs for {mosaic_output} (inside mosaic_by_unit)")
 
         remove_list = []
         for inun_map in inundation_maps_list:

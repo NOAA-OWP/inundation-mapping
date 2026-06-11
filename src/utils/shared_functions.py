@@ -86,7 +86,7 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
         raise ValueError("log file name prefix can not be None or empty")
 
     # Example with a different permission (e.g., full access for everyone)
-    permissions_code = 0o776
+    permissions_code = 0o766
     os.makedirs(log_file_dir, mode=permissions_code, exist_ok=True)
     # even though we used os.makedirs, it does not mean it had permission to make the dir
     # the mode is for permissions of the folder once is created.
@@ -97,11 +97,11 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
     log_file_name = f"{log_file_name_prefix}_{file_dt_string}.log"
     log_file_path = os.path.join(log_file_dir, log_file_name)
 
-    permissions_code = 0o777
+    permissions_code = 0o766
 
     # we will assume the parent folder already exists
     os.makedirs(log_file_dir, exist_ok=True, mode=permissions_code)
-    print(f"Logs saved to: {log_file_path}")
+    # print(f"Logs saved to: {log_file_path}")
 
     # even though we used os.makedirs, it does not mean it had permission to make the dir
     # the mode is for permissions of the folder once is created.
@@ -202,7 +202,7 @@ def setup_mp_file_logger(log_file_path: str, logger_name: str, level=logging.DEB
         raise Exception("log file name must end with .log")
 
     abs_path = os.path.abspath(log_file_path)
-    permissions_code = 0o776
+    permissions_code = 0o766
     log_folder = os.path.dirname(abs_path)
     os.makedirs(log_folder, mode=permissions_code, exist_ok=True)
     # even though we used os.makedirs, it does not mean it had permission to make the dir
@@ -320,7 +320,7 @@ def merge_child_logs_into_parent_log(parent_log_file, child_prefix, remove_old_s
 
     child_log_files = list(glob.glob(os.path.join(parent_log_folder, f'{child_prefix}*'), recursive=True))
     num_child_files_found = len(child_log_files)
-    print(f"num child found = {num_child_files_found}")
+    # print(f"num child found = {num_child_files_found}")
 
     for child_log in child_log_files:
         if "-error" in child_log:

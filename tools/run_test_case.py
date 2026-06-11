@@ -115,6 +115,7 @@ class Test_Case(Benchmark):
         self.test_id = test_id
         self.huc, self.benchmark_cat = test_id.split('_')
         super().__init__(self.benchmark_cat)
+        self.is_valid_huc = False
         self.version = version
         self.archive = archive
         # FIM run directory path - uses HUC 6 for FIM 1 & 2
@@ -125,7 +126,18 @@ class Test_Case(Benchmark):
             self.version,
             self.huc if not re.search('^fim_[1,2]', version, re.IGNORECASE) else self.huc[:6],
         )
+
+        # Test the HUC folder
+        if os.path.exists(self.fim_dir):
+            # files that should exist if the huc finished processing correctly
+            # If not... the huc failed.
+            if os.path.isfile(os.path.join(self.fim_dir, "hydrotable.csv")) or os.path.isfile(
+                os.path.join(self.fim_dir, "hydrotable.parquet")):
+
+                self.is_valid_huc = True
+
         # Test case directory path
+        # TODO: Jun 2026: Do we want it to create a bunch of empy dirs in test_cases?
         self.dir = os.path.join(
             TEST_CASES_DIR,
             f'{self.benchmark_cat}_test_cases',
@@ -205,8 +217,7 @@ class Test_Case(Benchmark):
         precalb_option=False,
         threads=1,
         log_folder='', 
-        log_prefix='',
-        debug=False,
+        log_prefix=''
     ):
         '''Compares a FIM directory with benchmark data from a variety of sources.
 
@@ -245,7 +256,7 @@ class Test_Case(Benchmark):
                 log_file_path = sf.setup_file_logger(log_folder, f"{log_prefix}_{self.test_id}")
             if verbose:
                 logging.info(f"Started Alpha Test for {self.test_id}")
-            elif debug:
+            else:
                 logging.debug(f"Started Alpha Test for {self.test_id}")
 
             if not overwrite and os.path.isdir(self.dir):
@@ -259,26 +270,26 @@ class Test_Case(Benchmark):
 
             # Create paths to fim_run outputs for use in inundate()
             # if model != 'GMS':
-            self.rem = os.path.join(self.fim_dir, 'rem_zeroed_masked.tif')
-            if not os.path.exists(self.rem):
-                self.rem = os.path.join(self.fim_dir, 'rem_clipped_zeroed_masked.tif')
-            self.catchments = os.path.join(
-                self.fim_dir, 'gw_catchments_reaches_filtered_addedAttributes.tif'
-            )
-            if not os.path.exists(self.catchments):
-                self.catchments = os.path.join(
-                    self.fim_dir, 'gw_catchments_reaches_clipped_addedAttributes.tif'
-                )
-            self.mask_type = mask_type
-            if mask_type == 'huc':
-                self.catchment_poly = ''
-            else:
-                self.catchment_poly = os.path.join(
-                    self.fim_dir, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg'
-                )
-            self.hydro_table = os.path.join(self.fim_dir, 'hydroTable.csv')
+                # self.rem = os.path.join(self.fim_dir, 'rem_zeroed_masked.tif')
+                # if not os.path.exists(self.rem):
+                #     self.rem = os.path.join(self.fim_dir, 'rem_clipped_zeroed_masked.tif')
+                # self.catchments = os.path.join(
+                #     self.fim_dir, 'gw_catchments_reaches_filtered_addedAttributes.tif'
+                # )
+                # if not os.path.exists(self.catchments):
+                #     self.catchments = os.path.join(
+                #         self.fim_dir, 'gw_catchments_reaches_clipped_addedAttributes.tif'
+                #     )
+                # self.mask_type = mask_type
+                # if mask_type == 'huc':
+                #     self.catchment_poly = ''
+                # else:
+                #     self.catchment_poly = os.path.join(
+                #         self.fim_dir, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg'
+                #     )
+                # self.hydro_table = os.path.join(self.fim_dir, 'hydroTable.csv')
 
-            # No longer needed (fim3)
+            # No longer needed (was for fim3)
             # self.hucs = os.path.join(INPUTS_DIR, 'wbd', WBD_FILE)
 
             if inclusion_area != '':
@@ -321,8 +332,7 @@ class Test_Case(Benchmark):
                         branch_workers=branch_workers,
                         precalb_option=precalb_option,
                         threads=threads,
-                        log_file_path=log_file_path,
-                        debug=debug,
+                        log_file_path=log_file_path
                     )
 
                 # Clean up 'total_area' outputs from AHPS sites
@@ -331,8 +341,7 @@ class Test_Case(Benchmark):
 
             # Write out evaluation meta-data
             # self.write_metadata(calibrated, model)
-            if debug:
-                logging.debug(f"Starting to write metadata file to {self.dir}")
+            logging.debug(f"Starting to write metadata file to {self.dir}")
             self.write_metadata(calibrated)
 
         except KeyboardInterrupt as kiex:
@@ -340,7 +349,7 @@ class Test_Case(Benchmark):
             # sys.exit(1)  # Note: you can not have this inside an MP as it won't really work
             raise kiex
         except Exception as ex:
-            logging.critical(f"CRITICAL ERROR: {ex}: {self.test_id}")
+            logging.critical(f"An exception has occured for {self.test_id}")
             # Temporarily adding stack trace
             logging.critical(traceback.format_exc())
             # sys.exit(1)  # Note: you can not have this inside an MP as it won't really work
@@ -349,12 +358,11 @@ class Test_Case(Benchmark):
             if verbose:
                 logging.info(f"Complete Alpha Test for {self.test_id}")
                 logging.info(sf.calculate_duration_msg(start_time))
-            elif debug:
+            else:
                 logging.debug(f"Complete Alpha Test for {self.test_id}")
                 logging.debug(sf.calculate_duration_msg(start_time))
 
-    # NOTE: Jun 2026: At this point, we do not use the verbose flag, but if we add the
-    # logging.debug system, that would have value.
+    
     def _inundate_and_compute(
         self,
         magnitude,
@@ -365,8 +373,7 @@ class Test_Case(Benchmark):
         verbose=False,
         branch_workers=1,
         threads=1,
-        log_file_path="",
-        debug=False
+        log_file_path=""
     ):
         '''Method for inundating and computing contingency rasters as part of the alpha_test.
         Used by both the alpha_test() and composite() methods.
@@ -383,11 +390,7 @@ class Test_Case(Benchmark):
         # Output files
         # fh.vprint("Creating output files", verbose)
 
-        # TODO: Debugging ?? the (temp keepign the self.huc output)
-        if verbose:
-            logging.info(f"Creating output files for {self.dir} - ({self.huc})")
-        elif debug:
-            logging.debug(f"Creating output files for {self.dir} - ({self.huc})")
+        logging.debug(f"Creating output files for {self.dir} - ({self.huc})")
 
         test_case_out_dir = os.path.join(self.dir, magnitude)
         inundation_prefix = lid + '_' if lid else ''
@@ -414,8 +417,8 @@ class Test_Case(Benchmark):
             domain = os.path.join(self.benchmark_dir, lid, f'{lid}_domain.shp')
             mask_dict_indiv.update({lid: {'path': domain, 'buffer': None, 'operation': 'include'}})
         # Check to make sure all relevant files exist
-        if debug:
-            logging.debug(f"benchmark_rast is {benchmark_rast} and benchmark_flows is {benchmark_flows}")
+
+        logging.debug(f"benchmark_rast is {benchmark_rast} and benchmark_flows is {benchmark_flows}")
         if (
             not os.path.isfile(benchmark_rast)
             or not os.path.isfile(benchmark_flows)
@@ -440,8 +443,7 @@ class Test_Case(Benchmark):
                 windowed=True,
                 # gms_multi_process=True,  # This means use threads not MP
                 gms_multi_process=False,  # This means use MP instead of threads
-                log_file=log_file_path,
-                debug=debug
+                log_file=log_file_path
             )
 
             # TODO: May 2026: adding verbose as True in produce_mosiacked_inundation
