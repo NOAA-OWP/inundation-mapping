@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.16.0 - 2026-06-12 - [PR#1855](https://github.com/NOAA-OWP/inundation-mapping/pull/1855)
+This PR closes issue #1788. 
+
+The `pull_osm_bridges.py` would silently time out on dense HUCs (e.g., HUC 02060006 — Columbia/Silver Spring, MD) and exit with a misleading "Success" log and no output file. This PR fixes that with a recursive 2×2 polygon splitting strategy and proper failure reporting. 
+
+
+### Changes
+- data/bridges/pull_osm_bridges.py
+<br/>
+
 ## v4.9.16.0 - 2026-06-02 - [PR#1787](https://github.com/NOAA-OWP/inundation-mapping/pull/1787)
 
 This PR closes issues #1778, #1795, and  #1796 and includes the following enhancements to the OSM bridge data acquisition pipeline.
