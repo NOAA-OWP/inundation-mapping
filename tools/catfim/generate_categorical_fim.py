@@ -3,6 +3,7 @@
 import argparse
 import logging
 import os
+import sys
 import re
 import shutil
 import traceback
@@ -56,6 +57,7 @@ def process_generate_categorical_fim(
     threshold_file,
     get_new_threshold_data,
     skip_processing,
+    model,
     overwrite,
 ):
     '''
@@ -99,6 +101,8 @@ def process_generate_categorical_fim(
     skip_processing - bool
         If True, this function will set up all of the initial 'pre-processing' steps, but will
         not continue with the processing of the hucs or post processing.
+    model - # TODO
+        TODO: fill in
     overwrite - bool
         If True, previous files (aside from logs) will be overwritten.
 
@@ -181,7 +185,7 @@ def process_generate_categorical_fim(
         local_vals = (
             locals()  # lst_hucs argument is used but passed via locals() so VSCode thinks it is not in use.
         )
-        valid_fim_hucs, dropped_huc_lst, nwm_meta_file, threshold_file = __validate_inputs(local_vals)
+        valid_fim_hucs, dropped_huc_lst, nwm_meta_file, threshold_file, inundate_hand, inundate_hr, hr_preference = __validate_inputs(local_vals)
         valid_fim_hucs.sort()
 
         # Note: this will handle a huc list arg of "all". If valid_fim_hucs is empty, it will thrown an exception
@@ -222,6 +226,15 @@ def process_generate_categorical_fim(
             f"... Logs will be saved to {log_file_path} initially and later copied over to {output_folder}/logs"
         )
 
+
+        logging.info(f"Producing CatFIM using the following model(s):")
+        if inundate_hand == True:
+            logging.info(f" - HAND")
+        if inundate_hr == True and hr_preference == True:
+            logging.info(f" - HEC-RAS (one per site)")
+        elif inundate_hr == True and hr_preference == False:
+            logging.info(f" - HEC-RAS (all available per site)")
+
         # Make sites output filepath (needed even if we choose skip_processing)
         nwm_sites_file = os.path.join(output_folder, "nwm_sites.parquet")
 
@@ -238,6 +251,9 @@ def process_generate_categorical_fim(
             get_new_threshold_data,
             fim_run_dir,
             past_major_interval_cap,
+            inundate_hand,
+            inundate_hr,
+            hr_preference,
         )
 
         # Throw a warning if any listed HUCs are in our FIM outputs
@@ -1189,7 +1205,45 @@ def __validate_inputs(received_locals_dict):
                     f" default value of {default_threshold_file}."
                 )
 
-    return valid_fim_hucs, dropped_huc_lst, nwm_meta_file, threshold_file
+    # -----------------
+    # Validate input model arg and set model tags
+
+    catfim_type = received_locals_dict["catfim_type"]
+    model = received_locals_dict["model"]
+
+    if catfim_type == "sb" and model != 'hand':
+        raise Exception(
+            "Model type specification is limited to flow-based CatFIM at this time."
+            " Re-run without the -mod command or run flow-based CatFIM to utilize this feature."
+        )
+
+    if model not in ['hand', 'hr', 'hra', 'handhr', 'handhra']:
+        raise Exception(
+            f"Invalid model type provided: {model}"
+            " Expected one of the following: 'hand', 'hr', 'hra', 'handhr', 'handhra'"
+            " Re-run without a valid -mod command."
+        )
+    
+    # Whether to inundate HAND models
+    # Set to true if the model tag contains 'hand' (model = hand, handhr, handhra)
+    # TODO: Add in this functionality or remove the option to not toggle HAND
+    inundate_hand = 'hand' in model
+
+    # Whether to run HEC-RAS
+    # Set to true if the model tag contains 'hr' (model = hr, hra, handhr, handhra)
+    inundate_hr = 'hr' in model
+
+    # If the model tag ends with 'a' (for 'all'), HEC-RAS preference is True (which means we will only run one HEC-RAS model per site)
+    # If not, we will run ALL available HEC-RAS models for each site
+    # (which is meant to be mainly for debugging and comparison and not recommended for full CatFIM runs).
+    if model.endswith('a'):
+        # no preference, run all
+        hr_preference = False
+    else:
+        # use preference, only run one hec ras model
+        hr_preference = True
+
+    return valid_fim_hucs, dropped_huc_lst, nwm_meta_file, threshold_file, inundate_hand, inundate_hr, hr_preference
 
 
 def __create_runtime_args_file(
@@ -1204,6 +1258,9 @@ def __create_runtime_args_file(
     get_new_threshold_data,
     fim_run_dir,
     past_major_interval_cap,
+    inundate_hand,
+    inundate_hr,
+    hr_preference,
 ):
     '''
     Create a runtime args environment file (saved as output_folder/runtime_args.env).
@@ -1237,7 +1294,12 @@ def __create_runtime_args_file(
     past_major_interval_cap - int
         Stage-Based only. How many feet past major do you want to go for the interval FIMs?
         of the machine. Defaults to 5.
-
+    inundate_hand - BOOL
+        TODO: Fill in
+    inundate_hr - BOOL
+        TODO: Fill in
+    hr_preference - BOOL
+        TODO: Fill in
     '''
 
     args_file_name = "runtime_args.env"
@@ -1259,6 +1321,9 @@ def __create_runtime_args_file(
         file.write(f"GET_NEW_THRESHOLD_DATA={get_new_threshold_data}\n")
         file.write(f"FIM_RUN_DIR=\"{fim_run_dir}\"\n")
         file.write(f"PAST_MAJOR_INTERVAL_CAP={past_major_interval_cap}\n")
+        file.write(f"INUNDATE_HAND={inundate_hand}\n")
+        file.write(f"INUNDATE_HR={inundate_hr}\n")
+        file.write(f"HR_PREFERENCE={hr_preference}\n")
 
 
 if __name__ == '__main__':
@@ -1457,6 +1522,19 @@ if __name__ == '__main__':
         required=False,
         default=False,
         action='store_true',
+    )
+
+    parser.add_argument(
+        '-mod',
+        '--model',
+        help='OPTIONAL: Define which model(s) to run between HAND and HEC-RAS. Currently only for flow-based CatFIM.'
+        ' hand : run HAND only (default)'
+        ' hr : run HEC-RAS only - use one HEC-RAS model per site'
+        ' hra : run HEC-RAS only - use ALL available HEC-RAS models (not recommended for large runs)'
+        ' handhr : run HAND and HEC-RAS - use one HEC-RAS model per site, prioritize HEC-RAS over HAND'
+        ' handhra : run HAND and HEC RAS - use ALL available HEC-RAS models, keep HEC-RAS and HAND sites (not recommended for large runs)',
+        required=False,
+        default="hand",
     )
 
     parser.add_argument(
