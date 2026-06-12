@@ -4,9 +4,11 @@ import glob
 import inspect
 import logging
 import os
+
 # import pathlib
 import re
 import shutil
+
 # import sys
 import threading
 import traceback
@@ -35,7 +37,7 @@ gp.options.io_engine = "pyogrio"
 
 
 # This one is a standard Python logger.
-# If you want the MP's to share a log file (not recommended), 
+# If you want the MP's to share a log file (not recommended),
 # then use the setup_mp_file_logger which shares a screenqueue object.
 # You can use this one in an MP but only if you ensure that each MP process
 # has its own log file. There is now a new log rollup function in here to
@@ -299,20 +301,22 @@ def l_print(msg, file_logger, log_level="info", screen_queue=None):
 # it does assume the child logs are in the same dir as the parent file.
 # This will also auto cover -error.log and -warning.log files as well.
 def merge_child_logs_into_parent_log(parent_log_file, child_prefix, remove_old_src_file=True):
-    
-    if (parent_log_file is None or parent_log_file == ""):
+
+    if parent_log_file is None or parent_log_file == "":
         raise ValueError("parent log file can not be none or empty")
 
-    if (child_prefix is None or child_prefix == ""):
+    if child_prefix is None or child_prefix == "":
         raise ValueError("child_prefix can not be none or empty")
 
     parent_log_folder = os.path.dirname(parent_log_file)
     parent_log_file_name = os.path.basename(parent_log_file)
 
     if parent_log_file_name.startswith(child_prefix):
-        raise ValueError(f"Parent log file name of {parent_log_file} can not start with the same" \
-                         "child prefix. Otherwise, glob is search for its own parent log" \
-                         "file instead of children to concat to the parent log file")
+        raise ValueError(
+            f"Parent log file name of {parent_log_file} can not start with the same"
+            "child prefix. Otherwise, glob is search for its own parent log"
+            "file instead of children to concat to the parent log file"
+        )
 
     # calc the default parent error and warnign file.
     parent_log_error_file = parent_log_file.replace(".log", "-errors.log")
@@ -329,25 +333,28 @@ def merge_child_logs_into_parent_log(parent_log_file, child_prefix, remove_old_s
             concat_files(child_log, parent_log_warning_file, remove_old_src_file)
         else:
             concat_files(child_log, parent_log_file, remove_old_src_file)
-            
+
     return num_child_files_found
+
 
 # Clears out all files with that prefix so old ones are not merged into a new run.
 # Which can for various reasons including fails and aborts.
 def remove_child_logs(parent_log_file, child_prefix):
-    if (parent_log_file is None or parent_log_file == ""):
+    if parent_log_file is None or parent_log_file == "":
         raise ValueError("parent log file can not be none or empty")
 
-    if (child_prefix is None or child_prefix == ""):
+    if child_prefix is None or child_prefix == "":
         raise ValueError("child_prefix can not be none or empty")
 
     parent_log_folder = os.path.dirname(parent_log_file)
     parent_log_file_name = os.path.basename(parent_log_file)
 
     if parent_log_file_name.startswith(child_prefix):
-        raise ValueError(f"Parent log file name of {parent_log_file} can not start with the same" \
-                         "child prefix. Otherwise, glob is search for its own parent log" \
-                         "file instead of children to concat to the parent log file")
+        raise ValueError(
+            f"Parent log file name of {parent_log_file} can not start with the same"
+            "child prefix. Otherwise, glob is search for its own parent log"
+            "file instead of children to concat to the parent log file"
+        )
 
     child_log_files = list(glob.glob(os.path.join(parent_log_folder, f'{child_prefix}*'), recursive=True))
     for child_log in child_log_files:
@@ -497,7 +504,7 @@ def run_with_mp(
         #   In this particular run_with_mp, it also has a thread and memory / screen queue which can also
         #   be get stuck and not get cleaned up. TQDM is a threaded tool and it has to be managed
         #   to make sure it doesn't get stuck as well.
-        #   This is why we have a bizarre exception handling system here and it works pretty well.        
+        #   This is why we have a bizarre exception handling system here and it works pretty well.
         #
         # Also as mentioned... can not kill an mp that has already started. There is no abort a currently running
         #   mp (threads you can but not MP's and threads come with a whole new set of challenges and only advised
@@ -515,7 +522,7 @@ def run_with_mp(
         #   abort and stop new ones from firing.
 
         # CTRL-C entered multiple of times from console will stop the two program faster as it will kill
-        # each child process one at a time, but CTRL-C a bunch of times can kill it. 
+        # each child process one at a time, but CTRL-C a bunch of times can kill it.
         # However, if you CTRL-C abort, close your container to release the memory leaks or unclosed
         # processes and restart a new container.
 
@@ -677,7 +684,7 @@ def run_with_mp(
 #     show_progress=True,  # Optional show tqdm.
 #     max_workers=4,
 # ):
-    
+
 #     """
 
 #     Parameters
@@ -690,7 +697,7 @@ def run_with_mp(
 #                 {"huc": "12090301",
 #                  "file_path": "...blah/blah/hucs"}
 #         ]
-#         Good to use one dict object that has a unique id for each item in the 
+#         Good to use one dict object that has a unique id for each item in the
 #         list. ie) each huc be a unique vale. Should be a simple string.
 #         The task_id_key below shows which field is unique per child MP.
 
@@ -742,7 +749,7 @@ def run_with_mp(
 #         - It has its own "parent" log file. Usually the same one as the default py logger.
 #         - Each child has its own python logger with the same overridden args, and each of those
 #           child log file have custom names and do not risk file write collisions.
-#           Eech child log does have a "child_prefix" key in the file name which is used to 
+#           Eech child log does have a "child_prefix" key in the file name which is used to
 #           roll each child log into the parent via the merge_child_logs_into_parent_log function.
 #           It will extract the file path from the incoming parent_log_file and put the child logs
 #           in that same folder (of course with the child prefix)
@@ -759,7 +766,7 @@ def run_with_mp(
 #         - To create its own py logger using setup_file_logger and its designated logger
 #         - They are fully capturing via try/except inside that function.
 #         - Ensure if follows the rules about return valuse from the child mp function. see rules lower.
-   
+
 #     '''
 
 #     '''
@@ -812,7 +819,7 @@ def run_with_mp(
 #     if not parent_log_file or parent_log_file.strip() == "":
 #         raise Exception("log_folder_path can not be None or empty")
 #     if not child_log_prefix or child_log_prefix.strip() == "":
-#         raise Exception("child_log_prefix can not be None or empty")    
+#         raise Exception("child_log_prefix can not be None or empty")
 
 #     # TODO: Add a validation test to ensure the task_id_key exists as a poplated key in all items
 #     # in the tasks_args_list.
@@ -851,7 +858,7 @@ def run_with_mp(
 #         #   abort and stop new ones from firing.
 
 #         # CTRL-C entered multiple of times from console will stop the two program faster as it will kill
-#         # each child process one at a time, but CTRL-C a bunch of times can kill it. 
+#         # each child process one at a time, but CTRL-C a bunch of times can kill it.
 #         # However, if you CTRL-C abort, close your container to release the memory leaks or unclosed
 #         # processes and restart a new container.
 
@@ -995,6 +1002,7 @@ def run_with_mp(
 
 # #################################
 # Misc tools#
+
 
 def getDriver(fileName):
     driverDictionary = {'.gpkg': 'GPKG', '.geojson': 'GeoJSON', '.shp': 'ESRI Shapefile'}

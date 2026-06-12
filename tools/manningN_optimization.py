@@ -787,7 +787,7 @@ def multi_process_optimization(
                 executor_dict[future] = huc
             except Exception as ex:
                 print(f"*** {ex}")
-                # TODO: consider changing traceback.print_exc() to 
+                # TODO: consider changing traceback.print_exc() to
                 # logging.critical(traceback.format_exc())
                 # traceback.print_exc() goes straight to native logs if set up
                 # traceback.format_exc() returns a string that you can log, print or whatever

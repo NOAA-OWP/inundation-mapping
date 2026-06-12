@@ -1,25 +1,25 @@
 #!/usr/bin/env python3
 
 import argparse
-import os
 import logging
+import os
 import traceback
 import warnings
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from typing import List, Optional, Tuple, Union
 
 import pandas as pd
-from inundation import NoForecastFound, hydroTableHasOnlyLakes, inundate
 from tqdm import tqdm
+
+from inundation import NoForecastFound, hydroTableHasOnlyLakes, inundate
+from src.utils.shared_functions import FIM_Helpers as fh
+from src.utils.shared_functions import s3_or_local_isfile, s3_or_local_path_exists
+
 
 # Suppress only FutureWarnings
 # TODO: Jun 2026: This is a temp fix as gval is what is issuing this
 # A new gval is already ready to plug into fix this. We can remove it later.
 warnings.simplefilter(action='ignore', category=FutureWarning)
-
-
-from src.utils.shared_functions import FIM_Helpers as fh
-from src.utils.shared_functions import s3_or_local_isfile, s3_or_local_path_exists
 
 
 def Inundate_gms(
@@ -124,14 +124,14 @@ def Inundate_gms(
         hydro_table_df,
         verbose=False,
         windowed=windowed,
-        precalb_option=precalb_option
+        precalb_option=precalb_option,
     )
 
-    #logging.debug(f"back from __inundate_gms_generator for {hucs} with number of branches
+    # logging.debug(f"back from __inundate_gms_generator for {hucs} with number of branches
     #   of {len(hucs_branches)}")
 
     # TODO: Jun 2026: Nice to have: This could be replaced by a list created in teach future_result
-    # and appended to a master list.  It would mean the generator would need to 
+    # and appended to a master list.  It would mean the generator would need to
     # return the huc and branch is all. But this works too.
     inundation_raster_fileNames = [None] * number_of_branches
     inundation_polygon_fileNames = [None] * number_of_branches
@@ -142,15 +142,19 @@ def Inundate_gms(
     try:
         with ThreadPoolExecutor(max_workers=num_workers) as executor:
 
-            executor_generator = {executor.submit(inundate, **inp): ids for inp, ids in inundate_input_generator}
+            executor_generator = {
+                executor.submit(inundate, **inp): ids for inp, ids in inundate_input_generator
+            }
 
             # Using tqdm manually instead of part of as_completed, we have more
             # control over future results and exceptions
-            pbar = tqdm(total=len(executor_generator),
-                        desc=f"Inundating branches with {num_workers} workers",
-                        unit="task",
-                        disable=(not show_progress_bar))
-        
+            pbar = tqdm(
+                total=len(executor_generator),
+                desc=f"Inundating branches with {num_workers} workers",
+                unit="task",
+                disable=(not show_progress_bar),
+            )
+
             # for future in tqdm(
             #     as_completed(executor_generator),
             #     total=len(executor_generator),
@@ -178,25 +182,33 @@ def Inundate_gms(
                 except (hydroTableHasOnlyLakes, NoForecastFound) as exc:
 
                     if log_file is not None and log_file != "":
-                        print(f"Warning: {hucCode},{branch_id}: {exc.__class__.__name__}", file=open(log_file, "a"))
+                        print(
+                            f"Warning: {hucCode},{branch_id}: {exc.__class__.__name__}",
+                            file=open(log_file, "a"),
+                        )
                     # else:
-                        # TODO: Jun 2026: yes.. commenting this out can bury some scripts if they do
-                        # not have a logger or pass in a log_file path.
-                        # print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
-                    logging.warning(f"Warning: {hucCode},{branch_id}: {exc.__class__.__name__}, {exc}", file=open(log_file, "a"))
+                    # TODO: Jun 2026: yes.. commenting this out can bury some scripts if they do
+                    # not have a logger or pass in a log_file path.
+                    # print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
+                    logging.warning(
+                        f"Warning: {hucCode},{branch_id}: {exc.__class__.__name__}, {exc}",
+                        file=open(log_file, "a"),
+                    )
 
                 except Exception as exc:
 
                     if log_file is not None and log_file != "":
-                        print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=open(log_file, "a"))
+                        print(
+                            f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=open(log_file, "a")
+                        )
                     # else:
-                        # TODO: Jun 2026: yes.. commenting this out can bury some scripts if they do
-                        # not have a logger or pass in a log_file path.
-                        # print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
+                    # TODO: Jun 2026: yes.. commenting this out can bury some scripts if they do
+                    # not have a logger or pass in a log_file path.
+                    # print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
 
                     logging.critical(f"Error: {hucCode},{branch_id},{exc.__class__.__name__}")
                     logging.critical(traceback.format_exc())
-                    
+
                     # Note: You can not sys.exit from a ProcessPoolExecutor directly
                     # all processes inside the ProcessPoolExecutor can not be aborted
                     # but you can shutdown and stop the executor from creating more.
@@ -204,8 +216,8 @@ def Inundate_gms(
                     # ThreadPoolExecutors can abort treads in process.
                     executor.shutdown(wait=False, cancel_futures=True)
                     raise exc  # yes.. reraise
-                
-                else: # excutes only if the try was successful
+
+                else:  # excutes only if the try was successful
                     # TODO: Jun 2026: idx system not really the best, kinda loose
                     hucCodes[idx] = hucCode
                     branch_ids[idx] = branch_id
@@ -226,7 +238,7 @@ def Inundate_gms(
                         pass
 
                     idx += 1
-                    pbar.update(1)  # ✅ Progress update for each completed task 
+                    pbar.update(1)  # ✅ Progress update for each completed task
 
             # power down pool
             # if future.running():
@@ -269,7 +281,7 @@ def __inundate_gms_generator(
     hydro_table_df: Union[str, pd.DataFrame],
     verbose: Optional[bool] = False,
     precalb_option: Optional[bool] = False,
-    windowed: Optional[bool] = False
+    windowed: Optional[bool] = False,
 ):
     """
     Generator for use in parallelizing inundation

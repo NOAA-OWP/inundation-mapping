@@ -19,16 +19,19 @@ from shapely.geometry import shape
 
 import src.utils.shared_functions as sf
 
+
 gpd.options.io_engine = "pyogrio"
 
 
 class hydroTableHasOnlyLakes(Exception):
     """Raised when a Hydro-Table only has lakes"""
+
     pass
 
 
 class NoForecastFound(Exception):
     """Raised when no forecast is available for a given Hydro-Table"""
+
     pass
 
 
@@ -49,7 +52,7 @@ def inundate(
     src_table: Optional[str] = None,
     quiet: Optional[bool] = False,
     precalb_option: Optional[bool] = False,
-    windowed: Optional[bool] = False
+    windowed: Optional[bool] = False,
 ):
     """
 
@@ -125,7 +128,7 @@ def inundate(
     """
 
     logging.debug(f"Starting inundation for {inundation_raster}")
-    
+
     # check for num_workers
     num_workers = int(num_workers)
     assert num_workers >= 1, "Number of workers should be 1 or greater"
@@ -202,7 +205,7 @@ def inundate(
                 create_src_subset_csv(hydro_table, catchmentStagesDict, src_table)
 
             # Possible test code.. just a Rob comment for now. Talked to Greg about it
-            # Jun 2026: Rasterio no longer supports direct arguments, and wants a json format            
+            # Jun 2026: Rasterio no longer supports direct arguments, and wants a json format
             # depths_profile = {
             #     'driver': 'GTiff',
             #     'tiled': True,
@@ -211,7 +214,7 @@ def inundate(
             # }
             # with rasterio.open('output.tif', 'w', **profile) as dst:
             #     dst.write(data)
-            
+
             # TODO: Jun 2026: research this more
             # Jun 2026: Can't use blockxsize and blockysize (seeing as we are using COG GeoTiffs)
             depths_profile.update(driver='GTiff', blockxsize=256, blockysize=256, tiled=True)
@@ -221,7 +224,7 @@ def inundate(
             # inundation_profile.update(driver='GTiff', blocksize=256, tiled=True, nodata=0)
 
             # logging.debug(f"Depth Profile for {hucs} is {depths_profile} - post update")
-            # logging.debug(f"Depth inundation_profile for {hucs} is {inundation_profile} - post update")        
+            # logging.debug(f"Depth inundation_profile for {hucs} is {inundation_profile} - post update")
             # logging.debug("*******************")
 
             # depth_rst = rasterio.open(depths, "w+", **depths_profile) if depths is not None else None
@@ -233,7 +236,9 @@ def inundate(
                 else None
             )
 
-            nodata = np.int16(inundation_profile['nodata']) if int_16 else np.int32(inundation_profile['nodata'])
+            nodata = (
+                np.int16(inundation_profile['nodata']) if int_16 else np.int32(inundation_profile['nodata'])
+            )
 
             # make windows generator
             window_gen = __make_windows_generator(
@@ -251,7 +256,7 @@ def inundate(
                 depth_rst=depth_rst,
                 inundation_rst=inundation_rst,
                 inundation_nodata=nodata,
-                min_value=30 if int_16 else 0.03048
+                min_value=30 if int_16 else 0.03048,
             )
 
             inundation_rasters = []
@@ -429,7 +434,7 @@ def __make_windows_generator(
     depth_rst: Optional[str] = None,
     inundation_rst: Optional[str] = None,
     inundation_nodata: Optional[int] = None,
-    min_value: int = 30
+    min_value: int = 30,
 ):
     """
     Generator to split processing in to windows or different masked datasets
@@ -595,6 +600,7 @@ def __make_windows_generator(
                 "inundation_nodata": inundation_nodata,
                 "min_value": min_value,
             }
+
 
 # Not used
 # def __append_huc_code_to_file_name(fileName: str, hucCode: str) -> str:

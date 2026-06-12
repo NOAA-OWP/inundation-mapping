@@ -14,7 +14,7 @@ from src.utils.shared_functions import s3_or_local_path_exists
 from src.utils.shared_variables import elev_raster_ndv
 
 
-# Jun 2026: num_workers has been removed in favor of 
+# Jun 2026: num_workers has been removed in favor of
 # just number of threads. It was not really used.
 # It now uses MultiThread versus MultiProc
 def produce_mosaicked_inundation(
@@ -161,7 +161,7 @@ def produce_mosaicked_inundation(
         precalb_option=precalb_option,
         windowed=windowed,
         log_file=log_file,
-        show_progress_bar=show_progress_bar
+        show_progress_bar=show_progress_bar,
     )
 
     # Write map file if designated
@@ -198,7 +198,7 @@ def produce_mosaicked_inundation(
                 verbose=verbose,
                 is_mosaic_for_branches=is_mosaic_for_branches,
                 inundation_polygon=inundation_polygon,
-                workers=num_threads
+                workers=num_threads,
             )
 
     fh.vprint("Mosaicking complete.", verbose)
@@ -266,11 +266,7 @@ if __name__ == "__main__":
         type=str,
     )
     parser.add_argument(
-        "-w", "--num_threads",
-        help="Number of worker threads.",
-        required=False,
-        default=1,
-         type=int
+        "-w", "--num_threads", help="Number of worker threads.", required=False, default=1, type=int
     )
     parser.add_argument(
         "-r",

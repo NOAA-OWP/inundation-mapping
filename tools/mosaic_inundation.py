@@ -49,7 +49,7 @@ def Mosaic_inundation(
     subset: Optional[str] = None,
     verbose: Optional[bool] = True,
     is_mosaic_for_branches: Optional[bool] = False,
-    inundation_polygon: Optional[str] = None
+    inundation_polygon: Optional[str] = None,
 ) -> str:
     """
     Mosaic inundation extents or depths
@@ -96,7 +96,7 @@ def Mosaic_inundation(
 
     # load file
     if isinstance(map_file, pd.DataFrame):
-        logging.debug(f"Loading inundation_maps_df from map_file df ")
+        logging.debug("Loading inundation_maps_df from map_file df ")
         inundation_maps_df = map_file
         del map_file
     elif isinstance(map_file, str):
@@ -105,14 +105,15 @@ def Mosaic_inundation(
     else:
         raise TypeError("Pass Pandas Dataframe or file path string to csv for map_file argument")
 
-
     # inundation_maps_df = inundation_maps_df.dropna(axis=0, how="all")
     # remove all records where the three inudation paths are empty
-    inundation_maps_df = inundation_maps_df.dropna(subset=['inundation_rasters',
-                                                            'depths_rasters',
-                                                            'inundation_polygons'])
+    inundation_maps_df = inundation_maps_df.dropna(
+        subset=['inundation_rasters', 'depths_rasters', 'inundation_polygons']
+    )
     if len(inundation_maps_df) == 0:
-        raise Exception(f"inundation_maps_df has no values in the three raster/polygon columns for {mosaic_output}")
+        raise Exception(
+            f"inundation_maps_df has no values in the three raster/polygon columns for {mosaic_output}"
+        )
 
     # subset
     if subset is not None:
@@ -143,7 +144,7 @@ def Mosaic_inundation(
             inundation_maps_list = inundation_maps_df.loc[ag, mosaic_attribute].tolist()
             logging.debug("finished attempt to get list")
         except AttributeError as ae:
-            logging.warning(f"Attribute error while processing {mosaic_output}")
+            logging.warning(f"Attribute error while processing {mosaic_output}: {ae}")
             inundation_maps_list = [inundation_maps_df.loc[ag, mosaic_attribute]]
             logging.debug("did we get here?")
 
@@ -159,13 +160,13 @@ def Mosaic_inundation(
         if (is_mosaic_for_branches) and (ag not in mosaic_output):
             ag_mosaic_output = fh.append_id_to_file_name(mosaic_output, ag)  # change it
 
-    # inundation_maps_list: list,
-    # mosaic_output: str,
-    # nodata: Optional[int] = elev_raster_ndv,
-    # workers: Optional[int] = 1,
-    # remove_inputs: Optional[bool] = False,
-    # mask: Optional[str] = None,
-    # verbose: Optional[bool] = False,
+        # inundation_maps_list: list,
+        # mosaic_output: str,
+        # nodata: Optional[int] = elev_raster_ndv,
+        # workers: Optional[int] = 1,
+        # remove_inputs: Optional[bool] = False,
+        # mask: Optional[str] = None,
+        # verbose: Optional[bool] = False,
 
         # are we no longer using the "mask" object?
 
@@ -189,7 +190,7 @@ def Mosaic_inundation(
     if remove_inputs:
         # fh.vprint("Removing inputs ...", verbose)
         if verbose:
-            #print(f"Removing inputs ... (in Mosiac_inundation) .. {mosaic_output}")
+            # print(f"Removing inputs ... (in Mosiac_inundation) .. {mosaic_output}")
             logging.info(f"Removing inputs ... (in Mosiac_inundation) .. {mosaic_output}")
 
         for remove_file in remove_at_end:
@@ -245,7 +246,7 @@ def mosaic_by_unit(
         logging.debug("+++++++++++++++++")
         logging.debug("about to merge")
         logging.debug(locals())
-        logging.debug("+++++++++++++++++")        
+        logging.debug("+++++++++++++++++")
 
         merge(inundation_maps_list, method='max', nodata=nodata, dst_path=mosaic_output)
 
@@ -257,7 +258,7 @@ def mosaic_by_unit(
         #     # fh.vprint("Masking ...", verbose)
         #     if verbose:
         #         logging.info(f"Masking ... ({mosaic_output})")
-            # mask_mosaic(mosaic_output, mask, outfile=mosaic_output, workers=workers)
+        # mask_mosaic(mosaic_output, mask, outfile=mosaic_output, workers=workers)
 
     if remove_inputs:
         # fh.vprint("Removing inputs ...", verbose)

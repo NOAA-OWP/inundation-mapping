@@ -1,36 +1,37 @@
 #!/usr/bin/env python3
-import os
-
 import json
 import logging
+import os
 import re
 import shutil
+
 # import sys
 import traceback
 from datetime import datetime, timezone
 
 import pandas as pd
-
-import src.utils.shared_functions as sf
-from src.utils.shared_functions import FIM_Helpers as fh
 from inundate_mosaic_wrapper import produce_mosaicked_inundation
+
 # from inundation import inundate
 # from mosaic_inundation import Mosaic_inundation
 from tools_shared_functions import compute_contingency_stats_from_rasters
-from tools_shared_variables import (
+from tools_shared_variables import (  # INPUTS_DIR,; elev_raster_ndv,
     AHPS_BENCHMARK_CATEGORIES,
-#      INPUTS_DIR,
     MAGNITUDE_DICT,
     OUTPUTS_DIR,
     PREVIOUS_FIM_DIR,
     TEST_CASES_DIR,
-#   elev_raster_ndv,
 )
+
+import src.utils.shared_functions as sf
+from src.utils.shared_functions import FIM_Helpers as fh
+
 
 # TODO: May 2026: This is highly inefficent. We can load much smaller WBD files, or even use something
 # from the HUC dir or preclip ti speed this up.
 # This also might trigger thread or MP collisions.
 # WBD_FILE = "WBD_National.gpkg"
+
 
 class Benchmark(object):
     AHPS_BENCHMARK_CATEGORIES = AHPS_BENCHMARK_CATEGORIES
@@ -122,9 +123,7 @@ class Test_Case(Benchmark):
 
         # TODO: Jun 2026, This really could be changed to an argument and not calculated paths
         self.fim_huc_dir = os.path.join(
-            PREVIOUS_FIM_DIR if archive else OUTPUTS_DIR,
-            self.hand_version,
-            self.huc,
+            PREVIOUS_FIM_DIR if archive else OUTPUTS_DIR, self.hand_version, self.huc
         )
 
         # Test the HUC folder
@@ -132,7 +131,8 @@ class Test_Case(Benchmark):
             # files that should exist if the huc finished processing correctly
             # If not... the huc failed.
             if os.path.isfile(os.path.join(self.fim_huc_dir, "hydrotable.csv")) or os.path.isfile(
-                os.path.join(self.fim_huc_dir, "hydrotable.parquet")):
+                os.path.join(self.fim_huc_dir, "hydrotable.parquet")
+            ):
 
                 self.is_valid_huc = True
 
@@ -216,8 +216,8 @@ class Test_Case(Benchmark):
         branch_workers=1,
         precalb_option=False,
         threads=1,
-        log_folder='', 
-        log_prefix=''
+        log_folder='',
+        log_prefix='',
     ):
         '''Compares a FIM directory with benchmark data from a variety of sources.
 
@@ -252,7 +252,7 @@ class Test_Case(Benchmark):
         try:
             # NOTE: logger does screen and log file
             # NOTE: If not set, it will use the default logging folder and path, likely were the script is.
-            if (log_folder != ""):
+            if log_folder != "":
                 log_file_path = sf.setup_file_logger(log_folder, f"{log_prefix}_{self.test_id}")
             if verbose:
                 logging.info(f"Started Alpha Test for {self.test_id}")
@@ -260,7 +260,9 @@ class Test_Case(Benchmark):
                 logging.debug(f"Started Alpha Test for {self.test_id}")
 
             if not overwrite and os.path.isdir(self.dir):
-                logging.warning(f"Metrics for {self.dir} already exist. Use overwrite flag (-o) to overwrite metrics.")
+                logging.warning(
+                    f"Metrics for {self.dir} already exist. Use overwrite flag (-o) to overwrite metrics."
+                )
                 return
 
             # fh.vprint(f"Starting alpha test for {self.dir}", verbose)
@@ -270,24 +272,24 @@ class Test_Case(Benchmark):
 
             # Create paths to fim_run outputs for use in inundate()
             # if model != 'GMS':
-                # self.rem = os.path.join(self.fim_dir, 'rem_zeroed_masked.tif')
-                # if not os.path.exists(self.rem):
-                #     self.rem = os.path.join(self.fim_dir, 'rem_clipped_zeroed_masked.tif')
-                # self.catchments = os.path.join(
-                #     self.fim_dir, 'gw_catchments_reaches_filtered_addedAttributes.tif'
-                # )
-                # if not os.path.exists(self.catchments):
-                #     self.catchments = os.path.join(
-                #         self.fim_dir, 'gw_catchments_reaches_clipped_addedAttributes.tif'
-                #     )
-                # self.mask_type = mask_type
-                # if mask_type == 'huc':
-                #     self.catchment_poly = ''
-                # else:
-                #     self.catchment_poly = os.path.join(
-                #         self.fim_dir, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg'
-                #     )
-                # self.hydro_table = os.path.join(self.fim_dir, 'hydroTable.csv')
+            # self.rem = os.path.join(self.fim_dir, 'rem_zeroed_masked.tif')
+            # if not os.path.exists(self.rem):
+            #     self.rem = os.path.join(self.fim_dir, 'rem_clipped_zeroed_masked.tif')
+            # self.catchments = os.path.join(
+            #     self.fim_dir, 'gw_catchments_reaches_filtered_addedAttributes.tif'
+            # )
+            # if not os.path.exists(self.catchments):
+            #     self.catchments = os.path.join(
+            #         self.fim_dir, 'gw_catchments_reaches_clipped_addedAttributes.tif'
+            #     )
+            # self.mask_type = mask_type
+            # if mask_type == 'huc':
+            #     self.catchment_poly = ''
+            # else:
+            #     self.catchment_poly = os.path.join(
+            #         self.fim_dir, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg'
+            #     )
+            # self.hydro_table = os.path.join(self.fim_dir, 'hydroTable.csv')
 
             # No longer needed (was for fim3)
             # self.hucs = os.path.join(INPUTS_DIR, 'wbd', WBD_FILE)
@@ -333,7 +335,7 @@ class Test_Case(Benchmark):
                         branch_workers=branch_workers,
                         precalb_option=precalb_option,
                         threads=threads,
-                        log_file_path=log_file_path
+                        log_file_path=log_file_path,
                     )
 
                 # Clean up 'total_area' outputs from AHPS sites
@@ -364,7 +366,6 @@ class Test_Case(Benchmark):
                 logging.debug(f"Complete Alpha Test for {self.test_id}")
                 logging.debug(sf.calculate_duration_msg(start_time))
 
-    
     def _inundate_and_compute(
         self,
         magnitude,
@@ -375,7 +376,7 @@ class Test_Case(Benchmark):
         verbose=False,
         branch_workers=1,
         threads=1,
-        log_file_path=""
+        log_file_path="",
     ):
         '''Method for inundating and computing contingency rasters as part of the alpha_test.
         Used by both the alpha_test() and composite() methods.
@@ -445,7 +446,7 @@ class Test_Case(Benchmark):
             windowed=True,
             # gms_multi_process=True,  # This means use threads not MP
             log_file=log_file_path,
-            show_progress_bar=False
+            show_progress_bar=False,
         )
 
         # Create contingency rasters and stats
@@ -506,7 +507,7 @@ class Test_Case(Benchmark):
     #     with open(os.path.join(self.dir, 'eval_metadata.json'), 'w') as meta:
     #         # eval_meta = {'calibrated': calibrated, 'model': model}
     #         eval_meta = {'calibrated': calibrated}
-            # meta.write(json.dumps(eval_meta, indent=2))
+    # meta.write(json.dumps(eval_meta, indent=2))
 
     def clean_ahps_outputs(self, magnitude_directory):
         '''Cleans up `total_area` files from an input AHPS magnitude directory.'''

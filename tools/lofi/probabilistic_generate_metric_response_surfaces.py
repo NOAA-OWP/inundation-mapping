@@ -15,6 +15,7 @@ from tqdm.notebook import tqdm
 
 warnings.filterwarnings("ignore")
 
+
 # Jun 2026: num_workers arg is no longer available
 # It was not previously used correctly in produce_mosaicked_inundation
 def create_flood_maps(
@@ -302,7 +303,7 @@ if __name__ == "__main__":
         'flows': flows,
         'hucs': [huc],
         'num_jobs': 8,  # Jun 2026: no longer in use
-        'num_threads': 40, # Jun 2026: Change from 8
+        'num_threads': 40,  # Jun 2026: Change from 8
         'overwrite': True,
         'windowed': False,
     }

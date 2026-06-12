@@ -8,8 +8,10 @@ from multiprocessing import Pool
 import pandas as pd
 from pixel_counter import zonal_stats
 
+
 # TODO: review to see if logging is required, either explicit or implicit (based)
 # on logging set up in calling functions.
+
 
 def queue_zonal_stats(fim_run_dir, raster_path_dict, output_dir, job_number):
     """
@@ -65,7 +67,7 @@ def process_zonal_stats(args):
         # TODO: review to see if logging is required, either explicit or implicit (based)
         # on logging set up in calling functions.
 
-        # TODO: consider changing traceback.print_exc() to 
+        # TODO: consider changing traceback.print_exc() to
         # logging.critical(traceback.format_exc())
         # traceback.print_exc() goes straight to native logs if set up
         # traceback.format_exc() returns a string that you can log, print or whatever
