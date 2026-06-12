@@ -13,7 +13,6 @@ elif [[ "$level" == "unit" ]]; then
     z_arg="${tempHucDataDir}/nwm_catchments_proj_subset.gpkg"
 fi
 
-
 ## MASK LEVEE-PROTECTED AREAS FROM DEM ##
 if [[ "$mask_leveed_area_toggle" == "True"  &&  -f "${tempHucDataDir}/LeveeProtectedAreas_subset.gpkg" ]]; then
     echo -e "${startDiv}Mask levee-protected areas from DEM (*Overwrite dem_meters.tif output) ${hucNumber} ${current_branch_id}"
@@ -42,15 +41,13 @@ args=(
 )
 python3 "${srcDir}/accumulate_headwaters.py" "${args[@]}"
 
-
 ## PREPROCESSING FOR LATERAL THALWEG ADJUSTMENT ###
 echo -e "${startDiv}Preprocessing for lateral thalweg adjustment ${hucNumber} ${current_branch_id}"
 args=(
     -s "${tempCurrentBranchDataDir}/demDerived_streamPixels_${current_branch_id}.tif"
     -o "${tempCurrentBranchDataDir}/demDerived_streamPixels_ids_${current_branch_id}.tif"
 )
-python3 ${srcDir}/unique_pixel_and_allocation.py "${args[@]}"
-
+python3 "${srcDir}/unique_pixel_and_allocation.py" "${args[@]}"
 
 ## ADJUST THALWEG MINIMUM USING LATERAL ZONAL MINIMUM ##
 echo -e "${startDiv}Performing lateral thalweg adjustment ${hucNumber} ${current_branch_id}"
@@ -63,8 +60,7 @@ args=(
     -o "${tempCurrentBranchDataDir}/dem_lateral_thalweg_adj_${current_branch_id}.tif"
     -th "${thalweg_lateral_elev_threshold}"
 )
-python3 ${srcDir}/adjust_thalweg_lateral.py "${args[@]}"
-
+python3 "${srcDir}/adjust_thalweg_lateral.py" "${args[@]}"
 
 ## MASK BURNED DEM FOR STREAMS ONLY ###
 echo -e "${startDiv}Mask Burned DEM for Thalweg Only ${hucNumber} ${current_branch_id}"
@@ -89,12 +85,12 @@ args=(
 "$taudemDir/flowdircond" "${args[@]}" \
     2> >(while read -r line; do
         # Check if BOTH strings are present in the error line
-        if [[ "$line" == *"ERROR 6:"* && "$line" == *"Dataset does not support the AddBand() method."* ]]; then
+        if [[ "${line}" == *"ERROR 6:"* && "${line}" == *"Dataset does not support the AddBand() method."* ]]; then
             # Do nothing (ignore the error)
             :
         else
             # Print the line to the standard error stream (screen)
-            echo "$line" >&2
+            echo "${line}" >&2
         fi
     done)
 
@@ -104,15 +100,15 @@ args=(
     -fel "${tempCurrentBranchDataDir}/dem_lateral_thalweg_adj_${current_branch_id}.tif"
     -sd8 "${tempCurrentBranchDataDir}/slopes_d8_dem_meters_${current_branch_id}.tif"
 )
-mpiexec -n "${ncores_fd}" "$taudemDir2/d8flowdir" "${args[@]}" \
+mpiexec -n "${ncores_fd}" "${taudemDir2}/d8flowdir" "${args[@]}" \
     2> >(while read -r line; do
         # Check if BOTH strings are present in the error line
-        if [[ "$line" == *"ERROR 6:"* && "$line" == *"Dataset does not support the AddBand() method."* ]]; then
+        if [[ "${line}" == *"ERROR 6:"* && "${line}" == *"Dataset does not support the AddBand() method."* ]]; then
             # Do nothing (ignore the error)
             :
         else
             # Print the line to the standard error stream (screen)
-            echo "$line" >&2
+            echo "${line}" >&2
         fi
     done)
     # May 1, 2026: Merge config between Ryan and Matt gdal PR. commented out Ryans. Can we marry the two? do we want too?
@@ -135,12 +131,12 @@ args=(
 "${taudemDir}/streamnet" "${args[@]}" \
     2> >(while read -r line; do
         # Check if BOTH strings are present in the error line
-        if [[ "$line" == *"ERROR 6:"* && "$line" == *"Dataset does not support the AddBand() method."* ]]; then
+        if [[ "${line}" == *"ERROR 6:"* && "${line}" == *"Dataset does not support the AddBand() method."* ]]; then
             # Do nothing (ignore the error)
             :
         else
             # Print the line to the standard error stream (screen)
-            echo "$line" >&2
+            echo "${line}" >&2
         fi
     done)
 
@@ -171,21 +167,20 @@ args=(
 mpiexec -n "${ncores_gw}" "${taudemDir}/gagewatershed" "${args[@]}" \
     2> >(while read -r line; do
         # Check if BOTH strings are present in the error line
-        if [[ "$line" == *"ERROR 6:"* && "$line" == *"Dataset does not support the AddBand() method."* ]]; then
+        if [[ "${line}" == *"ERROR 6:"* && "${line}" == *"Dataset does not support the AddBand() method."* ]]; then
             # Do nothing (ignore the error)
             :
         else
             # Print the line to the standard error stream (screen)
-            echo "$line" >&2
+            echo "${line}" >&2
         fi
     done)
-
 
 ## VECTORIZE FEATURE ID CENTROIDS ##
 echo -e "${startDiv}Vectorize Pixel Centroids ${hucNumber} ${current_branch_id}"
 args=(
     -r "${tempCurrentBranchDataDir}/demDerived_streamPixels_${current_branch_id}.tif"
-    -i featureID
+    -i "featureID"
     -p "${tempCurrentBranchDataDir}/flows_points_pixels_${current_branch_id}.shp"
 )
 python3 "${srcDir}/reachID_grid_to_vector_points.py" "${args[@]}"
@@ -198,7 +193,7 @@ args=(
     -o "${tempCurrentBranchDataDir}/flows_points_pixels_${current_branch_id}.shp"
     -id "${tempCurrentBranchDataDir}/idFile_${current_branch_id}.txt"
 )
-mpiexec -n "${ncores_gw}" $taudemDir/gagewatershed "${args[@]}" \
+mpiexec -n "${ncores_gw}" "$taudemDir/gagewatershed" "${args[@]}" \
     2> >(while read -r line; do
         # Check if BOTH strings are present in the error line
         if [[ "$line" == *"ERROR 6:"* && "$line" == *"Dataset does not support the AddBand() method."* ]]; then
@@ -273,7 +268,7 @@ args=(
     "${tempCurrentBranchDataDir}/gw_catchments_reaches_${current_branch_id}.parquet"
     "catchments" "HydroID"
 )
-python3 ${srcDir}/polygonize_raster.py "${args[@]}"
+python3 "${srcDir}/polygonize_raster.py" "${args[@]}"
 
 ## PROCESS CATCHMENTS AND MODEL STREAMS STEP 1 ##
 echo -e "${startDiv}Process catchments and model streams ${hucNumber} ${current_branch_id}"
@@ -285,7 +280,7 @@ args=(
     -w "${tempHucDataDir}/wbd8_clp.gpkg"
     -u "${hucNumber}"
 )
-python3 ${srcDir}/filter_catchments_and_add_attributes.py "${args[@]}"
+python3 "${srcDir}/filter_catchments_and_add_attributes.py" "${args[@]}"
 
 ## RASTERIZE NEW CATCHMENTS AGAIN ##
 echo -e "${startDiv}Rasterize filtered catchments ${hucNumber} ${current_branch_id}"
@@ -296,7 +291,7 @@ args=(
     "${tempCurrentBranchDataDir}/gw_catchments_reaches_filtered_addedAttributes_${current_branch_id}.parquet"
     "${tempCurrentBranchDataDir}/gw_catchments_reaches_filtered_addedAttributes_${current_branch_id}.tif"
 )
-python3 ${srcDir}/rasterize_parquet.py "${args[@]}"
+python3 "${srcDir}/rasterize_parquet.py" "${args[@]}"
 
 ## MASK SLOPE TO CATCHMENTS ##
 echo -e "${startDiv}Mask to slopes to catchments ${hucNumber} ${current_branch_id}"
@@ -305,8 +300,8 @@ args=(
     --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES"
     -A "${tempCurrentBranchDataDir}/slopes_d8_dem_meters_${current_branch_id}.tif"
     -B "${tempCurrentBranchDataDir}/gw_catchments_reaches_filtered_addedAttributes_${current_branch_id}.tif"
-    --calc="A*(B>0)" --NoDataValue=$ndv
-    --outfile=${tempCurrentBranchDataDir}/slopes_d8_dem_meters_masked_${current_branch_id}.tif
+    --calc="A*(B>0)" --NoDataValue="${ndv}"
+    --outfile="${tempCurrentBranchDataDir}/slopes_d8_dem_meters_masked_${current_branch_id}.tif"
 )
 gdal_calc.py "${args[@]}"
 
@@ -327,7 +322,8 @@ python3 "${srcDir}/make_stages_and_catchlist.py" "${args[@]}"
 if  [[ -f "${tempCurrentBranchDataDir}/LandSea_subset_${current_branch_id}.tif" ]]; then
     echo -e "${startDiv}Additional masking to REM raster to remove ocean/Glake areas ${hucNumber} ${current_branch_id}"
     args=(
-        --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES"
+        --quiet --type=Float32 --overwrite
+        --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES"
         -A "${tempCurrentBranchDataDir}/rem_zeroed_masked_${current_branch_id}.tif"
         -B "${tempCurrentBranchDataDir}/LandSea_subset_${current_branch_id}.tif"
         --calc="(A*B)" --NoDataValue="${ndv}"
@@ -337,7 +333,7 @@ if  [[ -f "${tempCurrentBranchDataDir}/LandSea_subset_${current_branch_id}.tif" 
 fi
 
 ## HEAL HAND -- REMOVES HYDROCONDITIONING ARTIFACTS ##
-if [[ "$healed_hand_hydrocondition" == "true"  &&  "${current_branch_id}" != "$branch_zero_id" ]]; then
+if [[ "${healed_hand_hydrocondition}" == "true"  &&  "${current_branch_id}" != "${branch_zero_id}" ]]; then
     echo -e "${startDiv}Healed HAND to Remove Hydro-conditioning Artifacts ${hucNumber} ${current_branch_id}"
     args=(
         --quiet --type=Float32 --overwrite 
@@ -364,7 +360,7 @@ args=(
 "${taudemDir}/catchhydrogeo" "${args[@]}" \
     2> >(while read -r line; do
         # Check if BOTH strings are present in the error line
-        if [[ "$line" == *"ERROR 6:"* && "$line" == *"Dataset does not support the AddBand() method."* ]]; then
+        if [[ "${line}" == *"ERROR 6:"* && "${line}" == *"Dataset does not support the AddBand() method."* ]]; then
             # Do nothing (ignore the error)
             :
         else
