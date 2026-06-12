@@ -26,22 +26,23 @@ from tools_shared_variables import (
      TEST_CASES_DIR,
      OUTPUTS_DIR)
 
-
-def synthesize_test_cases(config,
+# NOTE: Jun 2026: Now that we are fully using prev_metrics_csv
+# many args are no longer relavent.
+def synthesize_test_cases(config_type,
                           calibrated,
                           precalb_option,
-                          fim_version,
+                          hand_version,
                           job_number_huc,
                           job_number_branch,
                           thread_number_branch,
                           benchmark_category,
                           overwrite,
-                          dev_versions_to_compare,
+                          # dev_versions_to_compare, # nt
                           master_metrics_csv,
-                          master_metrics_only,
+                          # master_metrics_only,
                           verbose,
                           prev_metrics_csv,
-                          cycle_previous_files
+                          # cycle_previous_files
 ):
 
     # Note: debug value of True, means when using logging.debug, it will go to the log files only
@@ -51,54 +52,38 @@ def synthesize_test_cases(config,
     # including test cases folder pathing
     # for now, lets just calc the hand output folder to put these logs in it.
 
+    # =====================
+    # Validation
+    if hand_version == "":
+        raise ValueError('hand version (-v) can not be empty')
+
     # Define whether or not to archive metrics in "official_versions" or "testing_versions" for each test_id.
     # and also setup logging
     log_folder=""
     hand_path = ""
-    if config == 'PREV':
-        archive_results = True
-        hand_path = os.path.join(PREVIOUS_FIM_DIR, fim_version)
-    elif config == 'DEV':
-        archive_results = False
-        hand_path = os.path.join(OUTPUTS_DIR, fim_version)        
+
+    if config_type == 'PREV':
+        hand_path = os.path.join(PREVIOUS_FIM_DIR, hand_version)
+    elif config_type == 'DEV':
+        hand_path = os.path.join(OUTPUTS_DIR, hand_version)
     else:
-        print('Config (-c) option incorrectly set. Use "DEV" or "PREV"')
-        print("Program aborted")
-        sys.exit(1)
+        raise ValueError('Config (-c) option incorrectly set. Use "DEV" or "PREV"')
 
     if not os.path.exists(hand_path):
         raise ValueError(f"Calculated hand path of {hand_path} does not exist")
+   
+    if master_metrics_csv == "":
+        raise ValueError("master metric path (-m) can not be empty")
+    
+    ___, ext = os.path.splitext(os.path.basename(master_metrics_csv))
+    if ext.lower() != ".csv":
+        raise ValueError("master metric path (-m) must end in .csv")
 
-    # NOTE: Careful with this logger as you don't want to use the same logger
-    # inside MP processes as they will collide writing to the same log file.
-    # Best to let each MP have its own logging object, then concat all at the end.
-    # NOTE: logger does screen and log file
-    log_folder = os.path.join(hand_path, "logs", "alpha_logs")    
-    log_file_path = sf.setup_file_logger(log_folder, "synthesize_test_cases")
+    if prev_metrics_csv == "":
+        raise ValueError("previous metric file (-pcsv) can not be empty")
 
-    print("================================")
-    logging.info(f"Start synthesize test cases : {datetime.now().strftime('%m/%d/%Y %H:%M:%S')}")
-    overall_start_dt = datetime.now(timezone.utc)
-
-    logging.info("***************************************************")
-    logging.info("***** Note about log files: Some warnings and errors will show up multiple times, and"
-                  " not necessarily in order, but last copy of a set of error messages will show find context info.")
-    logging.info("***************************************************")
-    print()
-
-    # Warn about the MP job huc to the MT (multi-thread) job number.
-    # While inconsistent, it does pop up a fair bit. It is likely the usage
-    # of those two values in relation to how inundation is using those values.
-    # TODO: Research required.
-    print("--------------------------")
-    print(
-        "Warning: If you see errors in the output of this tool with the phrase of BrokenProcessPool,"
-        " lower the -jh (huc job number) to a lower value. You can adjust the -tb (branch job number)"
-        " to offset the new -jh value."
-    )
-    print("This is a known code issue that will be fixed in a future release.")
-    print("")
-    print("--------------------------")
+    if not os.path.exists(prev_metrics_csv):
+        raise ValueError("previous metric file (-pcsv) does not exist")
 
     # check job numbers
     total_cpus_requested = job_number_huc * job_number_branch
@@ -113,57 +98,22 @@ def synthesize_test_cases(config,
             f' than {total_cpus_available} for this tool for this server.'
         )
 
-    # Default to processing all possible versions in PREVIOUS_FIM_DIR.
-    # Otherwise, process only the user-supplied version.
-    prev_versions_to_include_list = []
-    dev_versions_to_include_list = []
-    if fim_version != "all" and cycle_previous_files is False:
-        if config == 'PREV':  # official fim model results
-            prev_versions_to_include_list = [fim_version]
-        elif config == 'DEV':  # development fim model results
-            dev_versions_to_include_list = [fim_version]
-    else:
-        prev_versions_to_include_list = os.listdir(PREVIOUS_FIM_DIR)
-        if config == 'DEV':  # development fim model results
-            dev_versions_to_include_list = [fim_version]
+    # =====================
+    # Setup Logging and headers
+    log_folder = os.path.join(hand_path, "logs", "alpha_logs")    
+    log_file_path = sf.setup_file_logger(log_folder, "synthesize_test_cases")
+
+    print("================================")
+    logging.info(f"Start synthesize test cases : {datetime.now().strftime('%m/%d/%Y %H:%M:%S')}")
+    overall_start_dt = datetime.now(timezone.utc)
+
+    logging.info("***************************************************")
+    logging.info("***** Note about log files: Some warnings and errors will show up multiple times, and"
+                  " not necessarily in order, but last copy of a set of error messages will show find context info.")
+    logging.info("***************************************************")
+    print()
 
     try:
-
-        # =================================
-        # Validate data
-        # Make sure cycle-previous-files and a previous metric CSV have not been concurrently selected
-        if prev_metrics_csv is not None and cycle_previous_files is True:
-            logging.critical(
-                "Error: Cycle previous files and previous metric CSV functionality cannot be used concurrently."
-            )
-            sys.exit(1)
-
-        # Check whether a previous metrics CSV has been provided and, if so, make sure the CSV exists
-        if prev_metrics_csv is not None:
-            if not os.path.exists(prev_metrics_csv):
-                logging.critical(f"Error: File does not exist at {prev_metrics_csv}")
-                sys.exit(1)
-            else:
-                logging.info(f"Metrics will be combined with previous metric CSV: {prev_metrics_csv}")
-        else:
-            logging.info("ALERT: A previous metric CSV has not been provided (-pcsv) - this is optional.")
-
-        # Print whether the previous files will be cycled through
-        if cycle_previous_files is True:
-            logging.info("ALERT: Metrics from previous directories will be compiled.")
-        else:
-            logging.info(
-                "ALERT: Metrics from previous directories will NOT be compiled (-pfiles not provided) \n"
-                "   - pfiles is optional -"
-            )
-
-        if master_metrics_csv == "":
-            raise ValueError("master metric path (-m) can not be empty")
-
-        master_metrics_folder_path, ext = os.path.splitext(os.path.basename(master_metrics_csv))
-        if ext.lower() != ".csv":
-            raise ValueError("master metric path (-m) must end in .csv")
-
         # remove the old one
         if os.path.exists(master_metrics_csv):
             os.remove(master_metrics_csv)
@@ -174,8 +124,8 @@ def synthesize_test_cases(config,
         # Find valid test classes
         # Create a list of all test_cases for which we have validation data
         all_test_cases = Test_Case.list_all_test_cases(
-            version=fim_version,
-            archive=archive_results,
+            hand_version=hand_version,
+            archive=config_type,
             benchmark_categories=[] if benchmark_category == "all" else [benchmark_category],
         )
 
@@ -186,6 +136,8 @@ def synthesize_test_cases(config,
         if len(valid_huc_test_cases) == 0:
             raise Exception("Error: After filtering HUC folder looking for a hydrotable file" \
             " which are assumed to be a valid HUC folder, there are no remaining valid HUC folders")
+        huc_list = [test_class_obj.huc for test_class_obj in valid_huc_test_cases]
+        logging.debug(f"Processing hucs: {huc_list}")
 
 
         # =================================
@@ -198,188 +150,103 @@ def synthesize_test_cases(config,
         # clear out any files that already pre-existed as mp files with this prefix.
         sf.remove_child_logs(log_file_path, mp_log_prefix)
                 
-        if not master_metrics_only:
+        # Each log file lcreated by each MP alpha test will start with the prefix
+        # alpha_test. Each MP will add its own suffix to avoid log collisions
+        # at the end of the process pool, we will aggregate the log files
+        # which include this prefix
 
-            # Each log file lcreated by each MP alpha test will start with the prefix
-            # alpha_test. Each MP will add its own suffix to avoid log collisions
-            # at the end of the process pool, we will aggregate the log files
-            # which include this prefix
+        # By default, maxtasksperchild is set to None, meaning worker processes live as long as the process pool itself
+        # If a memory leaks exist, it can overload the system
+        with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
+            # Loop through all test cases, build the alpha test arguments, and submit them to the process pool
+            executor_dict = {}
 
-            # By default, maxtasksperchild is set to None, meaning worker processes live as long as the process pool itself
-            # If a memory leaks exist, it can overload the system
-            with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
-                # Loop through all test cases, build the alpha test arguments, and submit them to the process pool
-                executor_dict = {}
+            # Using tqdm manually instead of part of as_completed, we have more
+            # control over future results and exceptions
+            pbar = tqdm(total=len(valid_huc_test_cases), desc=f"Running alpha test cases with {job_number_huc} workers", unit="task")
+            try:
 
-                pbar = tqdm(total=len(valid_huc_test_cases), desc=f"Running alpha test cases with {job_number_huc} workers", unit="task")
-                try:
+                for test_case_class in valid_huc_test_cases:
 
-                    for test_case_class in valid_huc_test_cases:
+                    # logging.info(f"test_case_class.test_id is {test_case_class.test_id}")
+                    alpha_test_args = {
+                        # 'calibrated': calibrated,
+                        # 'model': model,
+                        'mask_type': 'huc',
+                        'overwrite': overwrite,
+                        # 'verbose': gms_verbose if model == 'GMS' else verbose,
+                        'verbose': verbose,
+                        'branch_workers': job_number_branch,
+                        'precalb_option': precalb_option,
+                        'threads': thread_number_branch,
+                        'log_folder': log_folder,
+                        'log_prefix': mp_log_prefix
+                    }
 
-                        # logging.info(f"test_case_class.test_id is {test_case_class.test_id}")
+                    future = executor.submit(test_case_class.alpha_test, **alpha_test_args)
+                    executor_dict[future] = test_case_class.test_id
 
-                        alpha_test_args = {
-                            'calibrated': calibrated,
-        #                    'model': model,
-                            'mask_type': 'huc',
-                            'overwrite': overwrite,
-                            # 'verbose': gms_verbose if model == 'GMS' else verbose,
-                            'verbose': verbose,
-                            'branch_workers': job_number_branch,
-                            'precalb_option': precalb_option,
-                            'threads': thread_number_branch,
-                            'log_folder': log_folder,
-                            'log_prefix': mp_log_prefix
-                        }
+                # Any one alpha_test class can fail in multiple ways. The original defination
+                # call to test_case_class.alpha_test can fail which is covered by the try/except
+                # and inside the running of test_case_class.alpha_test can also fail.
+                # it may let the try catch come out or capture it itself. So.. as_complete
+                # can get a future back that is future.exception()
+                # By catching it better, we can shut down the pool if we need to
+                # Remember.. you can't really stop each WIP child proc, but you can
+                # catch the errors and stop new processes from starting up.
+                for future in as_completed(executor_dict):
+                    try:
+                        if future is not None:
+                            if future.cancelled():
+                                continue
+                            if future.exception():
+                                raise future.exception()  # re-raise it
+                    except Exception as fex:
+                        logging.critical("Error returned by future")
+                        logging.critical(traceback.format_exc())
+                        # Note: you can not use sys.exit in ProcessPools.
+                        raise fex  # yes.. raise it. If an alpha_test fails, shut it down
+                    pbar.update(1)  # ✅ Progress update for each completed task                            
 
-                        future = executor.submit(test_case_class.alpha_test, **alpha_test_args)
-                        executor_dict[future] = test_case_class.test_id
+            except Exception as ex:
+                # this covers fails in the original call to test_case_class.alpha_test such as
+                # bad definition.
+                logging.critical(f"*** Error: {ex}")
+                logging.critical(traceback.format_exc())
+                logging.info("Shutting down ProcessPoolExecutor")
+                        # Note: Even though we use the "wait" flag, most WIP processes can not be
+                        # aborted when using ProcessPool
+                executor.shutdown(
+                    wait=False, cancel_futures=True
+                )  # tells the ProcessPoolExecutor to stop accepting new tasks. Even cancel the running tasks as soon as possible
 
-                    # Any one alpha_test class can fail in multiple ways. The original defination
-                    # call to test_case_class.alpha_test can fail which is covered by the try/except
-                    # and inside the running of test_case_class.alpha_test can also fail.
-                    # it may let the try catch come out or capture it itself. So.. as_complete
-                    # can get a future back that is future.exception()
-                    # By catching it better, we can shut down the pool if we need to
-                    # Remember.. you can't really stop each WIP child proc, but you can
-                    # catch the errors and stop new processes from starting up.
-                    for future in as_completed(executor_dict):
-                        try:
-                            if future is not None:
-                                if future.cancelled():
-                                    continue
-                                if future.exception():
-                                    raise future.exception()  # re-raise it
-                        except Exception as fex:
-                            logging.critical("Error returned by future")
-                            logging.critical(traceback.format_exc())
-                            logging.info("Shutting down ProcessPoolExecutor, after wip processes finish")
-                            # Note: Even though we use the "wait" flag, most WIP processes can not be
-                            # aborted when using ProcessPool
-                            executor.shutdown(wait=False, cancel_futures=True)
-                            # Note: you can not use sys.exit in ProcessPools.
-                        pbar.update(1)  # ✅ Progress update for each completed task                            
+                # sys.exit(1) # sys.exit does not work inside an MP. You have to rethrow after shutting down the executor
+                # there will be a delay in shutting it down though as it does not auto kill all wip workers, just 
+                # stops new ones.
 
-                except Exception as ex:
-                    # this covers fails in the original call to test_case_class.alpha_test such as
-                    # bad definition.
-                    logging.critical(f"*** Error: {ex}")
-                    logging.critical(traceback.format_exc())
-                    logging.info("Shutting down ProcessPoolExecutor")
-                            # Note: Even though we use the "wait" flag, most WIP processes can not be
-                            # aborted when using ProcessPool
-                    executor.shutdown(
-                        wait=False, cancel_futures=True
-                    )  # tells the ProcessPoolExecutor to stop accepting new tasks. Even cancel the running tasks as soon as possible
-
-                    # sys.exit(1) # sys.exit does not work inside an MP. You have to rethrow after shutting down the executor
-                    # there will be a delay in shutting it down though as it does not auto kill all wip workers, just 
-                    # stops new ones.
-
-                # Send the executor to the progress bar and wait for all MS tasks to finish
-                # TODO: Jun 2026: check this...
-                # If at catestropic error occurs, MP's will finish processing the in progress.
-                # But, this progress bar might continue ??
-                # progress_bar_handler(
-                #     executor_dict, True, f"Running alpha test cases with {job_number_huc} workers"
-                # )
-                # wait(executor_dict.keys())
-                finally:
-                    pbar.close()
+            # Send the executor to the progress bar and wait for all MS tasks to finish
+            # TODO: Jun 2026: check this...
+            # If at catestropic error occurs, MP's will finish processing the in progress.
+            # But, this progress bar might continue ??
+            # progress_bar_handler(
+            #     executor_dict, True, f"Running alpha test cases with {job_number_huc} workers"
+            # )
+            # wait(executor_dict.keys())
 
         # This will also merge -error.log and -warning.log files into the
         # respective parent error, warning files.
         logging.info(f"Merging child log files into parent logs. {log_file_path} - {mp_log_prefix}")
         sf.merge_child_logs_into_parent_log(log_file_path, mp_log_prefix)
 
-        '''
-        if not master_metrics_only:
-            if model == 'MS' and fr_run_dir:
-                # Rebuild all test cases list with the FR version, loop through them and apply the alpha test
-                all_test_cases = Test_Case.list_all_test_cases(
-                    version=fr_run_dir,
-                    archive=archive_results,
-                    benchmark_categories=[] if benchmark_category == "all" else [benchmark_category],
-                )
-
-                with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
-                    executor_dict = {}
-                    for test_case_class in all_test_cases:
-                        if not os.path.exists(test_case_class.fim_dir):
-                            continue
-                        alpha_test_args = {
-                            'calibrated': calibrated,
-                            'model': model,
-                            'mask_type': 'huc',
-                            'verbose': verbose,
-                            'overwrite': overwrite,
-                            'precalb_option': precalb_option,
-                        }
-                        try:
-                            future = executor.submit(test_case_class.alpha_test, **alpha_test_args)
-                            executor_dict[future] = test_case_class.test_id
-                        except Exception as ex:
-                            print(f"*** {ex}")
-                            traceback.print_exc()
-                            sys.exit(1)
-
-                    # Send the executor to the progress bar and wait for all FR tasks to finish
-                    progress_bar_handler(
-                        executor_dict, True, f"Running FR test cases with {job_number_huc} workers"
-                    )
-                    # wait(executor_dict.keys())
-
-                # Loop through FR test cases, build composite arguments, and
-                #   submit the composite method to the process pool
-                with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
-                    executor_dict = {}
-                    for test_case_class in all_test_cases:
-                        composite_args = {
-                            'version_2': fim_version,  # this is the MS version name since `all_test_cases` are FR
-                            'calibrated': calibrated,
-                            'overwrite': overwrite,
-                            'verbose': verbose,
-                        }
-
-                        try:
-                            future = executor.submit(test_case_class.alpha_test, **alpha_test_args)
-                            executor_dict[future] = test_case_class.test_id
-                        except Exception as ex:
-                            print(f"*** {ex}")
-                            # traceback.print_exc()
-                            print(traceback.format_exc())
-                            sys.exit(1)
-
-                    # Send the executor to the progress bar
-                    progress_bar_handler(
-                        executor_dict, verbose, f"Compositing test cases with {job_number_huc} workers"
-                    )
-        '''
-
-        # if using DEV version, include the testing versions the user included with the "-dc" flag
-        if dev_versions_to_compare is not None:
-            dev_versions_to_include_list += dev_versions_to_compare
-
-        # Specify which results to iterate through
-        if config == 'DEV':
-            iteration_list = [
-                'official',
-                'testing',
-            ]  # iterating through official model results AND testing model(s)
-        else:
-            iteration_list = ['official']  # only iterating through official model results
-
         # Do aggregate_metrics.
         logging.info("Creating master metrics CSV...")
-
-        # Note: This function is not compatible with GMS
         create_master_metrics_csv(
             master_metrics_csv_output=master_metrics_csv,
-            dev_versions_to_include_list=dev_versions_to_include_list,
-            prev_versions_to_include_list=prev_versions_to_include_list,
-            iteration_list=iteration_list,
+            config_type=config_type,
             prev_metrics_csv=prev_metrics_csv,
-            verbose=verbose
+            hand_version=hand_version,
+            calibrated=calibrated,
+            huc_list=huc_list,
         )
     except Exception:
         logging.critical("An exception has occurred")
@@ -396,26 +263,16 @@ def synthesize_test_cases(config,
 
 def create_master_metrics_csv(
     master_metrics_csv_output,
-    dev_versions_to_include_list,
-    prev_versions_to_include_list,
-    iteration_list,
+    config_type,
     prev_metrics_csv,
-    verbose
+    hand_version,
+    calibrated,
+    huc_list,
 ):
     """
-    This function searches for and collates metrics into a single CSV file that can queried database-style.
-        The CSV is an input to eval_plots.py.
-        This function automatically looks for metrics produced for official versions and loads them into
-            memory to be written to the output CSV.
+    This function searches for and collates metrics from the current hand_version and concats
+    it to the prev_metrics_csv file
 
-    Args:
-        master_metrics_csv_output (str)    : Full path to CSV output.
-                                                If a file already exists at this path, it will be overwritten.
-        dev_versions_to_include_list (list): A list of non-official FIM version names.
-                                                If a user supplied information on the command line using the
-                                                -dc flag, then this function will search for metrics in the
-                                                "testing_versions" library of metrics and include them in
-                                                the CSV output.
     """
 
     # Construct header
@@ -476,13 +333,17 @@ def create_master_metrics_csv(
         + ["calibrated"]
     ]
 
-    # add in composite of versions (used for previous FIM3 versions)
-    if "official" in iteration_list:
-        composite_versions = [v.replace('_ms', '_comp') for v in prev_versions_to_include_list if '_ms' in v]
-        prev_versions_to_include_list += composite_versions
+    # # add in composite of versions (used for previous FIM3 versions)
+    # if "official" in iteration_list:
+    #     composite_versions = [v.replace('_ms', '_comp') for v in prev_versions_to_include_list if '_ms' in v]
+    #     prev_versions_to_include_list += composite_versions
+
+    # Note: Jun 2026:
+    # the arg calibrated has had no logic value for a long time. It only was used to determin if eval_metadata.json
+    # files are created, but those no longer have value with dropping FIM 3. This value will be directly entered
+    # in the metrics file as before.
 
     # Iterate through 5 benchmark sources
-    # TODO: We are re-crawling every time we run synth instead of using the pcsv if it is available ??? huh?
     new_data_found=False
     for benchmark_source in ['ble', 'nws', 'usgs', 'ifc', 'ras2fim']:
         benchmark_test_case_dir = os.path.join(TEST_CASES_DIR, benchmark_source + '_test_cases')
@@ -492,88 +353,73 @@ def create_master_metrics_csv(
 
         test_cases_folders = [d for d in os.listdir(benchmark_test_case_dir) if re.match(r'\d{8}_\w{3,7}', d)]
 
-        # TODO: This is reduntant from below other than some minor switches for benchmark type
         if benchmark_source in ['ble', 'ifc', 'ras2fim']:
+
             magnitude_list = MAGNITUDE_DICT[benchmark_source]
 
             # Iterate through available test cases
             for test_case_folder in test_cases_folders:
                 try:
+                    logging.debug(f"metrics for {benchmark_source}: {test_case_folder}")
+
                     # Get HUC id
                     # int(each_test_case.split('_')[0])
                     huc = test_case_folder.split('_')[0]
-                    logging.debug(f"metrics for {benchmark_source}: {test_case_folder}")
+
+                    if huc not in huc_list:  # No sense processing hucs that do not have that benchmark type
+                        continue
 
                     # Update filepaths based on whether the official or dev versions should be included
 
-                    # TODO: Why are we iterating both?
-                    for iteration in iteration_list:
-                        if (
-                            iteration == "official"
-                        ):  # and str(cycle_previous_files) == "True": # "official" refers to previous finalized model versions
-                            versions_to_crawl = os.path.join(
-                                benchmark_test_case_dir, test_case_folder, 'official_versions'
+                    if config_type == "PREV":
+                        version_to_crawl = os.path.join(
+                                benchmark_test_case_dir, test_case_folder, 'official_versions', hand_version
                             )
-                            versions_to_aggregate = prev_versions_to_include_list
-
-                        if (
-                            iteration == "testing"
-                        ):  # "testing" refers to the development model version(s) being evaluated
-                            versions_to_crawl = os.path.join(
-                                benchmark_test_case_dir, test_case_folder, 'testing_versions'
+                        # versions_to_aggregate = prev_versions_to_include_list
+                    else:
+                        version_to_crawl = os.path.join(
+                                benchmark_test_case_dir, test_case_folder, 'testing_versions', hand_version
                             )
-                            versions_to_aggregate = dev_versions_to_include_list
+                        # versions_to_aggregate = versions_to_include_list
 
-                        # TODO: Appears to always be only one version. Check this
-                        logging.debug(f"Versions to agg: {huc} : {versions_to_aggregate} : {test_case_folder}")
+                    logging.debug(f"Processing {version_to_crawl}")
 
-                        # Pull version info from filepath
-                        for magnitude in magnitude_list:
-                            for version in versions_to_aggregate:
-                                # if '_ms' in version:
-                                #     extent_config = 'MS'
-                                # elif ('_fr' in version) or (version == 'fim_2_3_3'):
-                                #     extent_config = 'FR'
-                                # else:
-                                # TODO: May 29, 2026: We really don't need the "COMP" and "c" test anymore
-                                extent_config = 'COMP'
+                    # Pull version info from filepath
+                    for magnitude in magnitude_list:
 
-                                if "_c" in version and version.split('_c')[1] == "":
-                                    calibrated = "yes"
-                                else:
-                                    calibrated = "no"
-                                version_dir = os.path.join(versions_to_crawl, version)
-                                magnitude_dir = os.path.join(version_dir, magnitude)
+                        # TODO: May 29, 2026: We really don't need the "COMP" and "c" test anymore
+                        extent_config = 'COMP'
+                        magnitude_dir = os.path.join(version_to_crawl, magnitude)
 
-                                # Add metrics from file to metrics table ('list_to_write')
-                                if os.path.exists(magnitude_dir):
-                                    magnitude_dir_list = os.listdir(magnitude_dir)
-                                    for f in magnitude_dir_list:
-                                        if '.json' in f:
-                                            flow = 'NA'
-                                            nws_lid = "NA"
-                                            sub_list_to_append = [version, nws_lid, magnitude, huc]
-                                            full_json_path = os.path.join(magnitude_dir, f)
-                                            if os.path.exists(full_json_path):
-                                                stats_dict = json.load(open(full_json_path))
-                                                for metric in metrics_to_write:
-                                                    sub_list_to_append.append(stats_dict[metric])
-                                                sub_list_to_append.append(full_json_path)
-                                                sub_list_to_append.append(flow)
-                                                sub_list_to_append.append(benchmark_source)
-                                                sub_list_to_append.append(extent_config)
-                                                sub_list_to_append.append(calibrated)
-                                                new_data_found = True
-                                                list_to_write.append(sub_list_to_append)
+                        # Add metrics from file to metrics table ('list_to_write')
+                        if os.path.exists(magnitude_dir):
+                            magnitude_dir_list = os.listdir(magnitude_dir)
+                            for f in magnitude_dir_list:
+                                if '.json' in f:
+                                    flow = 'NA'
+                                    nws_lid = "NA"
+                                    sub_list_to_append = [hand_version, nws_lid, magnitude, huc]
+                                    full_json_path = os.path.join(magnitude_dir, f)
+                                    if os.path.exists(full_json_path):
+                                        stats_dict = json.load(open(full_json_path))
+                                        for metric in metrics_to_write:
+                                            sub_list_to_append.append(stats_dict[metric])
+                                        sub_list_to_append.append(full_json_path)
+                                        sub_list_to_append.append(flow)
+                                        sub_list_to_append.append(benchmark_source)
+                                        sub_list_to_append.append(extent_config)
+                                        sub_list_to_append.append("yes" if calibrated is True else "no")
+                                        new_data_found = True
+                                        list_to_write.append(sub_list_to_append)
                 except ValueError as ve:
                     # TODO: Is this really an error? it was just a pass. .lets see what we have
+                    # Can we even get a valueerror?
                     logging.error(f"value error issued: {ve}")
                     logging.error(traceback.format_exc())
                     pass  # TODO: ?? really? when we are missing a test if it is acceptable to catch a value error and continue
 
         # Iterate through AHPS benchmark data
-        # TODO: why are we doing this twice (other than mags)
-        if benchmark_source in AHPS_BENCHMARK_CATEGORIES:
+        if benchmark_source in AHPS_BENCHMARK_CATEGORIES:  # nws, usgs
             test_cases_folders = os.listdir(benchmark_test_case_dir)
             logging.debug(f"Start of reviewing benchmark data for AHPS Categories: {benchmark_source}")
 
@@ -583,88 +429,70 @@ def create_master_metrics_csv(
                     # int(each_test_case.split('_')[0])  # what this some sort of test to validate the test case?
                     huc = test_case_folder.split('_')[0]
 
-                    # Update filepaths based on whether the official or dev versions should be included
-                    for iteration in iteration_list:
-                        if iteration == "official":  # "official" refers to previous finalized model versions
-                            versions_to_crawl = os.path.join(
-                                benchmark_test_case_dir, test_case_folder, 'official_versions'
-                            )
-                            versions_to_aggregate = prev_versions_to_include_list
+                    if huc not in huc_list:  # No sense processing hucs that do not have that benchmark type
+                        continue
 
-                        if (
-                            iteration == "testing"
-                        ):  # "testing" refers to the development model version(s) being evaluated
-                            versions_to_crawl = os.path.join(
-                                benchmark_test_case_dir, test_case_folder, 'testing_versions'
-                            )
-                            versions_to_aggregate = dev_versions_to_include_list
+                    version_to_crawl = os.path.join(benchmark_test_case_dir, test_case_folder)
+                    if config_type == "PREV":
+                        version_to_crawl = os.path.join(version_to_crawl, 'official_versions')
+                    else:
+                        version_to_crawl = os.path.join(version_to_crawl, 'testing_versions')
 
-                        logging.debug(f"Versions to agg: {huc} : {versions_to_aggregate} : {test_case_folder}")
+                    logging.debug(f"Processing {version_to_crawl}")
 
-                        # Pull model info from filepath
-                        for magnitude in ['action', 'minor', 'moderate', 'major']:
-                            for version in versions_to_aggregate:
-                                # if '_ms' in version:
-                                #     extent_config = 'MS'
-                                # elif ('_fr' in version) or (version == 'fim_2_3_3'):
-                                #     extent_config = 'FR'
-                                # else:
-                                # TODO: May 29, 2026: We really don't need the "COMP" and "c" test anymore
-                                extent_config = 'COMP'
+                    # Pull model info from filepath
+                    for magnitude in ['action', 'minor', 'moderate', 'major']:
 
-                                if "_c" in version and version.split('_c')[1] == "":
-                                    calibrated = "yes"
-                                else:
-                                    calibrated = "no"
+                        # TODO: May 29, 2026: We really don't need the "COMP" and "c" test anymore
+                        extent_config = 'COMP'
 
-                                version_dir = os.path.join(versions_to_crawl, version)
-                                magnitude_dir = os.path.join(version_dir, magnitude)
+                        # version_dir = os.path.join(versions_to_crawl, version)
+                        magnitude_dir = os.path.join(version_to_crawl, magnitude)
 
-                                if os.path.exists(magnitude_dir):
-                                    magnitude_dir_list = os.listdir(magnitude_dir)
-                                    for f in magnitude_dir_list:
-                                        if '.json' in f and 'total_area' not in f:
-                                            nws_lid = f[:5]
-                                            sub_list_to_append = [version, nws_lid, magnitude, huc]
-                                            full_json_path = os.path.join(magnitude_dir, f)
-                                            flow = ''
-                                            if os.path.exists(full_json_path):
-                                                # Get flow used to map
-                                                flow_file = os.path.join(
-                                                    benchmark_test_case_dir,
-                                                    'validation_data_' + benchmark_source,
-                                                    huc,
-                                                    nws_lid,
-                                                    magnitude,
-                                                    'ahps_'
-                                                    + nws_lid
-                                                    + '_huc_'
-                                                    + huc
-                                                    + '_flows_'
-                                                    + magnitude
-                                                    + '.csv',
-                                                )
-                                                if os.path.exists(flow_file):
-                                                    # TODO: Why are we loading each line one a a time? it is a csv
-                                                    with open(flow_file, newline='') as csv_file:
-                                                        reader = csv.reader(csv_file)
-                                                        next(reader)
-                                                        for row in reader:
-                                                            flow = row[1]
+                        if os.path.exists(magnitude_dir):
+                            magnitude_dir_list = os.listdir(magnitude_dir)
+                            for f in magnitude_dir_list:
+                                if '.json' in f and 'total_area' not in f:
+                                    nws_lid = f[:5]
+                                    sub_list_to_append = [hand_version, nws_lid, magnitude, huc]
+                                    full_json_path = os.path.join(magnitude_dir, f)
+                                    flow = ''
+                                    if os.path.exists(full_json_path):
+                                        # Get flow used to map
+                                        flow_file = os.path.join(
+                                            benchmark_test_case_dir,
+                                            'validation_data_' + benchmark_source,
+                                            huc,
+                                            nws_lid,
+                                            magnitude,
+                                            'ahps_'
+                                            + nws_lid
+                                            + '_huc_'
+                                            + huc
+                                            + '_flows_'
+                                            + magnitude
+                                            + '.csv',
+                                        )
+                                        if os.path.exists(flow_file):
+                                            with open(flow_file, newline='') as csv_file:
+                                                reader = csv.reader(csv_file)
+                                                next(reader)
+                                                for row in reader:
+                                                    flow = row[1]
 
-                                                # Add metrics from file to metrics table ('list_to_write')
-                                                stats_dict = json.load(open(full_json_path))
-                                                for metric in metrics_to_write:
-                                                    sub_list_to_append.append(stats_dict[metric])
-                                                sub_list_to_append.append(full_json_path)
-                                                sub_list_to_append.append(flow)
-                                                sub_list_to_append.append(benchmark_source)
-                                                sub_list_to_append.append(extent_config)
-                                                sub_list_to_append.append(calibrated)
-                                                new_data_found = True
-                                                logging.debug(f"list_to_write for {full_json_path} is {list_to_write}")
+                                        # Add metrics from file to metrics table ('list_to_write')
+                                        stats_dict = json.load(open(full_json_path))
+                                        for metric in metrics_to_write:
+                                            sub_list_to_append.append(stats_dict[metric])
+                                        sub_list_to_append.append(full_json_path)
+                                        sub_list_to_append.append(flow)
+                                        sub_list_to_append.append(benchmark_source)
+                                        sub_list_to_append.append(extent_config)
+                                        sub_list_to_append.append("yes" if calibrated is True else "no")
+                                        new_data_found = True
+                                        logging.debug(f"list_to_write for {full_json_path} is {list_to_write}")
 
-                                                list_to_write.append(sub_list_to_append)
+                                        list_to_write.append(sub_list_to_append)
                 except ValueError as ve:
                     # TODO: Is this really an error? it was just a pass. .lets see what we have
                     logging.error(f"value error issued: {ve}")
@@ -679,10 +507,6 @@ def create_master_metrics_csv(
         if prev_metrics_csv is not None:
             prev_metrics_df = pd.read_csv(prev_metrics_csv)
 
-            logging.debug("list_to_write contents")
-            logging.debug(list_to_write)
-
-
             # Put calculated metrics into a dataframe and set the headers
             df_to_write_calc = pd.DataFrame(list_to_write)
             df_to_write_calc.columns = df_to_write_calc.iloc[0]
@@ -692,14 +516,10 @@ def create_master_metrics_csv(
             df_to_write = pd.concat([df_to_write_calc, prev_metrics_df], axis=0)
 
         else:
-            logging.debug("list_to_write contents")
-            logging.debug(list_to_write)
 
             df_to_write = pd.DataFrame(list_to_write)
             df_to_write.columns = df_to_write.iloc[0]
             df_to_write = df_to_write[1:]
-
-            logging.debug(df_to_write)
 
         # Save aggregated compiled metrics ('df_to_write') as a CSV
         # create the path if it does not already exist
@@ -728,7 +548,7 @@ if __name__ == '__main__':
     python /foss_fim/tools/synthesize_test_cases.py
         -c DEV
         -v hand_4_6_1_2
-        -jh 9 -jb 5
+        -jh 20 -jb 1
         -m /outputs/gms_test_synth_combined/gms_synth_metrics.csv
         -vg -o
 
@@ -740,10 +560,6 @@ if __name__ == '__main__':
        - Find a balance between -jh (number of jobs for hucs) versus -jb (number of jobs for branches)
          on quick tests on a 96 core machine, we tried [1 @ 80], [2 @ 40], and [3 @ 25] (and others).
        - The -m can be any path and any name.
-       - Previous metric CSV (-pcsv) and the cycle previous files argument (-pfiles) will return an error
-         if called at the same time. If neither are used, the alpha test metrics will only be compiled
-         for the provided dev version to compare. You will need a copy of a recent metrics file to use
-         the -pcsv argument.
 
      To see your outputs in the test_case folder (hard coded path), you can check for outputs using
          (cd .... to your test_case folder), then command becomes  find . -name gms_test_* -type d (Notice the
@@ -756,11 +572,15 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Caches metrics from previous versions of HAND.')
     parser.add_argument(
         '-c',
-        '--config',
+        '--config-type',
         help='Save outputs to development_versions or previous_versions? Options: "DEV" or "PREV"',
         required=True,
         default='DEV',
     )
+
+    # Note: Jum 2026: For a long time now, this has had no value logically and only created
+    # the eval_metadata.json file which also had on value. This value will go directly in the
+    # final metrics file.
     parser.add_argument(
         '-l',
         '--calibrated',
@@ -786,7 +606,7 @@ if __name__ == '__main__':
     #     required=False,
     # )
     parser.add_argument(
-        '-v', '--fim-version', help='REQUIRED: Name of fim version to cache.', required=True, default="all"
+        '-v', '--hand-version', help='REQUIRED: Name of hand version.', required=True, default=""
     )
     parser.add_argument(
         '-jh',
@@ -838,14 +658,14 @@ if __name__ == '__main__':
         required=False,
         action="store_true",
     )
-    parser.add_argument(
-        '-dc',
-        '--dev-versions-to-compare',
-        nargs='+',
-        help='Specify the name(s) of a dev (testing) version to include in master '
-        'metrics CSV. Pass a space-delimited list.',
-        required=False,
-    )
+    # parser.add_argument(
+    #     '-dc',
+    #     '--dev-versions-to-compare',
+    #     nargs='+',
+    #     help='Specify the name(s) of a dev (testing) version to include in master '
+    #     'metrics CSV. Pass a space-delimited list.',
+    #     required=False,
+    # )
     parser.add_argument(
         '-m',
         '--master-metrics-csv',
@@ -853,15 +673,15 @@ if __name__ == '__main__':
         required=True,
         default="",
     )
-    parser.add_argument(
-        '-mm',
-        '--master-metrics-only',
-        help='OPTIONAL: Adding this tag, will skip processing benchmark data and will compile'
-        ' the master metrics (.csv) only.',
-        required=False,
-        default=False,
-        action='store_true',
-    )
+    # parser.add_argument(
+    #     '-mm',
+    #     '--master-metrics-only',
+    #     help='OPTIONAL: Adding this tag, will skip processing benchmark data and will compile'
+    #     ' the master metrics (.csv) only.',
+    #     required=False,
+    #     default=False,
+    #     action='store_true',
+    # )
     # parser.add_argument(
     #     '-d',
     #     '--fr-run-dir',
@@ -889,16 +709,16 @@ if __name__ == '__main__':
         default=None,
     )
 
-    # TODO: May 2026: Do we even want this anymore? we onlyi use pcsv now
-    parser.add_argument(
-        '-pfiles',
-        '--cycle-previous-files',
-        help='Optional: Specifies whether previous metrics should be compiled by cycling '
-        'through files (True). Cannot be used if a previous metrics CSV is provided.',
-        required=False,
-        default=False,
-        action="store_true",
-    )
+    # # TODO: May 2026: Do we even want this anymore? we onlyi use pcsv now
+    # parser.add_argument(
+    #     '-pfiles',
+    #     '--cycle-previous-files',
+    #     help='Optional: Specifies whether previous metrics should be compiled by cycling '
+    #     'through files (True). Cannot be used if a previous metrics CSV is provided.',
+    #     required=False,
+    #     default=False,
+    #     action="store_true",
+    # )
 
     # Assign variables from arguments.
     args = vars(parser.parse_args())

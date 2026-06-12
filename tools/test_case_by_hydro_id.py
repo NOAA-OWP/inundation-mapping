@@ -15,8 +15,8 @@ from run_test_case import Test_Case
 from shapely.validation import make_valid
 from tools_shared_functions import compute_stats_from_contingency_table
 
-import utils.fim_logger as fl
-from utils.shared_variables import VIZ_PROJECTION
+import src.utils.fim_logger as fl
+from src.utils.shared_variables import VIZ_PROJECTION
 
 
 warnings.filterwarnings("ignore", category=FutureWarning, module="gdal")
@@ -229,7 +229,7 @@ def catchment_zonal_stats(benchmark_category, version, output_file_name):
 
     # This funtion, relies on the Test_Case class defined in run_test_case.py to list all available test cases
     unsorted_all_test_cases = Test_Case.list_all_test_cases(
-        version=version,
+        hand_version=version,
         archive=True,
         benchmark_categories=[] if benchmark_category == "all" else [benchmark_category],
     )
@@ -248,8 +248,8 @@ def catchment_zonal_stats(benchmark_category, version, output_file_name):
     for idx, test_case_class in enumerate(all_test_cases):
         # for test_case_class in tqdm(all_test_cases, desc=f'Running {len(all_test_cases)} test cases'):
         FLOG.lprint(f"Processing {test_case_class.test_id}  ({(idx + 1)} of {num_test_cases})")
-        if not os.path.exists(test_case_class.fim_dir):
-            FLOG.warning(f'{test_case_class.fim_dir} does not exist')
+        if not os.path.exists(test_case_class.fim_huc_dir):
+            FLOG.warning(f'{test_case_class.fim_huc_dir} does not exist')
             missing_hucs.append(test_case_class.huc)
             continue
 

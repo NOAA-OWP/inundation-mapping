@@ -7,7 +7,6 @@ PREVIOUS_FIM_DIR = r"/data/previous_fim"
 OUTPUTS_DIR = os.environ["outputsDir"]
 INPUTS_DIR = os.environ["inputsDir"]
 AHPS_BENCHMARK_CATEGORIES = ["usgs", "nws"]
-FR_BENCHMARK_CATEGORIES = ["ble", "ifc"]
 BLE_MAGNITUDE_LIST = ["100yr", "500yr"]
 IFC_MAGNITUDE_LIST = ["2yr", "5yr", "10yr", "25yr", "50yr", "100yr", "200yr", "500yr"]
 AHPS_MAGNITUDE_LIST = ["action", "minor", "moderate", "major"]

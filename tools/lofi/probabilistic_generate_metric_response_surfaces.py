@@ -15,7 +15,8 @@ from tqdm.notebook import tqdm
 
 warnings.filterwarnings("ignore")
 
-
+# Jun 2026: num_workers arg is no longer available
+# It was not previously used correctly in produce_mosaicked_inundation
 def create_flood_maps(
     hydrofabric_dir: str,
     fim_outputs_dir: str,
@@ -27,7 +28,7 @@ def create_flood_maps(
     flows: List[str],
     overwrite: Optional[bool] = False,
     num_threads: Optional[int] = 1,
-    num_jobs: Optional[int] = 1,
+    num_jobs: Optional[int] = 1,  # No longer in use
     log_file: Optional[str] = None,
     windowed: Optional[bool] = False,
 ):
@@ -56,8 +57,8 @@ def create_flood_maps(
         Whether to overwrite existing files
     num_threads : Optional[int], default = 1
         Number of threads to run operation
-    num_jobs : Optional[int], default = 1
-        Number of processes to run operation
+    # num_jobs : Optional[int], default = 1
+    #     Number of processes to run operation
     log_file : Optional[str], default = None
         File to write statements to
 
@@ -114,6 +115,8 @@ def create_flood_maps(
                 )
 
         # Make inundation extent output
+        # Jun 2026: num_workers arg is no longer available
+        # It was not previously used correctly.
         produce_mosaicked_inundation(
             hydrofabric_dir,
             huc,
@@ -122,11 +125,12 @@ def create_flood_maps(
             inundation_raster=final_inundation_path,
             mask=mask_path,
             verbose=False,
-            num_workers=num_jobs,
+            # num_workers=num_jobs,
             num_threads=num_threads,
             windowed=windowed,
             log_file=log_file,
             remove_intermediate=True,
+            show_progress_bar=False,
         )
 
         ds = rxr.open_rasterio(final_inundation_path)
@@ -297,8 +301,8 @@ if __name__ == "__main__":
         #     'sites': sites,
         'flows': flows,
         'hucs': [huc],
-        'num_jobs': 8,
-        'num_threads': 8,
+        'num_jobs': 8,  # Jun 2026: no longer in use
+        'num_threads': 40, # Jun 2026: Change from 8
         'overwrite': True,
         'windowed': False,
     }

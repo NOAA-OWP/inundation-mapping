@@ -25,6 +25,8 @@ from scipy.optimize import NonlinearConstraint, differential_evolution, minimize
 from tools_shared_variables import MAGNITUDE_DICT, TEST_CASES_DIR
 
 
+# TODO: Jun 2026: There is a very large amount of reduntency with run_test_case.py. Needs review
+
 AHPS_BENCHMARK_CATEGORIES = ["usgs", "nws"]
 
 

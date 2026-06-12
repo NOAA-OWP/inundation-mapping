@@ -16,7 +16,7 @@ from rasterio.enums import Resampling
 from rasterio.shutil import copy
 from rio_vrt import build_vrt
 
-from utils.shared_functions import FIM_Helpers as fh
+from src.utils.shared_functions import FIM_Helpers as fh
 
 
 # INUN_REVIEW_DIR = r'/data/inputs/rating_curve/nwm_recur_flows/'
@@ -27,7 +27,7 @@ from utils.shared_functions import FIM_Helpers as fh
 
 
 # TODO: Nov 2023, Logging system appears to be not working correctly.
-
+# TODO: Jun 2026: Switch to src.utils.shared_functions.setup_file_logger
 
 def inundate_nation(
     fim_run_dir,
@@ -40,6 +40,7 @@ def inundate_nation(
     job_number,
     thread_number,
 ):
+
     assert os.path.exists(flow_file), f"ERROR: could not find the flow file: {flow_file}"
 
     if job_number > available_cores:
@@ -56,6 +57,7 @@ def inundate_nation(
     fim_version = os.path.basename(os.path.normpath(fim_run_dir))
     output_base_file_name = magnitude_key + "_" + fim_version
 
+    # TODO: Jun 2026: Switch to src.utils.shared_functions.setup_file_logger
     __setup_logger(output_dir, output_base_file_name)
     logging.info(f"Using fim version: {fim_version}")
 
@@ -94,6 +96,8 @@ def inundate_nation(
     huc_list.sort()
 
     logging.info(f"Inundation mosaic wrapper outputs will saved here: {magnitude_output_dir}")
+    # Jun 2026: job_number arg is no longer available
+    # It was not previously used correctly. But it is used in other parts of this script.
     run_inundation(
         [
             fim_run_dir,
@@ -101,7 +105,7 @@ def inundate_nation(
             magnitude_key,
             magnitude_output_dir,
             flow_file,
-            job_number,
+            # job_number, # Jun 2026: No longer in use in run_inundation
             thread_number,
             precalb,
         ]
@@ -138,7 +142,7 @@ def inundate_nation(
             logging.info(msg)
 
         # Perform VRT creation and mosaic all of the huc rasters using boolean rasters
-        vrt_raster_mosaic(output_bool_dir, output_dir, output_base_file_name, thread_number, precalb)
+        vrt_raster_mosaic(output_bool_dir, output_dir, output_base_file_name, job_number, precalb)
 
         # now cleanup the temp bool directory
         shutil.rmtree(output_bool_dir, ignore_errors=True)
@@ -165,15 +169,16 @@ def run_inundation(args):
             magnitude_output_dir (str), forecast (str), job_number (int)]
 
     """
-
+    # Jun 2026: job_number arg is no longer available
+    # It was not previously used correctly. But it is used in other parts of this script.
     fim_run_dir = args[0]
     huc_list = args[1]
     magnitude = args[2]
     magnitude_output_dir = args[3]
     forecast = args[4]
-    job_number = args[5]
-    thread_number = args[6]
-    precalb = args[7]
+    # job_number = args[5]
+    thread_number = args[5]
+    precalb = args[6]
 
     # Define file paths for use in inundate().
 
@@ -190,18 +195,20 @@ def run_inundation(args):
     )
     print()
 
+    # Jun 2026: gms_multi_process no longer available as it is now Multi-threaded only
     produce_mosaicked_inundation(
         fim_run_dir,
         huc_list,
         forecast,
         inundation_raster=inundation_raster,
-        num_workers=job_number,
+        # num_workers=job_number,
         num_threads=thread_number,
         remove_intermediate=True,
         verbose=True,
         is_mosaic_for_branches=True,
-        gms_multi_process=True,
+        #gms_multi_process=True,
         precalb_option=precalb,
+        show_progress_bar=True,
     )
 
 
@@ -243,7 +250,9 @@ def create_bool_rasters(args):
         dst.write(array.astype(rasterio.uint8))
 
 
-def vrt_raster_mosaic(output_bool_dir, output_dir, fim_version_tag, threads, precalb):
+# thread value was not used
+# def vrt_raster_mosaic(output_bool_dir, output_dir, fim_version_tag, threads, precalb):
+def vrt_raster_mosaic(output_bool_dir, output_dir, fim_version_tag, precalb):
     crs_groups = defaultdict(list)
 
     # Group rasters by CRS
@@ -291,7 +300,7 @@ def vrt_raster_mosaic(output_bool_dir, output_dir, fim_version_tag, threads, pre
             vrt_file = build_vrt(output_mosaic_vrt, raster_list)
 
             logging.info(f"Building raster mosaic: {output_mosaic_raster}")
-            logging.info(f"Using {threads} threads for parallelizing")
+            # logging.info(f"Using {threads} threads for parallelizing")
             # Use rasterio.shutil.copy to apply the COG profile during the merge
             rasterio.shutil.copy(vrt_file, output_mosaic_raster, **creation_options)
 
@@ -343,6 +352,7 @@ def __setup_logger(output_folder_path, log_file_name_key, log_level=logging.INFO
 
 if __name__ == "__main__":
     """
+
     Sample usage:
     python3 /foss_fim/tools/inundate_nation.py
         -r /outputs/fim_4_0_9_2 -m 100_0
@@ -361,8 +371,6 @@ if __name__ == "__main__":
         -t 8
     outputs become /data/inundation_review/inundate_nation/hw_fim_4_0_9_2_mosiac.tif (.log, etc)
 
-    If run on UCS2, you can map docker as -v /dev_fim_share../:/data -v /local...outputs:/outputs
-    -v .../inundation-mapping/:/foss_fim as normal.
     """
 
     available_cores = multiprocessing.cpu_count()

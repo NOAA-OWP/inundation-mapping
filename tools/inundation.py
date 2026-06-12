@@ -2,6 +2,7 @@
 
 import argparse
 import logging
+import traceback
 from os.path import splitext
 from typing import List, Optional, Tuple, Union
 from warnings import warn
@@ -23,13 +24,11 @@ gpd.options.io_engine = "pyogrio"
 
 class hydroTableHasOnlyLakes(Exception):
     """Raised when a Hydro-Table only has lakes"""
-
     pass
 
 
 class NoForecastFound(Exception):
     """Raised when no forecast is available for a given Hydro-Table"""
-
     pass
 
 
@@ -144,139 +143,139 @@ def inundate(
     # bool quiet
     quiet = bool(quiet)
 
-    # input rem
-    if isinstance(rem, str):
-        rem = rasterio.open(rem)
-    elif isinstance(rasterio.io.DatasetReader):
-        pass
-    else:
-        raise TypeError("Pass rasterio DatasetReader or filepath for rem")
+    # To help close object correctly on exception
+    try:
+        # input rem
+        if isinstance(rem, str):
+            rem = rasterio.open(rem)
+        elif isinstance(rasterio.io.DatasetReader):
+            pass
+        else:
+            raise TypeError("Pass rasterio DatasetReader or filepath for rem")
 
-    # input catchments grid
-    if isinstance(catchments, str):
-        catchments = rasterio.open(catchments)
-    elif isinstance(rasterio.io.DatasetReader):
-        pass
-    else:
-        raise TypeError("Pass rasterio DatasetReader or filepath for catchments")
+        # input catchments grid
+        if isinstance(catchments, str):
+            catchments = rasterio.open(catchments)
+        elif isinstance(rasterio.io.DatasetReader):
+            pass
+        else:
+            raise TypeError("Pass rasterio DatasetReader or filepath for catchments")
 
-    # check for matching number of bands and single band only
-    assert ((rem.transform * (0, 0)) == (catchments.transform * (0, 0))) & (
-        (rem.transform * (rem.width, rem.height))
-        == (catchments.transform * (catchments.width, catchments.height))
-    ), "REM and catchments rasters require same upper left and lower right extents"
+        # check for matching number of bands and single band only
+        assert ((rem.transform * (0, 0)) == (catchments.transform * (0, 0))) & (
+            (rem.transform * (rem.width, rem.height))
+            == (catchments.transform * (catchments.width, catchments.height))
+        ), "REM and catchments rasters require same upper left and lower right extents"
 
-    # open hucs
-    if hucs is None:
-        pass
-    elif isinstance(hucs, str):
-        hucs = fiona.open(hucs, 'r', layer=hucs_layerName)
-    elif isinstance(hucs, fiona.Collection):
-        pass
-    else:
-        raise TypeError("Pass fiona collection or filepath for hucs")
+        # open hucs
+        if hucs is None:
+            pass
+        elif isinstance(hucs, str):
+            hucs = fiona.open(hucs, 'r', layer=hucs_layerName)
+        elif isinstance(hucs, fiona.Collection):
+            pass
+        else:
+            raise TypeError("Pass fiona collection or filepath for hucs")
 
-    # catchment stages dictionary
-    if hydro_table is None:
-        raise TypeError("Pass hydro table csv")
+        # catchment stages dictionary
+        if hydro_table is None:
+            raise TypeError("Pass hydro table csv")
 
-    # TODO: Jun 2026: This needs a try except so we don't leave the rasters open on fails
-    # and we can close them earlier.
-    # try: # t
+        depths_profile = rem.profile.copy()
+        inundation_profile = catchments.profile.copy()
 
-    depths_profile = rem.profile.copy()
-    inundation_profile = catchments.profile.copy()
+        # logging.info(f"Depth Profile for {hucs} is {depths_profile} - pre update")
+        # logging.info(f"Depth inundation_profile for {hucs} is {inundation_profile} - pre update")
 
-    # logging.info(f"Depth Profile for {hucs} is {depths_profile} - pre update")
-    # logging.info(f"Depth inundation_profile for {hucs} is {inundation_profile} - pre update")
+        int_16 = inundation_profile['dtype'] == 'int16'
 
-    int_16 = inundation_profile['dtype'] == 'int16'
+        # catchment stages dictionary
+        if hydro_table is not None:
+            catchmentStagesDict, hucSet = __subset_hydroTable_to_forecast(
+                hydro_table, forecast, subset_hucs, int_16, precalb_option
+            )
+        else:
+            raise TypeError("Pass hydro table csv")
 
-    # catchment stages dictionary
-    if hydro_table is not None:
-        catchmentStagesDict, hucSet = __subset_hydroTable_to_forecast(
-            hydro_table, forecast, subset_hucs, int_16, precalb_option
-        )
-    else:
-        raise TypeError("Pass hydro table csv")
+        if catchmentStagesDict is not None:
+            if src_table is not None:
+                create_src_subset_csv(hydro_table, catchmentStagesDict, src_table)
 
-    if catchmentStagesDict is not None:
-        if src_table is not None:
-            create_src_subset_csv(hydro_table, catchmentStagesDict, src_table)
+            # Possible test code.. just a Rob comment for now. Talked to Greg about it
+            # Jun 2026: Rasterio no longer supports direct arguments, and wants a json format            
+            # depths_profile = {
+            #     'driver': 'GTiff',
+            #     'tiled': True,
+            #     'blockxsize': 256,  # Creation options
+            #     'blockysize': 256
+            # }
+            # with rasterio.open('output.tif', 'w', **profile) as dst:
+            #     dst.write(data)
+            
+            # TODO: Jun 2026: research this more
+            # Jun 2026: Can't use blockxsize and blockysize (seeing as we are using COG GeoTiffs)
+            depths_profile.update(driver='GTiff', blockxsize=256, blockysize=256, tiled=True)
+            inundation_profile.update(driver='GTiff', blockxsize=256, blockysize=256, tiled=True, nodata=0)
 
+            # depths_profile.update(driver='GTiff', blocksize=256, tiled=True)
+            # inundation_profile.update(driver='GTiff', blocksize=256, tiled=True, nodata=0)
 
-        # Possible test code.. just a Rob comment for now
-        # Jun 2026: Rasterio no longer supports direct arguments, and wants a json format            
-        # depths_profile = {
-        #     'driver': 'GTiff',
-        #     'tiled': True,
-        #     'blockxsize': 256,  # Creation options
-        #     'blockysize': 256
-        # }
-        # with rasterio.open('output.tif', 'w', **profile) as dst:
-        #     dst.write(data)
+            # logging.debug(f"Depth Profile for {hucs} is {depths_profile} - post update")
+            # logging.debug(f"Depth inundation_profile for {hucs} is {inundation_profile} - post update")        
+            # logging.debug("*******************")
 
+            # depth_rst = rasterio.open(depths, "w+", **depths_profile) if depths is not None else None
 
-        
-        # Jun 2026: Can't use blockxsize and blockysize (seeing as we are using COG GeoTiffs)
-        depths_profile.update(driver='GTiff', blockxsize=256, blockysize=256, tiled=True)
-        inundation_profile.update(driver='GTiff', blockxsize=256, blockysize=256, tiled=True, nodata=0)
+            depth_rst = rasterio.open(depths, "w+", **depths_profile) if depths is not None else None
+            inundation_rst = (
+                rasterio.open(inundation_raster, "w+", **inundation_profile)
+                if (inundation_raster is not None and inundation_profile is not None)
+                else None
+            )
 
-        # depths_profile.update(driver='GTiff', blocksize=256, tiled=True)
-        # inundation_profile.update(driver='GTiff', blocksize=256, tiled=True, nodata=0)
+            nodata = np.int16(inundation_profile['nodata']) if int_16 else np.int32(inundation_profile['nodata'])
 
-        # logging.info(f"Depth Profile for {hucs} is {depths_profile} - post update")
-        # logging.info(f"Depth inundation_profile for {hucs} is {inundation_profile} - post update")        
-        # logging.info("*******************")
+            # make windows generator
+            window_gen = __make_windows_generator(
+                rem,
+                catchments,
+                catchment_poly,
+                mask_type,
+                catchmentStagesDict,
+                inundation_raster,
+                depths,
+                quiet,
+                hucs=hucs,
+                hucSet=hucSet,
+                windowed=windowed,
+                depth_rst=depth_rst,
+                inundation_rst=inundation_rst,
+                inundation_nodata=nodata,
+                min_value=30 if int_16 else 0.03048
+            )
 
+            inundation_rasters = []
+            depth_rasters = []
+            inundation_polys = []
 
-        # depth_rst = rasterio.open(depths, "w+", **depths_profile) if depths is not None else None
+            # Temporarily incurring serial processing
+            for wg in window_gen:
+                future = __inundate_in_huc(**wg)
+                inundation_rasters += [future[0]]
+                depth_rasters += [future[1]]
+                inundation_polys += [future[2]]
 
-        depth_rst = rasterio.open(depths, "w+", **depths_profile) if depths is not None else None
-        inundation_rst = (
-            rasterio.open(inundation_raster, "w+", **inundation_profile)
-            if (inundation_raster is not None and inundation_profile is not None)
-            else None
-        )
+            if depth_rst is not None:
+                depth_rst.close()
+            if inundation_rst is not None:
+                inundation_rst.close()
 
-        nodata = np.int16(inundation_profile['nodata']) if int_16 else np.int32(inundation_profile['nodata'])
+    except Exception as ex:
+        logging.critical(f"Critical Error while inundating for {inundation_raster}")
+        logging.critical(traceback.format_exc())
+        raise ex  # yes, re-raise
 
-        # make windows generator
-        window_gen = __make_windows_generator(
-            rem,
-            catchments,
-            catchment_poly,
-            mask_type,
-            catchmentStagesDict,
-            inundation_raster,
-            depths,
-            quiet,
-            hucs=hucs,
-            hucSet=hucSet,
-            windowed=windowed,
-            depth_rst=depth_rst,
-            inundation_rst=inundation_rst,
-            inundation_nodata=nodata,
-            min_value=30 if int_16 else 0.03048
-        )
-
-        inundation_rasters = []
-        depth_rasters = []
-        inundation_polys = []
-
-        # Temporarily incurring serial processing
-        for wg in window_gen:
-            future = __inundate_in_huc(**wg)
-            inundation_rasters += [future[0]]
-            depth_rasters += [future[1]]
-            inundation_polys += [future[2]]
-
-        if depth_rst is not None:
-            depth_rst.close()
-        if inundation_rst is not None:
-            inundation_rst.close()
-
-    # return inundation_rasters, depth_rasters, inundation_polys
+    return inundation_rasters, depth_rasters, inundation_polys
 
 
 def __inundate_in_huc(

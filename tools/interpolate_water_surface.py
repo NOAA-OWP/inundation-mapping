@@ -94,6 +94,8 @@ def inundate_with_catchment_spillover(
     log_file=None,
     verbose=False,
 ):
+    # TODO: Jun 2026:
+    # Consider adding logging in it place and you will the console prints
     print("Running Inundation")
     map_file = Inundate_gms(
         hydrofabric_dir=hydrofabric_dir,
@@ -104,6 +106,7 @@ def inundate_with_catchment_spillover(
         verbose=verbose,
         log_file=log_file,
         output_fileNames=output_fileNames,
+        show_progress_bar=True,
     )
 
     print("Interpolating water surfaces for each branch")

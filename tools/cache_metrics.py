@@ -7,6 +7,8 @@ from multiprocessing import Pool
 
 from run_test_case import Test_Case
 
+# Jun 2026: Might be deprecated. It would not have worked for a while
+# as the Test_Case.run_alpha_test arguments are wrong and have been for a while. 
 
 TEST_CASES_DIR = r'/data/test_cases/'
 PREVIOUS_FIM_DIR = r'/data/previous_fim'
@@ -48,6 +50,10 @@ def process_alpha_test(args):
 
 if __name__ == '__main__':
     # Parse arguments.
+
+    # Jun 2026: Might be deprecated. It would not have worked for a while
+    # as the Test_Case.run_alpha_test arguments are wrong and have been for a while. 
+
     parser = argparse.ArgumentParser(description='Caches metrics from previous versions of HAND.')
     parser.add_argument(
         '-c',

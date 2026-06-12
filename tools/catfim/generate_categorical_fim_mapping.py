@@ -376,8 +376,11 @@ def run_fb_inundation(  # renamed from run_inundation
             verbose=False,
             log_file=None,
             output_fileNames=None,
-            multi_process=True,
+            # multi_process=True,
+            show_progress_bar=False,
         )
+        # Jun 2026: Inundate_gms no longer offers the option of multi_process
+        # but how automatically uses MultiThread
 
         # ---------------------
         # Mosaic inundation tifs for lid/category

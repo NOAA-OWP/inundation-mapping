@@ -32,6 +32,8 @@ from src.utils.shared_functions import FIM_Helpers as fh
 # if we do want to keep this and not rebuild... consider rebuilding it to use our
 # standard logging system. See synthesize_test_case.py, run_test_case.py and various
 # inundation files under it.
+# At a min, review the part that calls inundation.inundate and compare to inundate_gms.py
+# But this script needs to be rebuilt anyways and call inundate_gms.py and not duplicate it here.
 
 # *******************************************************
 # def list_all_test_cases(huc, version, archive, benchmark_categories=[]):
@@ -598,6 +600,7 @@ def Inundate_gms(
         desc=f"Inundating branches with {num_workers} workers",
         disable=(not verbose),
     ):
+        # TODO: Jun 2026: This wil break as inundate hucCode and branch_id will not exist
         hucCode, branch_id = executor_generator[future]
 
         try:

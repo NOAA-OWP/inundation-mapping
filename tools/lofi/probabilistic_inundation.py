@@ -411,7 +411,7 @@ def inundate_probabilistic(
     day: Optional[int] = 6,
     hour: Optional[int] = 0,
     overwrite: Optional[bool] = False,
-    num_jobs: Optional[int] = 1,
+    num_jobs: Optional[int] = 1,  # Jun 2026: No longer in use
     num_threads: Optional[int] = 1,
     windowed: Optional[bool] = False,
     output_raster: Optional[bool] = False,
@@ -556,6 +556,8 @@ def inundate_probabilistic(
         )
         df.to_csv(flow_file, index=False)
 
+        # Jun 2026: num_workers arg is no longer available
+        # It was not previously used correctly.
         produce_mosaicked_inundation(
             hydrofabric_dir,
             huc,
@@ -564,10 +566,11 @@ def inundate_probabilistic(
             inundation_raster=final_inundation_path,
             mask=mask_path,
             verbose=not quiet,
-            num_workers=num_jobs,
+            # num_workers=num_jobs,
             num_threads=num_threads,
             windowed=windowed,
             log_file=log_file,
+            show_progress_bar=True,
         )
 
     # percentiles

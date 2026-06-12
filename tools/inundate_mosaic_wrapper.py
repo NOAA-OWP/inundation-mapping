@@ -14,6 +14,9 @@ from src.utils.shared_functions import s3_or_local_path_exists
 from src.utils.shared_variables import elev_raster_ndv
 
 
+# Jun 2026: num_workers has been removed in favor of 
+# just number of threads. It was not really used.
+# It now uses MultiThread versus MultiProc
 def produce_mosaicked_inundation(
     hydrofabric_dir: str,
     hucs: Union[str, List[str]],
@@ -25,7 +28,7 @@ def produce_mosaicked_inundation(
     map_filename: Optional[str] = None,
     mask: Optional[str] = None,
     unit_attribute_name: Optional[str] = "huc8",
-    num_workers: Optional[int] = 1,
+    # num_workers: Optional[int] = 1,
     remove_intermediate: Optional[bool] = True,
     verbose: Optional[bool] = False,
     is_mosaic_for_branches: Optional[bool] = False,
@@ -34,8 +37,11 @@ def produce_mosaicked_inundation(
     windowed: Optional[bool] = False,
     log_file: Optional[str] = None,
     nodata: Optional[int] = elev_raster_ndv,
-    gms_multi_process: Optional[bool] = False
+    # gms_multi_process: Optional[bool] = False,
+    show_progress_bar: Optional[bool] = True,
 ):
+    # Jun 2026: gms_multi_process removed as it is now multi threaded
+    # and the option of MP is no longer available.
     """
     This function calls Inundate_gms and Mosaic_inundation to produce inundation maps.
     Possible outputs include inundation rasters encoded by HydroID (negative HydroID for dry and positive
@@ -65,8 +71,8 @@ def produce_mosaicked_inundation(
         The inclusive mask for the final mosaicked datasets
     unit_attribute_name : Optional[str], default="huc8"
         The name of the processing unit
-    num_workers : Optional[int]:
-        Number of parallel processes to run.
+    # num_workers : Optional[int]:
+    #     Number of parallel processes to run.
     remove_intermediate : Optional[bool], default=True
         Option to keep intermediate files.
     verbose : Optional[bool], default=False
@@ -83,8 +89,9 @@ def produce_mosaicked_inundation(
         File path for log file
     nodata : Optional[int], default=elev_raster_ndv
         Nodata to pass to the mosaic_inundation function
-    gms_multi_process : Optional[bool], default=False
-        Use processes for parallel processing instead of threads
+    # gms_multi_process : Optional[bool], default=False
+    #     Use processes for parallel processing instead of threads
+    show_progress_bar : Optional[bool], default=False
     """
 
     # Check that inundation_raster or depths_raster is supplied
@@ -97,15 +104,13 @@ def produce_mosaicked_inundation(
             continue
         parent_dir = os.path.split(output_file)[0]
         if not os.path.exists(parent_dir):
-            # msg=f"Parent directory for {os.path.split(output_file)[1]} does not exist."
-            # " The parent directory will be produced."
-
-            # fh.vprint(
-            #     "Parent directory for "
-            #     + os.path.split(output_file)[1]
-            #     + " does not exist. The parent directory will be produced.",
-            #     verbose,
-            # )
+            # Jun 2026: left vprint in as some apps to not have logging yet
+            fh.vprint(
+                "Parent directory for "
+                + os.path.split(output_file)[1]
+                + " does not exist. The parent directory will be produced.",
+                verbose,
+            )
             # logging.debug(msg)
             os.makedirs(parent_dir)
         # TODO: Jun 2026: Do we want to remove it to clean it?
@@ -130,19 +135,20 @@ def produce_mosaicked_inundation(
     if not isinstance(flow_file, pd.DataFrame) and not os.path.exists(flow_file):
         raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), flow_file)
 
+    # Jun 2026: No longer needed as num_workers is no longer relavent
     # Check job numbers and raise error if necessary
-    total_cpus_available = os.cpu_count() - 1
-    if num_workers > total_cpus_available:
-        raise ValueError(
-            "The number of workers (-w), {}, "
-            "exceeds your machine's available CPU count minus one ({}). "
-            "Please lower the num_workers.".format(num_workers, total_cpus_available)
-        )
+    # total_cpus_available = os.cpu_count() - 1
+    # if num_workers > total_cpus_available:
+    #     raise ValueError(
+    #         "The number of workers (-w), {}, "
+    #         "exceeds your machine's available CPU count minus one ({}). "
+    #         "Please lower the num_workers.".format(num_workers, total_cpus_available)
+    #     )
 
     # Call Inundate_gms
     logging.debug(f"About to go into Inudate_gms for {hydrofabric_dir}")
-    # Verbose set to False here stops TQDM from being visible which we do not
-    # want in the run_test_case.py chain    .
+    # Jun 2026: Verbose set to False here stops TQDM from being visible which we do not
+    # want in the run_test_case.py chain. Flipped num_theads
     map_file = Inundate_gms(
         hydrofabric_dir=hydrofabric_dir,
         forecast=flow_file,
@@ -155,9 +161,8 @@ def produce_mosaicked_inundation(
         precalb_option=precalb_option,
         windowed=windowed,
         log_file=log_file,
-        multi_process=gms_multi_process
+        show_progress_bar=show_progress_bar
     )
-
 
     # Write map file if designated
     if map_filename is not None:
@@ -166,7 +171,7 @@ def produce_mosaicked_inundation(
 
         map_file.to_csv(map_filename, index=False)
 
-    # fh.vprint("Mosaicking extent...", verbose)
+    fh.vprint("Mosaicking extent...", verbose)
     # print("Mosaicking extent...")
     logging.debug(f"Mosaicking extent... for {hydrofabric_dir}")
     for mosaic_attribute in ["depths_rasters", "inundation_rasters"]:
@@ -196,7 +201,7 @@ def produce_mosaicked_inundation(
                 workers=num_threads
             )
 
-    # fh.vprint("Mosaicking complete.", verbose)
+    fh.vprint("Mosaicking complete.", verbose)
     logging.debug(f"Mosaic_inundation complete, calculated mosiac path is {mosaic_file_path}")
 
     return mosaic_file_path
@@ -260,7 +265,13 @@ if __name__ == "__main__":
         default="huc8",
         type=str,
     )
-    parser.add_argument("-w", "--num-workers", help="Number of workers.", required=False, default=1, type=int)
+    parser.add_argument(
+        "-w", "--num_threads",
+        help="Number of worker threads.",
+        required=False,
+        default=1,
+         type=int
+    )
     parser.add_argument(
         "-r",
         "--remove-intermediate",

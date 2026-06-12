@@ -35,7 +35,8 @@ def Inundate_gms(
     output_fileNames: Optional[str] = None,
     precalb_option: Optional[bool] = False,
     windowed: Optional[bool] = False,
-    multi_process: Optional[bool] = False
+    # multi_process: Optional[bool] = False,
+    show_progress_bar: Optional[bool] = False,
 ) -> pd.DataFrame:
     """
     Run inundation using the Generalized Mainstem methodology
@@ -66,8 +67,9 @@ def Inundate_gms(
         Whether to use precalb discharge in hydrotable
     windowed: Optional[bool], default = False
         Whether to use window memory optimization
-    multi_process: Optional[bool], default = False
-        Whether to use process pool, otherwise use thread pool
+    # gms_multi_process : Optional[bool], default=False
+    #     Use processes for parallel processing instead of threads
+    show_progress_bar : Optional[bool], default=False
 
     Returns
     -------
@@ -97,7 +99,7 @@ def Inundate_gms(
     #             f.write("HUC8,BranchID,Exception")
 
     logging.debug(f"Starting Inundate_gms for {hucs}")
-    logging.debug(f"Temp.. verbose is {verbose}")
+    # logging.debug(f"Temp.. verbose is {verbose}")
 
     # load fim inputs
     hucs_branches = pd.read_csv(
@@ -125,10 +127,11 @@ def Inundate_gms(
         precalb_option=precalb_option
     )
 
-    logging.debug(f"back from __inundate_gms_generator for {hucs} with number of branches of {len(hucs_branches)}")
+    #logging.debug(f"back from __inundate_gms_generator for {hucs} with number of branches
+    #   of {len(hucs_branches)}")
 
-    # TODO: Nice to have: This could be replaced by a list created in teach future_result
-    # and appended to a master list.  It woudl mean  the genereator woudl need to 
+    # TODO: Jun 2026: Nice to have: This could be replaced by a list created in teach future_result
+    # and appended to a master list.  It would mean the generator would need to 
     # return the huc and branch is all. But this works too.
     inundation_raster_fileNames = [None] * number_of_branches
     inundation_polygon_fileNames = [None] * number_of_branches
@@ -137,30 +140,73 @@ def Inundate_gms(
     branch_ids = [None] * number_of_branches
 
     try:
-        with ThreadPoolExecutor(max_workers=num_workers, max_tasks_per_child=num_workers) as executor:
+        with ThreadPoolExecutor(max_workers=num_workers) as executor:
 
             executor_generator = {executor.submit(inundate, **inp): ids for inp, ids in inundate_input_generator}
 
-            idx = 0
+            # Using tqdm manually instead of part of as_completed, we have more
+            # control over future results and exceptions
+            pbar = tqdm(total=len(executor_generator),
+                        desc=f"Inundating branches with {num_workers} workers",
+                        unit="task",
+                        disable=(not show_progress_bar))
+        
+            # for future in tqdm(
+            #     as_completed(executor_generator),
+            #     total=len(executor_generator),
+            #     desc=f"Inundating branches with {num_workers} workers",
+            #     disable=(not verbose),
+            # ):
 
-            for future in tqdm(
-                as_completed(executor_generator),
-                total=len(executor_generator),
-                desc=f"Inundating branches with {num_workers} workers",
-                disable=(not verbose),
-            ):
+            # TODO: Jun 2026, replace this idx system as it assumes hucCode and branch_id come
+            # back and they do no.
+            idx = 0
+            for future in as_completed(executor_generator):
+                # Jun 2026: inundate does not have hucCode and branch_id to return.
+                # TODO: This likely comes back as blank
+                hucCode, branch_id = executor_generator[future]
+                logging.debug(f"In Inundate_gms, future back for huc {hucCode} and branch {branch_id}")
 
                 try:
-                    # TODO: Likely we do not get huc code and branch id back. check it
-                    hucCode, branch_id = executor_generator[future]
 
-                    if future is not None:
-                        if future.cancelled():  # Mostly CTRL-C
-                            continue
-                        if future.exception():
-                            raise future.exception()  # re-raise it
-                        
-                    # future.result()
+                    # TODO: Jun 2026: This can be improved to work with the result object better
+                    # and improve this MP and how it captures errors.
+                    # ie) check future.cancelled and future.excption
+                    if not future.cancelled():
+                        future.result()
+
+                except (hydroTableHasOnlyLakes, NoForecastFound) as exc:
+
+                    if log_file is not None and log_file != "":
+                        print(f"Warning: {hucCode},{branch_id}: {exc.__class__.__name__}", file=open(log_file, "a"))
+                    # else:
+                        # TODO: Jun 2026: yes.. commenting this out can bury some scripts if they do
+                        # not have a logger or pass in a log_file path.
+                        # print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
+                    logging.warning(f"Warning: {hucCode},{branch_id}: {exc.__class__.__name__}, {exc}", file=open(log_file, "a"))
+
+                except Exception as exc:
+
+                    if log_file is not None and log_file != "":
+                        print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=open(log_file, "a"))
+                    # else:
+                        # TODO: Jun 2026: yes.. commenting this out can bury some scripts if they do
+                        # not have a logger or pass in a log_file path.
+                        # print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
+
+                    logging.critical(f"Error: {hucCode},{branch_id},{exc.__class__.__name__}")
+                    logging.critical(traceback.format_exc())
+                    
+                    # Note: You can not sys.exit from a ProcessPoolExecutor directly
+                    # all processes inside the ProcessPoolExecutor can not be aborted
+                    # but you can shutdown and stop the executor from creating more.
+                    # The trick is recongizing that each child process can throw an
+                    # ThreadPoolExecutors can abort treads in process.
+                    executor.shutdown(wait=False, cancel_futures=True)
+                    raise exc  # yes.. reraise
+                
+                else: # excutes only if the try was successful
+                    # TODO: Jun 2026: idx system not really the best, kinda loose
                     hucCodes[idx] = hucCode
                     branch_ids[idx] = branch_id
 
@@ -168,111 +214,23 @@ def Inundate_gms(
                         inundation_raster_fileNames[idx] = future.result()[0][0]
                     except TypeError:
                         pass
+
                     try:
                         depths_raster_fileNames[idx] = future.result()[1][0]
                     except TypeError:
                         pass
+
                     try:
                         inundation_polygon_fileNames[idx] = future.result()[2][0]
                     except TypeError:
                         pass
+
                     idx += 1
+                    pbar.update(1)  # ✅ Progress update for each completed task 
 
-
-                # except NoForecastFound as exc_nf:
-
-                #     # TODO: Jun 2026: Now that we are adding logging, do we need this log file test?
-                #     # Do other scripts call this function and do they uses logs?
-
-                #     if log_file is not None and log_file != "":
-                #         # print(f"{hucCode},{branch_id},{exc_nf.__class__.__name__}, {exc_nf}", file=open(log_file, "a"))
-                #         # , file=open(log_file, "a")
-                #         logging.warning(f"{hucCode} : {branch_id}, {exc_nf}")
-                #     # else:
-                #         # print(f"{hucCode},{branch_id},{exc_nf.__class__.__name__}, {exc_nf}")
-                #     logging.warning(f"{hucCode} : {branch_id}, {exc}")
-
-                except (hydroTableHasOnlyLakes, NoForecastFound) as exc:
-                    # # TODO: Jun 2026: Now that we are adding logging, do we need this log file test?
-                    # if log_file is not None and log_file != "":
-                    #     print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=open(log_file, "a"))
-                    # elif verbose:
-                    #     print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
-
-                    if log_file is not None and log_file != "":
-                        print(f"{hucs}: {type(exc)}", file=open(log_file, "a")),
-                        file=open(log_file, "a")
-
-                    # print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
-                    logging.warning(f"{hucs}: {type(exc)}")
-
-                except Exception:
-                    logging.critical(f"Error returned by future [{idx}] from {future}")
-                    logging.critical(traceback.format_exc())
-
-                    executor.shutdown(wait=False, cancel_futures=True)
-
-
-                # try:
-
-                #     # TODO: Jun 2026: This can be improved to work with the result object better
-                #     # and improve this MP and how it captures errors
-
-                #     future.result()
-
-                # except NoForecastFound as exc:
-
-                #     # TODO: Jun 2026: Now that we are adding logging, do we need this log file test?
-                #     # Do other scripts call this function and do they uses logs?
-
-                #     if log_file is not None and log_file != "":
-                #         # print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=open(log_file, "a"))
-                #         # , file=open(log_file, "a")
-                #         logging.warning(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
-                #     # else:
-                #         # print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
-                #     logging.warning(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
-
-                # except hydroTableHasOnlyLakes as exc:
-                #     # # TODO: Jun 2026: Now that we are adding logging, do we need this log file test?
-                #     # if log_file is not None and log_file != "":
-                #     #     print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=open(log_file, "a"))
-                #     # elif verbose:
-                #     #     print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
-
-                #     if log_file is not None and log_file != "":
-                #         print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=open(log_file, "a")),
-                #         file=open(log_file, "a")
-
-                #     # print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
-                #     logging.warning(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
-
-                # except Exception as exc:
-                #     # TODO: Jun 2026: Now that we are adding logging, do we need this log file test?
-                #     if log_file is not None and log_file != "":
-                #         print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=open(log_file, "a"))
-                #         # print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
-
-                #     logging.critical(f"Critical Error: {hucCode},{branch_id},{exc.__class__.__name__}")
-                #     logging.critical(traceback.format_exc())
-                    
-                #     # Note: You can not sys.exit from a ProcessPoolExecutor directly
-                #     # all processes inside the ProcessPoolExecutor can not be aborted
-                #     # but you can shutdown and stop the executor from creating more.
-                #     # The trick is recongizing that each child process can throw an
-                #     # ThreadPoolExecutors can abort treads in process.
-                #     executor.shutdown(
-                #         wait=False, cancel_futures=True
-                #     )   # ThreadPoolExecutos can stop all existing threads (not like ProcessPool)
-
-                #     raise exc  # yes.. reraise
-                
-                # else: # excutes only if the try was successful
-
-            # # power down pool
+            # power down pool
             # if future.running():
             #     executor.shutdown(wait=True)
-
 
     except Exception as ex:
         # msg = f"Critical Error: {hucs},{ex.__class__.__name__}"
@@ -281,7 +239,7 @@ def Inundate_gms(
             print(f"{hucs}: {ex.__class__.__name__}, {ex}", file=open(log_file, "a"))
         logging.critical(f"Error while inundating {hucs}")
         logging.critical(traceback.format_exc())
-        raise ex  # yes.. reraise
+        raise ex  # yes.. reraise, so we can shut inudation down.
 
     # make filename dataframe
     output_fileNames_df = pd.DataFrame(
@@ -312,7 +270,7 @@ def __inundate_gms_generator(
     verbose: Optional[bool] = False,
     precalb_option: Optional[bool] = False,
     windowed: Optional[bool] = False
-) -> Tuple[dict, List[str]]:
+):
     """
     Generator for use in parallelizing inundation
 
@@ -336,14 +294,10 @@ def __inundate_gms_generator(
         Whether to use precalb discharge in hydrotable
     windowed: Optional[bool], default = False
         Whether to use window memory optimization
-    Returns
-    -------
-    Tuple[dict, List[str]]
-        Data inputs for inundate gms and the respective branch ids
 
     """
     # Iterate over branches
-    logging.debug(f"In __inundate_gms_generator for {hydrofabric_dir}")
+    logging.debug(f"Loading inundate gms generator for {hydrofabric_dir}")
 
     for idx, row in hucs_branches.iterrows():
         huc = str(row[0])

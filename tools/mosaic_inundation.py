@@ -96,9 +96,11 @@ def Mosaic_inundation(
 
     # load file
     if isinstance(map_file, pd.DataFrame):
+        logging.debug(f"Loading inundation_maps_df from map_file df ")
         inundation_maps_df = map_file
         del map_file
     elif isinstance(map_file, str):
+        logging.debug(f"Loading inundation_maps_df from {map_file}")
         inundation_maps_df = pd.read_csv(map_file, dtype={unit_attribute_name: str, "branchID": str})
     else:
         raise TypeError("Pass Pandas Dataframe or file path string to csv for map_file argument")
@@ -109,7 +111,8 @@ def Mosaic_inundation(
     inundation_maps_df = inundation_maps_df.dropna(subset=['inundation_rasters',
                                                             'depths_rasters',
                                                             'inundation_polygons'])
-    raise Exception(f"inundation_maps_df has no values in the three raster/polygon columns for {mosaic_output}")
+    if len(inundation_maps_df) == 0:
+        raise Exception(f"inundation_maps_df has no values in the three raster/polygon columns for {mosaic_output}")
 
     # subset
     if subset is not None:
@@ -130,9 +133,6 @@ def Mosaic_inundation(
         tqdm_disable = False
     else:
         tqdm_disable = True
-
-    # TODO: Temp debug
-    logging.debug(f"tqdm_disable is {tqdm_disable}")
 
     ag_mosaic_output = ""
     remove_at_end = []
