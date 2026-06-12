@@ -15,7 +15,7 @@ huc2Identifier="${hucNumber:0:2}"
 
 ## SET CRS
 if [[ "${huc2Identifier}" == "19" ]]; then
-    huc_CRS=$ALASKA_CRS
+    huc_CRS="${ALASKA_CRS}"
 elif [[ "${hucNumber}" == "22010000" ]]; then
     huc_CRS="${GUAM_CRS}"
 elif [[ "${hucNumber}" == "22030001" ]]; then
@@ -63,9 +63,9 @@ python3 "${srcDir}/subset_vectors_to_branches.py" "${args[@]}"
 ## GET RASTERS FROM ROOT HUC DIRECTORY AND CLIP TO CURRENT BRANCH BUFFER ##
 echo -e "${startDiv}Clipping rasters to branches ${hucNumber} ${current_branch_id}"
 args=(
-    -d ${current_branch_id}
+    -d "${current_branch_id}"
     -b "${tempHucDataDir}/branch_polygons.parquet"
-    -i ${branch_id_attribute}
+    -i "${branch_id_attribute}"
     -r "${tempHucDataDir}/dem_meters.tif" "${tempHucDataDir}/bridge_elev_diff_meters.tif"
     -c "${tempCurrentBranchDataDir}/dem_meters.tif" "${tempCurrentBranchDataDir}/bridge_elev_diff_meters.tif"
 )
@@ -86,7 +86,7 @@ args=(
     -co "BLOCKYSIZE=512"
     -co "COMPRESS=LZW"
     -co "COPY_SRC_OVERVIEWS=YES"
-    -te "${xmin}" "${ymin}" $xmax "${ymax}"
+    -te "${xmin}" "${ymin}" ${xmax} "${ymax}"
     -ts "${ncols}" "${nrows}"
     "${tempCurrentBranchDataDir}/nwm_subset_streams_levelPaths_extended_${current_branch_id}.parquet"
     "${tempCurrentBranchDataDir}/flows_grid_boolean_${current_branch_id}.tif"
@@ -147,7 +147,7 @@ args=(
     -fel "${tempCurrentBranchDataDir}/dem_burned_filled_${current_branch_id}.tif"
     -p "${tempCurrentBranchDataDir}/flowdir_d8_burned_filled_${current_branch_id}.tif"
 )
-mpiexec -n "{$ncores_fd}" "$taudemDir2/d8flowdir" "${args[@]}"
+mpiexec -n "${ncores_fd}" "$taudemDir2/d8flowdir" "${args[@]}" \
     2> >(while read -r line; do
         # Check if BOTH strings are present in the error line
         if [[ "${line}" == *"ERROR 6:"* && "${line}" == *"Dataset does not support the AddBand() method."* ]]; then
@@ -155,7 +155,7 @@ mpiexec -n "{$ncores_fd}" "$taudemDir2/d8flowdir" "${args[@]}"
             :
         else
             # Print the line to the standard error stream (screen)
-            echo "${line}" >&2
+            echo "${line}" >&2 || true
         fi
     done)
     # May 1, 2026: Merge config between Ryan and Matt gdal PR. commented out Ryans. Can we marry the two? do we want too?    
@@ -172,7 +172,7 @@ args=(
     -co "BLOCKYSIZE=512"
     -co "COMPRESS=LZW"
     -co "COPY_SRC_OVERVIEWS=YES"
-    -te "${xmin}" "${ymin}" $xmax "${ymax}"
+    -te "${xmin}" "${ymin}" ${xmax} "${ymax}"
     -ts "${ncols}" "${nrows}"
     "${tempCurrentBranchDataDir}/nwm_subset_streams_levelPaths_dissolved_headwaters_${current_branch_id}.parquet"
     "${tempCurrentBranchDataDir}/headwaters_${current_branch_id}.tif"
