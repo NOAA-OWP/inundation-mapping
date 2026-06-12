@@ -4,6 +4,7 @@ import argparse
 import os
 import re
 from concurrent.futures import ProcessPoolExecutor
+from datetime import date
 from math import ceil
 from os.path import join
 
@@ -79,7 +80,10 @@ def load_huc_validated_whitelist(ripple_dir, ripple_whitelist_table, previous_ha
     cols = [col for col in whitelist_df.columns if col != "is_valid"] + ["is_valid"]
     whitelist_df = whitelist_df[cols]
 
-    whitelist_df.to_csv(join(ripple_dir, 'ripple_feature_list_20260611.csv'), index=False)
+    if 'huc' in whitelist_df.columns:
+        whitelist_df['huc'] = whitelist_df['huc'].astype('string')
+    today = date.today().strftime("%Y%m%d")
+    whitelist_df.to_csv(join(ripple_dir, f'ripple_feature_list_{today}.csv'), index=False)
 
     whitelist_df = whitelist_df[whitelist_df["is_valid"] == True].copy()
 

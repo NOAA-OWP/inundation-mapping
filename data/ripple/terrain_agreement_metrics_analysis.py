@@ -46,6 +46,13 @@ def arrange_outgoing_columns(df):
 
 
 # -----------------------------------------------------------------------------
+def ensure_huc_string(df):
+    if 'huc' in df.columns:
+        df['huc'] = df['huc'].astype('string')
+    return df
+
+
+# -----------------------------------------------------------------------------
 def retrieve_tiny_unmodeled_ripple_reaches(ripple_gdf, max_bridge_reaches=MAX_BRIDGE_REACHES):
     """
     Return unmodeled reaches that are short topology gaps between modeled reaches.
@@ -140,7 +147,7 @@ def merge_nwm_streams_with_ripples(metrics_dir, out_dir, ripple_collection_name)
     if huc_match is None:
         raise ValueError(f'Could not determine HUC from ripple collection name: {ripple_collection_name}')
 
-    huc = huc_match.group(0)
+    huc = str(huc_match.group(0))
 
     print(f'Merging nwm_streams with ripple.gpkg for HUC {huc}\n')
     log_text = f'Merging nwm_streams with ripple.gpkg for HUC {huc}\n'
@@ -278,7 +285,7 @@ def merge_nwm_streams_with_ripples(metrics_dir, out_dir, ripple_collection_name)
 def merge_ripple_reaches_sourcemodels_with_metrics_db(metrics_dir, out_dir, ripple_collection_name):
 
     huc_match = re.search(r'\d+', ripple_collection_name)
-    huc = huc_match.group(0)
+    huc = str(huc_match.group(0))
 
     path_ripple_collection_out = os.path.join(out_dir, ripple_collection_name)
     path_ripple_reaches = os.path.join(
@@ -410,7 +417,7 @@ def create_ripple_STREAMS_gdf_csv(metrics_dir, out_dir):
         try:
             huc_match = re.search(r'\d+', ripple_collection)
 
-            huc = huc_match.group(0)
+            huc = str(huc_match.group(0))
             log_text += log(f'Start analyzing ripple collection for HUC {huc}')
 
             # Read metrics geopackage
@@ -440,10 +447,10 @@ def create_ripple_STREAMS_gdf_csv(metrics_dir, out_dir):
                 if 'is_valid' not in sourcemodels_gdf.columns:
                     sourcemodels_gdf['is_valid'] = True
 
-                sourcemodels_gdf['huc'] = huc
+                sourcemodels_gdf['huc'] = str(huc)
 
                 if os.path.exists(path_metrics_csv):
-                    metric_df = pd.read_csv(path_metrics_csv)
+                    metric_df = pd.read_csv(path_metrics_csv, dtype={'huc': 'string'})
 
                     if 'db_path' in metric_df.columns and 'feature_id' in metric_df.columns:
                         db_path_df = metric_df[['feature_id', 'db_path']].drop_duplicates()
@@ -474,6 +481,8 @@ def create_ripple_STREAMS_gdf_csv(metrics_dir, out_dir):
 
             ripple_reaches_metrics_gdf = gpd.read_file(path_ripple_reaches).drop_duplicates()
             ripple_reaches_metrics_gdf = ripple_reaches_metrics_gdf.replace('', np.nan)
+
+            ripple_reaches_metrics_gdf['huc'] = str(huc)
 
             required_cols = ['model_id', 'avg_inundation_overlap']
             missing_cols = [col for col in required_cols if col not in ripple_reaches_metrics_gdf.columns]
@@ -523,7 +532,7 @@ def create_ripple_STREAMS_gdf_csv(metrics_dir, out_dir):
             metrics_streams_gdf = ripple_reaches_metrics_gdf.dissolve(
                 by='model_id', aggfunc=aggfunc
             ).reset_index()
-            metrics_streams_gdf['huc'] = huc
+            metrics_streams_gdf['huc'] = str(huc)
 
             # Move the geometry to the end
             # List all columns except geometry
@@ -542,6 +551,8 @@ def create_ripple_STREAMS_gdf_csv(metrics_dir, out_dir):
             path_streams_metrics = os.path.join(path_ripple_collection_out, f'streams_metrics_{huc}.gpkg')
             if not os.path.exists(path_streams_metrics):
                 metrics_streams_gdf = arrange_outgoing_columns(metrics_streams_gdf)
+                if 'huc' in metrics_streams_gdf.columns:
+                    metrics_streams_gdf['huc'] = metrics_streams_gdf['huc'].astype('string')
                 metrics_streams_gdf.to_file(path_streams_metrics)
             else:
                 log_text += log(
@@ -568,6 +579,8 @@ def create_ripple_STREAMS_gdf_csv(metrics_dir, out_dir):
         path_metrics_reaches_conus = os.path.join(out_dir, 'metrics_reaches_ripple_submodels_conus.csv')
         if not os.path.exists(path_metrics_reaches_conus):
             metrics_reaches_conus_df = arrange_outgoing_columns(metrics_reaches_conus_df)
+            if 'huc' in metrics_reaches_conus_df.columns:
+                metrics_reaches_conus_df['huc'] = metrics_reaches_conus_df['huc'].astype('string')
             metrics_reaches_conus_df.to_csv(path_metrics_reaches_conus, index=False)
 
     else:
@@ -576,11 +589,11 @@ def create_ripple_STREAMS_gdf_csv(metrics_dir, out_dir):
     if metrics_streams_conus_gpkg_ls:
         metrics_streams_conus_gpkg = pd.concat(metrics_streams_conus_gpkg_ls, ignore_index=True)
         metrics_streams_conus_gpkg = metrics_streams_conus_gpkg.replace('', np.nan)
-        # metrics_streams_conus_gpkg = metrics_streams_conus_gpkg.dropna(subset=['avg_inundation_overlap'])
-
         path_metrics_streams_conus_gpkg = os.path.join(out_dir, 'metrics_streams_ripple_submodels_conus.gpkg')
         if not os.path.exists(path_metrics_streams_conus_gpkg):
             metrics_streams_conus_gpkg = arrange_outgoing_columns(metrics_streams_conus_gpkg)
+            if 'huc' in metrics_streams_conus_gpkg.columns:
+                metrics_streams_conus_gpkg['huc'] = metrics_streams_conus_gpkg['huc'].astype('string')
             metrics_streams_conus_gpkg.to_file(path_metrics_streams_conus_gpkg)
     else:
         log_text += log('No stream metrics GeoPackages were created.')
@@ -588,11 +601,12 @@ def create_ripple_STREAMS_gdf_csv(metrics_dir, out_dir):
     if metrics_streams_conus_ls:
         metrics_streams_conus = pd.concat(metrics_streams_conus_ls, ignore_index=True)
         metrics_streams_conus = metrics_streams_conus.replace('', np.nan)
-        # metrics_streams_conus = metrics_streams_conus.dropna(subset=['avg_inundation_overlap'])
 
         path_metrics_streams_conus = os.path.join(out_dir, 'metrics_streams_ripple_submodels_conus.csv')
         if not os.path.exists(path_metrics_streams_conus):
             metrics_streams_conus = arrange_outgoing_columns(metrics_streams_conus)
+            if 'huc' in metrics_streams_conus.columns:
+                metrics_streams_conus['huc'] = metrics_streams_conus['huc'].astype('string')
             metrics_streams_conus.to_csv(path_metrics_streams_conus, index=False)
     else:
         log_text += log('No stream metrics CSV was created.')
@@ -601,12 +615,16 @@ def create_ripple_STREAMS_gdf_csv(metrics_dir, out_dir):
         all_sourcemodels_conus_df = pd.concat(all_sourcemodels_reaches_ls, ignore_index=True)
         path_all_sourcemodels_conus = os.path.join(out_dir, 'all_reaches_sourcemodels_conus.csv')
         all_sourcemodels_conus_df = arrange_outgoing_columns(all_sourcemodels_conus_df)
+        if 'huc' in all_sourcemodels_conus_df.columns:
+            all_sourcemodels_conus_df['huc'] = all_sourcemodels_conus_df['huc'].astype('string')
         all_sourcemodels_conus_df.to_csv(path_all_sourcemodels_conus, index=False)
 
     if all_sourcemodels_reaches_gpkg_ls:
         all_sourcemodels_conus_gdf = pd.concat(all_sourcemodels_reaches_gpkg_ls, ignore_index=True)
         path_all_sourcemodels_conus_gpkg = os.path.join(out_dir, 'all_reaches_sourcemodels_conus.gpkg')
         all_sourcemodels_conus_gdf = arrange_outgoing_columns(all_sourcemodels_conus_gdf)
+        if 'huc' in all_sourcemodels_conus_gdf.columns:
+            all_sourcemodels_conus_gdf['huc'] = all_sourcemodels_conus_gdf['huc'].astype('string')
         all_sourcemodels_conus_gdf.to_file(path_all_sourcemodels_conus_gpkg, driver='GPKG')
 
     return log_text
@@ -636,7 +654,7 @@ def process_ripple_STREAMS_create_blackList(metrics_dir, out_dir):
 
     log_text += log('Start creating the black list ...')
 
-    ripple_streams_metrics_df = pd.read_csv(path_ripple_streams)
+    ripple_streams_metrics_df = pd.read_csv(path_ripple_streams, dtype={'huc': 'string'})
     ripple_streams_metrics_df = ripple_streams_metrics_df.replace('', np.nan)
 
     required_columns = [
@@ -754,6 +772,8 @@ def process_ripple_STREAMS_create_blackList(metrics_dir, out_dir):
 
     path_outlier_streams_conus = os.path.join(out_dir, 'outlier_streams_conus.csv')
     outlier_streams_conus_df = arrange_outgoing_columns(outlier_streams_conus_df)
+    if 'huc' in outlier_streams_conus_df.columns:
+        outlier_streams_conus_df['huc'] = outlier_streams_conus_df['huc'].astype('string')
     outlier_streams_conus_df.to_csv(path_outlier_streams_conus, index=False)
 
     # ** Expanding outlier streams to outlier reaches **
@@ -806,13 +826,15 @@ def process_ripple_STREAMS_create_blackList(metrics_dir, out_dir):
 
     path_outlier_reaches_conus = os.path.join(out_dir, 'outlier_reaches_conus.csv')
     outlier_reaches_conus_df = arrange_outgoing_columns(outlier_reaches_conus_df)
+    if 'huc' in outlier_reaches_conus_df.columns:
+        outlier_reaches_conus_df['huc'] = outlier_reaches_conus_df['huc'].astype('string')
     outlier_reaches_conus_df.to_csv(path_outlier_reaches_conus, index=False)
 
     path_all_sourcemodels_conus = os.path.join(out_dir, 'all_reaches_sourcemodels_conus.csv')
     if os.path.exists(path_all_sourcemodels_conus):
         log_text += log('Creating master CONUS whitelist csv...')
 
-        all_sourcemodels_conus_df = pd.read_csv(path_all_sourcemodels_conus)
+        all_sourcemodels_conus_df = pd.read_csv(path_all_sourcemodels_conus, dtype={'huc': 'string'})
 
         bad_features = outlier_reaches_conus_df[['collection_id', 'feature_id']].drop_duplicates()
         bad_features['is_bad'] = True
@@ -841,6 +863,8 @@ def process_ripple_STREAMS_create_blackList(metrics_dir, out_dir):
         path_master_whitelist_conus = os.path.join(out_dir, 'ripple_feature_id_whitelist_conus.csv')
         whitelist_csv_df = merged_all.drop(columns=bridge_cols, errors='ignore')
         whitelist_csv_df = arrange_outgoing_columns(whitelist_csv_df)
+        if 'huc' in whitelist_csv_df.columns:
+            whitelist_csv_df['huc'] = whitelist_csv_df['huc'].astype('string')
         whitelist_csv_df.to_csv(path_master_whitelist_conus, index=False)
 
         # Create a gpkg of whitelist reaches and metrics
@@ -864,6 +888,8 @@ def process_ripple_STREAMS_create_blackList(metrics_dir, out_dir):
 
             path_master_whitelist_conus_gpkg = os.path.join(out_dir, 'ripple_feature_id_whitelist_conus.gpkg')
             whitelist_gdf = arrange_outgoing_columns(whitelist_gdf)
+            if 'huc' in whitelist_gdf.columns:
+                whitelist_gdf['huc'] = whitelist_gdf['huc'].astype('string')
             whitelist_gdf.to_file(path_master_whitelist_conus_gpkg, driver='GPKG')
         else:
             log_text += log(
