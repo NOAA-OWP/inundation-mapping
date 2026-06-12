@@ -150,7 +150,7 @@ args=(
     -f "${tempCurrentBranchDataDir}/demDerived_reaches_${current_branch_id}.shp"
     -d "${tempCurrentBranchDataDir}/dem_thalwegCond_${current_branch_id}.tif"
     -s "${tempCurrentBranchDataDir}/demDerived_reaches_split_${current_branch_id}.parquet"
-    -p "${tempCurrentBranchDataDir}/demDerived_reaches_split_points_${current_branch_id}.parquet"
+    -p "${tempCurrentBranchDataDir}/demDerived_reaches_split_points_${current_branch_id}.shp"
     -w "${tempHucDataDir}/wbd8_clp.gpkg"
     -l "${tempHucDataDir}/nwm_lakes_proj_subset.gpkg"
     -n "${b_arg}"
@@ -162,18 +162,10 @@ python3 "${srcDir}/split_flows.py" "${args[@]}"
 
 ## GAGE WATERSHED FOR REACHES ##
 echo -e "${startDiv}Gage Watershed for Reaches ${hucNumber} ${current_branch_id}"
-# 1. Convert the Parquet outlets to a temporary GeoPackage using Python
-python3 -c "
-import geopandas as gpd
-gdf = gpd.read_parquet('${tempCurrentBranchDataDir}/demDerived_reaches_split_points_${current_branch_id}.parquet')
-gdf.to_file('${tempCurrentBranchDataDir}/demDerived_reaches_split_points_${current_branch_id}.gpkg', driver='GPKG', engine='fiona')
-"
-
-# 2. Run TauDEM using the temporary GeoPackage input
 args=(
     -p "${tempCurrentBranchDataDir}/flowdir_d8_burned_filled_${current_branch_id}.tif"
     -gw "${tempCurrentBranchDataDir}/gw_catchments_reaches_${current_branch_id}.tif"
-    -o "${tempCurrentBranchDataDir}/demDerived_reaches_split_points_${current_branch_id}.gpkg"
+    -o "${tempCurrentBranchDataDir}/demDerived_reaches_split_points_${current_branch_id}.shp"
     -id "${tempCurrentBranchDataDir}/idFile_${current_branch_id}.txt"
 )
 mpiexec -n "${ncores_gw}" "${taudemDir}/gagewatershed" "${args[@]}" \
@@ -188,31 +180,22 @@ mpiexec -n "${ncores_gw}" "${taudemDir}/gagewatershed" "${args[@]}" \
         fi
     done)
 
-# Clean up the temporary vector file
-rm "${tempCurrentBranchDataDir}/demDerived_reaches_split_points_${current_branch_id}.gpkg"
-
 
 ## VECTORIZE FEATURE ID CENTROIDS ##
 echo -e "${startDiv}Vectorize Pixel Centroids ${hucNumber} ${current_branch_id}"
 args=(
     -r "${tempCurrentBranchDataDir}/demDerived_streamPixels_${current_branch_id}.tif"
     -i featureID
-    -p "${tempCurrentBranchDataDir}/flows_points_pixels_${current_branch_id}.parquet"
+    -p "${tempCurrentBranchDataDir}/flows_points_pixels_${current_branch_id}.shp"
 )
 python3 "${srcDir}/reachID_grid_to_vector_points.py" "${args[@]}"
 
 ## GAGE WATERSHED FOR PIXELS ##
 echo -e "${startDiv}Gage Watershed for Pixels ${hucNumber} ${current_branch_id}"
-# 1. Quickly convert the Parquet outlets to a temporary GeoPackage using Python
-python3 -c "
-import geopandas as gpd
-gdf = gpd.read_parquet('${tempCurrentBranchDataDir}/flows_points_pixels_${current_branch_id}.parquet')
-gdf.to_file('${tempCurrentBranchDataDir}/flows_points_pixels_${current_branch_id}.gpkg', driver='GPKG', engine='fiona')
-"
 args=(
     -p "${tempCurrentBranchDataDir}/flowdir_d8_burned_filled_${current_branch_id}.tif"
     -gw "${tempCurrentBranchDataDir}/gw_catchments_pixels_${current_branch_id}.tif"
-    -o "${tempCurrentBranchDataDir}/flows_points_pixels_${current_branch_id}.gpkg"
+    -o "${tempCurrentBranchDataDir}/flows_points_pixels_${current_branch_id}.shp"
     -id "${tempCurrentBranchDataDir}/idFile_${current_branch_id}.txt"
 )
 mpiexec -n "${ncores_gw}" $taudemDir/gagewatershed "${args[@]}" \
@@ -227,9 +210,6 @@ mpiexec -n "${ncores_gw}" $taudemDir/gagewatershed "${args[@]}" \
         fi
     done)
 
-# 3. Clean up the temporary vector file
-rm "${tempCurrentBranchDataDir}/flows_points_pixels_${current_branch_id}.gpkg"
-
 
 ## CATCH AND MITIGATE BRANCH OUTLET BACKPOOL ERROR ##
 echo -e "${startDiv}Catching and mitigating branch outlet backpool issue ${hucNumber} ${current_branch_id}"
@@ -241,7 +221,7 @@ args=(
     -cpp "${tempCurrentBranchDataDir}/gw_catchments_pixels_${current_branch_id}.parquet"
     -cr "${tempCurrentBranchDataDir}/gw_catchments_reaches_${current_branch_id}.tif"
     -s "${tempCurrentBranchDataDir}/demDerived_reaches_split_${current_branch_id}.parquet"
-    -p "${tempCurrentBranchDataDir}/demDerived_reaches_split_points_${current_branch_id}.parquet"
+    -p "${tempCurrentBranchDataDir}/demDerived_reaches_split_points_${current_branch_id}.shp"
     -n "${b_arg}"
     -d "${tempCurrentBranchDataDir}/dem_thalwegCond_${current_branch_id}.tif"
     -t "${slope_min}"

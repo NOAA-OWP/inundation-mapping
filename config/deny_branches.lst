@@ -13,7 +13,7 @@ demDerived_reaches_{}.shx
 demDerived_reaches_split_{}.parquet
 demDerived_reaches_split_filtered_{}.parquet
 # demDerived_reaches_split_filtered_addedAttributes_crosswalked_{}.parquet
-demDerived_reaches_split_points_{}.parquet
+demDerived_reaches_split_points_{}.shp
 demDerived_streamPixels_{}.tif
 demDerived_streamPixels_ids_{}.tif
 demDerived_streamPixels_ids_{}_allo.tif
@@ -31,6 +31,7 @@ flowdir_d8_burned_filled_flows_{}.tif
 flows_grid_boolean_{}.tif
 flows_grid_boolean_euclidean_distance_{}.tif
 flows_points_pixels_{}.parquet
+flows_points_pixels_{}.shp
 gw_catchments_pixels_{}.parquet
 gw_catchments_pixels_{}.tif
 gw_catchments_reaches_{}.parquet

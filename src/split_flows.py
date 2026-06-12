@@ -463,7 +463,7 @@ def split_flows(
 
     if len(split_points_gdf) == 0:
         raise Exception("No points exist.")
-    split_points_gdf.to_parquet(split_points_filename, index=False)
+    split_points_gdf.to_file(split_points_filename, index=False)
 
     del split_flows_gdf, split_points_gdf
 

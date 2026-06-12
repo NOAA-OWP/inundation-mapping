@@ -166,7 +166,7 @@ args=(
 python3 "${srcDir}/generate_branch_list.py" "${args[@]}"
 
 ## CREATE BRANCH ZERO ##
-branch0_start_time=`date +%s`
+branch0_start_time="$(date +%s)"
 
 echo -e "${startDiv}Creating branch zero for ${hucNumber}"
 tempCurrentBranchDataDir="$tempBranchDataDir/${branch_zero_id}"
@@ -176,54 +176,27 @@ mkdir -p ${tempCurrentBranchDataDir}
 
 ## CLIP RASTERS
 echo -e "${startDiv}Clipping rasters to branches ${hucNumber} ${branch_zero_id}"
-# Note: don't need to use gdalwarp -cblend as we are using a buffered wbd
-if [[ ! -f ${tempCurrentBranchDataDir}/dem_meters_orig.tif ]]; then
-    # gdalwarp -cutline ${tempHucDataDir}/wbd_buffered.gpkg -crop_to_cutline -ot Float32 -r near -of "GTiff" \
-    #     -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" \
-    #     -co "BIGTIFF=YES" -t_srs $huc_CRS -tr $res $res -tap $input_DEM ${tempHucDataDir}/dem_meters_orig.tif
-    # # Clip the DEM pit filled rasters from the vrt
-    # gdalwarp -cutline ${tempHucDataDir}/wbd_buffered.gpkg -crop_to_cutline -ot Float32 -r near -of "GTiff" \
-    #     -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" \
-    #     -co "BIGTIFF=YES" -t_srs $huc_CRS -tr $res $res -tap $input_pit_fill ${tempHucDataDir}/dem_meters_pit_fill.tif
-
-    # # Clip the bridge elevation diff raster (DEM_diff). Used 'near' to make sure neighboring cells do not get any interpolated value
-    # gdalwarp -cutline ${tempHucDataDir}/wbd_buffered.gpkg -crop_to_cutline -ot Float32 -r near -of "GTiff" \
-    #     -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" \
-    #     -co "BIGTIFF=YES" -t_srs $huc_CRS -tr $res $res -tap $input_bridge_elev_diff ${tempHucDataDir}/bridge_elev_diff_meters.tif
-
-    gdal_opts=(
-        -cutline "${tempHucDataDir}/wbd_buffered.gpkg"
-        -crop_to_cutline
-        -ot Float32
-        -r near
-        -of "GTiff"
-        -overwrite
-        -co "BLOCKXSIZE=512"
-        -co "BLOCKYSIZE=512"
-        -co "TILED=YES"
-        -co "COMPRESS=LZW"
-        -co "BIGTIFF=YES"
-        -t_srs "${huc_CRS}"
-        -tr "${res}" "${res}"
-        -tap
-    )
-    gdalwarp "${gdal_opts[@]}" "${input_DEM}" "${tempHucDataDir}/dem_meters_orig.tif"
-    gdalwarp "${gdal_opts[@]}" "${input_pit_fill}" "${tempHucDataDir}/dem_meters_pit_fill.tif"
-    gdalwarp "${gdal_opts[@]}" "${input_bridge_elev_diff}" "${tempHucDataDir}/bridge_elev_diff_meters.tif"
-fi
+gdal_opts=(
+    -cutline "${tempHucDataDir}/wbd_buffered.gpkg"
+    -crop_to_cutline
+    -ot Float32
+    -r near
+    -of "GTiff"
+    -overwrite
+    -co "BLOCKXSIZE=512"
+    -co "BLOCKYSIZE=512"
+    -co "TILED=YES"
+    -co "COMPRESS=LZW"
+    -co "BIGTIFF=YES"
+    -t_srs "${huc_CRS}"
+    -tr "${res}" "${res}"
+    -tap
+)
+gdalwarp "${gdal_opts[@]}" "${input_DEM}" "${tempHucDataDir}/dem_meters_orig.tif"
+gdalwarp "${gdal_opts[@]}" "${input_pit_fill}" "${tempHucDataDir}/dem_meters_pit_fill.tif"
+gdalwarp "${gdal_opts[@]}" "${input_bridge_elev_diff}" "${tempHucDataDir}/bridge_elev_diff_meters.tif"
 
 ## Combine Raw DEM with Pit Fill DEM (use pit fill elev)
-# # The pit fill is listed second so it draws on top of the original DEM.
-# gdalbuildvrt ${tempHucDataDir}/combined_dem.vrt \
-#     ${tempHucDataDir}/dem_meters_orig.tif \
-#     ${tempHucDataDir}/dem_meters_pit_fill.tif
-# # Translate the VRT back into a compressed GeoTIFF
-# gdal_translate -ot Float32 -of "GTiff" \
-#     -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" \
-#     "${tempHucDataDir}/combined_dem.vrt" \
-#     "${tempHucDataDir}/dem_meters.tif"
-# # Clean up the temporary VRT file
-# rm "${tempHucDataDir}/combined_dem.vrt"
 gdal_opts=(
     -ot Float32
     -of "GTiff"
@@ -340,7 +313,7 @@ args=(
     -fel "${tempCurrentBranchDataDir}/dem_burned_filled_${branch_zero_id}.tif"
     -p "${tempCurrentBranchDataDir}/flowdir_d8_burned_filled_${branch_zero_id}.tif"
 )
-mpiexec -n "$ncores_fd" "$taudemDir2/d8flowdir" "${args[@]}"
+mpiexec -n "$ncores_fd" "$taudemDir2/d8flowdir" "${args[@]}" \
     2> >(while read -r line; do
         # Check if BOTH strings are present in the error line
         if [[ "$line" == *"ERROR 6:"* && "$line" == *"Dataset does not support the AddBand() method."* ]]; then
@@ -397,7 +370,7 @@ if [[ -f "${tempHucDataDir}/usgs_subset_gages_${branch_zero_id}.gpkg" ]]; then
         -b "${branch_zero_id}"
         -huc_CRS "${huc_CRS}"
     )
-    python3 ${srcDir}/usgs_gage_crosswalk.py \
+    python3 ${srcDir}/usgs_gage_crosswalk.py "${args[@]}"
 fi
 
 ## CLEANUP BRANCH ZERO OUTPUTS ##

@@ -54,7 +54,7 @@ def convert_grid_cells_to_points(raster, index_option, output_points_filename=Fa
     if output_points_filename is False:
         return pointGDF
     else:
-        pointGDF.to_parquet(output_points_filename, index=False)
+        pointGDF.to_file(output_points_filename, index=False)
 
 
 if __name__ == '__main__':
