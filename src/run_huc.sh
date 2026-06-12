@@ -57,11 +57,11 @@ else
     input_bridge_elev_diff="${input_bridge_elev_diff}"
 fi
 
-echo -e "${startDiv}Using CRS: $huc_CRS" ## debug
+echo -e "${startDiv}Using CRS: ${huc_CRS}" ## debug
 
 ## INITIALIZE TOTAL TIME TIMER ##
 T_total_start
-huc_start_time=`date +%s`
+huc_start_time="$(date +%s)"
 date -u
 
 ## Copy HUC's pre-clipped .gpkg files from $pre_clip_huc_dir (use -a & /. -- only copies folder's contents)
@@ -75,7 +75,7 @@ cp "${huc_input_DEM_domain}" "${tempHucDataDir}"
 # TODO: Jun 2025: This should use the bash_variable, but rename as it is copied. ie:
 # cp $nws_lid ${tempHucDataDir}/nws_lid.gpkg
 # For usgs_gage_unit_setup.py
-cp "$inputsDir/ahps_sites/nws_lid.gpkg" ${tempHucDataDir}
+cp "$inputsDir/ahps_sites/nws_lid.gpkg" "${tempHucDataDir}"
 
 # Renamed to usgs_gages.gpkg while being copied
 cp "${usgs_gages_file}" "${tempHucDataDir}/usgs_gages.gpkg"
@@ -84,7 +84,7 @@ cp "${usgs_gages_file}" "${tempHucDataDir}/usgs_gages.gpkg"
 if [[ -d "${ras2fim_input_dir}/${hucNumber}" ]]; then
     ras_rating_gpkg="${ras2fim_input_dir}/${hucNumber}/${ras_rating_curve_gpkg_filename}"
     ras_rating_csv="${ras2fim_input_dir}/${hucNumber}/${ras_rating_curve_csv_filename}"
-    if [ -f "${ras_rating_gpkg}" ]; then
+    if [[ -f "${ras_rating_gpkg}" ]]; then
         cp "${ras_rating_gpkg}" "${tempHucDataDir}"
         echo -e "Copied ${ras_rating_gpkg} to ${tempHucDataDir}"
     else
@@ -103,7 +103,7 @@ echo -e "${startDiv}Generating Level Paths for ${hucNumber}"
 args=(
     -i "${tempHucDataDir}/nwm_subset_streams.gpkg"
     -s "${tempHucDataDir}/wbd_buffered_streams.gpkg"
-    -b "$branch_id_attribute"
+    -b "${branch_id_attribute}"
     -r "ID"
     -o "${tempHucDataDir}/nwm_subset_streams_levelPaths.parquet"
     -d "${tempHucDataDir}/nwm_subset_streams_levelPaths_dissolved.parquet"
@@ -116,7 +116,7 @@ args=(
     -wbd "${tempHucDataDir}/wbd.gpkg"
     -u "${hucNumber}"
 )
-${srcDir}/derive_level_paths.py "${args[@]}"
+python3 "${srcDir}/derive_level_paths.py" "${args[@]}"
 
 # test if we received a non-zero code back from derive_level_paths.py
 #subscript_exit_code=$?
@@ -128,7 +128,7 @@ ${srcDir}/derive_level_paths.py "${args[@]}"
 
 # check if level paths exists
 levelpaths_exist=1
-if [ ! -f ${tempHucDataDir}/nwm_subset_streams_levelPaths_dissolved.parquet ]; then levelpaths_exist=0; fi
+if [[ ! -f "${tempHucDataDir}/nwm_subset_streams_levelPaths_dissolved.parquet" ]]; then levelpaths_exist=0; fi
 
 ## ASSOCIATE LEVEL PATHS WITH LEVEES
 echo -e "${startDiv}Associate level paths with levees"
@@ -138,9 +138,9 @@ if [[ -f "${tempHucDataDir}/nld_subset_levees.gpkg" ]]; then
         -s "${tempHucDataDir}/nwm_subset_streams_levelPaths_dissolved.parquet"
         -lpa "${tempHucDataDir}/LeveeProtectedAreas_subset.gpkg"
         -out "${tempHucDataDir}/levee_levelpaths.csv"
-        -w "$levee_buffer"
-        -b "$branch_id_attribute"
-        -l "$levee_id_attribute"
+        -w "${levee_buffer}"
+        -b "${branch_id_attribute}"
+        -l "${levee_id_attribute}"
     )
     python3 "${srcDir}/associate_levelpaths_with_levees.py" "${args[@]}"
 fi
@@ -148,11 +148,11 @@ fi
 ## STREAM BRANCH POLYGONS
 echo -e "${startDiv}Generating Stream Branch Polygons for ${hucNumber}"
 args=(
-    -s ${tempHucDataDir}/nwm_subset_streams_levelPaths_dissolved.parquet
-    -i $branch_id_attribute
-    -d $branch_buffer_distance_meters
-    -b ${tempHucDataDir}/branch_polygons.parquet
-    -w ${tempHucDataDir}/wbd_buffered.gpkg
+    -s "${tempHucDataDir}/nwm_subset_streams_levelPaths_dissolved.parquet"
+    -i "${branch_id_attribute}"
+    -d "${branch_buffer_distance_meters}"
+    -b "${tempHucDataDir}/branch_polygons.parquet"
+    -w "${tempHucDataDir}/wbd_buffered.gpkg"
 )
 python3 "${srcDir}/buffer_stream_branches.py" "${args[@]}"
 
@@ -169,7 +169,7 @@ python3 "${srcDir}/generate_branch_list.py" "${args[@]}"
 branch0_start_time="$(date +%s)"
 
 echo -e "${startDiv}Creating branch zero for ${hucNumber}"
-tempCurrentBranchDataDir="$tempBranchDataDir/${branch_zero_id}"
+tempCurrentBranchDataDir="${tempBranchDataDir}/${branch_zero_id}"
 
 ## MAKE OUTPUT BRANCH DIRECTORY
 mkdir -p ${tempCurrentBranchDataDir}
@@ -179,7 +179,7 @@ echo -e "${startDiv}Clipping rasters to branches ${hucNumber} ${branch_zero_id}"
 gdal_opts=(
     -cutline "${tempHucDataDir}/wbd_buffered.gpkg"
     -crop_to_cutline
-    -ot Float32
+    -ot "Float32"
     -r near
     -of "GTiff"
     -overwrite
@@ -198,7 +198,7 @@ gdalwarp "${gdal_opts[@]}" "${input_bridge_elev_diff}" "${tempHucDataDir}/bridge
 
 ## Combine Raw DEM with Pit Fill DEM (use pit fill elev)
 gdal_opts=(
-    -ot Float32
+    -ot "Float32"
     -of "GTiff"
     -co "BLOCKXSIZE=512"
     -co "BLOCKYSIZE=512"
@@ -225,10 +225,11 @@ read -r ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy \
 ## RASTERIZE NLD MULTILINES ##
 echo -e "${startDiv}Rasterize all NLD multilines using zelev vertices ${hucNumber} ${branch_zero_id}"
 # REMAINS UNTESTED FOR AREAS WITH LEVEES
-if [[ -f ${tempHucDataDir}/3d_nld_subset_levees_burned.gpkg ]]; then
+if [[ -f "${tempHucDataDir}/3d_nld_subset_levees_burned.gpkg" ]]; then
     args=(-q -l "3d_nld_subset_levees_burned" -3d -at -a_nodata "${ndv}"
         -te "${xmin}" "${ymin}" "${xmax}" "${ymax}" -ts "${ncols}" "${nrows}"
-        -ot "Float32" -of "GTiff" -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "COMPRESS=LZW" -co "BIGTIFF=YES"
+        -ot "Float32" -of "GTiff"
+        -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "COMPRESS=LZW" -co "BIGTIFF=YES"
         -co "TILED=YES"
         "${tempHucDataDir}/3d_nld_subset_levees_burned.gpkg"
         "${tempCurrentBranchDataDir}/nld_rasterized_elev_${branch_zero_id}.tif"
@@ -261,7 +262,7 @@ args=(
 gdal_rasterize "${args[@]}"
 
 ## RASTERIZE REACH BOOLEAN (1 & 0) - BRANCHES (Not 0) (NWM levelpath streams) ##
-if [ "$levelpaths_exist" = "1" ]; then
+if [[ "${levelpaths_exist}" == "1" ]]; then
     echo -e "${startDiv}Rasterize Reach Boolean ${hucNumber} (Branches)"
     args=(
         -q -ot "Int32" -burn "1" -init "0" -a_nodata "-9999"
@@ -316,12 +317,12 @@ args=(
 mpiexec -n "$ncores_fd" "$taudemDir2/d8flowdir" "${args[@]}" \
     2> >(while read -r line; do
         # Check if BOTH strings are present in the error line
-        if [[ "$line" == *"ERROR 6:"* && "$line" == *"Dataset does not support the AddBand() method."* ]]; then
+        if [[ "${line}" == *"ERROR 6:"* && "${line}" == *"Dataset does not support the AddBand() method."* ]]; then
             # Do nothing (ignore the error)
             :
         else
             # Print the line to the standard error stream (screen)
-            echo "$line" >&2
+            echo "${line}" >&2 || true
         fi
     done)
     # May 1, 2026: Merge config between Ryan and Matt gdal PR. commented out Ryans. Can we marry the two? do we want too?    
@@ -389,9 +390,9 @@ branch0_percent="$(Calc_Time_Minutes_in_Percent "${branch0_start_time}")"
 ## Processing Branches ##
 echo
 echo "---- Start of branch processing for ${hucNumber} using $jobBranchLimit workers for branch processing"
-branch_processing_start_time=`date +%s`
+branch_processing_start_time="$(date +%s)"
 
-if [ -f $branch_list_lst_file ]; then
+if [[ -f "${branch_list_lst_file}"" ]]; then
     date -u
     Tstart
     # There may not be a branch_ids.lst if there were no level paths (no stream orders 3+)
