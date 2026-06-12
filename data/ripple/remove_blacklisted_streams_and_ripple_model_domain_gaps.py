@@ -11,6 +11,7 @@ from os.path import join
 import geopandas as gpd
 import numpy as np
 import pandas as pd
+from dotenv import load_dotenv
 from shapely.geometry import Point
 from shapely.ops import linemerge, substring
 
@@ -34,13 +35,12 @@ NOT_HEADWATER_COVERAGE_THRESHOLD = 0.60
 
 _WORKER_DOMAIN_UNION_BUFFERED = None
 
-previous_hand_dir = '/data/previous_fim/hand_4_9_9_0'
 ripple_whitelist_table = 'ripple_feature_id_whitelist_conus.csv'
 ripple_dir = '/outputs/'
 
 
 # -----------------------------------------------------------------------------
-def load_huc_validated_whitelist(ripple_dir, ripple_whitelist_table, previous_hand_dir):
+def load_huc_validated_whitelist(ripple_dir, ripple_whitelist_table):
 
     whitelist_df = pd.read_csv(join(ripple_dir, ripple_whitelist_table), dtype={"huc": str})
 
@@ -52,21 +52,23 @@ def load_huc_validated_whitelist(ripple_dir, ripple_whitelist_table, previous_ha
 
     hucs_df = whitelist_df.loc[whitelist_df["duplicate_valid"], "huc"].drop_duplicates()
 
-    ht_dfs = []
-    for huc in hucs_df:
-        ht_path = join(previous_hand_dir, huc, "hydrotable.csv")
+    # Read nwm_stream_gpkg
+    src_dir = os.getenv('srcDir')
+    load_dotenv(os.path.join(src_dir, 'bash_variables.env'))
+    pre_clip_huc_dir = os.getenv('pre_clip_huc_dir')
 
-        if os.path.isfile(ht_path):
-            ht_dfs.append(
-                pd.read_csv(ht_path, usecols=["feature_id"])
-                .drop_duplicates()
-                .assign(huc=str(huc), in_huc=True)
-            )
+    nwms_dfs = []
+    for huc in hucs_df:
+        nwm_stream_gpkg = os.path.join(pre_clip_huc_dir, huc, 'nwm_subset_streams.gpkg')
+        if os.path.isfile(nwm_stream_gpkg):
+            nwms_gdf = gpd.read_file(nwm_stream_gpkg)  # , dtype={"huc": str}
+            nwms_gdf = nwms_gdf.rename(columns={"ID": "feature_id"})
+            nwms_dfs.append(nwms_gdf[["feature_id"]].drop_duplicates().assign(huc=str(huc), in_huc=True))
 
     whitelist_df["huc_valid"] = whitelist_df["is_valid"]
 
-    if ht_dfs:
-        combined_ht = pd.concat(ht_dfs, ignore_index=True).drop_duplicates(["feature_id", "huc"])
+    if nwms_dfs:
+        combined_ht = pd.concat(nwms_dfs, ignore_index=True).drop_duplicates(["feature_id", "huc"])
 
         merged_df = whitelist_df.merge(combined_ht, on=["feature_id", "huc"], how="left")
 
@@ -93,7 +95,8 @@ def load_huc_validated_whitelist(ripple_dir, ripple_whitelist_table, previous_ha
         "nwm_to_id",
         "order_",
         "collection_id",
-        "model_id" ", db_path",
+        "model_id",
+        "db_path",
         "is_blacklisted",
         "is_bridge",
         "is_valid",
@@ -650,16 +653,10 @@ def select_valid_streams(streams_gdf, merged_domain_whitelist_gdf, n_workers, ch
 
 # -----------------------------------------------------------------------------
 def process_streams_save_outputs(
-    ripple_dir,
-    ripple_whitelist_table,
-    previous_hand_dir,
-    ripple_domain_gpkg,
-    ripple_collections_dir,
-    n_workers,
-    chunksize,
+    ripple_dir, ripple_whitelist_table, ripple_domain_gpkg, ripple_collections_dir, n_workers, chunksize
 ):
 
-    whitelist_df = load_huc_validated_whitelist(ripple_dir, ripple_whitelist_table, previous_hand_dir)
+    whitelist_df = load_huc_validated_whitelist(ripple_dir, ripple_whitelist_table)
 
     collection_model_ids = create_collection_model_ids(whitelist_df)
 
@@ -762,13 +759,6 @@ if __name__ == "__main__":
         ),
     )
     parser.add_argument(
-        "-hd",
-        "--previous-hand-dir",
-        required=True,
-        type=str,
-        help=("Path to previous_hand_dir: '/data/previous_fim/hand_4_9_9_0'."),
-    )
-    parser.add_argument(
         "-dg",
         "--ripple-domain-gpkg",
         required=True,
@@ -804,18 +794,11 @@ if __name__ == "__main__":
 
     ripple_dir = args["ripple_dir"]
     ripple_whitelist_table = args["ripple_whitelist_table"]
-    previous_hand_dir = args["previous_hand_dir"]
     ripple_domain_gpkg = args["ripple_domain_gpkg"]
     ripple_collections_dir = args["ripple_collections_dir"]
     n_workers = args["n_workers"]
     chunksize = args["chunksize"]
 
     process_streams_save_outputs(
-        ripple_dir,
-        ripple_whitelist_table,
-        previous_hand_dir,
-        ripple_domain_gpkg,
-        ripple_collections_dir,
-        n_workers,
-        chunksize,
+        ripple_dir, ripple_whitelist_table, ripple_domain_gpkg, ripple_collections_dir, n_workers, chunksize
     )

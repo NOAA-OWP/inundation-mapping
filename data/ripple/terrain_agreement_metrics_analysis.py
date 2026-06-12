@@ -78,6 +78,9 @@ def retrieve_tiny_unmodeled_ripple_reaches(ripple_gdf, max_bridge_reaches=MAX_BR
         )
 
     candidates = ripple_gdf.replace('', np.nan).copy()
+    candidates['feature_id'] = pd.to_numeric(candidates['feature_id'], errors='coerce').astype('Int64')
+    candidates[downstream_col] = pd.to_numeric(candidates[downstream_col], errors='coerce').astype('Int64')
+    candidates = candidates.dropna(subset=['feature_id'])
     candidates = candidates.drop_duplicates(subset='feature_id')
     candidates['has_model_id'] = candidates['model_id'].notna()
 
@@ -133,6 +136,60 @@ def retrieve_tiny_unmodeled_ripple_reaches(ripple_gdf, max_bridge_reaches=MAX_BR
     cols = [col for col in bridge_reaches_gdf.columns if col != geom_col] + [geom_col]
 
     return bridge_reaches_gdf[cols]
+
+
+# -----------------------------------------------------------------------------
+def flag_valid_db_path_gap_bridges(merged_all):
+    """
+    Mark valid reaches with no db_path as bridges when they connect valid upstream
+    and downstream reaches in the same collection.
+    """
+
+    required_cols = ['collection_id', 'feature_id', 'nwm_to_id', 'is_valid', 'db_path', 'is_bridge']
+    missing_cols = [col for col in required_cols if col not in merged_all.columns]
+    if missing_cols:
+        raise ValueError(f'merged_all is missing columns: {missing_cols}')
+
+    merged_all = merged_all.copy()
+
+    merged_all['feature_id'] = pd.to_numeric(merged_all['feature_id'], errors='coerce').astype('Int64')
+    merged_all['nwm_to_id'] = pd.to_numeric(merged_all['nwm_to_id'], errors='coerce').astype('Int64')
+    merged_all['is_valid'] = merged_all['is_valid'].fillna(False).astype(bool)
+    merged_all['is_bridge'] = merged_all['is_bridge'].fillna(False).astype(bool)
+
+    bridge_ids = set()
+
+    for collection_id, group in merged_all.groupby('collection_id', dropna=False):
+        valid_ids = set(group.loc[group['is_valid'], 'feature_id'].dropna())
+        downstream_by_feature_id = group.set_index('feature_id')['nwm_to_id'].to_dict()
+
+        upstream_valid_by_feature_id = (
+            group[group['is_valid']]
+            .dropna(subset=['nwm_to_id'])
+            .groupby('nwm_to_id')['feature_id']
+            .apply(lambda values: set(values.dropna()))
+            .to_dict()
+        )
+
+        candidate_rows = group[group['is_valid'] & group['db_path'].isna() & group['feature_id'].notna()]
+
+        for _, row in candidate_rows.iterrows():
+            feature_id = row['feature_id']
+            downstream_id = downstream_by_feature_id.get(feature_id)
+
+            has_valid_upstream = len(upstream_valid_by_feature_id.get(feature_id, set())) > 0
+            has_valid_downstream = pd.notna(downstream_id) and downstream_id in valid_ids
+
+            if has_valid_upstream and has_valid_downstream:
+                bridge_ids.add((collection_id, feature_id))
+
+    bridge_mask = merged_all.apply(
+        lambda row: (row['collection_id'], row['feature_id']) in bridge_ids, axis=1
+    )
+
+    merged_all['is_bridge'] = merged_all['is_bridge'] | bridge_mask
+
+    return merged_all
 
 
 # -----------------------------------------------------------------------------
@@ -630,6 +687,7 @@ def create_ripple_STREAMS_gdf_csv(metrics_dir, out_dir):
     return log_text
 
 
+# -----------------------------------------------------------------------------
 def process_ripple_STREAMS_create_blackList(metrics_dir, out_dir):
 
     def log(message):
@@ -859,6 +917,9 @@ def process_ripple_STREAMS_create_blackList(metrics_dir, out_dir):
             merged_all['is_bridge'] = merged_all[bridge_cols].notna().any(axis=1)
         else:
             merged_all['is_bridge'] = False
+
+        # Retrieve unidentified bridge reaches
+        merged_all = flag_valid_db_path_gap_bridges(merged_all)
 
         path_master_whitelist_conus = os.path.join(out_dir, 'ripple_feature_id_whitelist_conus.csv')
         whitelist_csv_df = merged_all.drop(columns=bridge_cols, errors='ignore')
