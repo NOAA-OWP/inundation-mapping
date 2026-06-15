@@ -196,7 +196,7 @@ if [[ -f "${tempHucDataDir}/usgs_subset_gages.gpkg" ]]; then
         -b "${current_branch_id}"
         -huc_CRS "${huc_CRS}"
     )
-    python3 ${srcDir}/usgs_gage_crosswalk.py "${args[@]}"
+    python3 "${srcDir}/usgs_gage_crosswalk.py" "${args[@]}"
 fi
 
 ## REMOVE FILES FROM DENY LIST ##

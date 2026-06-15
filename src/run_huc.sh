@@ -396,12 +396,12 @@ if [[ -f "${branch_list_lst_file}" ]]; then
     Tstart
     # There may not be a branch_ids.lst if there were no level paths (no stream orders 3+)
     # but there will still be a branch zero
-    args = {
+    args=(
         --timeout "${branch_timeout}"
         -j "${jobBranchLimit}"
         --joblog "${branchSummaryLogFile}"
         --colsep "','"
-        -- "${srcDir}/process_branch.sh" "${runName}" "${hucNumber}" :::: "${branch_list_lst_file}"}
+        -- "${srcDir}/process_branch.sh" "${runName}" "${hucNumber}" :::: "${branch_list_lst_file}")
     parallel "${args[@]}"
     Tcount
 else

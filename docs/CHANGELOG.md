@@ -1,6 +1,40 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.x.x - 2026-06-15 - [PR#1862](https://github.com/NOAA-OWP/inundation-mapping/pull/1862)
+
+Fixes SQLite errors caused by geopackage file handling by the OS (introduced in #1805) by using geoparquet files created by Python instead of system GDAL commands. Three new files replace the three GDAL command-line programs `gdal_polygonize.py`, `gdal_rasterize.py`, and `ogr2ogr`. In a couple of intermediate cases where GDAL was called directly and does not accept geoparquet input files, shapefiles were used instead of geopackages.
+
+Bash scripts were also refactored to use bash arrays and use of explicit notation including curly braces around environment variables, quotes around arguments, and double brackets around conditional blocks.
+
+### Additions
+- `src/`
+    - `polygonize_raster.py`: Python script to convert from raster to vector as a replacement for the GDAL command-line `gdal_polygonize.py`
+    - `rasterize_parquet.py`: Python script to convert from vector to raster as a replacement for the GDAL command-line `gdal_rasterize.py`
+    - `subset_vectors_to_branches.py`: Python script to replace GDAL command-line `ogr2ogr`
+
+### Changes
+#### Changed to use geoparquet instead of geopackages and refactored
+- `src/`
+    - `delineate_hydros_and_produce_HAND.sh`, `reachID_grid_to_vector_points.py`, `run_by_branch.sh`, `run_huc.sh`
+
+#### Changed to use geoparquet instead of geopackages
+- `config/`
+    - `deny_branch_zero.lst`, `deny_branches.lst`, `deny_unit.lst`
+- `src/`
+    - `add_crosswalk.py`, `adjust_floodplains.py` `associate_levelpaths_with_levees.py`, `derive_level_paths.py`, `filter_catchments_and_add_attributes.py`, `heal_bridges_osm.py`, `longitudinal_flow_adjustment.py`, `make_stages_and_catchlist.py`, `mask_dem.py`, `mitigate_branch_outlet_backpool.py`, `process_buildings_fimpact.py`, `process_roads_fimpact.py`, `split_flows.py`, `src_adjust_usgs_rating_trace.py`, `src_roughness_optimization.py`, `stream_branches.py`, `usgs_gage_crosswalk.py`, `usgs_gage_unit_setup.py`
+ - `tools/
+     - catfim/`
+         - `vis_categorical_fim.py`
+     - `evaluate_crosswalk.py`
+
+#### Refactored
+- `fim_pre_processing.sh`, `fim_pipeline.sh`, `fim_process_huc.sh`, `fim_postprocessing.sh`
+- `src/`
+    - `bash_functions.env`, `calibrate_rating_curves.sh`, `process_branch.sh`
+
+<br/>
+
 ## v4.9.16.0 - 2026-06-02 - [PR#1787](https://github.com/NOAA-OWP/inundation-mapping/pull/1787)
 
 This PR closes issues #1778, #1795, and  #1796 and includes the following enhancements to the OSM bridge data acquisition pipeline.
