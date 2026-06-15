@@ -9,7 +9,9 @@ from rasterio.features import shapes
 from shapely.geometry import shape
 
 
-def polygonize_raster(input_raster: str, output_file: str, field_name: str, connectivity: int = 8, quiet: bool = False):
+def polygonize_raster(
+    input_raster: str, output_file: str, field_name: str, connectivity: int = 8, quiet: bool = False
+):
     """
     Parameters
     ----------
@@ -24,7 +26,7 @@ def polygonize_raster(input_raster: str, output_file: str, field_name: str, conn
     quiet: bool
         Toggle for verbosity
     """
-    
+
     if not quiet:
         print(f"Reading input raster: {input_raster}...")
 
@@ -40,7 +42,7 @@ def polygonize_raster(input_raster: str, output_file: str, field_name: str, conn
 
     # Replicate gdal_polygonize behavior: skip nodata pixels
     if nodata is not None:
-        mask = (raster_array != nodata)
+        mask = raster_array != nodata
     else:
         mask = None
 
@@ -50,20 +52,15 @@ def polygonize_raster(input_raster: str, output_file: str, field_name: str, conn
     try:
         # Generate pixel-value to polygon geometry mappings
         # connectivity=8 correlates to connectivity=8 in rasterio; default is 4
-        shape_generator = shapes(
-            raster_array, 
-            mask=mask, 
-            transform=transform, 
-            connectivity=connectivity
-        )
-        
+        shape_generator = shapes(raster_array, mask=mask, transform=transform, connectivity=connectivity)
+
         # Build the geometry and attribute arrays
         geometries = []
         values = []
         for geom, value in shape_generator:
             geometries.append(shape(geom))
-            values.append(int(value)) # Vector feature attributes matching your ID tracking
-            
+            values.append(int(value))  # Vector feature attributes matching your ID tracking
+
     except Exception as e:
         print(f"Error during polygonization: {e}", file=sys.stderr)
         sys.exit(1)
@@ -73,21 +70,17 @@ def polygonize_raster(input_raster: str, output_file: str, field_name: str, conn
 
     try:
         # Construct the GeoDataFrame matching your requested column schema
-        gdf = gpd.GeoDataFrame(
-            {field_name: values}, 
-            geometry=geometries, 
-            crs=crs
-        )
-        
+        gdf = gpd.GeoDataFrame({field_name: values}, geometry=geometries, crs=crs)
+
         # Save straight to Parquet bypassing missing GDAL OGR drivers
         if os.path.splitext(output_file)[-1].lower() == '.parquet':
             gdf.to_parquet(output_file, index=False)
         else:
             gdf.to_file(output_file, index=False, engine='fiona')
-        
+
         if not quiet:
             print("Done successfully!")
-            
+
     except Exception as e:
         print(f"Error writing Parquet output: {e}", file=sys.stderr)
         sys.exit(1)
@@ -97,18 +90,28 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Python equivalent of gdal_polygonize converting a raster directly to GeoParquet."
     )
-    
+
     # Positional Arguments matching your bash signature style
     parser.add_argument("input_raster", help="Path to input raster file (.tif)")
     parser.add_argument("output_file", help="Path to output vector file")
-    parser.add_argument("field_name", nargs="?", default="HydroID", help="Name of the attribute column to create from raster values")
-    
+    parser.add_argument(
+        "field_name",
+        nargs="?",
+        default="HydroID",
+        help="Name of the attribute column to create from raster values",
+    )
+
     # Flags
     parser.add_argument("-q", "--quiet", action="store_true", help="Suppress progress outputs")
-    parser.add_argument("-8", dest="connectivity", action="store_const", const=8, default=4, 
-                        help="Use 8-connectedness instead of 4-connectedness")
+    parser.add_argument(
+        "-8",
+        dest="connectivity",
+        action="store_const",
+        const=8,
+        default=4,
+        help="Use 8-connectedness instead of 4-connectedness",
+    )
 
     args = parser.parse_args()
 
     polygonize_raster(**vars(args))
-    

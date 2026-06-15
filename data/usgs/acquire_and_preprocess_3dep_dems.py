@@ -4,7 +4,6 @@ import argparse
 import glob
 import logging
 import os
-from src.polygonize_raster import polygonize_raster
 import subprocess
 import sys
 import traceback
@@ -18,6 +17,7 @@ import pandas as pd
 import src.utils.shared_functions as sf
 import src.utils.shared_validators as val
 from data.create_vrt_file import create_vrt_file
+from src.polygonize_raster import polygonize_raster
 from src.utils.shared_functions import FIM_Helpers as fh
 
 
@@ -526,12 +526,7 @@ def __polygonize(target_output_folder_path, file_logger):
             )
 
         # Polygonize constant valued raster
-        polygonize_raster(
-            edge_tif,
-            edge_parquet,
-            field_name="HydroID",
-            connectivity=8,
-            quiet=True)
+        polygonize_raster(edge_tif, edge_parquet, field_name="HydroID", connectivity=8, quiet=True)
 
         gdf = gpd.read_parquet(edge_parquet)
 

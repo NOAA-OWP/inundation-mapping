@@ -320,7 +320,8 @@ def branch_proc_list(usgs_df, huc_dir, debug_outputs_option, log_file, branch_jo
         )
         htable_path = os.path.join(branch_dir, 'hydroTable_' + branch_id + '.csv')
         dem_reaches_path = os.path.join(
-            branch_dir, 'demDerived_reaches_split_filtered_addedAttributes_crosswalked_' + branch_id + '.parquet'
+            branch_dir,
+            'demDerived_reaches_split_filtered_addedAttributes_crosswalked_' + branch_id + '.parquet',
         )
         df = gpd.read_parquet(dem_reaches_path)
         usgs_elev = usgs_df[((usgs_df['huc'] == huc) & (usgs_df['levpa_id'] == branch_id))]

@@ -50,9 +50,9 @@ Description
 '''
 
 import argparse
+import os
 import sys
 from collections import OrderedDict
-import os
 from os import remove
 from os.path import isfile
 
@@ -68,6 +68,7 @@ import build_stream_traversal
 from utils.fim_enums import FIM_exit_codes
 from utils.shared_functions import getDriver
 from utils.shared_variables import FIM_ID
+
 
 gpd.options.io_engine = "pyogrio"
 

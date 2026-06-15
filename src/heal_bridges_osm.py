@@ -12,6 +12,7 @@ from rasterio import features
 from rasterio.warp import Resampling, reproject
 from rasterstats import zonal_stats
 
+
 threatened_percent = 0.75
 
 

@@ -19,6 +19,7 @@ from shapely.geometry import LineString, Point
 from shapely.geometry.polygon import Polygon
 from shapely.ops import substring
 
+
 '''
 This script contains functions that are useful for exploring Categorical FIM outputs. The
 functions are designed to be run in a Juputer notebook so that the plots and maps can be

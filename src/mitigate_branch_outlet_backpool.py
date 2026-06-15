@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 
 import argparse
-from collections import Counter
 import os
+import warnings
+from collections import Counter
 from os import remove
 from os.path import isfile
-from polygonize_raster import polygonize_raster
-import warnings
 
 import geopandas as gpd
 import numpy as np
@@ -15,6 +14,9 @@ import rasterio
 from rasterio.mask import mask
 from shapely import ops
 from shapely.geometry import Point
+
+from polygonize_raster import polygonize_raster
+
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
@@ -344,8 +346,10 @@ def mitigate_branch_outlet_backpool(
                 # --------------------------------------------------------------
                 # Trim flowline and flow points to penultimate vertex
 
-                print('Incorrectly-large outlet pixel catchment detected. \
-                      Snapping line points to penultimate vertex.')
+                print(
+                    'Incorrectly-large outlet pixel catchment detected. \
+                      Snapping line points to penultimate vertex.'
+                )
 
                 # Count coordinates in 'geometry' column
                 split_flows_last_geom['num_coordinates'] = split_flows_last_geom['geometry'].apply(
@@ -415,7 +419,8 @@ def mitigate_branch_outlet_backpool(
                         catchment_pixels_polygonized_filename,
                         "HydroID",
                         connectivity=8,
-                        quiet=True)
+                        quiet=True,
+                    )
 
                     # if return_code != 0:
                     #     print("gdal_polygonize failed with return code", return_code)
