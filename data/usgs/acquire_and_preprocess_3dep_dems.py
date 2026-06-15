@@ -4,6 +4,7 @@ import argparse
 import glob
 import logging
 import os
+from src.polygonize_raster import polygonize_raster
 import subprocess
 import sys
 import traceback
@@ -498,7 +499,7 @@ def __polygonize(target_output_folder_path, file_logger):
     for n, dem_file in enumerate(dem_files):
         sf.l_print(f"Polygonizing: {dem_file}", file_logger, "info")
         edge_tif = f'{os.path.splitext(dem_file)[0]}_edge.tif'
-        edge_gpkg = f'{os.path.splitext(edge_tif)[0]}.gpkg'
+        edge_parquet = f'{os.path.splitext(edge_tif)[0]}.parquet'
 
         # Calculate a constant valued raster from valid DEM cells
         if not os.path.exists(edge_tif):
@@ -525,9 +526,14 @@ def __polygonize(target_output_folder_path, file_logger):
             )
 
         # Polygonize constant valued raster
-        subprocess.run(['gdal_polygonize.py', '-8', edge_tif, '-q', '-f', 'GPKG', edge_gpkg])
+        polygonize_raster(
+            edge_tif,
+            edge_parquet,
+            field_name="HydroID",
+            connectivity=8,
+            quiet=True)
 
-        gdf = gpd.read_file(edge_gpkg)
+        gdf = gpd.read_parquet(edge_parquet)
 
         if n == 0:
             dem_gpkgs = gdf
@@ -535,7 +541,7 @@ def __polygonize(target_output_folder_path, file_logger):
             dem_gpkgs = pd.concat([dem_gpkgs, gdf])
 
         os.remove(edge_tif)
-        os.remove(edge_gpkg)
+        os.remove(edge_parquet)
 
     dem_gpkgs['DN'] = 1
     dem_dissolved = dem_gpkgs.dissolve(by='DN')

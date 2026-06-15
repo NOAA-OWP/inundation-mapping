@@ -314,8 +314,7 @@ args=(
     -fel "${tempCurrentBranchDataDir}/dem_burned_filled_${branch_zero_id}.tif"
     -p "${tempCurrentBranchDataDir}/flowdir_d8_burned_filled_${branch_zero_id}.tif"
 )
-mpiexec -n "$ncores_fd" "$taudemDir2/d8flowdir" "${args[@]}" \
-    2> >(while read -r line; do
+mpiexec -n "$ncores_fd" "$taudemDir2/d8flowdir" "${args[@]}" 2> >(while read -r line; do
         # Check if BOTH strings are present in the error line
         if [[ "${line}" == *"ERROR 6:"* && "${line}" == *"Dataset does not support the AddBand() method."* ]]; then
             # Do nothing (ignore the error)
@@ -397,8 +396,13 @@ if [[ -f "${branch_list_lst_file}" ]]; then
     Tstart
     # There may not be a branch_ids.lst if there were no level paths (no stream orders 3+)
     # but there will still be a branch zero
-    parallel --timeout "${branch_timeout}" -j "${jobBranchLimit}" --joblog "${branchSummaryLogFile}" --colsep "','" \
-    -- "${srcDir}/process_branch.sh" "${runName}" "${hucNumber}" :::: "${branch_list_lst_file}"
+    args = {
+        --timeout "${branch_timeout}"
+        -j "${jobBranchLimit}"
+        --joblog "${branchSummaryLogFile}"
+        --colsep "','"
+        -- "${srcDir}/process_branch.sh" "${runName}" "${hucNumber}" :::: "${branch_list_lst_file}"}
+    parallel "${args[@]}"
     Tcount
 else
     echo "No level paths exist with this HUC. Processing branch zero only."

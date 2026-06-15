@@ -82,8 +82,7 @@ args=(
     -z "${tempCurrentBranchDataDir}/dem_lateral_thalweg_adj_${current_branch_id}.tif"
     -zfdc "${tempCurrentBranchDataDir}/dem_thalwegCond_${current_branch_id}.tif"
 )
-"$taudemDir/flowdircond" "${args[@]}" \
-    2> >(while read -r line; do
+"$taudemDir/flowdircond" "${args[@]}" 2> >(while read -r line; do
         # Check if BOTH strings are present in the error line
         if [[ "${line}" == *"ERROR 6:"* && "${line}" == *"Dataset does not support the AddBand() method."* ]]; then
             # Do nothing (ignore the error)
@@ -100,8 +99,7 @@ args=(
     -fel "${tempCurrentBranchDataDir}/dem_lateral_thalweg_adj_${current_branch_id}.tif"
     -sd8 "${tempCurrentBranchDataDir}/slopes_d8_dem_meters_${current_branch_id}.tif"
 )
-mpiexec -n "${ncores_fd}" "${taudemDir2}/d8flowdir" "${args[@]}" \
-    2> >(while read -r line; do
+mpiexec -n "${ncores_fd}" "${taudemDir2}/d8flowdir" "${args[@]}" 2> >(while read -r line; do
         # Check if BOTH strings are present in the error line
         if [[ "${line}" == *"ERROR 6:"* && "${line}" == *"Dataset does not support the AddBand() method."* ]]; then
             # Do nothing (ignore the error)
@@ -128,8 +126,7 @@ args=(
     -w "${tempCurrentBranchDataDir}/sn_catchments_reaches_${current_branch_id}.tif"
     -net "${tempCurrentBranchDataDir}/demDerived_reaches_${current_branch_id}.shp"
 )
-"${taudemDir}/streamnet" "${args[@]}" \
-    2> >(while read -r line; do
+"${taudemDir}/streamnet" "${args[@]}" 2> >(while read -r line; do
         # Check if BOTH strings are present in the error line
         if [[ "${line}" == *"ERROR 6:"* && "${line}" == *"Dataset does not support the AddBand() method."* ]]; then
             # Do nothing (ignore the error)
@@ -164,8 +161,7 @@ args=(
     -o "${tempCurrentBranchDataDir}/demDerived_reaches_split_points_${current_branch_id}.shp"
     -id "${tempCurrentBranchDataDir}/idFile_${current_branch_id}.txt"
 )
-mpiexec -n "${ncores_gw}" "${taudemDir}/gagewatershed" "${args[@]}" \
-    2> >(while read -r line; do
+mpiexec -n "${ncores_gw}" "${taudemDir}/gagewatershed" "${args[@]}" 2> >(while read -r line; do
         # Check if BOTH strings are present in the error line
         if [[ "${line}" == *"ERROR 6:"* && "${line}" == *"Dataset does not support the AddBand() method."* ]]; then
             # Do nothing (ignore the error)
@@ -193,15 +189,14 @@ args=(
     -o "${tempCurrentBranchDataDir}/flows_points_pixels_${current_branch_id}.shp"
     -id "${tempCurrentBranchDataDir}/idFile_${current_branch_id}.txt"
 )
-mpiexec -n "${ncores_gw}" "$taudemDir/gagewatershed" "${args[@]}" \
-    2> >(while read -r line; do
+mpiexec -n "${ncores_gw}" "$taudemDir/gagewatershed" "${args[@]}" 2> >(while read -r line; do
         # Check if BOTH strings are present in the error line
-        if [[ "$line" == *"ERROR 6:"* && "$line" == *"Dataset does not support the AddBand() method."* ]]; then
+        if [[ "${line}" == *"ERROR 6:"* && "${line}" == *"Dataset does not support the AddBand() method."* ]]; then
             # Do nothing (ignore the error)
             :
         else
             # Print the line to the standard error stream (screen)
-            echo "$line" >&2
+            echo "${line}" >&2
         fi
     done)
 
@@ -263,10 +258,10 @@ fi
 ## POLYGONIZE REACH WATERSHEDS ##
 echo -e "${startDiv}Polygonize Reach Watersheds ${hucNumber} ${current_branch_id}"
 args=(
-    -q -8
     "${tempCurrentBranchDataDir}/gw_catchments_reaches_${current_branch_id}.tif"
     "${tempCurrentBranchDataDir}/gw_catchments_reaches_${current_branch_id}.parquet"
-    "catchments" "HydroID"
+    "HydroID"
+    -q -8
 )
 python3 "${srcDir}/polygonize_raster.py" "${args[@]}"
 
@@ -357,8 +352,7 @@ args=(
     -h "${tempCurrentBranchDataDir}/stage_${current_branch_id}.txt"
     -table "${tempCurrentBranchDataDir}/src_base_${current_branch_id}.csv"
 )
-"${taudemDir}/catchhydrogeo" "${args[@]}" \
-    2> >(while read -r line; do
+"${taudemDir}/catchhydrogeo" "${args[@]}" 2> >(while read -r line; do
         # Check if BOTH strings are present in the error line
         if [[ "${line}" == *"ERROR 6:"* && "${line}" == *"Dataset does not support the AddBand() method."* ]]; then
             # Do nothing (ignore the error)

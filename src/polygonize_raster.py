@@ -3,14 +3,28 @@ import argparse
 import os
 import sys
 
-import numpy as np
 import geopandas as gpd
 import rasterio
 from rasterio.features import shapes
 from shapely.geometry import shape
 
 
-def polygonize_raster(input_raster, output_file, layer_name="catchments", field_name="HydroID", connectivity=8, quiet=False):
+def polygonize_raster(input_raster: str, output_file: str, field_name: str, connectivity: int = 8, quiet: bool = False):
+    """
+    Parameters
+    ----------
+    input_raster: str
+        Input raster filename
+    output_file: str
+        Output geoparquet filename
+    field_name: str
+        Name of field containing values
+    connectivity: int
+        Number of cells in connectivity (4 or 8)
+    quiet: bool
+        Toggle for verbosity
+    """
+    
     if not quiet:
         print(f"Reading input raster: {input_raster}...")
 
@@ -87,7 +101,6 @@ if __name__ == "__main__":
     # Positional Arguments matching your bash signature style
     parser.add_argument("input_raster", help="Path to input raster file (.tif)")
     parser.add_argument("output_file", help="Path to output vector file")
-    parser.add_argument("layer_name", nargs="?", default="catchments", help="Layer name (Not strictly utilized by Parquet storage, but kept for signature parity)")
     parser.add_argument("field_name", nargs="?", default="HydroID", help="Name of the attribute column to create from raster values")
     
     # Flags

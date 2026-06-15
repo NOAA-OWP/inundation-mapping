@@ -413,8 +413,7 @@ def mitigate_branch_outlet_backpool(
                     polygonize_raster(
                         catchment_pixels_filename,
                         catchment_pixels_polygonized_filename,
-                        layer_name="catchments",
-                        field_name="HydroID",
+                        "HydroID",
                         connectivity=8,
                         quiet=True)
 

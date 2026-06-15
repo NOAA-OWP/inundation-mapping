@@ -147,8 +147,7 @@ args=(
     -fel "${tempCurrentBranchDataDir}/dem_burned_filled_${current_branch_id}.tif"
     -p "${tempCurrentBranchDataDir}/flowdir_d8_burned_filled_${current_branch_id}.tif"
 )
-mpiexec -n "${ncores_fd}" "$taudemDir2/d8flowdir" "${args[@]}" \
-    2> >(while read -r line; do
+mpiexec -n "${ncores_fd}" "$taudemDir2/d8flowdir" "${args[@]}" 2> >(while read -r line; do
         # Check if BOTH strings are present in the error line
         if [[ "${line}" == *"ERROR 6:"* && "${line}" == *"Dataset does not support the AddBand() method."* ]]; then
             # Do nothing (ignore the error)
