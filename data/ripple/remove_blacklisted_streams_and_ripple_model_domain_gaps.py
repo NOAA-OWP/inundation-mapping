@@ -35,12 +35,29 @@ NOT_HEADWATER_COVERAGE_THRESHOLD = 0.60
 
 _WORKER_DOMAIN_UNION_BUFFERED = None
 
+WHITELIST_COLS = [
+    "huc",
+    "feature_id",
+    "nwm_to_id",
+    "order_",
+    "collection_id",
+    "model_id",
+    "db_path",
+    "is_blacklisted",
+    "is_bridge",
+    "huc_valid",
+    "is_valid",
+]  # , "library_path"
+
+
 ripple_whitelist_table = 'ripple_feature_id_whitelist_conus.csv'
 ripple_dir = '/outputs/'
+ripple_domain_gpkg = 'ripple_domains.gpkg'
+ripple_collections_dir = '/outputs/test_blacklist_metrics/output_metrics_codex_final_dupHuc/'
 
 
 # -----------------------------------------------------------------------------
-def load_huc_validated_whitelist(ripple_dir, ripple_whitelist_table):
+def create_huc_validated_whitelist(ripple_dir, ripple_whitelist_table, whitelist_cols):
 
     whitelist_df = pd.read_csv(join(ripple_dir, ripple_whitelist_table), dtype={"huc": str})
 
@@ -87,22 +104,10 @@ def load_huc_validated_whitelist(ripple_dir, ripple_whitelist_table):
     today = date.today().strftime("%Y%m%d")
     whitelist_df.to_csv(join(ripple_dir, f'ripple_feature_list_{today}.csv'), index=False)
 
+    whitelist_df_complete = whitelist_df[whitelist_cols].copy()
     whitelist_df = whitelist_df[whitelist_df["is_valid"] == True].copy()
 
-    whitelist_cols = [
-        "huc",
-        "feature_id",
-        "nwm_to_id",
-        "order_",
-        "collection_id",
-        "model_id",
-        "db_path",
-        "is_blacklisted",
-        "is_bridge",
-        "is_valid",
-    ]  # , "library_path"
-
-    return whitelist_df[whitelist_cols].reset_index(drop=True)
+    return whitelist_df[whitelist_cols].reset_index(drop=True), whitelist_df_complete
 
 
 # -----------------------------------------------------------------------------
@@ -143,7 +148,10 @@ def create_whitelist_domain(ripple_dir, ripple_domain_gpkg, collection_model_ids
     domain_whitelist_gdf["geometry"] = domain_whitelist_gdf["geometry"].make_valid()
     domain_whitelist_gdf["geometry"] = domain_whitelist_gdf["geometry"].buffer(0)
 
-    domain_whitelist_gdf.to_file(join(ripple_dir, "whitelist_ripple_domain.gpkg"), driver="GPKG")
+    today = date.today().strftime("%Y%m%d")
+    domain_whitelist_gdf.to_file(
+        join(ripple_dir, f"whitelist_ripple_model_domain_{today}.gpkg"), driver="GPKG"
+    )
 
     return domain_whitelist_gdf
 
@@ -173,7 +181,8 @@ def read_ripple_streams(whitelist_df, ripple_collections_dir, collection_slice=N
             continue
 
         stream_gdf = gpd.read_file(stream_path)
-        stream_gdf = stream_gdf[["feature_id", "order_", "nwm_to_id", "geometry"]]
+        stream_cols = ["feature_id", "order_", "nwm_to_id", "geometry"]
+        stream_gdf = stream_gdf[stream_cols]
         stream_gdf["collection_id"] = cid
         stream_gdfs.append(stream_gdf)
 
@@ -197,7 +206,10 @@ def create_save_whitelist_streams(whitelist_df, streams_gdf, ripple_dir):
         crs=streams_gdf.crs,
     )
 
-    whitelist_streams_gdf.to_file(join(ripple_dir, "whitelist_ripple_nwm_streams.gpkg"), driver="GPKG")
+    today = date.today().strftime("%Y%m%d")
+    whitelist_streams_gdf.to_file(
+        join(ripple_dir, f"whitelist_ripple_nwm_streams_{today}.gpkg"), driver="GPKG"
+    )
     # return whitelist_streams_gdf
 
 
@@ -246,6 +258,7 @@ def component_intersecting_feature_count(component, streams_gdf):
 
 
 # -----------------------------------------------------------------------------
+# Pick the polygon component that at least includes 2 streams
 def exclude_components_with_few_streams(components, streams_gdf):
     retained_components = []
     excluded_component_count_by_stream_rule = 0
@@ -264,13 +277,11 @@ def exclude_components_with_few_streams(components, streams_gdf):
 
 # -----------------------------------------------------------------------------
 # Group domains by collection_id; union each collection's geometry,
-# keep the largest components by area, and record diagnostics.
-def keep_main_collection_domain_components(
-    domain_whitelist_gdf, streams_gdf
-):  # , min_component_area_fraction
+# keep the components covering at least 2 streams, and record diagnostics.
+def keep_main_collection_domain_components(domain_whitelist_gdf, streams_gdf):
+
     main_domain_rows = []
 
-    # domain_debug = domain_whitelist_gdf.to_crs(TARGET_CRS).copy()
     # for cid, group in domain_debug.groupby("collection_id", dropna=False):
     for _, group in domain_whitelist_gdf.groupby("collection_id"):  # DOMAIN_GROUP_COLS
         group_geometry = group.geometry.union_all()
@@ -292,8 +303,8 @@ def keep_main_collection_domain_components(
             # )
             continue
 
-        # Keep the largest 90% of each collection's disconnected domain components by area.
         components_by_area = sorted(components, key=lambda component: component.area, reverse=True)
+        ## Keep the largest 90% of each collection's disconnected domain components by area.
         # retained_component_count = max(1, ceil(len(components_by_area) * RETAIN_COMPONENT_COUNT_FRACTION))
 
         main_geometry = components_by_area[0]
@@ -302,7 +313,7 @@ def keep_main_collection_domain_components(
         # retained_components = components_by_area[:retained_component_count
         retained_components = components_by_area
 
-        # Keep those disconnected domain components that cover more than 1 NWM stream.
+        # Keep those disconnected domain components that cover at least 2 NWM stream.
         collection_id = group["collection_id"].iloc[0]
         collection_streams_gdf = streams_gdf[streams_gdf["collection_id"] == collection_id]
 
@@ -364,8 +375,9 @@ def create_save_whitelist_merged_domain(domain_whitelist_gdf, streams_gdf, rippl
     # Main river polygon + small disconnected island polygon
     domain_whitelist_gdf = keep_main_collection_domain_components(domain_whitelist_gdf, streams_gdf)
 
+    today = date.today().strftime("%Y%m%d")
     domain_whitelist_gdf.to_file(
-        join(ripple_dir, "whitelist_ripple_model_domain_main_component.gpkg"), driver="GPKG"
+        join(ripple_dir, f"whitelist_ripple_model_domain_main_component_{today}.gpkg"), driver="GPKG"
     )
 
     disconnected_domain_count = (domain_whitelist_gdf["domain_component_count"] > 1).sum()
@@ -391,14 +403,14 @@ def create_save_whitelist_merged_domain(domain_whitelist_gdf, streams_gdf, rippl
     merged_domain_whitelist_gdf["geometry_buffered"] = domain_union_buffered
 
     merged_domain_whitelist_gdf.drop(columns=["geometry_buffered"]).to_file(
-        join(ripple_dir, "merged_domain_whitelist.gpkg"), driver="GPKG"
+        join(ripple_dir, f"merged_domain_whitelist_2streams0h_{today}.gpkg"), driver="GPKG"
     )
 
     merged_domain_buffered_gdf = gpd.GeoDataFrame(
         geometry=[domain_union_buffered], crs=domain_whitelist_gdf.crs
     )
     merged_domain_buffered_gdf.to_file(
-        join(ripple_dir, "merged_domain_whitelist_buffered.gpkg"), driver="GPKG"
+        join(ripple_dir, f"merged_domain_whitelist_buffered_2streams0h_{today}.gpkg"), driver="GPKG"
     )
 
     return merged_domain_whitelist_gdf
@@ -555,25 +567,25 @@ def compute_downstream_domain_metrics_parallel(geometries, domain_union_buffered
 
 
 # -----------------------------------------------------------------------------
-def select_valid_streams(streams_gdf, merged_domain_whitelist_gdf, n_workers, chunksize):
+def select_valid_streams(streams_gdf, merged_domain_whitelist_2streams0h_gdf, n_workers, chunksize):
 
-    merged_domain_whitelist_gdf = merged_domain_whitelist_gdf.to_crs(TARGET_CRS)
+    merged_domain_whitelist_2streams0h_gdf = merged_domain_whitelist_2streams0h_gdf.to_crs(TARGET_CRS)
     streams_gdf = streams_gdf.to_crs(TARGET_CRS)
 
     # Streams that are completely within the whitelist ripple domain
     streams_within_gdf = gpd.sjoin(
-        streams_gdf, merged_domain_whitelist_gdf, how="inner", predicate="within"
+        streams_gdf, merged_domain_whitelist_2streams0h_gdf, how="inner", predicate="within"
     ).drop(columns=["index_right"])
-
-    # streams_within_gdf.to_file(join(ripple_dir, "white_streams_within.gpkg"), driver="GPKG")
 
     within_feature_ids = set(streams_within_gdf["feature_id"])
     within_count = len(within_feature_ids)
 
-    domain_union_buffered = merged_domain_whitelist_gdf["geometry_buffered"].iloc[0]
+    domain_union_buffered = merged_domain_whitelist_2streams0h_gdf["geometry_buffered"].iloc[0]
 
+    # Candidate whitelisted streams that have any intersection
+    # with domain components covers at least 2 streams (2streams0h)
     candidates = gpd.sjoin(
-        streams_gdf, merged_domain_whitelist_gdf, how="inner", predicate="intersects"
+        streams_gdf, merged_domain_whitelist_2streams0h_gdf, how="inner", predicate="intersects"
     ).drop(columns=["index_right"])
 
     candidates = candidates.drop_duplicates(subset="feature_id").reset_index(drop=True)
@@ -583,6 +595,7 @@ def select_valid_streams(streams_gdf, merged_domain_whitelist_gdf, n_workers, ch
         sorted(candidates["collection_id"].dropna().unique()),
     )
 
+    # Compute downstream_domain_metrics of any whitelisted domain components
     metrics = compute_downstream_domain_metrics_parallel(
         candidates.geometry, domain_union_buffered, n_workers=n_workers, chunksize=chunksize
     )
@@ -655,14 +668,19 @@ def select_valid_streams(streams_gdf, merged_domain_whitelist_gdf, n_workers, ch
 def process_streams_save_outputs(
     ripple_dir, ripple_whitelist_table, ripple_domain_gpkg, ripple_collections_dir, n_workers, chunksize
 ):
-
-    whitelist_df = load_huc_validated_whitelist(ripple_dir, ripple_whitelist_table)
+    whitelist_cols = WHITELIST_COLS
+    whitelist_df, whitelist_df_complete = create_huc_validated_whitelist(
+        ripple_dir, ripple_whitelist_table, whitelist_cols
+    )
 
     collection_model_ids = create_collection_model_ids(whitelist_df)
 
     domain_whitelist_gdf = create_whitelist_domain(ripple_dir, ripple_domain_gpkg, collection_model_ids)
 
-    domain_whitelist_gdf.to_file(join(ripple_dir, "whitelist_ripple_model_domain.gpkg"), driver="GPKG")
+    today = date.today().strftime("%Y%m%d")
+    domain_whitelist_gdf.to_file(
+        join(ripple_dir, f"whitelist_ripple_model_domain_{today}.gpkg"), driver="GPKG"
+    )
 
     streams_gdf = read_ripple_streams(
         whitelist_df, ripple_collections_dir, collection_slice=None  # slice(92, 94),
@@ -670,12 +688,12 @@ def process_streams_save_outputs(
 
     create_save_whitelist_streams(whitelist_df, streams_gdf, ripple_dir)
 
-    merged_domain_whitelist_gdf = create_save_whitelist_merged_domain(
+    merged_domain_whitelist_2streams0h_gdf = create_save_whitelist_merged_domain(
         domain_whitelist_gdf, streams_gdf, ripple_dir
     )
 
     included_streams_gdf, candidates_metrics_df, within_count = select_valid_streams(
-        streams_gdf, merged_domain_whitelist_gdf, n_workers=n_workers, chunksize=chunksize
+        streams_gdf, merged_domain_whitelist_2streams0h_gdf, n_workers=n_workers, chunksize=chunksize
     )
 
     included_streams_gdf = included_streams_gdf.drop(
@@ -696,14 +714,14 @@ def process_streams_save_outputs(
             "topology_bridge",
             "included",
         ],
-        # errors="ignore",
+        errors="ignore",
     )
     included_streams_gdf.to_file(
-        join(ripple_dir, "nwm_streams_WITHIN_DOWNSTREAM_GAP_whitelisted_rippledomain_union.gpkg"),
+        join(ripple_dir, f"whitelisted_nwm_streams_within_downstreamCovered_GapExcl_{today}.gpkg"),
         driver="GPKG",
     )
-    included_streams_gdf.sort_values("feature_id").to_csv(
-        join(ripple_dir, "nwm_streams_WITHIN_OR_DOWNSTREAM_whitelisted_rippledomain_union.csv"), index=False
+    included_streams_gdf.sort_values("feature_id").drop(columns=["geometry"]).to_csv(
+        join(ripple_dir, f"whitelisted_nwm_streams_within_downstreamCovered_GapExcl_{today}.csv"), index=False
     )
 
     print(
@@ -717,11 +735,23 @@ def process_streams_save_outputs(
         f"total included: {included_streams_gdf['feature_id'].nunique()}"
     )
 
-    included_feature_ids = included_streams_gdf["feature_id"]
-
-    gap_df = whitelist_df[~whitelist_df["feature_id"].isin(included_feature_ids)].copy()
-
-    gap_df.to_csv(join(ripple_dir, "whitelist_ripple_nwm_streams_GAP_excluded.csv"), index=False)
+    whitelist_original_to_merge = whitelist_df_complete[whitelist_cols]
+    included_streams_gdf["is_gap"] = False
+    on_cols = ["feature_id", "order_", "nwm_to_id", "collection_id"]
+    whitelist_final_df = whitelist_original_to_merge.merge(
+        included_streams_gdf.drop(columns=["geometry"]), on=on_cols, how="left"
+    )
+    whitelist_final_df.loc[whitelist_final_df["is_gap"].ne(False).fillna(True), "is_gap"] = True
+    whitelist_final_df.loc[whitelist_final_df["is_gap"].eq(True), "is_valid"] = False
+    whitelist_final_df = whitelist_final_df[
+        [col for col in whitelist_final_df.columns if col != "is_valid"] + ["is_valid"]
+    ]
+    whitelist_final_df.sort_values("feature_id").to_csv(
+        join(ripple_dir, f"whitelist_ripple_feature_ids_{today}.csv"), index=False
+    )
+    # included_feature_ids = included_streams_gdf["feature_id"]
+    # gap_df = whitelist_df[~whitelist_df["feature_id"].isin(included_feature_ids)].copy()
+    # gap_df.to_csv(join(ripple_dir, "whitelist_ripple_nwm_streams_GAP_excluded.csv"), index=False)
 
 
 if __name__ == "__main__":
