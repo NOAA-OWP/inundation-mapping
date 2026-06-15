@@ -371,7 +371,7 @@ if [[ -f "${tempHucDataDir}/usgs_subset_gages_${branch_zero_id}.gpkg" ]]; then
         -b "${branch_zero_id}"
         -huc_CRS "${huc_CRS}"
     )
-    python3 ${srcDir}/usgs_gage_crosswalk.py "${args[@]}"
+    python3 "${srcDir}/usgs_gage_crosswalk.py" "${args[@]}"
 fi
 
 ## CLEANUP BRANCH ZERO OUTPUTS ##
@@ -389,10 +389,10 @@ branch0_percent="$(Calc_Time_Minutes_in_Percent "${branch0_start_time}")"
 # -------------------
 ## Processing Branches ##
 echo
-echo "---- Start of branch processing for ${hucNumber} using $jobBranchLimit workers for branch processing"
+echo "---- Start of branch processing for ${hucNumber} using ${jobBranchLimit} workers for branch processing"
 branch_processing_start_time="$(date +%s)"
 
-if [[ -f "${branch_list_lst_file}"" ]]; then
+if [[ -f "${branch_list_lst_file}" ]]; then
     date -u
     Tstart
     # There may not be a branch_ids.lst if there were no level paths (no stream orders 3+)

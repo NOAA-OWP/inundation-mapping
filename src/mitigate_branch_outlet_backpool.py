@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 
 import argparse
-import os
-import subprocess
-import warnings
 from collections import Counter
+import os
 from os import remove
 from os.path import isfile
+from polygonize_raster import polygonize_raster
+import warnings
 
 import geopandas as gpd
 import numpy as np
@@ -410,13 +410,16 @@ def mitigate_branch_outlet_backpool(
                     # Polygonize pixel catchments using subprocess
 
                     # print('Polygonizing pixel catchments...')  # verbose
+                    polygonize_raster(
+                        catchment_pixels_filename,
+                        catchment_pixels_polygonized_filename,
+                        layer_name="catchments",
+                        field_name="HydroID",
+                        connectivity=8,
+                        quiet=True)
 
-                    gdal_args = [f'gdal_polygonize.py -8 -f Parquet {catchment_pixels_filename} \
-                                 {catchment_pixels_polygonized_filename} catchments HydroID']
-                    return_code = subprocess.call(gdal_args, shell=True)
-
-                    if return_code != 0:
-                        print("gdal_polygonize failed with return code", return_code)
+                    # if return_code != 0:
+                    #     print("gdal_polygonize failed with return code", return_code)
                     # else:
                     # print("gdal_polygonize executed successfully.")  # verbose
 

@@ -102,7 +102,7 @@ def mask_dem(
 
         elif os.path.exists(levee_levelpaths):
             # Mask levee-protected areas protected against level path
-            if os.splitext(levee_levelpaths)[-1].lower() == '.parquet':
+            if os.path.splitext(catchments_filename)[-1].lower() == '.parquet':
                 catchments = gpd.read_parquet(catchments_filename)
             else:
                 catchments = gpd.read_file(catchments_filename, engine='fiona')
