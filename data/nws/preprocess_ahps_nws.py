@@ -28,7 +28,7 @@ from tools_shared_functions import (
     select_grids,
 )
 
-from utils.shared_variables import PREP_PROJECTION, VIZ_PROJECTION
+from src.utils.shared_variables import PREP_PROJECTION, VIZ_PROJECTION
 
 
 # TODO: Jun 2025: Change this to have a path to the config via an arg.
@@ -289,7 +289,7 @@ def preprocess_nws(source_dir, destination, reference_raster):
                     # Domain extent is largest floodmap in the static library WITH holes filled
                     filled_domain_raster = outputdir.parent / f'{code}_filled_orig_domain.tif'
 
-                    # TODO: Jun 2026: Change these two rasterio.open commands to better scope contol. 
+                    # TODO: Jun 2026: Change these two rasterio.open commands to better scope contol.
                     # Using either the "with" syntax, or open the file / read / explicit close
                     # Open benchmark data as a rasterio object.
                     benchmark = rasterio.open(grid)
@@ -318,7 +318,7 @@ def preprocess_nws(source_dir, destination, reference_raster):
 
                     # Open domain raster as rasterio object
 
-                    # TODO: Jun 2026: Change rasterio.open commands to better scope contol. 
+                    # TODO: Jun 2026: Change rasterio.open commands to better scope contol.
                     # Using either the "with" syntax, or open the file / read / explicit close
                     filled_domain = rasterio.open(filled_domain_raster)
                     filled_domain_profile = filled_domain.profile

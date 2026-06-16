@@ -9,9 +9,9 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_compl
 from typing import List, Optional, Tuple, Union
 
 import pandas as pd
+from inundation import NoForecastFound, hydroTableHasOnlyLakes, inundate
 from tqdm import tqdm
 
-from inundation import NoForecastFound, hydroTableHasOnlyLakes, inundate
 from src.utils.shared_functions import FIM_Helpers as fh
 from src.utils.shared_functions import s3_or_local_isfile, s3_or_local_path_exists
 
@@ -22,6 +22,9 @@ from src.utils.shared_functions import s3_or_local_isfile, s3_or_local_path_exis
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
+# TODO: Jun 2026: Trace other non run_test_case scripts to see if the verbose flag is used anymore
+# TODO: Jun 2026, Check scripts other the run_test_case.py to see
+#   if the log_file args is still used
 def Inundate_gms(
     hydrofabric_dir: str,
     forecast: Union[str, pd.DataFrame],
@@ -35,7 +38,6 @@ def Inundate_gms(
     output_fileNames: Optional[str] = None,
     precalb_option: Optional[bool] = False,
     windowed: Optional[bool] = False,
-    # multi_process: Optional[bool] = False,
     show_progress_bar: Optional[bool] = False,
 ) -> pd.DataFrame:
     """
@@ -67,8 +69,6 @@ def Inundate_gms(
         Whether to use precalb discharge in hydrotable
     windowed: Optional[bool], default = False
         Whether to use window memory optimization
-    # gms_multi_process : Optional[bool], default=False
-    #     Use processes for parallel processing instead of threads
     show_progress_bar : Optional[bool], default=False
 
     Returns
@@ -87,6 +87,7 @@ def Inundate_gms(
     if isinstance(hucs, str):
         hucs = [hucs]
 
+    # TODO: Jun 2026: Trace other non run_test_case scripts to see if the verbose flag is used anymore
     # log file
     # if log_file is not None and log_file != "":
     #     # if os.path.exists(log_file):
@@ -97,7 +98,6 @@ def Inundate_gms(
     #             f.write("HUC8,BranchID,Exception")
 
     logging.debug(f"Starting Inundate_gms for {hucs}")
-    # logging.debug(f"Temp.. verbose is {verbose}")
 
     # load fim inputs
     hucs_branches = pd.read_csv(
@@ -120,7 +120,7 @@ def Inundate_gms(
         depths_raster,
         forecast,
         hydro_table_df,
-        verbose=False,
+        verbose=verbose,
         windowed=windowed,
         precalb_option=precalb_option,
     )
@@ -154,28 +154,21 @@ def Inundate_gms(
                 disable=(not show_progress_bar),
             )
 
-            # for future in tqdm(
-            #     as_completed(executor_generator),
-            #     total=len(executor_generator),
-            #     desc=f"Inundating branches with {num_workers} workers",
-            #     disable=(not verbose),
-            # ):
-
-            # TODO: Jun 2026, replace this idx system as it assumes hucCode and branch_id come
-            # back and they do no.
+            # TODO: Jun 2026, replace this idx system
             idx = 0
             for future in as_completed(executor_generator):
                 hucCode, branch_id = executor_generator[future]
                 try:
 
                     # TODO: Jun 2026: This can be improved to work with the result object better
-                    # and improve this MP and how it captures errors.
+                    # and improve this MT and how it captures errors.
                     # ie) check future.cancelled and future.excption
                     if not future.cancelled():
                         future.result()
 
                 except (hydroTableHasOnlyLakes, NoForecastFound) as exc:
-
+                    # TODO: Jun 2026, Check scripts other the run_test_case.py to see
+                    #  if the log_file args is still used
                     if log_file is not None and log_file != "":
                         print(
                             f"Warning: {hucCode},{branch_id}: {exc.__class__.__name__}",
@@ -191,7 +184,8 @@ def Inundate_gms(
                     )
 
                 except Exception as exc:
-
+                    # TODO: Jun 2026, Check scripts other the run_test_case.py to see
+                    #  if the log_file args is still used
                     if log_file is not None and log_file != "":
                         print(
                             f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=open(log_file, "a")
@@ -262,9 +256,8 @@ def Inundate_gms(
         }
     )
 
-    # TODO: SEARCH other apps, this is None from alpha chain
+    # TODO: SEARCH other apps, this is None from run_test_case chain
     # logging.debug(f"output_fileNames is {output_fileNames}")
-
     if output_fileNames is not None:
         output_fileNames_df.to_csv(output_fileNames, index=False)
 
@@ -419,7 +412,7 @@ def __inundate_gms_generator(
             "aggregate": False,
             "inundation_raster": inundation_branch_raster,
             "depths": depths_branch_raster,
-            "quiet": not verbose,
+            "verbose": verbose,
             "precalb_option": precalb_option,
             "windowed": windowed,
         }
@@ -471,7 +464,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("-w", "--num-workers", help="Number of Workers", required=False, default=1)
     parser.add_argument(
-        "-v", "--verbose", help="Verbose printing", required=False, default=None, action="store_true"
+        "-vr", "--verbose", help="Verbose printing", required=False, default=False, action="store_true"
     )
 
     Inundate_gms(**vars(parser.parse_args()))

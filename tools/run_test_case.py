@@ -26,6 +26,7 @@ from tools_shared_variables import (  # INPUTS_DIR,; elev_raster_ndv,
 import src.utils.shared_functions as sf
 from src.utils.shared_functions import FIM_Helpers as fh
 
+
 class Benchmark(object):
     AHPS_BENCHMARK_CATEGORIES = AHPS_BENCHMARK_CATEGORIES
     MAGNITUDE_DICT = MAGNITUDE_DICT
@@ -316,14 +317,7 @@ class Test_Case(Benchmark):
                 logging.debug(f"Complete Alpha Test for {self.test_id}")
                 logging.debug(sf.calculate_duration_msg(start_time))
 
-    def _inundate_and_compute(
-        self,
-        magnitude,
-        lid,
-        precalb_option,
-        branch_workers=1,
-        log_file_path="",
-    ):
+    def _inundate_and_compute(self, magnitude, lid, precalb_option, branch_workers=1, log_file_path=""):
         '''Method for inundating and computing contingency rasters as part of the alpha_test.
         Used by both the alpha_test() and composite() methods.
 
@@ -417,12 +411,7 @@ class Test_Case(Benchmark):
 
         alpha_class = cls(test_id, hand_version, archive_results)
         alpha_class.alpha_test(
-            inclusion_area,
-            inclusion_area_buffer,
-            overwrite,
-            verbose,
-            branch_workers,
-            precalb_option,
+            inclusion_area, inclusion_area_buffer, overwrite, verbose, branch_workers, precalb_option
         )
 
     # Jun 2026: This file no longer has any value

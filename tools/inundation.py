@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
-import os
-
 import argparse
 import logging
+import os
 import traceback
-
 from os.path import splitext
 from typing import List, Optional, Tuple, Union
 from warnings import warn
@@ -50,12 +48,11 @@ def inundate(
     hucs: str = None,
     hucs_layerName: Optional[str] = None,
     subset_hucs: Optional[Union[str, List[str]]] = None,
-    num_workers: Optional[int] = 1,
     aggregate: Optional[bool] = False,
     inundation_raster: Optional[str] = None,
     depths: Optional[str] = None,
     src_table: Optional[str] = None,
-    quiet: Optional[bool] = False,
+    verbose: Optional[bool] = False,
     precalb_option: Optional[bool] = False,
     windowed: Optional[bool] = False,
 ):
@@ -65,7 +62,7 @@ def inundate(
     Parameters
     ----------
     rem_path : str
-        File path to the Relative Elevation Model raster. 
+        File path to the Relative Elevation Model raster.
         Must have the same CRS as catchments raster.
     catchments : str
         File path to the Catchments raster. Must have the same CRS as REM raster
@@ -85,8 +82,6 @@ def inundate(
     subset_hucs : Optional[Union[str, List[str]]], default=None
         Batch mode only. File path to line delimited file, HUC string, or list of HUC strings to
         further subset hucs file for inundating.
-    num_workers : Optional[int], default=1
-        Batch mode only. Number of workers to use in batch mode. Must be 1 or greater.
     aggregate : Optional[bool], default=False
         Batch mode only. Aggregates output rasters to VRT mosaic files and merges polygons to single GPKG file
         Currently not functional. Raises warning and sets to false. On to-do list.
@@ -96,7 +91,7 @@ def inundate(
         Path to optional depths raster output. Appends HUC number if ran in batch mode.
     src_table : Optional[str], default=None
         Table to subset main hydrotable.
-    quiet : Optional[bool], default=False
+    verbose : Optional[bool], default=False
         Quiet output.
     precalb_option : Optional[bool], default=False
         Whether to use precalb discharge in hydrotable. If True, will use precalb_discharge_cms column
@@ -135,9 +130,6 @@ def inundate(
         logging.warning("Aggregate feature currently not working. Setting to false for now.")
         aggregate = False
 
-    # bool quiet
-    quiet = bool(quiet)
-
     # To help close object correctly on exception
     rem = None
     catchments = None
@@ -158,7 +150,7 @@ def inundate(
         #     pass
         # else:
         #     raise TypeError("Pass rasterio DatasetReader or filepath for rem")
-        rem = rasterio.open(rem_path)        
+        rem = rasterio.open(rem_path)
 
         # input catchments grid
         # if isinstance(catchments, str):
@@ -168,13 +160,13 @@ def inundate(
         # else:
         #     raise TypeError("Pass rasterio DatasetReader or filepath for catchments")
         catchments = rasterio.open(catchments_path)
-        
+
         # open hucs
         # TODO: Jun 2026: This might always be non as it is hardcoded upstream to None. Research required.
         if hucs is None:
             pass
         elif isinstance(hucs, str):
-            # TODO: I traced all code using this, and no one is passing in a fiona object
+            # TODO: Jun 2026: I traced all code using this, and no one is passing in a fiona object
             # We should remove it, but double check it first
             with fiona.open(hucs, 'r', layer=hucs_layerName) as huc_data:
                 hucs = huc_data  # allows for the open fiona connection to be closed
@@ -203,25 +195,17 @@ def inundate(
 
         # catchment stages dictionary
         catchmentStagesDict, hucSet = __subset_hydroTable_to_forecast(
-                hydro_table, forecast, subset_hucs, int_16, precalb_option
+            hydro_table, forecast, subset_hucs, int_16, precalb_option
         )
 
         if catchmentStagesDict is not None:
             if src_table is not None:
                 create_src_subset_csv(hydro_table, catchmentStagesDict, src_table)
 
-            # Possible test code.. just a Rob comment for now. Talked to Greg about it
-            # Jun 2026: Rasterio no longer supports direct arguments, and wants a json format
-            # depths_profile = {
-            #     'driver': 'GTiff',
-            #     'tiled': True,
-            #     'blockxsize': 256,  # Creation options
-            #     'blockysize': 256
-            # }
             # with rasterio.open('output.tif', 'w', **profile) as dst:
             #     dst.write(data)
 
-            # TODO: Jun 2026: research this more
+            # TODO: Jun 2026: research this more. Does rasterio might want json args now, TBD
             # Jun 2026: Can't use blockxsize and blockysize (seeing as we are using COG GeoTiffs)
             depths_profile.update(driver='GTiff', blockxsize=256, blockysize=256, tiled=True)
             inundation_profile.update(driver='GTiff', blockxsize=256, blockysize=256, tiled=True, nodata=0)
@@ -257,7 +241,7 @@ def inundate(
                 catchmentStagesDict,
                 inundation_raster,
                 depths,
-                quiet,
+                verbose,
                 hucs=hucs,
                 hucSet=hucSet,
                 windowed=windowed,
@@ -291,7 +275,7 @@ def inundate(
         if rem is not None:
             rem.close()
         if catchments is not None:
-            catchments.close()            
+            catchments.close()
 
     return inundation_rasters, depth_rasters, inundation_polys
 
@@ -305,7 +289,7 @@ def __inundate_in_huc(
     catchmentStagesDict: typed.Dict,
     depths: str,
     inundation_raster: str,
-    quiet: Optional[bool] = False,
+    verbose: Optional[bool] = False,
     window: Optional[bool] = None,
     inundation_nodata: Optional[int] = None,
     min_value=30,
@@ -331,7 +315,7 @@ def __inundate_in_huc(
         Name of inundation depth dataset
     inundation_raster : str
         Name of inundation extent dataset
-    quiet : Optional[bool], default = None
+    verbose : Optional[bool], default = False
         Whether to supress printed output
     window : Optional[bool], default = None
         Whether to use window memory optimization
@@ -346,7 +330,7 @@ def __inundate_in_huc(
     """
     # verbose print
     if hucCode is not None:
-        __vprint("Inundating {} ...".format(hucCode), not quiet)
+        __vprint("Inundating {} ...".format(hucCode), verbose)
 
     rem, catchments = __go_fast_mapping(
         rem_array,
@@ -440,7 +424,7 @@ def __make_windows_generator(
     catchmentStagesDict: typed.Dict,
     inundation_raster: str,
     depths: str,
-    quiet: bool,
+    verbose: bool,
     hucs: Optional[list] = None,
     hucSet: Optional[list] = None,
     windowed: Optional[bool] = False,
@@ -468,7 +452,7 @@ def __make_windows_generator(
         Name of inundation extent raster to output
     depths : str
         Name of inundation depth raster to output
-    quiet : bool
+    verbose : bool
         Whether to suppress printed output or run in verbose mode
     hucs : Optional[list], default = None
         HUC values to process
@@ -502,7 +486,7 @@ def __make_windows_generator(
         Name of inundation depth raster to output
     inundation_raster : str
         Name of inundation extent raster to output
-    quiet: bool
+    verbose: bool
         Whether to suppress printed output or run in verbose mode
     window : bool
         Whether to use memory optimization
@@ -553,8 +537,12 @@ def __make_windows_generator(
                         catchment_poly.HydroID = catchment_poly.HydroID.astype(str)
                     catchment_poly = catchment_poly[catchment_poly.HydroID.str.startswith(fossid)]
 
-                    rem_array, window_transform = mask(rem_data, catchment_poly['geometry'], crop=True, indexes=1)
-                    catchments_array, _ = mask(catchment_data, catchment_poly['geometry'], crop=True, indexes=1)
+                    rem_array, window_transform = mask(
+                        rem_data, catchment_poly['geometry'], crop=True, indexes=1
+                    )
+                    catchments_array, _ = mask(
+                        catchment_data, catchment_poly['geometry'], crop=True, indexes=1
+                    )
                     del catchment_poly
                 elif mask_type is None:
                     pass
@@ -574,7 +562,7 @@ def __make_windows_generator(
                 "catchmentStagesDict": catchmentStagesDict,
                 "depths": depths,
                 "inundation_raster": inundation_raster,
-                "quiet": quiet,
+                "verbose": verbose,
                 "window": None,
                 "inundation_nodata": inundation_nodata,
                 "min_value": min_value,
@@ -593,7 +581,7 @@ def __make_windows_generator(
                     "catchmentStagesDict": catchmentStagesDict,
                     "depths": depths,
                     "inundation_raster": inundation_raster,
-                    "quiet": quiet,
+                    "verbose": verbose,
                     "window": window,
                     "inundation_nodata": inundation_nodata,
                     "min_value": min_value,
@@ -608,7 +596,7 @@ def __make_windows_generator(
                 "catchmentStagesDict": catchmentStagesDict,
                 "depths": depths,
                 "inundation_raster": inundation_raster,
-                "quiet": quiet,
+                "verbose": verbose,
                 "window": None,
                 "inundation_nodata": inundation_nodata,
                 "min_value": min_value,
@@ -840,6 +828,8 @@ def read_nwm_forecast_file(forecast_file, rename_headers: Optional[bool] = True)
     return flows_df
 
 
+# TODO: Jun 2026: Consider upgrading callign scripts to current FIM shared function logging
+# system. That would the need for this.
 def __vprint(message, verbose):
 
     if verbose:
@@ -884,6 +874,10 @@ def create_src_subset_csv(hydro_table: str, catchmentStagesDict: dict, src_table
 
 if __name__ == '__main__':
     # parse arguments
+
+    # TODO: Jun 2026: This has not worked for a while. We may want to consider removing it favor of
+    # coming in via inundate_gms.py
+
     parser = argparse.ArgumentParser(
         description='Rapid inundation mapping for FOSS FIM. Operates in single-HUC and batch modes.'
     )
@@ -979,9 +973,12 @@ if __name__ == '__main__':
         default=None,
     )
     parser.add_argument(
-        '-q', '--quiet', help='Quiet terminal output', required=False, default=False, action='store_true'
+        '-vr', '--verbose', help='Quiet terminal output', required=False, default=False, action='store_true'
     )
 
     # extract to dictionary
     args = vars(parser.parse_args())
     # feature_id = 5253867
+
+    # TODO: Jun 2026: This has not worked for a while. We may want to consider removing it favor of
+    # coming in via inundate_gms.py

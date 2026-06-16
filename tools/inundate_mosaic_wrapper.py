@@ -274,7 +274,7 @@ if __name__ == "__main__":
         action="store_true",
     )
     parser.add_argument(
-        "-v",
+        "-vr",
         "--verbose",
         help="Verbose printing. Not tested.",
         required=False,

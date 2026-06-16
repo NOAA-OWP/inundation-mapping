@@ -165,7 +165,6 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
     # -errors.log file will get: ERROR and CRITICAL
     # DEBUG will not end up in any of them
 
-
     return log_file_path
 
 
@@ -308,6 +307,7 @@ def l_print(msg, file_logger, log_level="info", screen_queue=None):
 # This just searches for the prefix and concats to the parent so the parent have rollups.
 # it does assume the child logs are in the same dir as the parent file.
 # This will also auto cover -error.log and -warning.log files as well.
+
 
 # Note: This may seem identical to rollup_log_files function, but there is one key different.
 # rollup_log_files uses a target file, this one uses a child prefix and glob.

@@ -35,6 +35,7 @@ from src.utils.shared_functions import FIM_Helpers as fh
 # inundation files under it.
 # At a min, review the part that calls inundation.inundate and compare to inundate_gms.py
 # But this script needs to be rebuilt anyways and call inundate_gms.py and not duplicate it here.
+# This script is now very out of date, including the need to remove FIM 3 references.
 
 
 # *******************************************************
@@ -177,6 +178,8 @@ def data(huc, category):
 
 
 # *********************************************************
+# TODO: Jun 2026: Along with comparing and updating this against run_test_case.py, also
+# adjust for workers. Temp disabled here.
 def alpha_test(
     test_case_dic,
     hydroTable_all,
@@ -266,13 +269,7 @@ def alpha_test(
                 # instance will be the lid for AHPS sites and '' for other sites
                 # For each site, inundate the REM and compute aggreement raster with stats
                 _inundate_and_compute(
-                    hydroTable_all,
-                    test_case_dic,
-                    magnitude,
-                    instance,
-                    model=model,
-                    verbose=verbose,
-                    gms_workers=gms_workers,
+                    hydroTable_all, test_case_dic, magnitude, instance, model=model, verbose=verbose
                 )
 
             # Clean up 'total_area' outputs from AHPS sites
@@ -293,7 +290,7 @@ def alpha_test(
 
 
 def _inundate_and_compute(
-    hydroTable_all, test_case_dic, magnitude, lid, compute_only=False, model='', verbose=False, gms_workers=1
+    hydroTable_all, test_case_dic, magnitude, lid, compute_only=False, model='', verbose=False
 ):
     '''Method for inundating and computing contingency rasters as part of the alpha_test.
     Used by both the alpha_test() and composite() methods.
@@ -585,6 +582,10 @@ def Inundate_gms(
 
     # start up process pool
     # better results with Process pool
+    # TODO: Jun 2026: This needs a major upgrade to manage memory leaks which can easily occur here.
+    # See the run_test_case chain and inundate_gms for examples of both multi-procs and multi-thread
+    # That update should also update how TQDM is used in order to not leave hung TQDM threads which
+    # have been seen.
     executor = ProcessPoolExecutor(max_workers=num_workers)
 
     # collect output filenames
@@ -717,14 +718,13 @@ def __inundate_gms_generator(
             "hucs": None,
             "hucs_layerName": None,
             "subset_hucs": None,
-            "num_workers": 1,
             "aggregate": False,
             "inundation_raster": inundation_branch_raster,
             # "inundation_polygon": inundation_branch_polygon,
             "depths": depths_branch_raster,
             # "out_raster_profile": None,
             # "out_vector_profile": None,
-            "quiet": not verbose,
+            "verbose": verbose,
             "windowed": windowed,
         }
         # print(list(inundate_input.items())[3])

@@ -29,12 +29,9 @@ from src.utils.shared_variables import elev_raster_ndv
 
 gpd.options.io_engine = "pyogrio"
 
-
-# Set rasterio logger to only show errors, not warnings
 # TODO: Jun 2026: We will likely want to change this as we upgrade logging everywhere (see run_test_case.py)
 # The newer system has a bunch of new features, but the biggest is that if we use our python.logging
 # it logs everything we might want
-# logging.getLogger('rasterio').setLevel(logging.ERROR)  (Update: the rasterio version might not have been in.. checking)
 
 
 def Mosaic_inundation(
@@ -107,8 +104,8 @@ def Mosaic_inundation(
 
     # inundation_maps_df = inundation_maps_df.dropna(axis=0, how="all")
     # remove all records where the three inudation paths are empty
-    # TODO: Jun 2026: Rob.. research this.
-    # maybe it is ok for all three null??
+    # TODO: Jun 2026: Rob.. research this. Sometimes all three are nulls. It
+    # seems to be ok if I leave this test out, but fails when I put the test in.
     # inundation_maps_df = inundation_maps_df.dropna(
     #     subset=['inundation_rasters', 'depths_rasters', 'inundation_polygons']
     # )

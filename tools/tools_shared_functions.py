@@ -1829,8 +1829,9 @@ def raster_to_feature(grid, profile_override=False, footprint_only=False):
 
     '''
 
-    # TODO: Jun 2026: Change all rasterio.open commands to better scope contol. 
-    # Using either the "with" syntax, or open the file / read / explicit close
+    # TODO: Jun 2026: Change all rasterio.open commands to better scope contol.
+    # Using either the "with" syntax, or open the file / read / explicit close or better control.
+    # Even adding try/except woudl help. See inundate.py -> inundate for yet another option.
 
     # Determine what format input grid is:
     # If a pathlib path, open with rasterio
@@ -1931,8 +1932,9 @@ def process_grid(benchmark, benchmark_profile, domain, domain_profile, reference
         domain_arr == domain.nodata, new_nodata_value, benchmark_fit_to_domain_bool
     )
 
-    # TODO: Jun 2026: Change all rasterio.open commands to better scope contol. 
-    # Using either the "with" syntax, or open the file / read / explicit close
+    # TODO: Jun 2026: Change all rasterio.open commands to better scope contol.
+    # Using either the "with" syntax, or open the file / read / explicit close or better control.
+    # Even adding try/except woudl help. See inundate.py -> inundate for yet another option.
 
     ## Reproject classified benchmark to reference raster crs and resolution.
     # Read in reference raster
@@ -1974,7 +1976,7 @@ def calculate_metrics_from_agreement_raster(agreement_raster):
 
     agreement_encoding_digits_to_names = {0: "TN", 1: "FN", 2: "FP", 3: "TP"}
 
-    # TODO: Jun 2026: Change all rasterio.open commands to better scope contol. 
+    # TODO: Jun 2026: Change all rasterio.open commands to better scope contol.
     # Using either the "with" syntax, or open the file / read / explicit close
 
     if isinstance(agreement_raster, rasterio.DatasetReader):

@@ -156,7 +156,7 @@ def synthesize_test_cases(
 
         # By default, maxtasksperchild is set to None, meaning worker processes live as long as the process pool itself
         # If a memory leaks exist, it can overload the system
-        
+
         num_successful_tests = 0
         with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
             # Loop through all test cases, build the alpha test arguments, and submit them to the process pool
@@ -365,13 +365,15 @@ def create_master_metrics_csv(
 
                     if config_type == "PREV":
                         version_to_crawl = os.path.join(
-                            benchmark_test_case_dir, test_case_folder, 'official_versions')
+                            benchmark_test_case_dir, test_case_folder, 'official_versions'
+                        )
                         # versions_to_aggregate = prev_versions_to_include_list
                     else:
                         version_to_crawl = os.path.join(
-                            benchmark_test_case_dir, test_case_folder, 'testing_versions')
-                    version_to_crawl = os.path.join(version_to_crawl, hand_version)                        
-                        # versions_to_aggregate = versions_to_include_list
+                            benchmark_test_case_dir, test_case_folder, 'testing_versions'
+                        )
+                    version_to_crawl = os.path.join(version_to_crawl, hand_version)
+                    # versions_to_aggregate = versions_to_include_list
 
                     logging.debug(f"Processing {version_to_crawl}")
 
@@ -406,7 +408,8 @@ def create_master_metrics_csv(
                     # Can we even get a valueerror?
                     logging.error(f"value error issued: {ve}")
                     logging.error(traceback.format_exc())
-                    pass  # TODO: ?? really? when we are missing a test if it is acceptable to catch a value error and continue
+                    pass  # TODO: ??
+                    # really? when we are missing a test if it is acceptable to catch a value error and continue
 
         # Iterate through AHPS benchmark data
         if benchmark_source in AHPS_BENCHMARK_CATEGORIES:  # nws, usgs
@@ -489,7 +492,8 @@ def create_master_metrics_csv(
                     # TODO: Is this really an error? it was just a pass. .lets see what we have
                     logging.error(f"value error issued: {ve}")
                     logging.error(traceback.format_exc())
-                    pass  # TODO: ?? really? when we are missing a test if it is acceptable to catch a value error and continue
+                    pass  # TODO: ??
+                    # really? when we are missing a test if it is acceptable to catch a value error and continue
 
     print("")
     # If previous metrics are provided: read in previously compiled metrics and join to calcaulated metrics
@@ -601,8 +605,6 @@ if __name__ == '__main__':
         required=True,
         default="",
     )
-
-    # TODO: might remove this
     parser.add_argument(
         '-vr', '--verbose', help='Verbose output', required=False, default=False, action='store_true'
     )

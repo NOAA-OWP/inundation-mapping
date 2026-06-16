@@ -71,7 +71,7 @@ class adjust_wse_with_ras2fim:
         # Note... I tested above and the differenc (improvment in results) ewas insignificant.
         # get DEM values for ras points
 
-        # TODO: Jun 2026: Change all rasterio.open commands to better scope contol. 
+        # TODO: Jun 2026: Change all rasterio.open commands to better scope contol.
         # Using either the "with" syntax, or open the file / read / explicit close
 
         DEM_dataset = rasterio.open(os.path.join(self.HAND_dir, 'dem_thalwegCond_0.tif'))
@@ -99,7 +99,7 @@ class adjust_wse_with_ras2fim:
         # Compute the median of "Q_Adjust" of ras2fim points within each HAND HydroID
         # to do that, first we need to get HydroID for ras points
 
-        # TODO: Jun 2026: Change all rasterio.open commands to better scope contol. 
+        # TODO: Jun 2026: Change all rasterio.open commands to better scope contol.
         # Using either the "with" syntax, or open the file / read / explicit close
 
         HydroID_tif_dataset = rasterio.open(

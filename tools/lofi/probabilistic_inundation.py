@@ -578,9 +578,10 @@ def inundate_probabilistic(
         f'{base_output_path}/extent_{file}_v10_day{day}_hour{hour}.tif' for file in percentiles.keys()
     ]
 
+    # TODO: Jun 2026: Change all rasterio.open commands to better scope contol.
+    # Using either the "with" syntax, or open the file / read / explicit close or better control.
+    # Even adding try/except woudl help. See inundate.py -> inundate for yet another option.
 
-    # TODO: Jun 2026: Change all rasterio.open commands to better scope contol. 
-    # Using either the "with" syntax, or open the file / read / explicit close
     # Also.. how many files does it open at the same time and how long are they open for?
     # For every percentile inundation map convert values to percentile
     datasets = [rasterio.open(file) for file in percentile_files]
