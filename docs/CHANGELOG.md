@@ -9,6 +9,7 @@ The `pull_osm_bridges.py` would silently time out on dense HUCs (e.g., HUC 02060
 
 ### Changes
 - data/bridges/pull_osm_bridges.py
+- src/bash_variables.env
 <br/>
 
 ## v4.9.16.0 - 2026-06-02 - [PR#1787](https://github.com/NOAA-OWP/inundation-mapping/pull/1787)
