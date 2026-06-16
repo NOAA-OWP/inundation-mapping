@@ -40,6 +40,9 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raste
                     catchment_min_dict[cm] = flat_dem[i]
         return catchment_min_dict
 
+    # TODO: Jun 2026: Change all rasterio.open commands to better scope contol. 
+    # Using either the "with" syntax, or open the file / read / explicit close
+
     # Open the masked gw_catchments_pixels_masked and dem_thalwegCond_masked.
     gw_catchments_pixels_masked_object = rasterio.open(pixel_watersheds_fileName)
     dem_thalwegCond_masked_object = rasterio.open(dem_fileName)
@@ -86,6 +89,8 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raste
 
         return rem_window
 
+    # TODO: Jun 2026: Change all rasterio.open commands to better scope contol. 
+    # Using either the "with" syntax, or open the file / read / explicit close
     rem_rasterio_object = rasterio.open(
         rem_fileName, 'w', **meta
     )  # Open rem_rasterio_object for writing to rem_fileName.

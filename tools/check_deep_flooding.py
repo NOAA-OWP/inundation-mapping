@@ -25,6 +25,9 @@ def check_deep_flooding(args):
 
     print("Checking " + depth_grid_path + "...")
 
+    # TODO: Jun 2026: Change all rasterio.open commands to better scope contol. 
+    # Using either the "with" syntax, or open the file / read / explicit close
+
     # Open depth_grid_path and shapefile_path and perform np.wheres
     depth_src = rasterio.open(depth_grid_path)
     depth_array = depth_src.read(1)

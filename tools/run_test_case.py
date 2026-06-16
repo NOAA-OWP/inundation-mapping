@@ -26,13 +26,6 @@ from tools_shared_variables import (  # INPUTS_DIR,; elev_raster_ndv,
 import src.utils.shared_functions as sf
 from src.utils.shared_functions import FIM_Helpers as fh
 
-
-# TODO: May 2026: This is highly inefficent. We can load much smaller WBD files, or even use something
-# from the HUC dir or preclip ti speed this up.
-# This also might trigger thread or MP collisions.
-# WBD_FILE = "WBD_National.gpkg"
-
-
 class Benchmark(object):
     AHPS_BENCHMARK_CATEGORIES = AHPS_BENCHMARK_CATEGORIES
     MAGNITUDE_DICT = MAGNITUDE_DICT
@@ -116,7 +109,7 @@ class Test_Case(Benchmark):
         self.test_id = test_id
         self.huc, self.benchmark_cat = test_id.split('_')
         super().__init__(self.benchmark_cat)
-        self.is_valid_huc = False
+        self.is_valid_hand_huc = False
         self.hand_version = hand_version
         self.archive = archive
         # FIM run directory path - uses HUC 6 for FIM 1 & 2
@@ -133,8 +126,7 @@ class Test_Case(Benchmark):
             if os.path.isfile(os.path.join(self.fim_huc_dir, "hydrotable.csv")) or os.path.isfile(
                 os.path.join(self.fim_huc_dir, "hydrotable.parquet")
             ):
-
-                self.is_valid_huc = True
+                self.is_valid_hand_huc = True
 
         # Test case directory path
         # TODO: Jun 2026: Do we want it to create a bunch of empy dirs in test_cases?
@@ -206,8 +198,6 @@ class Test_Case(Benchmark):
 
     def alpha_test(
         self,
-        # calibrated=False,
-        # model='',
         # mask_type='huc', has not been used for a while (fim 3)
         inclusion_area='',
         inclusion_area_buffer=0,
@@ -215,7 +205,6 @@ class Test_Case(Benchmark):
         verbose=False,
         branch_workers=1,
         precalb_option=False,
-        threads=1,
         log_folder='',
         log_prefix='',
     ):
@@ -223,10 +212,6 @@ class Test_Case(Benchmark):
 
         Parameters
         ----------
-        # calibrated : bool
-        #     Whether or not this HAND version is calibrated.
-        # model : str
-        #     MS or FR extent of the model. This value will be written to the eval_metadata.json.
         # mask_type : str
         #     Mask type to feed into inundation.py.
         inclusion_area : int
@@ -239,8 +224,6 @@ class Test_Case(Benchmark):
             If True, prints out all pertinent data.
         branch_workers : int
             Number of worker processes assigned to branch processing.
-        threads : int
-            Number of threads assigned to processing.
         log_folder: string
             As this function is being called as part of a MP, it needs its own log file and folder
         log_prefix: string
@@ -250,8 +233,6 @@ class Test_Case(Benchmark):
 
         start_time = datetime.now(timezone.utc)
         try:
-            # NOTE: logger does screen and log file
-            # NOTE: If not set, it will use the default logging folder and path, likely were the script is.
             if log_folder != "":
                 log_file_path = sf.setup_file_logger(log_folder, f"{log_prefix}_{self.test_id}")
             if verbose:
@@ -265,34 +246,7 @@ class Test_Case(Benchmark):
                 )
                 return
 
-            # fh.vprint(f"Starting alpha test for {self.dir}", verbose)
-            # logging.info(f"Starting alpha test for {self.dir}")
-
             self.stats_modes_list = ['total_area']
-
-            # Create paths to fim_run outputs for use in inundate()
-            # if model != 'GMS':
-            # self.rem = os.path.join(self.fim_dir, 'rem_zeroed_masked.tif')
-            # if not os.path.exists(self.rem):
-            #     self.rem = os.path.join(self.fim_dir, 'rem_clipped_zeroed_masked.tif')
-            # self.catchments = os.path.join(
-            #     self.fim_dir, 'gw_catchments_reaches_filtered_addedAttributes.tif'
-            # )
-            # if not os.path.exists(self.catchments):
-            #     self.catchments = os.path.join(
-            #         self.fim_dir, 'gw_catchments_reaches_clipped_addedAttributes.tif'
-            #     )
-            # self.mask_type = mask_type
-            # if mask_type == 'huc':
-            #     self.catchment_poly = ''
-            # else:
-            #     self.catchment_poly = os.path.join(
-            #         self.fim_dir, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg'
-            #     )
-            # self.hydro_table = os.path.join(self.fim_dir, 'hydroTable.csv')
-
-            # No longer needed (was for fim3)
-            # self.hucs = os.path.join(INPUTS_DIR, 'wbd', WBD_FILE)
 
             if inclusion_area != '':
                 inclusion_area_name = os.path.split(inclusion_area)[1].split('.')[0]  # Get layer name
@@ -316,8 +270,7 @@ class Test_Case(Benchmark):
             # This is the huc test case folder
             if os.path.exists(self.dir):
                 shutil.rmtree(self.dir, ignore_errors=True)
-            # os.mkdir(self.dir)
-            os.makedirs(self.dir)
+            os.makedirs(self.dir, exist_ok=True)
 
             # Get the magnitudes and lids for the current huc and loop through them
 
@@ -330,11 +283,8 @@ class Test_Case(Benchmark):
                     self._inundate_and_compute(
                         magnitude,
                         instance,
-                        # model=model,
-                        verbose=verbose,
                         branch_workers=branch_workers,
                         precalb_option=precalb_option,
-                        threads=threads,
                         log_file_path=log_file_path,
                     )
 
@@ -371,11 +321,7 @@ class Test_Case(Benchmark):
         magnitude,
         lid,
         precalb_option,
-        # compute_only=False,
-        # model='',
-        verbose=False,
         branch_workers=1,
-        threads=1,
         log_file_path="",
     ):
         '''Method for inundating and computing contingency rasters as part of the alpha_test.
@@ -387,13 +333,8 @@ class Test_Case(Benchmark):
              Magnitude of the current benchmark site.
          lid : str
              lid of the current benchmark site. For non-AHPS sites, this should be an empty string ('').
-        #  compute_only : bool
-        #      If true, skips inundation and only computes contingency stats.
         '''
-        # Output files
-        # fh.vprint("Creating output files", verbose)
-
-        logging.debug(f"Creating output files for {self.dir} - ({self.huc})")
+        logging.debug(f"Preparing file paths for {self.dir} - ({self.huc})")
 
         test_case_out_dir = os.path.join(self.dir, magnitude)
         inundation_prefix = lid + '_' if lid else ''
@@ -429,10 +370,6 @@ class Test_Case(Benchmark):
         ):
             return -1
 
-        # Inundate REM
-        # if not compute_only:  # composite alpha tests don't need to be inundated
-        #     # if model == "GMS":
-
         produce_mosaicked_inundation(
             hydrofabric_dir=os.path.dirname(self.fim_huc_dir),
             hucs=self.huc,
@@ -440,21 +377,17 @@ class Test_Case(Benchmark):
             inundation_raster=predicted_raster_path,
             mask=os.path.join(self.fim_huc_dir, "wbd.gpkg"),
             verbose=False,
-            num_threads=threads,
-            # num_workers=branch_workers,
+            num_threads=branch_workers,
             precalb_option=precalb_option,
             windowed=True,
-            # gms_multi_process=True,  # This means use threads not MP
             log_file=log_file_path,
             show_progress_bar=False,
         )
 
         # Create contingency rasters and stats
         # fh.vprint("Begin creating contingency rasters and stats", verbose)
-        # print("Begin creating contingency rasters and stats")
-        logging.info("Begin creating contingency rasters and stats")
+        logging.debug(f"Begin creating contingency rasters and stats for benchmark_rast is {benchmark_rast}")
         if os.path.isfile(predicted_raster_path):
-            logging.info("in it")
             compute_contingency_stats_from_rasters(
                 predicted_raster_path,
                 benchmark_rast,
@@ -472,33 +405,24 @@ class Test_Case(Benchmark):
         cls,
         hand_version,
         test_id,
-        # magnitude,
-        # calibrated,
-        # model,
         precalb_option=False,
         archive_results=False,
-        mask_type='huc',
         inclusion_area='',
         inclusion_area_buffer=0,
         overwrite=True,
         verbose=False,
         branch_workers=1,
-        threads=1,
     ):
         '''Class method for instantiating the test_case class and running alpha_test directly'''
 
         alpha_class = cls(test_id, hand_version, archive_results)
         alpha_class.alpha_test(
-            # calibrated,
-            # model,
-            # mask_type,
             inclusion_area,
             inclusion_area_buffer,
             overwrite,
             verbose,
             branch_workers,
             precalb_option,
-            threads,
         )
 
     # Jun 2026: This file no longer has any value

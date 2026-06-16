@@ -70,6 +70,10 @@ class adjust_wse_with_ras2fim:
         # TODO examine using WSE of actual minimum flow instead of assuming the stage to be zero
         # Note... I tested above and the differenc (improvment in results) ewas insignificant.
         # get DEM values for ras points
+
+        # TODO: Jun 2026: Change all rasterio.open commands to better scope contol. 
+        # Using either the "with" syntax, or open the file / read / explicit close
+
         DEM_dataset = rasterio.open(os.path.join(self.HAND_dir, 'dem_thalwegCond_0.tif'))
         ras_points_coords = list(
             zip(ras_points_with_rc.geometry.centroid.x, ras_points_with_rc.geometry.centroid.y)
@@ -94,6 +98,10 @@ class adjust_wse_with_ras2fim:
 
         # Compute the median of "Q_Adjust" of ras2fim points within each HAND HydroID
         # to do that, first we need to get HydroID for ras points
+
+        # TODO: Jun 2026: Change all rasterio.open commands to better scope contol. 
+        # Using either the "with" syntax, or open the file / read / explicit close
+
         HydroID_tif_dataset = rasterio.open(
             os.path.join(self.HAND_dir, "gw_catchments_reaches_filtered_addedAttributes_0.tif")
         )

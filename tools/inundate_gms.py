@@ -87,8 +87,6 @@ def Inundate_gms(
     if isinstance(hucs, str):
         hucs = [hucs]
 
-    num_workers = int(num_workers)
-
     # log file
     # if log_file is not None and log_file != "":
     #     # if os.path.exists(log_file):
@@ -139,6 +137,7 @@ def Inundate_gms(
     hucCodes = [None] * number_of_branches
     branch_ids = [None] * number_of_branches
 
+    pbar = None
     try:
         with ThreadPoolExecutor(max_workers=num_workers) as executor:
 
@@ -166,11 +165,7 @@ def Inundate_gms(
             # back and they do no.
             idx = 0
             for future in as_completed(executor_generator):
-                # Jun 2026: inundate does not have hucCode and branch_id to return.
-                # TODO: This likely comes back as blank
                 hucCode, branch_id = executor_generator[future]
-                logging.debug(f"In Inundate_gms, future back for huc {hucCode} and branch {branch_id}")
-
                 try:
 
                     # TODO: Jun 2026: This can be improved to work with the result object better
@@ -252,6 +247,9 @@ def Inundate_gms(
         logging.critical(f"Error while inundating {hucs}")
         logging.critical(traceback.format_exc())
         raise ex  # yes.. reraise, so we can shut inudation down.
+    finally:
+        if pbar:  # All mp tasks are done.
+            pbar.close()
 
     # make filename dataframe
     output_fileNames_df = pd.DataFrame(
@@ -264,7 +262,8 @@ def Inundate_gms(
         }
     )
 
-    logging.debug(f"output_fileNames is {output_fileNames}")
+    # TODO: SEARCH other apps, this is None from alpha chain
+    # logging.debug(f"output_fileNames is {output_fileNames}")
 
     if output_fileNames is not None:
         output_fileNames_df.to_csv(output_fileNames, index=False)
@@ -309,7 +308,7 @@ def __inundate_gms_generator(
 
     """
     # Iterate over branches
-    logging.debug(f"Loading inundate gms generator for {hydrofabric_dir}")
+    # logging.debug(f"Loading inundate gms generator for {hydrofabric_dir}")
 
     for idx, row in hucs_branches.iterrows():
         huc = str(row[0])
@@ -318,7 +317,7 @@ def __inundate_gms_generator(
         huc_dir = os.path.join(hydrofabric_dir, huc)
         branch_dir = os.path.join(huc_dir, "branches", branch_id)
 
-        logging.debug(f" __inundate_gms_generator for {branch_dir}")
+        # logging.debug(f" __inundate_gms_generator for {branch_dir}")
 
         rem_file_name = f"rem_zeroed_masked_{branch_id}.tif"
         rem_branch = os.path.join(branch_dir, rem_file_name)
@@ -407,8 +406,8 @@ def __inundate_gms_generator(
 
         # inundate input
         inundate_input = {
-            "rem": rem_branch,
-            "catchments": catchments_branch,
+            "rem_path": rem_branch,
+            "catchments_path": catchments_branch,
             "catchment_poly": catchment_poly,
             "hydro_table": hydro_table_branch,
             "forecast": forecast,

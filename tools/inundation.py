@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
+import os
 
 import argparse
 import logging
 import traceback
+
 from os.path import splitext
 from typing import List, Optional, Tuple, Union
 from warnings import warn
@@ -35,14 +37,17 @@ class NoForecastFound(Exception):
     pass
 
 
+# NOTE: Jun 2026: the "rem (rem_path)" and "catchments (catchments_path)" args were changed
+# exlusively to string paths only to help with rasterio open connection control.
+# Nothing used the input for rasterio.io.DatasetReader anyways.
 def inundate(
-    rem: Union[str, rasterio.io.DatasetReader],
-    catchments: Union[str, rasterio.io.DatasetReader],
+    rem_path: str,
+    catchments_path: str,
     catchment_poly: Union[str, pd.DataFrame],
     hydro_table: Union[str, pd.DataFrame],
     forecast: Union[str, pd.DataFrame],
     mask_type: Optional[Union[str, List[str]]] = None,
-    hucs: Optional[Union[str, fiona.Collection]] = None,
+    hucs: str = None,
     hucs_layerName: Optional[str] = None,
     subset_hucs: Optional[Union[str, List[str]]] = None,
     num_workers: Optional[int] = 1,
@@ -55,20 +60,15 @@ def inundate(
     windowed: Optional[bool] = False,
 ):
     """
-
-    Run inundation on FIM >=3.0 outputs at job-level scale or aggregated scale
-
-    Generate depths raster, inundation raster, and inundation polygon from FIM >=3.0 outputs.
-    Can use the FIM 3.0 outputs at native HUC level or the aggregated products.
     Be sure to pass a HUCs file to process in batch mode if passing aggregated products.
 
     Parameters
     ----------
-    rem : str or rasterio.io.DatasetReader
-        File path to or rasterio dataset reader of Relative Elevation Model raster.
+    rem_path : str
+        File path to the Relative Elevation Model raster. 
         Must have the same CRS as catchments raster.
-    catchments : str or rasterio.io.DatasetReader
-        File path to or rasterio dataset reader of Catchments raster. Must have the same CRS as REM raster
+    catchments : str
+        File path to the Catchments raster. Must have the same CRS as REM raster
     catchment_poly : str or geopandas GeoDataFrame
         File path to or rasterio dataset reader of Catchments raster. Must have the same CRS as REM raster
     hydro_table : str or pandas.DataFrame
@@ -127,58 +127,67 @@ def inundate(
 
     """
 
-    logging.debug(f"Starting inundation for {inundation_raster}")
-
-    # check for num_workers
-    num_workers = int(num_workers)
-    assert num_workers >= 1, "Number of workers should be 1 or greater"
-    if (num_workers > 1) & (hucs is None):
-        raise AssertionError("Pass a HUCs file to batch process inundation mapping")
+    # logging.debug(f"Starting inundation for {inundation_raster}")
 
     # check that aggregate is only done for hucs mode
     aggregate = bool(aggregate)
     if aggregate:
-        warn("Aggregate feature currently not working. Setting to false for now.")
+        logging.warning("Aggregate feature currently not working. Setting to false for now.")
         aggregate = False
-    if hucs is None:
-        assert not aggregate, "Pass HUCs file if aggregation is desired"
 
     # bool quiet
     quiet = bool(quiet)
 
     # To help close object correctly on exception
+    rem = None
+    catchments = None
     try:
         # input rem
-        if isinstance(rem, str):
-            rem = rasterio.open(rem)
-        elif isinstance(rasterio.io.DatasetReader):
-            pass
-        else:
-            raise TypeError("Pass rasterio DatasetReader or filepath for rem")
+        # Load then into memory data in order to close the rasterio connection earlier
+
+        if not os.path.isfile(rem_path):
+            raise Exception(f"Rem file of {rem_path} does not exist")
+
+        if not os.path.isfile(catchments_path):
+            raise Exception(f"Catchments file of {catchments_path} does not exist")
+
+        # input rem
+        # if isinstance(rem, str):
+        #     rem = rasterio.open(rem)
+        # elif isinstance(rasterio.io.DatasetReader):
+        #     pass
+        # else:
+        #     raise TypeError("Pass rasterio DatasetReader or filepath for rem")
+        rem = rasterio.open(rem_path)        
 
         # input catchments grid
-        if isinstance(catchments, str):
-            catchments = rasterio.open(catchments)
-        elif isinstance(rasterio.io.DatasetReader):
+        # if isinstance(catchments, str):
+        #     catchments = rasterio.open(catchments)
+        # elif isinstance(rasterio.io.DatasetReader):
+        #     pass
+        # else:
+        #     raise TypeError("Pass rasterio DatasetReader or filepath for catchments")
+        catchments = rasterio.open(catchments_path)
+        
+        # open hucs
+        # TODO: Jun 2026: This might always be non as it is hardcoded upstream to None. Research required.
+        if hucs is None:
+            pass
+        elif isinstance(hucs, str):
+            # TODO: I traced all code using this, and no one is passing in a fiona object
+            # We should remove it, but double check it first
+            with fiona.open(hucs, 'r', layer=hucs_layerName) as huc_data:
+                hucs = huc_data  # allows for the open fiona connection to be closed
+        elif isinstance(hucs, fiona.Collection):
             pass
         else:
-            raise TypeError("Pass rasterio DatasetReader or filepath for catchments")
+            raise TypeError("Pass fiona collection or filepath for hucs")
 
         # check for matching number of bands and single band only
         assert ((rem.transform * (0, 0)) == (catchments.transform * (0, 0))) & (
             (rem.transform * (rem.width, rem.height))
             == (catchments.transform * (catchments.width, catchments.height))
         ), "REM and catchments rasters require same upper left and lower right extents"
-
-        # open hucs
-        if hucs is None:
-            pass
-        elif isinstance(hucs, str):
-            hucs = fiona.open(hucs, 'r', layer=hucs_layerName)
-        elif isinstance(hucs, fiona.Collection):
-            pass
-        else:
-            raise TypeError("Pass fiona collection or filepath for hucs")
 
         # catchment stages dictionary
         if hydro_table is None:
@@ -193,12 +202,9 @@ def inundate(
         int_16 = inundation_profile['dtype'] == 'int16'
 
         # catchment stages dictionary
-        if hydro_table is not None:
-            catchmentStagesDict, hucSet = __subset_hydroTable_to_forecast(
+        catchmentStagesDict, hucSet = __subset_hydroTable_to_forecast(
                 hydro_table, forecast, subset_hucs, int_16, precalb_option
-            )
-        else:
-            raise TypeError("Pass hydro table csv")
+        )
 
         if catchmentStagesDict is not None:
             if src_table is not None:
@@ -241,6 +247,8 @@ def inundate(
             )
 
             # make windows generator
+            # TODO: Jun 2026: The hucs field might always be None after reviewing upstream code.
+            # Not sure it is even needed. Reseach required.
             window_gen = __make_windows_generator(
                 rem,
                 catchments,
@@ -279,6 +287,11 @@ def inundate(
         logging.critical(f"Critical Error while inundating for {inundation_raster}")
         logging.critical(traceback.format_exc())
         raise ex  # yes, re-raise
+    finally:
+        if rem is not None:
+            rem.close()
+        if catchments is not None:
+            catchments.close()            
 
     return inundation_rasters, depth_rasters, inundation_polys
 
@@ -420,8 +433,8 @@ def __go_fast_mapping(
 
 
 def __make_windows_generator(
-    rem: rasterio.io.DatasetReader,
-    catchments: rasterio.io.DatasetReader,
+    rem_data: rasterio.io.DatasetReader,
+    catchment_data: rasterio.io.DatasetReader,
     catchment_poly: Union[str, gpd.GeoDataFrame],
     mask_type: str,
     catchmentStagesDict: typed.Dict,
@@ -441,9 +454,9 @@ def __make_windows_generator(
 
     Parameters
     ----------
-    rem : DatasetReader
+    rem_data : DatasetReader
         Relative elevation model raster dataset
-    catchments : DatasetReader
+    catchment_data : DatasetReader
         Rasterized catchments represented by HydoIDs dataset
     catchment_poly: Union[str, gpd.GeoDataFrame]
         File name or GeoDataFrame containing catchment polygon data
@@ -522,8 +535,8 @@ def __make_windows_generator(
             try:
                 if mask_type == "huc":
                     # window = geometry_window(rem,shape(huc['geometry']))
-                    rem_array, window_transform = mask(rem, shape(huc['geometry']), crop=True, indexes=1)
-                    catchments_array = mask(catchments, shape(huc['geometry']), crop=True, indexes=1)
+                    rem_array, window_transform = mask(rem_data, shape(huc['geometry']), crop=True, indexes=1)
+                    catchments_array = mask(catchment_data, shape(huc['geometry']), crop=True, indexes=1)
                 elif mask_type == "filter":
 
                     if isinstance(catchment_poly, str):
@@ -540,8 +553,8 @@ def __make_windows_generator(
                         catchment_poly.HydroID = catchment_poly.HydroID.astype(str)
                     catchment_poly = catchment_poly[catchment_poly.HydroID.str.startswith(fossid)]
 
-                    rem_array, window_transform = mask(rem, catchment_poly['geometry'], crop=True, indexes=1)
-                    catchments_array, _ = mask(catchments, catchment_poly['geometry'], crop=True, indexes=1)
+                    rem_array, window_transform = mask(rem_data, catchment_poly['geometry'], crop=True, indexes=1)
+                    catchments_array, _ = mask(catchment_data, catchment_poly['geometry'], crop=True, indexes=1)
                     del catchment_poly
                 elif mask_type is None:
                     pass
@@ -570,10 +583,10 @@ def __make_windows_generator(
         hucCode = None
 
         if windowed is True:
-            for ij, window in rem.block_windows():
+            for ij, window in rem_data.block_windows():
                 yield {
-                    "rem_array": rem.read(1, window=window),
-                    "catchments_array": catchments.read(1, window=window),
+                    "rem_array": rem_data.read(1, window=window),
+                    "catchments_array": catchment_data.read(1, window=window),
                     "depth_rst": depth_rst,
                     "inundation_rst": inundation_rst,
                     "hucCode": hucCode,
@@ -587,8 +600,8 @@ def __make_windows_generator(
                 }
         else:
             yield {
-                "rem_array": rem.read(1),
-                "catchments_array": catchments.read(1),
+                "rem_array": rem_data.read(1),
+                "catchments_array": catchment_data.read(1),
                 "depth_rst": depth_rst,
                 "inundation_rst": inundation_rst,
                 "hucCode": hucCode,

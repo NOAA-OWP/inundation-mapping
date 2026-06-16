@@ -29,6 +29,15 @@ from tqdm import tqdm
 # Registry: name -> path
 _LOGGER_REGISTRY = {}
 
+# Jun 2026: Now that we are using .debug level logging, rasterio defaults
+# to auto catch it and prints HUGE amount of debug statements, this
+# will surpress it.
+# Get the root or rasterio logger and set the level to warning
+# Mute only rasterio Python logs
+logging.getLogger("rasterio").setLevel(logging.WARNING)
+logging.getLogger("numba").setLevel(logging.WARNING)
+
+
 gp.options.io_engine = "pyogrio"
 
 
@@ -99,8 +108,6 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
     log_file_name = f"{log_file_name_prefix}_{file_dt_string}.log"
     log_file_path = os.path.join(log_file_dir, log_file_name)
 
-    permissions_code = 0o766
-
     # we will assume the parent folder already exists
     os.makedirs(log_file_dir, exist_ok=True, mode=permissions_code)
     # print(f"Logs saved to: {log_file_path}")
@@ -157,6 +164,7 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
     # -warnings.log file will get: WARNING (but not ERROR or CRITICAL)
     # -errors.log file will get: ERROR and CRITICAL
     # DEBUG will not end up in any of them
+
 
     return log_file_path
 
@@ -300,6 +308,9 @@ def l_print(msg, file_logger, log_level="info", screen_queue=None):
 # This just searches for the prefix and concats to the parent so the parent have rollups.
 # it does assume the child logs are in the same dir as the parent file.
 # This will also auto cover -error.log and -warning.log files as well.
+
+# Note: This may seem identical to rollup_log_files function, but there is one key different.
+# rollup_log_files uses a target file, this one uses a child prefix and glob.
 def merge_child_logs_into_parent_log(parent_log_file, child_prefix, remove_old_src_file=True):
 
     if parent_log_file is None or parent_log_file == "":

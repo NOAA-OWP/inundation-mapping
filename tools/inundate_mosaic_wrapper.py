@@ -17,6 +17,7 @@ from src.utils.shared_variables import elev_raster_ndv
 # Jun 2026: num_workers has been removed in favor of
 # just number of threads. It was not really used.
 # It now uses MultiThread versus MultiProc
+# TODO: Jun 2026 Review all args as many are no longer in use
 def produce_mosaicked_inundation(
     hydrofabric_dir: str,
     hucs: Union[str, List[str]],
@@ -28,7 +29,6 @@ def produce_mosaicked_inundation(
     map_filename: Optional[str] = None,
     mask: Optional[str] = None,
     unit_attribute_name: Optional[str] = "huc8",
-    # num_workers: Optional[int] = 1,
     remove_intermediate: Optional[bool] = True,
     verbose: Optional[bool] = False,
     is_mosaic_for_branches: Optional[bool] = False,
@@ -37,7 +37,6 @@ def produce_mosaicked_inundation(
     windowed: Optional[bool] = False,
     log_file: Optional[str] = None,
     nodata: Optional[int] = elev_raster_ndv,
-    # gms_multi_process: Optional[bool] = False,
     show_progress_bar: Optional[bool] = True,
 ):
     # Jun 2026: gms_multi_process removed as it is now multi threaded
@@ -71,8 +70,6 @@ def produce_mosaicked_inundation(
         The inclusive mask for the final mosaicked datasets
     unit_attribute_name : Optional[str], default="huc8"
         The name of the processing unit
-    # num_workers : Optional[int]:
-    #     Number of parallel processes to run.
     remove_intermediate : Optional[bool], default=True
         Option to keep intermediate files.
     verbose : Optional[bool], default=False
@@ -89,8 +86,6 @@ def produce_mosaicked_inundation(
         File path for log file
     nodata : Optional[int], default=elev_raster_ndv
         Nodata to pass to the mosaic_inundation function
-    # gms_multi_process : Optional[bool], default=False
-    #     Use processes for parallel processing instead of threads
     show_progress_bar : Optional[bool], default=False
     """
 
@@ -104,7 +99,9 @@ def produce_mosaicked_inundation(
             continue
         parent_dir = os.path.split(output_file)[0]
         if not os.path.exists(parent_dir):
-            # Jun 2026: left vprint in as some apps to not have logging yet
+            # TODO: Jun 2026: left vprint in as some apps to not have logging yet
+            # Check other scripts calling this to see if it has valu anymore.
+            # This may also affect the "verbose" flag.
             fh.vprint(
                 "Parent directory for "
                 + os.path.split(output_file)[1]
@@ -112,7 +109,7 @@ def produce_mosaicked_inundation(
                 verbose,
             )
             # logging.debug(msg)
-            os.makedirs(parent_dir)
+            os.makedirs(parent_dir, exist_ok=True)
         # TODO: Jun 2026: Do we want to remove it to clean it?
         logging.debug(f"parent_dir is {parent_dir} in produce_mosaiked_inunation")
 
@@ -135,7 +132,7 @@ def produce_mosaicked_inundation(
     if not isinstance(flow_file, pd.DataFrame) and not os.path.exists(flow_file):
         raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), flow_file)
 
-    # Jun 2026: No longer needed as num_workers is no longer relavent
+    # Jun 2026: No longer needed as num_workers is no longer relavent at this level
     # Check job numbers and raise error if necessary
     # total_cpus_available = os.cpu_count() - 1
     # if num_workers > total_cpus_available:
@@ -147,8 +144,7 @@ def produce_mosaicked_inundation(
 
     # Call Inundate_gms
     logging.debug(f"About to go into Inudate_gms for {hydrofabric_dir}")
-    # Jun 2026: Verbose set to False here stops TQDM from being visible which we do not
-    # want in the run_test_case.py chain. Flipped num_theads
+    # TODO: Jun 2026: Trace other non run_test_case scripts to see if the verbose flag is used anymore
     map_file = Inundate_gms(
         hydrofabric_dir=hydrofabric_dir,
         forecast=flow_file,
@@ -171,8 +167,8 @@ def produce_mosaicked_inundation(
 
         map_file.to_csv(map_filename, index=False)
 
+    # TODO: see note about about vprint
     fh.vprint("Mosaicking extent...", verbose)
-    # print("Mosaicking extent...")
     logging.debug(f"Mosaicking extent... for {hydrofabric_dir}")
     for mosaic_attribute in ["depths_rasters", "inundation_rasters"]:
         mosaic_output = None
@@ -184,8 +180,6 @@ def produce_mosaicked_inundation(
                 mosaic_output = depths_raster
 
         if mosaic_output is not None:
-            logging.debug(f"Going into Mosaic_inundation... for {hydrofabric_dir}")
-
             # Call Mosaic_inundation
             mosaic_file_path = Mosaic_inundation(
                 map_file.copy(),
@@ -201,6 +195,7 @@ def produce_mosaicked_inundation(
                 workers=num_threads,
             )
 
+    # TODO: see note about about vprint
     fh.vprint("Mosaicking complete.", verbose)
     logging.debug(f"Mosaic_inundation complete, calculated mosiac path is {mosaic_file_path}")
 
@@ -208,6 +203,8 @@ def produce_mosaicked_inundation(
 
 
 if __name__ == "__main__":
+
+    # TODO: Jun 2026:  Check if this still works
     # Parse arguments
     parser = argparse.ArgumentParser(
         description="Helpful utility to produce mosaicked inundation extents (raster and poly) and depths."

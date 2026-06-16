@@ -107,13 +107,15 @@ def Mosaic_inundation(
 
     # inundation_maps_df = inundation_maps_df.dropna(axis=0, how="all")
     # remove all records where the three inudation paths are empty
-    inundation_maps_df = inundation_maps_df.dropna(
-        subset=['inundation_rasters', 'depths_rasters', 'inundation_polygons']
-    )
-    if len(inundation_maps_df) == 0:
-        raise Exception(
-            f"inundation_maps_df has no values in the three raster/polygon columns for {mosaic_output}"
-        )
+    # TODO: Jun 2026: Rob.. research this.
+    # maybe it is ok for all three null??
+    # inundation_maps_df = inundation_maps_df.dropna(
+    #     subset=['inundation_rasters', 'depths_rasters', 'inundation_polygons']
+    # )
+    # if len(inundation_maps_df) == 0:
+    #     raise Exception(
+    #         f"inundation_maps_df has no values in the three raster/polygon columns for {mosaic_output}"
+    #     )
 
     # subset
     if subset is not None:
@@ -138,17 +140,13 @@ def Mosaic_inundation(
     ag_mosaic_output = ""
     remove_at_end = []
     for ag in tqdm(aggregation_units, disable=tqdm_disable, desc="Mosaicing FIMs"):
-        logging.debug("about to find inundation map")
-        logging.debug(f"ag is {ag}")
         try:
             inundation_maps_list = inundation_maps_df.loc[ag, mosaic_attribute].tolist()
-            logging.debug("finished attempt to get list")
         except AttributeError as ae:
             logging.warning(f"Attribute error while processing {mosaic_output}: {ae}")
             inundation_maps_list = [inundation_maps_df.loc[ag, mosaic_attribute]]
-            logging.debug("did we get here?")
 
-        logging.debug(f"inundation_maps_list is {inundation_maps_list} for {mosaic_output}")
+        # logging.debug(f"inundation_maps_list is {inundation_maps_list} for {mosaic_output}")
 
         # Some processes may have already added the ag value (if it is a huc) to
         # the file name, so don't re-add it.
@@ -243,11 +241,6 @@ def mosaic_by_unit(
 
     if mosaic_output is not None:
 
-        logging.debug("+++++++++++++++++")
-        logging.debug("about to merge")
-        logging.debug(locals())
-        logging.debug("+++++++++++++++++")
-
         merge(inundation_maps_list, method='max', nodata=nodata, dst_path=mosaic_output)
 
         # Jun 2026:
@@ -263,7 +256,7 @@ def mosaic_by_unit(
     if remove_inputs:
         # fh.vprint("Removing inputs ...", verbose)
         # print(f"removing inputs for {mosaic_output} (inside mosaic_by_unit)")
-        logging.debug(f"removing inputs for {mosaic_output} (inside mosaic_by_unit)")
+        logging.debug(f"Cleaning up intermediate input files for {mosaic_output}")
 
         remove_list = []
         for inun_map in inundation_maps_list:

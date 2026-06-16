@@ -289,6 +289,8 @@ def preprocess_nws(source_dir, destination, reference_raster):
                     # Domain extent is largest floodmap in the static library WITH holes filled
                     filled_domain_raster = outputdir.parent / f'{code}_filled_orig_domain.tif'
 
+                    # TODO: Jun 2026: Change these two rasterio.open commands to better scope contol. 
+                    # Using either the "with" syntax, or open the file / read / explicit close
                     # Open benchmark data as a rasterio object.
                     benchmark = rasterio.open(grid)
                     benchmark_profile = benchmark.profile
@@ -315,6 +317,9 @@ def preprocess_nws(source_dir, destination, reference_raster):
                         process_extent(domain, domain_profile, output_raster=filled_domain_raster)
 
                     # Open domain raster as rasterio object
+
+                    # TODO: Jun 2026: Change rasterio.open commands to better scope contol. 
+                    # Using either the "with" syntax, or open the file / read / explicit close
                     filled_domain = rasterio.open(filled_domain_raster)
                     filled_domain_profile = filled_domain.profile
 
