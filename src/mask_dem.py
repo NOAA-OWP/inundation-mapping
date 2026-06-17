@@ -66,6 +66,8 @@ def mask_dem(
         Path to levee-protected areas file.
     levee_id_attribute: str
         Name of levee ID attribute.
+    catchments_filename: str
+        Path to catchments data
     out_dem_filename: str
         Path to write masked DEM.
     branch_id_attribute: str

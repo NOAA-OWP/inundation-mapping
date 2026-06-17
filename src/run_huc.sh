@@ -271,7 +271,7 @@ if [[ "${levelpaths_exist}" == "1" ]]; then
         "${tempHucDataDir}/nwm_subset_streams_levelPaths_extended.parquet"
         "${tempHucDataDir}/flows_grid_boolean.tif"
     )
-    python3 ${srcDir}/rasterize_parquet.py "${args[@]}"
+    python3 "${srcDir}/rasterize_parquet.py" "${args[@]}"
 fi
 
 ## RASTERIZE NWM Levelpath HEADWATERS (1 & 0) ##
@@ -298,7 +298,7 @@ args=(
     -sm "10"
     -sh "1000"
 )
-python3 ${srcDir}/agreedem.py "${args[@]}"
+python3 "${srcDir}/agreedem.py" "${args[@]}"
 
 ## PIT REMOVE BURNED DEM - BRANCH 0 (include all NWM streams) ##
 echo -e "${startDiv}Pit remove Burned DEM ${hucNumber} ${branch_zero_id}"

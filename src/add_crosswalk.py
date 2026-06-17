@@ -477,6 +477,12 @@ def add_crosswalk(
 
     # write out
     output_catchments.to_parquet(output_catchments_fileName, index=False)
+
+    # HACK -- save a duplicate in .gpkg for now
+    output_catchments.to_file(
+        output_catchments_fileName, driver=getDriver(output_catchments_fileName), index=False
+    )
+
     output_flows.to_parquet(output_flows_fileName, index=False)
     output_src.to_csv(output_src_fileName, index=False)
     output_crosswalk.to_csv(output_crosswalk_fileName, index=False)
