@@ -17,6 +17,7 @@ import pandas as pd
 import src.utils.shared_functions as sf
 import src.utils.shared_validators as val
 from data.create_vrt_file import create_vrt_file
+from src.utils.polygonize_raster import polygonize
 from src.utils.shared_functions import FIM_Helpers as fh
 
 
@@ -525,7 +526,8 @@ def __polygonize(target_output_folder_path, file_logger):
             )
 
         # Polygonize constant valued raster
-        subprocess.run(['gdal_polygonize.py', '-8', edge_tif, '-q', '-f', 'GPKG', edge_gpkg])
+        # subprocess.run(['gdal_polygonize.py', '-8', edge_tif, '-q', '-f', 'GPKG', edge_gpkg])
+        polygonize(edge_tif, edge_gpkg, connectivity=8, quiet=True)
 
         gdf = gpd.read_file(edge_gpkg)
 
