@@ -88,6 +88,9 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
         - warning level value is duplicated into a warning file.
 
     Returns the name/path of the new log file.
+
+    IMPORTANT: Extensive use of logging, can degrade performance a little.
+
     """
 
     if not log_file_dir:

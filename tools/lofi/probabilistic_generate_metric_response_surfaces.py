@@ -127,7 +127,7 @@ def create_flood_maps(
             mask=mask_path,
             verbose=False,
             # num_workers=num_jobs,
-            num_threads=num_threads,
+            num_workers=num_threads,
             windowed=windowed,
             log_file=log_file,
             remove_intermediate=True,

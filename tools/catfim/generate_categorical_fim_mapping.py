@@ -394,7 +394,7 @@ def run_fb_inundation(  # renamed from run_inundation
             mask=os.path.join(fim_run_dir, huc, 'wbd.gpkg'),
             unit_attribute_name='huc8',
             nodata=csf.ELEV_NODATA_VALUE,
-            workers=1,
+            num_workers=1,
             remove_inputs=False,
             subset=None,
             verbose=False,

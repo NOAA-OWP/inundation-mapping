@@ -3,6 +3,7 @@ import argparse
 import logging
 import os
 import traceback
+from datetime import datetime
 from os.path import splitext
 from typing import List, Optional, Tuple, Union
 from warnings import warn
@@ -122,7 +123,16 @@ def inundate(
 
     """
 
-    # logging.debug(f"Starting inundation for {inundation_raster}")
+    # if verbose:
+    #     logging.info(f"Start Inundating based on {forecast} and {rem_path} - {datetime.now().strftime('%H:%M:%S.%f')[:-3]}")
+    # else:
+    #     logging.debug(f"Start Inundating based on {forecast} and {rem_path} - {datetime.now().strftime('%H:%M:%S.%f')[:-3]}")
+
+    # Keep this off generally as it can create a TON of logs
+    # logging.debug("+++++++++++++++++++++++++++++++")
+    # logging.debug(f"Inundating based for {rem_path} - locals data")
+    # logging.debug(locals())
+    # logging.debug("+++++++++++++++++++++++++++++++")
 
     # check that aggregate is only done for hucs mode
     aggregate = bool(aggregate)
@@ -268,7 +278,7 @@ def inundate(
                 inundation_rst.close()
 
     except Exception as ex:
-        logging.critical(f"Critical Error while inundating for {inundation_raster}")
+        logging.critical(f"Critical Error while inundating for {forecast} / {rem_path}")
         logging.critical(traceback.format_exc())
         raise ex  # yes, re-raise
     finally:
@@ -276,6 +286,11 @@ def inundate(
             rem.close()
         if catchments is not None:
             catchments.close()
+
+        # if verbose:
+        #     logging.info(f"Done Inundating based on {forecast} and {rem_path} - {datetime.now().strftime('%H:%M:%S.%f')[:-3]}")
+        # else:
+        #     logging.debug(f"Done Inundating based on {forecast} and {rem_path} - {datetime.now().strftime('%H:%M:%S.%f')[:-3]}")
 
     return inundation_rasters, depth_rasters, inundation_polys
 
@@ -331,6 +346,7 @@ def __inundate_in_huc(
     # verbose print
     if hucCode is not None:
         __vprint("Inundating {} ...".format(hucCode), verbose)
+        logging.debug("Inundating {} ...".format(hucCode))
 
     rem, catchments = __go_fast_mapping(
         rem_array,

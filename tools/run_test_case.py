@@ -115,7 +115,6 @@ class Test_Case(Benchmark):
         self.archive = archive
         # FIM run directory path - uses HUC 6 for FIM 1 & 2
 
-        # TODO: Jun 2026, This really could be changed to an argument and not calculated paths
         self.fim_huc_dir = os.path.join(
             PREVIOUS_FIM_DIR if archive else OUTPUTS_DIR, self.hand_version, self.huc
         )
@@ -237,8 +236,11 @@ class Test_Case(Benchmark):
             if log_folder != "":
                 log_file_path = sf.setup_file_logger(log_folder, f"{log_prefix}_{self.test_id}")
             if verbose:
-                logging.info(f"Started Alpha Test for {self.test_id}")
+                logging.info("")  # helps find the sections in the logs
+                logging.info(f">>>>>>>>>> Started Alpha Test for {self.test_id}")
             else:
+                logging.debug("")  # helps find the sections in the logs
+                logging.debug(">>>>>>>>>>>>>>>>>>>>>")
                 logging.debug(f"Started Alpha Test for {self.test_id}")
 
             if not overwrite and os.path.isdir(self.dir):
@@ -286,6 +288,7 @@ class Test_Case(Benchmark):
                         instance,
                         branch_workers=branch_workers,
                         precalb_option=precalb_option,
+                        verbose=verbose,
                         log_file_path=log_file_path,
                     )
 
@@ -311,13 +314,20 @@ class Test_Case(Benchmark):
             raise ex
         finally:
             if verbose:
-                logging.info(f"Complete Alpha Test for {self.test_id}")
-                logging.info(sf.calculate_duration_msg(start_time))
+                logging.info(
+                    f">>>>>>>>>> Completed Alpha Test for {self.test_id}:"
+                    f" Duration: {sf.calculate_duration_msg(start_time)}"
+                )
             else:
-                logging.debug(f"Complete Alpha Test for {self.test_id}")
-                logging.debug(sf.calculate_duration_msg(start_time))
+                logging.debug(">>>>>>>>>>>>>>>>>>>>>")
+                logging.debug(
+                    f"Completed Alpha Test for {self.test_id}:"
+                    f" Duration: {sf.calculate_duration_msg(start_time)}"
+                )
 
-    def _inundate_and_compute(self, magnitude, lid, precalb_option, branch_workers=1, log_file_path=""):
+    def _inundate_and_compute(
+        self, magnitude, lid, precalb_option, branch_workers=1, verbose=False, log_file_path=""
+    ):
         '''Method for inundating and computing contingency rasters as part of the alpha_test.
         Used by both the alpha_test() and composite() methods.
 
@@ -370,8 +380,8 @@ class Test_Case(Benchmark):
             flow_file=benchmark_flows,
             inundation_raster=predicted_raster_path,
             mask=os.path.join(self.fim_huc_dir, "wbd.gpkg"),
-            verbose=False,
-            num_threads=branch_workers,
+            verbose=verbose,
+            num_workers=branch_workers,
             precalb_option=precalb_option,
             windowed=True,
             log_file=log_file_path,
@@ -407,6 +417,10 @@ class Test_Case(Benchmark):
         verbose=False,
         branch_workers=1,
     ):
+
+        # TODO: Jun 2026: If we keep using this one as just a few tools do, we we want to add some sort of
+        # MP here?
+
         '''Class method for instantiating the test_case class and running alpha_test directly'''
 
         alpha_class = cls(test_id, hand_version, archive_results)

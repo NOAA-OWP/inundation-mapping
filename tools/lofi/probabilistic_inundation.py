@@ -567,7 +567,7 @@ def inundate_probabilistic(
             mask=mask_path,
             verbose=not quiet,
             # num_workers=num_jobs,
-            num_threads=num_threads,
+            num_workers=num_threads,
             windowed=windowed,
             log_file=log_file,
             show_progress_bar=True,

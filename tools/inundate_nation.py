@@ -203,7 +203,7 @@ def run_inundation(args):
         forecast,
         inundation_raster=inundation_raster,
         # num_workers=job_number,
-        num_threads=thread_number,
+        num_workers=thread_number,
         remove_intermediate=True,
         verbose=True,
         is_mosaic_for_branches=True,

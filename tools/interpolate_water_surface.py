@@ -141,7 +141,7 @@ def inundate_with_catchment_spillover(
         mask=None,
         unit_attribute_name='huc8',
         nodata=elev_raster_ndv,
-        workers=1,
+        num_workers=1,
         remove_inputs=not keep_intermediate,
         subset=None,
         verbose=verbose,

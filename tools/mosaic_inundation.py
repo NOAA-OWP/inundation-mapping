@@ -41,12 +41,12 @@ def Mosaic_inundation(
     mask: Optional[str] = None,
     unit_attribute_name: Optional[str] = "huc8",
     nodata: Optional[int] = elev_raster_ndv,
-    workers: Optional[int] = 1,
     remove_inputs: Optional[bool] = False,
     subset: Optional[str] = None,
     verbose: Optional[bool] = True,
     is_mosaic_for_branches: Optional[bool] = False,
     inundation_polygon: Optional[str] = None,
+    show_progress_bar=True,
 ) -> str:
     """
     Mosaic inundation extents or depths
@@ -65,8 +65,6 @@ def Mosaic_inundation(
         Processing unit to mosaic inundation
     nodata: Optional[int], default = elev_raster_ndv
         Value to represent nodata
-    workers: Optional[int], default = 1
-        Number of parallel processes to use
     remove_inputs: Optional[bool], default = False
         Whether to remove intermediate input files
     subset: Optional[str], default = None
@@ -84,6 +82,14 @@ def Mosaic_inundation(
         File name of mosaiced output
 
     """
+
+    msg = f"Starting mosaic for {mosaic_output}"
+    if verbose:
+        # print(f"Removing inputs ... (in Mosiac_inundation) .. {mosaic_output}")
+        logging.info(msg)
+    else:
+        logging.debug(msg)
+
     if not os.path.isdir(os.path.dirname(mosaic_output)):
         os.makedirs(os.path.dirname(mosaic_output))
 
@@ -93,11 +99,9 @@ def Mosaic_inundation(
 
     # load file
     if isinstance(map_file, pd.DataFrame):
-        logging.debug("Loading inundation_maps_df from map_file df ")
         inundation_maps_df = map_file
         del map_file
     elif isinstance(map_file, str):
-        logging.debug(f"Loading inundation_maps_df from {map_file}")
         inundation_maps_df = pd.read_csv(map_file, dtype={unit_attribute_name: str, "branchID": str})
     else:
         raise TypeError("Pass Pandas Dataframe or file path string to csv for map_file argument")
@@ -124,24 +128,17 @@ def Mosaic_inundation(
 
     inundation_maps_df = inundation_maps_df.set_index(unit_attribute_name, drop=True)
 
-    # decide upon whether to display the progress bar
-    # print(f"Verbose value is {verbose}")  (some were coming in as None ??)
-    # print(f"aggregations_units len is {len(aggregation_units)}")
-    if verbose and len(aggregation_units) == 1:
-        tqdm_disable = False
-    elif verbose:
-        tqdm_disable = False
-    else:
-        tqdm_disable = True
-
     ag_mosaic_output = ""
     remove_at_end = []
-    for ag in tqdm(aggregation_units, disable=tqdm_disable, desc="Mosaicing FIMs"):
+    for ag in tqdm(
+        aggregation_units, disable=(show_progress_bar is False), desc=f"Mosaicking FIMs for {mosaic_output}"
+    ):
         try:
             inundation_maps_list = inundation_maps_df.loc[ag, mosaic_attribute].tolist()
         except AttributeError as ae:
-            logging.warning(f"Attribute error while processing {mosaic_output}: {ae}")
+            logging.error(f"Attribute error while processing {mosaic_output}: {ae}")
             inundation_maps_list = [inundation_maps_df.loc[ag, mosaic_attribute]]
+            # TODO: Jun 2026: Should we re-raise this? It wasn't before
 
         # logging.debug(f"inundation_maps_list is {inundation_maps_list} for {mosaic_output}")
 
@@ -155,27 +152,17 @@ def Mosaic_inundation(
         if (is_mosaic_for_branches) and (ag not in mosaic_output):
             ag_mosaic_output = fh.append_id_to_file_name(mosaic_output, ag)  # change it
 
-        # inundation_maps_list: list,
-        # mosaic_output: str,
-        # nodata: Optional[int] = elev_raster_ndv,
-        # workers: Optional[int] = 1,
-        # remove_inputs: Optional[bool] = False,
-        # mask: Optional[str] = None,
-        # verbose: Optional[bool] = False,
-
-        # are we no longer using the "mask" object?
-
+        # are we no longer using the "mask" object? Does look like it has been used for a long time.
+        logging.debug("Starting mosaic_by_unit")
         remove_list = mosaic_by_unit(
             inundation_maps_list,
             ag_mosaic_output,
             nodata,
-            workers=workers,
             remove_inputs=remove_inputs,
-            mask=mask,
-            verbose=verbose,
+            # mask=mask,
         )
 
-        if remove_list is not None:
+        if len(remove_list) > 0:
             remove_at_end.extend(remove_list)
             remove_at_end = list(set(remove_at_end))  # Ensures unique values
 
@@ -184,31 +171,30 @@ def Mosaic_inundation(
 
     if remove_inputs:
         # fh.vprint("Removing inputs ...", verbose)
-        if verbose:
-            # print(f"Removing inputs ... (in Mosiac_inundation) .. {mosaic_output}")
-            logging.info(f"Removing inputs ... (in Mosiac_inundation) .. {mosaic_output}")
 
         for remove_file in remove_at_end:
             if os.path.exists(remove_file):
                 # In theory, the file should exist but sometimes does not (errors? Multi-threading?)
                 os.remove(remove_file)
 
+    msg = f"Completed mosaic for {mosaic_output}"
+    if verbose:
+        # print(f"Removing inputs ... (in Mosiac_inundation) .. {mosaic_output}")
+        logging.info(msg)
+    else:
+        logging.debug(msg)
+
     # Return file name and path of the final mosaic output file.
     # Might be empty.
     return ag_mosaic_output
 
 
-# Note: This uses threading and not processes. If the number of workers is more than
-# the number of possible threads, no results will be returned. But it is usually
-# pretty fast anyways. This needs to be fixed.
 def mosaic_by_unit(
     inundation_maps_list: list,
     mosaic_output: str,
     nodata: Optional[int] = elev_raster_ndv,
-    workers: Optional[int] = 1,
     remove_inputs: Optional[bool] = False,
-    mask: Optional[str] = None,
-    verbose: Optional[bool] = False,
+    # mask: Optional[str] = None,  # Jun 2026: Should this be used?
 ) -> Union[list, None]:
     """
     Mosaic inundation extents or depths
@@ -221,14 +207,10 @@ def mosaic_by_unit(
         Name of final mosaiced inundation file
     nodata: Optional[int], default = elev_raster_ndv
         Value to represent nodata
-    workers: Optional[int], default = 1
-        Number of parallel processes to use
     remove_inputs: Optional[bool], default = False
         Whether to remove intermediate input files
-    mask: Optional[str], default = None
+    mask: Optional[str], default = None  (kept temp )
         Name of file to inclusively mask final output file
-    verbose: Optional[bool], default = True
-        Quiet output
 
     Returns
     -------
@@ -250,17 +232,13 @@ def mosaic_by_unit(
         #         logging.info(f"Masking ... ({mosaic_output})")
         # mask_mosaic(mosaic_output, mask, outfile=mosaic_output, workers=workers)
 
+    remove_list = []
     if remove_inputs:
-        # fh.vprint("Removing inputs ...", verbose)
-        # print(f"removing inputs for {mosaic_output} (inside mosaic_by_unit)")
-        logging.debug(f"Cleaning up intermediate input files for {mosaic_output}")
-
-        remove_list = []
         for inun_map in inundation_maps_list:
             if inun_map is not None and os.path.isfile(inun_map):
                 remove_list.append(inun_map)
 
-        return remove_list
+    return remove_list
 
 
 # def _vprint(message, verbose):

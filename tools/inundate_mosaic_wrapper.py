@@ -14,8 +14,6 @@ from src.utils.shared_functions import s3_or_local_path_exists
 from src.utils.shared_variables import elev_raster_ndv
 
 
-# Jun 2026: num_workers has been removed in favor of
-# just number of threads. It was not really used.
 # It now uses MultiThread versus MultiProc
 # TODO: Jun 2026 Review all args as many are no longer in use
 def produce_mosaicked_inundation(
@@ -32,7 +30,7 @@ def produce_mosaicked_inundation(
     remove_intermediate: Optional[bool] = True,
     verbose: Optional[bool] = False,
     is_mosaic_for_branches: Optional[bool] = False,
-    num_threads: Optional[int] = 1,
+    num_workers: Optional[int] = 1,
     precalb_option: Optional[bool] = False,
     windowed: Optional[bool] = False,
     log_file: Optional[str] = None,
@@ -76,8 +74,8 @@ def produce_mosaicked_inundation(
         Print verbose messages to screen. Not tested.
     is_mosaic_for_branches : Optional[Bool], default=False
         Whether the mosaic routine is for branches
-    num_threads : Optional[int], default=1
-        Number of threads to process
+    num_workers : Optional[int], default=1
+        Number of processes / threads to process
     precalb_option : Optional[bool], default=False
         Whether to use precalb discharge in hydrotable. If True, will use precalb_discharge_cms column
     windowed : Optional[bool], default=False
@@ -89,6 +87,7 @@ def produce_mosaicked_inundation(
     show_progress_bar : Optional[bool], default=False
     """
 
+    # logging.debug(f"num_workers is {num_workers} and show_progress_bar is {show_progress_bar}")
     # Check that inundation_raster or depths_raster is supplied
     if inundation_raster is None and depths_raster is None:
         raise ValueError("Must supply either inundation_raster or depths_raster.")
@@ -111,7 +110,6 @@ def produce_mosaicked_inundation(
             # logging.debug(msg)
             os.makedirs(parent_dir, exist_ok=True)
         # TODO: Jun 2026: Do we want to remove it to clean it?
-        logging.debug(f"parent_dir is {parent_dir} in produce_mosaiked_inunation")
 
     # Check that hydrofabric_dir exists
     if not s3_or_local_path_exists(hydrofabric_dir):
@@ -132,7 +130,8 @@ def produce_mosaicked_inundation(
     if not isinstance(flow_file, pd.DataFrame) and not os.path.exists(flow_file):
         raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), flow_file)
 
-    # Jun 2026: No longer needed as num_workers is no longer relavent at this level
+    # Jun 2026: Now that we are using threads, the cpu limits are no longer appliable
+    # We mostly want to watch the network performance monitor to set a good value here
     # Check job numbers and raise error if necessary
     # total_cpus_available = os.cpu_count() - 1
     # if num_workers > total_cpus_available:
@@ -143,14 +142,13 @@ def produce_mosaicked_inundation(
     #     )
 
     # Call Inundate_gms
-    logging.debug(f"About to go into Inudate_gms for {hydrofabric_dir}")
     # TODO: Jun 2026: Trace other non run_test_case scripts to see if the verbose flag is used anymore
     map_file = Inundate_gms(
         hydrofabric_dir=hydrofabric_dir,
         forecast=flow_file,
         hydro_table_df=hydro_table_df,
-        num_workers=num_threads,
         hucs=hucs,
+        num_workers=num_workers,
         inundation_raster=inundation_raster,
         depths_raster=depths_raster,
         verbose=False,
@@ -169,7 +167,11 @@ def produce_mosaicked_inundation(
 
     # TODO: see note about about vprint
     fh.vprint("Mosaicking extent...", verbose)
-    logging.debug(f"Mosaicking extent... for {hydrofabric_dir}")
+    if verbose:
+        logging.info(f"Mosaicking extent... for {flow_file}")
+    else:
+        logging.debug(f"Mosaicking extent... for {flow_file}")
+
     for mosaic_attribute in ["depths_rasters", "inundation_rasters"]:
         mosaic_output = None
         if mosaic_attribute == "inundation_rasters":
@@ -192,12 +194,12 @@ def produce_mosaicked_inundation(
                 verbose=verbose,
                 is_mosaic_for_branches=is_mosaic_for_branches,
                 inundation_polygon=inundation_polygon,
-                workers=num_threads,
+                show_progress_bar=show_progress_bar,
             )
 
     # TODO: see note about about vprint
-    fh.vprint("Mosaicking complete.", verbose)
-    logging.debug(f"Mosaic_inundation complete, calculated mosiac path is {mosaic_file_path}")
+    fh.vprint("Mosaicking extent complete", verbose)
+    logging.debug("Mosaicking extent complete")
 
     return mosaic_file_path
 
@@ -263,7 +265,7 @@ if __name__ == "__main__":
         type=str,
     )
     parser.add_argument(
-        "-w", "--num_threads", help="Number of worker threads.", required=False, default=1, type=int
+        "-w", "--num_workers", help="Number of worker threads.", required=False, default=1, type=int
     )
     parser.add_argument(
         "-r",

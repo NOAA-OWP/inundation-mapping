@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import re
+import time
 import traceback
 from concurrent.futures import ProcessPoolExecutor, as_completed, wait
 from datetime import datetime, timezone
@@ -32,7 +33,7 @@ def synthesize_test_cases(
     config_type,
     precalb_option,
     hand_version,
-    job_number_huc,
+    job_number_alpha_tests,  # combo of huc + benchmark type
     job_number_branch,
     benchmark_category,
     overwrite,
@@ -57,7 +58,6 @@ def synthesize_test_cases(
     # and also setup logging
     log_folder = ""
     hand_path = ""
-
     if config_type == 'PREV':
         hand_path = os.path.join(PREVIOUS_FIM_DIR, hand_version)
         archive_results = True
@@ -69,6 +69,7 @@ def synthesize_test_cases(
 
     if not os.path.exists(hand_path):
         raise ValueError(f"Calculated hand path of {hand_path} does not exist")
+    logging.info(f"Source hand dataset is {hand_path}")
 
     if master_metrics_csv == "":
         raise ValueError("master metric path (-m) can not be empty")
@@ -82,19 +83,6 @@ def synthesize_test_cases(
 
     if not os.path.exists(prev_metrics_csv):
         raise ValueError("previous metric file (-pcsv) does not exist")
-
-    # check job numbers
-    total_cpus_requested = job_number_huc * job_number_branch
-    total_cpus_available = os.cpu_count() - 2
-    if total_cpus_requested > total_cpus_available:
-        logging.error("Error: CPU count invalid")
-        raise ValueError(
-            f'The HUC job number of {job_number_huc} (-jh)'
-            f' multiplied by the branch job number of {job_number_branch} (-th),'
-            f' exceeds your machine\'s available CPU count of {total_cpus_available} ({os.cpu_count()} - 2)\n'
-            'Please lower the job_number_huc or job_number_branch to create a multipled value that is less'
-            f' than {total_cpus_available} for this tool for this server.'
-        )
 
     # =====================
     # Setup Logging and headers
@@ -111,14 +99,29 @@ def synthesize_test_cases(
         " not necessarily in order, but last copy of a set of error messages will show find context info."
     )
     logging.info("***************************************************")
-    print()
+    logging.debug(f"inputs and locals = {locals()}")
+    logging.debug("***************************************************")
+    print("")
+
+    # check job numbers
+    # Jun 2026: No longer relavent as you can run the combo of huc/bench * branches much higher
+    # as branches are used for multi-theading which has much higher capacity
+    # total_cpus_requested = job_number_huc * job_number_branch
+    # total_cpus_available = os.cpu_count() - 1
+    # if total_cpus_requested > total_cpus_available:
+    #     print("Error:")
+    #     raise ValueError(
+    #         f'The HUC job number of {job_number_huc} (-jh)'
+    #         f' multiplied by the branch job number of {job_number_branch} (-th),'
+    #         f' exceeds your machine\'s available CPU count of {total_cpus_available} ({os.cpu_count()} - 1)\n'
+    #         'Please lower the job_number_huc or job_number_branch to create a multipled value that is less'
+    #         f' than {total_cpus_available} for this tool for this server.'
+    #     )
 
     try:
         # remove the old one
         if os.path.exists(master_metrics_csv):
             os.remove(master_metrics_csv)
-
-        print("")
 
         # =================================
         # Find valid test classes
@@ -140,9 +143,20 @@ def synthesize_test_cases(
                 "Error: After filtering HUC folder looking for a hydrotable file"
                 " which are assumed to be a valid HUC folder, there are no remaining valid HUC folders"
             )
-        huc_list = [test_class_obj.huc for test_class_obj in applicable_hand_huc_test_cases]
-        # logging.debug(f"Processing hucs: {huc_list}")
 
+        # Sort by huc (ascending)
+        applicable_hand_huc_test_cases = sorted(applicable_hand_huc_test_cases, key=lambda t_case: t_case.huc)
+
+        huc_list = [test_class_obj.huc for test_class_obj in applicable_hand_huc_test_cases]
+        # drop dups
+        huc_list = list(set(huc_list))
+
+        logging.info(
+            f"Processing alpha test cases for {len(applicable_hand_huc_test_cases)}"
+            " records (Each alpha test is a huc/benchmark combo)"
+        )
+
+        # logging.debug(f"Processing hucs: {huc_list}")
         # =================================
         # Set up multiprocessor
         mp_log_prefix = "alpha_test"
@@ -158,7 +172,7 @@ def synthesize_test_cases(
         # If a memory leaks exist, it can overload the system
 
         num_successful_tests = 0
-        with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
+        with ProcessPoolExecutor(max_workers=job_number_alpha_tests) as executor:
             # Loop through all test cases, build the alpha test arguments, and submit them to the process pool
             executor_dict = {}
 
@@ -166,17 +180,18 @@ def synthesize_test_cases(
             # control over future results and exceptions
             pbar = tqdm(
                 total=len(applicable_hand_huc_test_cases),
-                desc=f"Running alpha test cases with {job_number_huc} workers",
+                desc=f"Running alpha test cases with {job_number_alpha_tests} workers",
                 unit="task",
             )
             try:
+
+                pbar.update(1)  # ✅ Progress update for each task starting
 
                 for test_case_class in applicable_hand_huc_test_cases:
 
                     # logging.info(f"test_case_class.test_id is {test_case_class.test_id}")
                     alpha_test_args = {
                         'overwrite': overwrite,
-                        # 'verbose': gms_verbose if model == 'GMS' else verbose,
                         'verbose': verbose,
                         'branch_workers': job_number_branch,
                         'precalb_option': precalb_option,
@@ -208,7 +223,6 @@ def synthesize_test_cases(
                         logging.critical(traceback.format_exc())
                         # Note: you can not use sys.exit in ProcessPools.
                         raise fex  # yes.. raise it. If an alpha_test fails, shut it down
-                    pbar.update(1)  # ✅ Progress update for each completed task
 
             except Exception as ex:
                 if pbar:  # important in a try / except
@@ -483,9 +497,9 @@ def create_master_metrics_csv(
                                         sub_list_to_append.append(benchmark_source)
                                         sub_list_to_append.append(extent_config)
                                         new_data_found = True
-                                        logging.debug(
-                                            f"list_to_write for {full_json_path} is {list_to_write}"
-                                        )
+                                        # logging.debug(
+                                        #     f"list_to_write for {full_json_path} is {list_to_write}"
+                                        # )
 
                                         list_to_write.append(sub_list_to_append)
                 except ValueError as ve:
@@ -528,7 +542,7 @@ if __name__ == '__main__':
     python /foss_fim/tools/synthesize_test_cases.py
         -c DEV
         -v hand_4_9_13_0
-        -jh 20 -jb 1
+        -ja 20 -jb 20
         -m /outputs/gms_test_synth_combined/gms_synth_metrics.csv
         -psv /data/previous_fim/hand_4_9_11_1
         -o
@@ -551,7 +565,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '-c',
         '--config-type',
-        help='Save outputs to development_versions or previous_versions? Options: "DEV" or "PREV"',
+        help='REQUIRED: Save outputs to development_versions or previous_versions? Options: "DEV" or "PREV"',
         required=True,
         default='DEV',
     )
@@ -564,13 +578,20 @@ if __name__ == '__main__':
         action='store_true',
     )
     parser.add_argument(
-        '-v', '--hand-version', help='REQUIRED: Name of hand version.', required=True, default=""
+        '-v',
+        '--hand-version',
+        help='REQUIRED: Name of hand version. It is the name of the pipeline folder.'
+        'ie) for PREV it is hand_4_9_12_0 as in /data/previous_fim/hand_4_9_12_0; or for DEV /outputs/test_alpha_hand_data.'
+        ' For PREV, the data must be the root folder of /data/previous_fim and for DEV it must be in /outputs.',
+        required=True,
+        default="",
     )
     parser.add_argument(
-        '-jh',
-        '--job-number-huc',
-        help='Number of processes to use for HUC scale operations. HUC and Batch job numbers should multiply '
-        'to no more than one less than the CPU count of the machine.',
+        '-ja',
+        '--job-number-alpha-tests',
+        help='This number is used to manage how many jobs for huc + benchmark type can be processed at one time.'
+        'Number of processes to use for HUC scale operations. Number of Alpha jobs and Batch job numbers should'
+        ' multiply to no more than one less than the CPU count of the machine.',
         required=False,
         default=1,
         type=int,
@@ -578,8 +599,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '-jb',
         '--job-number-branch',
-        help='Number of processes to use for Branch scale operations. HUC and Batch job numbers should '
-        'multiply to no more than one less than the CPU count of the machine.',
+        help='Number of processes to use for processing branches for each huc/benchmark type.',
         required=False,
         default=1,
         type=int,
@@ -611,10 +631,10 @@ if __name__ == '__main__':
     parser.add_argument(
         '-pcsv',
         '--prev-metrics-csv',
-        help='Optional: Filepath for a CSV with previous metrics to concatenate with new '
+        help='REQUIRED: : Filepath for a CSV with previous metrics to concatenate with new '
         'metrics to form a final aggregated metrics csv.',
-        required=False,
-        default=None,
+        required=True,
+        default="",
     )
     # Assign variables from arguments.
     args = vars(parser.parse_args())

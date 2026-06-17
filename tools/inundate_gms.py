@@ -5,7 +5,7 @@ import logging
 import os
 import traceback
 import warnings
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed, wait
 from typing import List, Optional, Tuple, Union
 
 import pandas as pd
@@ -77,6 +77,7 @@ def Inundate_gms(
         Output filenames from gms inundation routine
 
     """
+
     # input handling
     if hucs is not None:
         try:
@@ -97,7 +98,14 @@ def Inundate_gms(
     #         with open(log_file, 'a') as f:
     #             f.write("HUC8,BranchID,Exception")
 
-    logging.debug(f"Starting Inundate_gms for {hucs}")
+    if verbose and show_progress_bar:
+        logging.info(
+            f"--- Starting Inundate_gms for {forecast} based on {hydrofabric_dir} with {num_workers} workers"
+        )
+    else:
+        logging.debug(
+            f"--- Starting Inundate_gms for {forecast} based on {hydrofabric_dir} with {num_workers} workers"
+        )
 
     # load fim inputs
     hucs_branches = pd.read_csv(
@@ -131,11 +139,35 @@ def Inundate_gms(
     # TODO: Jun 2026: Nice to have: This could be replaced by a list created in teach future_result
     # and appended to a master list.  It would mean the generator would need to
     # return the huc and branch is all. But this works too.
+    # Note: Changing this to a list makes a massive drop in the hydrotable recs for some
+    # reason and it fails downstream. ie) 12090301 - 240,744 recs with generator and 84 with list.
+    # Must be some deep memory pointers somewhere.
     inundation_raster_fileNames = [None] * number_of_branches
     inundation_polygon_fileNames = [None] * number_of_branches
     depths_raster_fileNames = [None] * number_of_branches
     hucCodes = [None] * number_of_branches
     branch_ids = [None] * number_of_branches
+
+    # logging.debug("++++++++++++++++")
+    # logging.debug(f"Number of branches is {branch_ids}")
+    # logging.debug(f"Number of hucs is {hucCodes}")
+    # logging.debug("first rec only.")
+    # logging.debug(next(inundate_input_generator))
+    # logging.debug("Copy the generator to a list and see what it looks like")
+    # temp_list = list(inundate_input_generator)
+    # logging.debug(f"Count of list is {len(temp_list)}")
+    # logging.debug("First rec from the list")
+    # logging.debug(temp_list[0])
+    # logging.debug("++++++++++++++++")
+
+    # Note: Some scripts such as run_test_case, use a processpoolexecutor
+    # it is highly discourage but possible to use a processpoolexecutor inside a
+    # processpoolexecutor, which is why this is a ThreadPoolExecutor
+
+    # TODO: Jun 2026: ThreadPoolExecutor and ProcessPoolExecutors no longer like
+    # generators. It can (not always) force the pools to execute only one at a time.
+    # It might be happening here. Not sure yet but appears MT is not really working becuse
+    # of the generator.
 
     pbar = None
     try:
@@ -149,15 +181,16 @@ def Inundate_gms(
             # control over future results and exceptions
             pbar = tqdm(
                 total=len(executor_generator),
-                desc=f"Inundating branches with {num_workers} workers",
+                desc=f"Inundating branches with {num_workers} workers for ",
                 unit="task",
-                disable=(not show_progress_bar),
+                disable=(show_progress_bar is False),
             )
 
             # TODO: Jun 2026, replace this idx system
             idx = 0
             for future in as_completed(executor_generator):
                 hucCode, branch_id = executor_generator[future]
+                # logging.debug(f"index {idx}: {hucCode} - {branch_id}")
                 try:
 
                     # TODO: Jun 2026: This can be improved to work with the result object better
@@ -238,7 +271,7 @@ def Inundate_gms(
         # TODO: Jun 2026: Now that we are adding logging, do we need this log file test?
         if log_file is not None and log_file != "":
             print(f"{hucs}: {ex.__class__.__name__}, {ex}", file=open(log_file, "a"))
-        logging.critical(f"Error while inundating {hucs}")
+        logging.critical(f"Error while inundating based on {forecast}")
         logging.critical(traceback.format_exc())
         raise ex  # yes.. reraise, so we can shut inudation down.
     finally:
@@ -408,7 +441,6 @@ def __inundate_gms_generator(
             "hucs": None,
             "hucs_layerName": None,
             "subset_hucs": None,
-            "num_workers": 1,
             "aggregate": False,
             "inundation_raster": inundation_branch_raster,
             "depths": depths_branch_raster,
