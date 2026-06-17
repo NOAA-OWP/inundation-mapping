@@ -187,7 +187,7 @@ def split_flows(
 
     # Read in nwm lines, explode to ensure linestrings are the only geometry
     if os.path.splitext(nwm_streams_filename)[1] == '.parquet':
-        nwm_streams = gpd.read_parquet(nwm_streams_filename).explode(index_parts=False)
+        nwm_streams = gpd.read_parquet(nwm_streams_filename).explode(index_parts=True)
     else:
         nwm_streams = gpd.read_file(nwm_streams_filename, engine='fiona').explode(index_parts=True)
 
