@@ -1,6 +1,29 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.x.x - 2026-06-17 - [PR#1865](https://github.com/NOAA-OWP/inundation-mapping/pull/1865)
+
+Adds a script to convert from raster to vector, replicating `gdal_polygonize.py` but instead using Python in order to take advantage of geoparquet and avoid SQLite issues related to geopackages.
+
+The script is applied to acquiring DEMs (`data/usgs/acquire_and_preprocess_3dep_dems.py`).
+
+### Additions
+- `src/utils/polygonize_raster.py`: Converts raster to vector using Python
+
+### Changes
+
+#### Convert DEM_Domain to geoparquet for the following files:
+- `config/deny_unit.lst`
+- `data/`
+    - `nhdplus/preprocess_nhdplus.py`
+    - `usgs/acquire_and_preprocess_3dep_dems.py`
+    - `wbd/`
+        - `generate_pre_clip_fim_huc8.py`
+        - `preprocess_wbd.py`
+- `src/run_huc.sh`
+
+<br/>
+
 ## v4.9.16.0 - 2026-06-02 - [PR#1787](https://github.com/NOAA-OWP/inundation-mapping/pull/1787)
 
 This PR closes issues #1778, #1795, and  #1796 and includes the following enhancements to the OSM bridge data acquisition pipeline.
