@@ -113,7 +113,7 @@ def acquire_and_preprocess_3dep_dems(
         - skip_polygons (bool)
              If True, then we will not attempt to create polygon files for each dem file. If false,
              an domain gpkg which covers the extent of all included features merged. It will automatically
-             be named DEM_Domain.gpkg and saved in the same folderd as the target_output_folder_path.
+             be named DEM_Domain.parquet and saved in the same folder as the target_output_folder_path.
 
         - target_projection (String)
              Projection of the output DEMS and polygons (if included)
@@ -479,7 +479,7 @@ def __polygonize(target_output_folder_path, file_logger):
     Note: If you have to re-run this tool to repair some DEMs, this section must be re-run and is by default.
 
     """
-    dem_domain_file = os.path.join(target_output_folder_path, 'DEM_Domain.gpkg')
+    dem_domain_file = os.path.join(target_output_folder_path, 'DEM_Domain.parquet')
 
     msg = f" - Polygonizing -- {dem_domain_file} - Started (be patient, it can take a while)"
     sf.l_print(msg, file_logger, "info")
@@ -494,12 +494,12 @@ def __polygonize(target_output_folder_path, file_logger):
 
     dem_files.sort()
 
-    dem_gpkgs = gpd.GeoDataFrame()
+    dem_parquets = gpd.GeoDataFrame()
 
     for n, dem_file in enumerate(dem_files):
         sf.l_print(f"Polygonizing: {dem_file}", file_logger, "info")
         edge_tif = f'{os.path.splitext(dem_file)[0]}_edge.tif'
-        edge_gpkg = f'{os.path.splitext(edge_tif)[0]}.gpkg'
+        edge_parquet = f'{os.path.splitext(edge_tif)[0]}.parquet'
 
         # Calculate a constant valued raster from valid DEM cells
         if not os.path.exists(edge_tif):
@@ -526,22 +526,22 @@ def __polygonize(target_output_folder_path, file_logger):
             )
 
         # Polygonize constant valued raster
-        # subprocess.run(['gdal_polygonize.py', '-8', edge_tif, '-q', '-f', 'GPKG', edge_gpkg])
-        polygonize(edge_tif, edge_gpkg, connectivity=8, quiet=True)
+        # subprocess.run(['gdal_polygonize.py', '-8', edge_tif, '-q', '-f', 'GPKG', edge_parquet])
+        polygonize(edge_tif, edge_parquet, connectivity=8, quiet=True)
 
-        gdf = gpd.read_file(edge_gpkg)
+        gdf = gpd.read_parquet(edge_parquet)
 
         if n == 0:
-            dem_gpkgs = gdf
+            dem_parquets = gdf
         else:
-            dem_gpkgs = pd.concat([dem_gpkgs, gdf])
+            dem_parquets = pd.concat([dem_parquets, gdf])
 
         os.remove(edge_tif)
-        os.remove(edge_gpkg)
+        os.remove(edge_parquet)
 
-    dem_gpkgs['DN'] = 1
-    dem_dissolved = dem_gpkgs.dissolve(by='DN')
-    dem_dissolved.to_file(dem_domain_file, driver='GPKG', engine='fiona')
+    dem_parquets['DN'] = 1
+    dem_dissolved = dem_parquets.dissolve(by='DN')
+    dem_dissolved.to_parquet(dem_domain_file)
 
     if not os.path.exists(dem_domain_file):
         sf.l_print(f" - Polygonizing -- {dem_domain_file} - Failed", file_logger, "error")
