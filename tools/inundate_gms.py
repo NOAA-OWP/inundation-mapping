@@ -37,7 +37,7 @@ def Inundate_gms(
     log_file: Optional[str] = None,
     output_fileNames: Optional[str] = None,
     precalb_option: Optional[bool] = False,
-    windowed: Optional[bool] = False,
+    windowed: Optional[bool] = True,
     show_progress_bar: Optional[bool] = False,
 ) -> pd.DataFrame:
     """
@@ -169,7 +169,6 @@ def Inundate_gms(
     # It might be happening here. Not sure yet but appears MT is not really working becuse
     # of the generator.
 
-    pbar = None
     try:
         with ThreadPoolExecutor(max_workers=num_workers) as executor:
 
@@ -177,18 +176,14 @@ def Inundate_gms(
                 executor.submit(inundate, **inp): ids for inp, ids in inundate_input_generator
             }
 
-            # Using tqdm manually instead of part of as_completed, we have more
-            # control over future results and exceptions
-            pbar = tqdm(
-                total=len(executor_generator),
-                desc=f"Inundating branches with {num_workers} workers for ",
-                unit="task",
-                disable=(show_progress_bar is False),
-            )
-
             # TODO: Jun 2026, replace this idx system
             idx = 0
-            for future in as_completed(executor_generator):
+            for future in tqdm(
+                as_completed(executor_generator),
+                total=len(executor_generator),
+                desc=f"Inundating branches with {num_workers} workers",
+                disable=(show_progress_bar is False),
+            ):            
                 hucCode, branch_id = executor_generator[future]
                 # logging.debug(f"index {idx}: {hucCode} - {branch_id}")
                 try:
@@ -260,7 +255,6 @@ def Inundate_gms(
                         pass
 
                     idx += 1
-                    pbar.update(1)  # ✅ Progress update for each completed task
 
             # power down pool
             # if future.running():
@@ -274,9 +268,6 @@ def Inundate_gms(
         logging.critical(f"Error while inundating based on {forecast}")
         logging.critical(traceback.format_exc())
         raise ex  # yes.. reraise, so we can shut inudation down.
-    finally:
-        if pbar:  # All mp tasks are done.
-            pbar.close()
 
     # make filename dataframe
     output_fileNames_df = pd.DataFrame(

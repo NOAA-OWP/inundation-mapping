@@ -189,6 +189,7 @@ def Mosaic_inundation(
     return ag_mosaic_output
 
 
+# Jun 2026: Number of workers remove as it is no longer relavent
 def mosaic_by_unit(
     inundation_maps_list: list,
     mosaic_output: str,

@@ -176,16 +176,7 @@ def synthesize_test_cases(
             # Loop through all test cases, build the alpha test arguments, and submit them to the process pool
             executor_dict = {}
 
-            # Using tqdm manually instead of part of as_completed, we have more
-            # control over future results and exceptions
-            pbar = tqdm(
-                total=len(applicable_hand_huc_test_cases),
-                desc=f"Running alpha test cases with {job_number_alpha_tests} workers",
-                unit="task",
-            )
             try:
-
-                pbar.update(1)  # ✅ Progress update for each task starting
 
                 for test_case_class in applicable_hand_huc_test_cases:
 
@@ -210,7 +201,11 @@ def synthesize_test_cases(
                 # By catching it better, we can shut down the pool if we need to
                 # Remember.. you can't really stop each WIP child proc, but you can
                 # catch the errors and stop new processes from starting up.
-                for future in as_completed(executor_dict):
+
+                for future in tqdm(
+                    as_completed(executor_dict), total=len(executor_dict), 
+                    desc=f"Running alpha test cases with {job_number_alpha_tests} workers"
+                ):                
                     try:
                         if future is not None:
                             if future.cancelled():
@@ -225,8 +220,6 @@ def synthesize_test_cases(
                         raise fex  # yes.. raise it. If an alpha_test fails, shut it down
 
             except Exception as ex:
-                if pbar:  # important in a try / except
-                    pbar.close()
                 # this covers fails in the original call to test_case_class.alpha_test such as
                 # bad definition.
                 logging.critical(f"*** Error: {ex}")
@@ -243,7 +236,6 @@ def synthesize_test_cases(
                 # stops new ones.
 
             finally:
-                pbar.close()  # helps with any pending pbar updates
                 # This will also merge -error.log and -warning.log files into the
                 # respective parent error, warning files.
                 # Granted.. putting it in "finally" will mean we get the logs a bit out of order
@@ -365,6 +357,7 @@ def create_master_metrics_csv(
         if benchmark_source in ['ble', 'ifc', 'ras2fim']:
             magnitude_list = MAGNITUDE_DICT[benchmark_source]
 
+            test_cases_folders.sort()
             # Iterate through available test cases
             for test_case_folder in test_cases_folders:
                 try:
@@ -430,6 +423,7 @@ def create_master_metrics_csv(
             test_cases_folders = os.listdir(benchmark_test_case_dir)
             # logging.debug(f"Start of reviewing benchmark data for AHPS Categories: {benchmark_source}")
 
+            test_cases_folders.sort()
             for test_case_folder in test_cases_folders:
                 try:
                     # Get HUC id
@@ -542,7 +536,7 @@ if __name__ == '__main__':
     python /foss_fim/tools/synthesize_test_cases.py
         -c DEV
         -v hand_4_9_13_0
-        -ja 20 -jb 20
+        -ja 30 -jb 2
         -m /outputs/gms_test_synth_combined/gms_synth_metrics.csv
         -psv /data/previous_fim/hand_4_9_11_1
         -o

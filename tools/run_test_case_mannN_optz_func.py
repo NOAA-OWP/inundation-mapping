@@ -514,6 +514,7 @@ def produce_mosaicked_inundation(
             verbose=verbose,
             is_mosaic_for_branches=is_mosaic_for_branches,
             inundation_polygon=inundation_polygon,
+            show_progress_bar=False,
         )
 
     fh.vprint("Mosaicking complete.", verbose)
@@ -546,6 +547,8 @@ def Inundate_gms(
         hucs = [hucs]
     if type(hucs) is str:
         hucs = [hucs]
+
+    # TODO: Jun 2026: We likely need a test to ensure hucs has at least one value. It likely always has only one. TBD
 
     num_workers = int(num_workers)
 
@@ -586,6 +589,7 @@ def Inundate_gms(
     # See the run_test_case chain and inundate_gms for examples of both multi-procs and multi-thread
     # That update should also update how TQDM is used in order to not leave hung TQDM threads which
     # have been seen.
+    # This can trigger memory leaks as is.
     executor = ProcessPoolExecutor(max_workers=num_workers)
 
     # collect output filenames

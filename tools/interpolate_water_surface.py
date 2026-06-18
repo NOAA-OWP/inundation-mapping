@@ -80,7 +80,8 @@ def interpolate_wse(
     with rasterio.open(output_depth_raster, 'w', **profile) as dst:
         dst.write(final_depth)
 
-
+# TODO: Jun 2026: If this tool is in use or rebuilt, the log_file is not in use
+# but if this is changed to a full logging system, it not needed.
 def inundate_with_catchment_spillover(
     hydrofabric_dir,
     hucs,
