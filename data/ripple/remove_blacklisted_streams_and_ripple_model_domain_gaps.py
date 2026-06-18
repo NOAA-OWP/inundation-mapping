@@ -35,6 +35,8 @@ NOT_HEADWATER_COVERAGE_THRESHOLD = 0.60
 
 _WORKER_DOMAIN_UNION_BUFFERED = None
 
+DOMAIN_COLS = ["collection_id", "model_id", "project_title", "version"]
+
 WHITELIST_COLS = [
     "huc",
     "feature_id",
@@ -45,6 +47,7 @@ WHITELIST_COLS = [
     "db_path",
     "is_blacklisted",
     "is_bridge",
+    "is_duplicated",
     "huc_valid",
     "is_valid",
 ]  # , "library_path"
@@ -63,13 +66,13 @@ def create_huc_validated_whitelist(ripple_dir, ripple_whitelist_table, whitelist
 
     # Detect valid duplicate feature-ids across more than one HUC.
     valid_huc_counts = whitelist_df[whitelist_df["is_valid"]].groupby("feature_id")["huc"].nunique()
-    whitelist_df["duplicate_valid"] = whitelist_df["is_valid"] & (
+    whitelist_df["is_duplicated"] = whitelist_df["is_valid"] & (
         whitelist_df["feature_id"].map(valid_huc_counts).fillna(0) > 1
     )
 
-    hucs_df = whitelist_df.loc[whitelist_df["duplicate_valid"], "huc"].drop_duplicates()
+    hucs_df = whitelist_df.loc[whitelist_df["is_duplicated"], "huc"].drop_duplicates()
 
-    # Read nwm_stream_gpkg
+    # Read nwm_stream_gpkg to validate HUCs
     src_dir = os.getenv('srcDir')
     load_dotenv(os.path.join(src_dir, 'bash_variables.env'))
     pre_clip_huc_dir = os.getenv('pre_clip_huc_dir')
@@ -77,10 +80,44 @@ def create_huc_validated_whitelist(ripple_dir, ripple_whitelist_table, whitelist
     nwms_dfs = []
     for huc in hucs_df:
         nwm_stream_gpkg = os.path.join(pre_clip_huc_dir, huc, 'nwm_subset_streams.gpkg')
+        wbd_gpkg = os.path.join(pre_clip_huc_dir, huc, 'wbd.gpkg')
+
         if os.path.isfile(nwm_stream_gpkg):
             nwms_gdf = gpd.read_file(nwm_stream_gpkg)  # , dtype={"huc": str}
             nwms_gdf = nwms_gdf.rename(columns={"ID": "feature_id"})
-            nwms_dfs.append(nwms_gdf[["feature_id"]].drop_duplicates().assign(huc=str(huc), in_huc=True))
+
+            nwms_gdf = nwms_gdf[["feature_id", "geometry"]].drop_duplicates("feature_id")
+            nwms_gdf["huc"] = str(huc)
+            nwms_gdf["in_huc"] = True
+
+            if os.path.isfile(wbd_gpkg):
+                wbd_gdf = gpd.read_file(wbd_gpkg)
+
+                if nwms_gdf.crs != TARGET_CRS:
+                    nwms_projected = nwms_gdf.to_crs(TARGET_CRS)
+                else:
+                    nwms_projected = nwms_gdf.copy()
+
+                if wbd_gdf.crs != TARGET_CRS:
+                    wbd_projected = wbd_gdf.to_crs(TARGET_CRS)
+                else:
+                    wbd_projected = wbd_gdf.copy()
+
+                huc_boundary = wbd_projected.geometry.make_valid().union_all()
+
+                nwms_projected["huc_overlap_m"] = nwms_projected.geometry.apply(
+                    lambda geom: (
+                        geom.intersection(huc_boundary).length
+                        if geom is not None and not geom.is_empty
+                        else 0.0
+                    )
+                )
+
+                nwms_gdf["huc_overlap_m"] = nwms_projected["huc_overlap_m"].values
+            else:
+                nwms_gdf["huc_overlap_m"] = np.nan
+
+            nwms_dfs.append(nwms_gdf[["feature_id", "huc", "in_huc", "huc_overlap_m"]])
 
     whitelist_df["huc_valid"] = whitelist_df["is_valid"]
 
@@ -91,7 +128,42 @@ def create_huc_validated_whitelist(ripple_dir, ripple_whitelist_table, whitelist
 
         in_huc = merged_df["in_huc"].eq(True)
 
-        whitelist_df.loc[merged_df["duplicate_valid"] & ~in_huc, "huc_valid"] = False
+        whitelist_df.loc[merged_df["is_duplicated"] & ~in_huc, "huc_valid"] = False
+
+        # For feature_ids still valid in multiple HUCs, keep only the HUC whose WBD
+        # contains the largest stream length.
+        merged_df["huc_valid_after_nwm_check"] = whitelist_df["huc_valid"].values
+
+        duplicated_after_nwm_check = (
+            merged_df["is_valid"]
+            & merged_df["huc_valid_after_nwm_check"]
+            & (
+                merged_df[merged_df["is_valid"] & merged_df["huc_valid_after_nwm_check"]]
+                .groupby("feature_id")["huc"]
+                .transform("nunique")
+                > 1
+            )
+        )
+
+        overlap_candidates = merged_df[duplicated_after_nwm_check].copy()
+
+        if not overlap_candidates.empty:
+            overlap_candidates["huc_overlap_m"] = overlap_candidates["huc_overlap_m"].fillna(0.0)
+
+            best_huc_idx = overlap_candidates.groupby("feature_id")["huc_overlap_m"].idxmax()
+
+            keep_pairs = set(
+                zip(
+                    overlap_candidates.loc[best_huc_idx, "feature_id"],
+                    overlap_candidates.loc[best_huc_idx, "huc"],
+                )
+            )
+
+            remove_by_wbd = duplicated_after_nwm_check & ~merged_df.apply(
+                lambda row: (row["feature_id"], row["huc"]) in keep_pairs, axis=1
+            )
+
+            whitelist_df.loc[remove_by_wbd, "huc_valid"] = False
 
     whitelist_df["is_valid_original"] = whitelist_df["is_valid"]
     whitelist_df["is_valid"] = whitelist_df["huc_valid"]
@@ -102,7 +174,7 @@ def create_huc_validated_whitelist(ripple_dir, ripple_whitelist_table, whitelist
     if 'huc' in whitelist_df.columns:
         whitelist_df['huc'] = whitelist_df['huc'].astype('string')
     today = date.today().strftime("%Y%m%d")
-    whitelist_df.to_csv(join(ripple_dir, f'ripple_feature_list_{today}.csv'), index=False)
+    whitelist_df.to_csv(join(ripple_dir, f'ripple_feature_ids_whitelist_pregap_{today}.csv'), index=False)
 
     whitelist_df_complete = whitelist_df[whitelist_cols].copy()
     whitelist_df = whitelist_df[whitelist_df["is_valid"] == True].copy()
@@ -150,7 +222,7 @@ def create_whitelist_domain(ripple_dir, ripple_domain_gpkg, collection_model_ids
 
     today = date.today().strftime("%Y%m%d")
     domain_whitelist_gdf.to_file(
-        join(ripple_dir, f"whitelist_ripple_model_domain_{today}.gpkg"), driver="GPKG"
+        join(ripple_dir, f"whitelist_ripple_model_domain_pregap_{today}.gpkg"), driver="GPKG"
     )
 
     return domain_whitelist_gdf
@@ -208,7 +280,7 @@ def create_save_whitelist_streams(whitelist_df, streams_gdf, ripple_dir):
 
     today = date.today().strftime("%Y%m%d")
     whitelist_streams_gdf.to_file(
-        join(ripple_dir, f"whitelist_ripple_nwm_streams_{today}.gpkg"), driver="GPKG"
+        join(ripple_dir, f"whitelist_ripple_nwm_streams_pregap_{today}.gpkg"), driver="GPKG"
     )
     # return whitelist_streams_gdf
 
@@ -378,6 +450,9 @@ def create_save_whitelist_merged_domain(domain_whitelist_gdf, streams_gdf, rippl
     today = date.today().strftime("%Y%m%d")
     domain_whitelist_gdf.to_file(
         join(ripple_dir, f"whitelist_ripple_model_domain_main_component_{today}.gpkg"), driver="GPKG"
+    )
+    domain_whitelist_gdf[[*DOMAIN_COLS, "geometry"]].to_file(
+        join(ripple_dir, f"whitelist_ripple_model_domain_2streams0h_postgap_{today}.gpkg"), driver="GPKG"
     )
 
     disconnected_domain_count = (domain_whitelist_gdf["domain_component_count"] > 1).sum()
