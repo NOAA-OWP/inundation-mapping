@@ -8,6 +8,7 @@ import os
 import pathlib
 import time
 import warnings
+import logging
 
 # import traceback
 from pathlib import Path
@@ -1331,6 +1332,7 @@ def get_thresholds(threshold_url, select_by, selector, threshold='all', source_c
     session = requests.Session()
 
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    logging.getLogger("urllib3").setLevel(logging.ERROR)
 
     retry = Retry(connect=3, backoff_factor=0.5)
     adapter = HTTPAdapter(max_retries=retry)
@@ -1700,6 +1702,9 @@ def run_vdatum_for_region(params, region, datum_url):
 
     # Suppress Insecure Request Warning
     requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+
+    # Adjust logging level for urllib3
+    logging.getLogger("urllib3").setLevel(logging.ERROR)
 
     response = "Internal Error: response message not set"
     success = False
