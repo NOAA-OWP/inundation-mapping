@@ -187,7 +187,7 @@ WRDS_METADATA_COL_TYPES = {
     'nws_data_latitude': 'float',
     'nws_data_longitude': 'float',
     'nws_data_zero_datum': 'float',
-    'nws_data_county_code': 'str',
+    'nws_data_county_code': 'float',
     'nws_data_vertical_datum_name': 'str',
     'nws_data_horizontal_datum_name': 'str',
     'nws_preferred_huc': 'str',

@@ -26,7 +26,7 @@ from rasterio import features
 from rasterio.features import geometry_mask
 from rasterio.warp import Resampling, calculate_default_transform, reproject
 from requests.adapters import HTTPAdapter
-from requests.exceptions import HTTPError
+from requests.exceptions import HTTPError, ReadTimeout
 from shapely.geometry import MultiPolygon, Polygon, shape
 from tools_shared_variables import (
     ACCEPTED_NAD27_SPELLINGS,
@@ -1068,6 +1068,9 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
                 if colname in site_gdf.columns:
                     site_gdf[colname] = site_gdf[colname].astype(new_dtype)
 
+            # # Replace 'None' and 'nan' with None
+            # site_gdf = site_gdf.replace(['None', 'nan', np.nan], None)
+
             # Record colnames of cols with NA vals and a vague col type (object)
             # because these columns could cause future warnings and errors
             for colname in site_gdf.columns:  # TEMP DEBUG
@@ -1077,7 +1080,7 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
             # Field to indicate if a latlon datum was assumed
             site_gdf['assigned_crs'] = src_crs + ''.join(message)
 
-            # Reproject to huc 8 crs
+            # Reproject to huc8 crs
             site_gdf = site_gdf.to_crs(huc8.crs)
 
             # Append site geodataframe to metadata geodataframe (and catch warnings if applicable)
@@ -1712,7 +1715,7 @@ def run_vdatum_for_region(params, region, datum_url):
         session.mount('https://', adapter)
         session.mount('http://', adapter)
 
-        response = session.get(datum_url, params=params, verify=False, timeout=5)
+        response = session.get(datum_url, params=params, verify=False, timeout=(5, 20))
 
         # Check whether API call was successful (indicated by a 200 response code)
         if response.status_code == 200:
@@ -1738,17 +1741,19 @@ def run_vdatum_for_region(params, region, datum_url):
             err_msg = f"API call failed while calling NOAA vDatum service: Status code {response.status_code}; Description: {response.reason}"
             print(err_msg)
 
-    except HTTPError as http_err:
-        # These are for catastropic errors calling NOAA
-        err_msg = f"HTTP error occurred while calling NOAA vDatum service: {http_err}"
+    except ReadTimeout as err:
+        err_msg = f"Error occured while calling NOAA VDatum: {err}"
         print(err_msg)
-        # raise http_err # TODO: Do we want to raise this error here? # I think no because there's already error handling for it downstream
+
+    except HTTPError as err:
+        # These are for catastropic errors calling NOAA
+        err_msg = f"Error occured while calling NOAA VDatum: {err}"
+        print(err_msg)
 
     except requests.exceptions.RequestException as err:
         # These are for catastropic errors calling NOAA
-        err_msg = f"Error occurred while calling NOAA vDatum service: {err}"
+        err_msg = f"Error occured while calling NOAA VDatum: {err}"
         print(err_msg)
-        # raise err # TODO: Do we want to raise this error here? # I think no because there's already error handling for it downstream
 
     return response, success, err_msg
 

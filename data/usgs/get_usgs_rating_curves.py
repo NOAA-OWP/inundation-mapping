@@ -366,7 +366,7 @@ def set_global_env(env_file):
 # ++++++++++++++++++++++++++++++++
 # TODO: likely don't need usgs_site_code if we have the task id
 # Yes... usgs_site_code and task_id are redundant for now
-def __mp_get_site_rating_curve(metadata_json, rating_curve_url, file_logger, screen_queue, task_id):
+def __mp_get_site_rating_curve(metadata_json, rating_curve_url, usgs_site_code, file_logger, screen_queue, task_id):
     '''
     Gets the rating curve for a given site and converts it to elevation (NAVD88).
 
@@ -404,7 +404,7 @@ def __mp_get_site_rating_curve(metadata_json, rating_curve_url, file_logger, scr
         # screen_queue.put(f"Getting rating curves for usgs location id of {task_id}")
 
         ___, usgs = tsf.get_datum(metadata_json)
-        location_id = usgs['usgs_site_code']  # in theory we get one and exactly one here
+        location_id = usgs_site_code # usgs['usgs_site_code']  # in theory we get one and exactly one here
         # sf.l_print(f"{location_id}: Getting rating curves...", file_logger, "info")  # too verbose
 
         # If no vertical or horizontal datum, skip site
@@ -742,18 +742,18 @@ def __get_usgs_metadata(list_of_gage_sites, metadata_url):
         return sites_gdf, metadata_list, site_status_df
 
     # ##### TEMP DEBUG SECTION #####
-    # # TEMP DEBUG: Keep first n sites to speed up testing. Remove this when not needed.
-    # n = 300
-    # logging.info(f"DEBUG MODE: Only keeping metadata for first {n} sites")
-    # metadata_list = metadata_list[:n]
-    # sample_usgs_list = []
-    # for i in range(len(metadata_list)):
-    #     site_data_json = metadata_list[i]
-    #     usgs_site_code = site_data_json.get('identifiers').get('usgs_site_code')
-    #     sample_usgs_list.append(usgs_site_code)
+    # TEMP DEBUG: Keep first n sites to speed up testing. Remove this when not needed.
+    n = 300
+    logging.info(f"DEBUG MODE: Only keeping metadata for first {n} sites")
+    metadata_list = metadata_list[:n]
+    sample_usgs_list = []
+    for i in range(len(metadata_list)):
+        site_data_json = metadata_list[i]
+        usgs_site_code = site_data_json.get('identifiers').get('usgs_site_code')
+        sample_usgs_list.append(usgs_site_code)
 
-    # # Filter the sites gdf to only have the sites in sample_usgs_list (will be less than number of sites provided)
-    # sites_gdf = sites_gdf[sites_gdf['usgs_site_code'].isin(sample_usgs_list)]
+    # Filter the sites gdf to only have the sites in sample_usgs_list (will be less than number of sites provided)
+    sites_gdf = sites_gdf[sites_gdf['usgs_site_code'].isin(sample_usgs_list)]
     ##### END TEMP DEBUG SECTION #####
 
     # Drop a few columns to prevent errors downstream while saving GPKG
@@ -824,6 +824,9 @@ def __attrib_mainstems_filter_sites(sites_gdf, all_rating_curves, site_status_df
     sites_gdf['mainstem'] = 'no'
     sites_gdf.loc[sites_gdf.eval('feature_id in @ms_segs'), 'mainstem'] = 'yes'
 
+    # Convert metadata sources column to string
+    sites_gdf['metadata_sources'] = sites_gdf['metadata_sources'].astype(str)
+
     # Previously we had code here to filter sites using the following lists:
     # acceptable_coord_acc_code_list, acceptable_coord_method_code_list, acceptable_alt_meth_code_list,
     # acceptable_site_type_list, # usgs_data_coord_accuracy_code is in acceptable_coord_acc_code_list
@@ -865,7 +868,7 @@ def __attrib_mainstems_filter_sites(sites_gdf, all_rating_curves, site_status_df
 
     acceptable_sites_csv_path = os.path.join(output_dir, 'acceptable_sites_for_rating_curves.csv')
     logging.info(f"...to CSV at path {acceptable_sites_csv_path}")
-    acceptable_sites_gdf.to_csv(acceptable_sites_csv_path)
+    acceptable_sites_gdf.to_csv(acceptable_sites_csv_path, index=False)
 
     acceptable_sites_gpkg_path = os.path.join(output_dir, 'acceptable_sites_for_rating_curves.gpkg')
     logging.info(f"...and to GeoPackage at path {acceptable_sites_gpkg_path}")
@@ -923,13 +926,13 @@ def __run_rating_curve_retrieval(
     tasks_args_list = []
     for i in range(len(metadata_list)):
         metadata_json = metadata_list[i]
-
-        # usgs_site_code = metadata_json['identifiers']['usgs_site_code'] # TODO: Clean up after testing
+        usgs_site_code = metadata_json['identifiers']['usgs_site_code']
+        
         tasks_args_list.append(
             {
                 "metadata_json": metadata_json,
                 "rating_curve_url": rating_curve_url,
-                # "usgs_site_code": usgs_site_code, # TODO: Test removal of usgs site code input
+                "usgs_site_code": usgs_site_code,
             }
         )
 
@@ -1041,6 +1044,9 @@ def __write_rc_and_site_files(all_rating_curves, sites_gdf, list_of_gage_sites, 
         what files were saved. This message can be used for logging and user feedback.
 
     '''
+
+    # Convert metadata sources column to string # TODO: Could be done earlier and fix once instead of twice
+    sites_gdf['metadata_sources'] = sites_gdf['metadata_sources'].astype(str)
 
     # Write rating curve dataframe to file
     usgs_rating_curve_file = os.path.join(output_dir, "usgs_rating_curves.csv")
