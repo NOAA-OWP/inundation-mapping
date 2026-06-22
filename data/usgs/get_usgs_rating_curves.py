@@ -366,7 +366,9 @@ def set_global_env(env_file):
 # ++++++++++++++++++++++++++++++++
 # TODO: likely don't need usgs_site_code if we have the task id
 # Yes... usgs_site_code and task_id are redundant for now
-def __mp_get_site_rating_curve(metadata_json, rating_curve_url, usgs_site_code, file_logger, screen_queue, task_id):
+def __mp_get_site_rating_curve(
+    metadata_json, rating_curve_url, usgs_site_code, file_logger, screen_queue, task_id
+):
     '''
     Gets the rating curve for a given site and converts it to elevation (NAVD88).
 
@@ -376,7 +378,7 @@ def __mp_get_site_rating_curve(metadata_json, rating_curve_url, usgs_site_code, 
         A dictionary of metadata for a given site. This is used to pull datum information for the site, which is required for converting the rating curve to elevation.
     rating_curve_url : STR
         The URL for the rating curve API. This is used to pull the rating curve for the site.
-    usgs_site_code : STR # TODO: Remove input? I think it's already included in the metadata input etc.. # TODO: Clean up
+    usgs_site_code : STR
         The USGS site code for the site. This is used for logging and to populate the output rating curve DataFrame.
     file_logger : LOGGER
         The logger for the multi-processing function. This is used to log messages for each site.
@@ -404,7 +406,7 @@ def __mp_get_site_rating_curve(metadata_json, rating_curve_url, usgs_site_code, 
         # screen_queue.put(f"Getting rating curves for usgs location id of {task_id}")
 
         ___, usgs = tsf.get_datum(metadata_json)
-        location_id = usgs_site_code # usgs['usgs_site_code']  # in theory we get one and exactly one here
+        location_id = usgs_site_code  # in theory we get one and exactly one here
         # sf.l_print(f"{location_id}: Getting rating curves...", file_logger, "info")  # too verbose
 
         # If no vertical or horizontal datum, skip site
@@ -927,7 +929,7 @@ def __run_rating_curve_retrieval(
     for i in range(len(metadata_list)):
         metadata_json = metadata_list[i]
         usgs_site_code = metadata_json['identifiers']['usgs_site_code']
-        
+
         tasks_args_list.append(
             {
                 "metadata_json": metadata_json,

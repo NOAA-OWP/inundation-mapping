@@ -2,16 +2,15 @@
 
 import argparse
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 
 import geopandas as gpd
 import pandas as pd
 from dotenv import load_dotenv
-from datetime import datetime, timezone
-
 from tools_shared_functions import aggregate_wbd_hucs, get_metadata
-from src.utils.shared_functions import FIM_Helpers as fh
 
+from src.utils.shared_functions import FIM_Helpers as fh
 from utils.shared_variables import PREP_PROJECTION
 
 
@@ -67,7 +66,9 @@ def generate_nws_lid(workspace, env_file, keep_blank_nwm):
     None.
 
     '''
-    WBD_LAYER, EVALUATED_SITES_CSV, metadata_url, out_filepath, keep_blank_nwm = __validate_inputs(env_file, workspace, keep_blank_nwm)
+    WBD_LAYER, EVALUATED_SITES_CSV, metadata_url, out_filepath, keep_blank_nwm = __validate_inputs(
+        env_file, workspace, keep_blank_nwm
+    )
 
     # Record start time
     overall_start_dt = datetime.now(timezone.utc)

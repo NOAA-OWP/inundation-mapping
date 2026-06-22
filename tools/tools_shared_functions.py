@@ -4,13 +4,12 @@
 import datetime as dt
 import gc
 import json
+import logging
 import os
 import pathlib
 import time
 import warnings
-import logging
 
-# import traceback
 from pathlib import Path
 
 import geopandas as gpd
