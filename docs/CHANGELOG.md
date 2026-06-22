@@ -22,6 +22,37 @@ The script is applied to acquiring DEMs (`data/usgs/acquire_and_preprocess_3dep_
         - `preprocess_wbd.py`
 - `src/run_huc.sh`
 
+## v4.9.16.2 - 2026-06-18 - [PR#1855](https://github.com/NOAA-OWP/inundation-mapping/pull/1855)
+This PR closes issue #1788. 
+
+The `pull_osm_bridges.py` would silently time out on dense HUCs (e.g., HUC 02060006 — Columbia/Silver Spring, MD) and exit with a misleading "Success" log and no output file. This PR fixes that with a recursive 2×2 polygon splitting strategy and proper failure reporting. 
+
+
+### Changes
+- data/bridges/pull_osm_bridges.py
+- src/bash_variables.env
+<br/>
+
+## v4.9.16.1 - 2026-06-18 - [PR#1856](https://github.com/NOAA-OWP/inundation-mapping/pull/1856)
+
+This PR closes issue #1814 and resolves an inconsistency between FIMpact road-inundation results and the corresponding FIM spatial inundation map. Stray inundated roads have been observed at multiple locations with very small reported flood depths as shown [here](https://github.com/NOAA-OWP/inundation-mapping/issues/1814#issuecomment-4314616790) despite the absence of corresponding adjacent inundated cells in the FIM map.
+
+### Root cause
+
+The FIM spatial inundation and FIMpact workflows used different minimum flood-depth criteria:
+
+* `inundate_mosaic_wrapper.py` treats flood depths below `0.03048 m` (`0.1 ft`) as dry.
+* `fimpacts_inundation.py` previously retained all positive flood-depth values.
+
+As a result, roads with flood depths greater than zero but below `0.1 ft` could be reported as inundated in FIMpact even though the corresponding pixels were treated as dry in the FIM spatial products. This inconsistency can produce isolated stray roads in the FIMpact results.
+
+### Fix
+
+Updated `fimpacts_inundation.py` to apply the same minimum flood-depth threshold used by `inundate_mosaic_wrapper.py`.  Roads with flood depths below `0.1 ft` will now be treated as dry and excluded from the FIMpact outputs, preventing isolated stray roads caused by inconsistent depth filtering.
+
+
+### Changes
+- tools/fimpacts_inundation.py
 <br/>
 
 ## v4.9.16.0 - 2026-06-02 - [PR#1787](https://github.com/NOAA-OWP/inundation-mapping/pull/1787)
