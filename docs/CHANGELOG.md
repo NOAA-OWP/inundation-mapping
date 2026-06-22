@@ -11,6 +11,10 @@ The script is applied to acquiring DEMs (`data/usgs/acquire_and_preprocess_3dep_
 - `src/utils/polygonize_raster.py`: Converts raster to vector using Python
 
 ### Changes
+- `data`
+    - `usgs/acquire_and_preprocess_3dep_dems.py`:  Also removed part of the repair feature so it no longer tests file sizes, only missing files. File size tests were no longer applicable once we moved from HUC6 to HUC8 CONUS DEMs.
+    - `usgs/pit_detect_file.py`:  add list sort and standardized duration footer.
+- `src/run_huc.sh`: removed code for unused variable of dem_domain_filename
 
 #### Convert DEM_Domain to geoparquet for the following files:
 - `config/deny_unit.lst`
@@ -20,7 +24,8 @@ The script is applied to acquiring DEMs (`data/usgs/acquire_and_preprocess_3dep_
     - `wbd/`
         - `generate_pre_clip_fim_huc8.py`
         - `preprocess_wbd.py`
-- `src/run_huc.sh`
+
+<br/>
 
 ## v4.9.16.2 - 2026-06-18 - [PR#1855](https://github.com/NOAA-OWP/inundation-mapping/pull/1855)
 This PR closes issue #1788. 
