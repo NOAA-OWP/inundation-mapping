@@ -745,17 +745,17 @@ def __get_usgs_metadata(list_of_gage_sites, metadata_url):
 
     # ##### TEMP DEBUG SECTION #####
     # TEMP DEBUG: Keep first n sites to speed up testing. Remove this when not needed.
-    n = 300
-    logging.info(f"DEBUG MODE: Only keeping metadata for first {n} sites")
-    metadata_list = metadata_list[:n]
-    sample_usgs_list = []
-    for i in range(len(metadata_list)):
-        site_data_json = metadata_list[i]
-        usgs_site_code = site_data_json.get('identifiers').get('usgs_site_code')
-        sample_usgs_list.append(usgs_site_code)
+    # n = 300
+    # logging.info(f"DEBUG MODE: Only keeping metadata for first {n} sites")
+    # metadata_list = metadata_list[:n]
+    # sample_usgs_list = []
+    # for i in range(len(metadata_list)):
+    #     site_data_json = metadata_list[i]
+    #     usgs_site_code = site_data_json.get('identifiers').get('usgs_site_code')
+    #     sample_usgs_list.append(usgs_site_code)
 
-    # Filter the sites gdf to only have the sites in sample_usgs_list (will be less than number of sites provided)
-    sites_gdf = sites_gdf[sites_gdf['usgs_site_code'].isin(sample_usgs_list)]
+    # # Filter the sites gdf to only have the sites in sample_usgs_list (will be less than number of sites provided)
+    # sites_gdf = sites_gdf[sites_gdf['usgs_site_code'].isin(sample_usgs_list)]
     ##### END TEMP DEBUG SECTION #####
 
     # Drop a few columns to prevent errors downstream while saving GPKG

@@ -866,8 +866,6 @@ def get_stats_table_from_binary_rasters(
 ########################################################################
 # Functions related to categorical fim and ahps evaluation
 ########################################################################
-# Feb 24, 2026: TODO: The call to the api, should have a "with" and proper try/catch added.
-# See run_vdatum_for_region for an example
 def get_metadata(
     metadata_url,
     select_by,
@@ -1093,13 +1091,6 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
                     warning_message = str(caught_warnings[-1].message)
                     dtype_warning_list.append(warning_message)
 
-        # else: # TEMP DEBUG TODO: Clean up
-        #     logging.warning("This site (what site) does have values for key data")
-        # df.dropna(
-        #    subset=['identifiers_nws_lid', 'usgs_preferred_latitude', 'usgs_preferred_longitude'],
-        # inplace=True,
-        # means a site can be dropped. Hummm... what if we want usgs data but it is missing the nws_lid.
-
     # Debugging information about NA columns relating to FutureWarning (May 2026)
     columns_with_NA_missing_dtype = list(set(columns_with_NA_missing_dtype))
     if len(columns_with_NA_missing_dtype) > 0:
@@ -1171,7 +1162,7 @@ def mainstem_nwm_segs(metadata_url, list_of_sites):
     select_by = 'tag'
     selector = ['usgs_gages_ii_ref_headwater']
     must_include = None
-    gages_list, gages_dataframe = get_metadata(
+    gages_list, gages_dataframe, err_msg = get_metadata(
         metadata_url=metadata_url,
         select_by=select_by,
         selector=selector,
@@ -1184,7 +1175,7 @@ def mainstem_nwm_segs(metadata_url, list_of_sites):
     select_by = 'nws_lid'
     selector = ['all']
     must_include = 'nws_data.rfc_forecast_point'
-    fcst_list, fcst_dataframe = get_metadata(
+    fcst_list, fcst_dataframe, err_msg = get_metadata(
         metadata_url=metadata_url,
         select_by=select_by,
         selector=selector,
@@ -1197,7 +1188,7 @@ def mainstem_nwm_segs(metadata_url, list_of_sites):
     select_by = 'nws_lid'
     selector = list_of_sites
     must_include = None
-    eval_list, eval_dataframe = get_metadata(
+    eval_list, eval_dataframe, err_msg = get_metadata(
         metadata_url=metadata_url,
         select_by=select_by,
         selector=selector,
@@ -1210,7 +1201,7 @@ def mainstem_nwm_segs(metadata_url, list_of_sites):
     select_by = 'state'
     selector = ['HI', 'PR']
     must_include = None
-    islands_list, islands_dataframe = get_metadata(
+    islands_list, islands_dataframe, err_msg = get_metadata(
         metadata_url=metadata_url,
         select_by=select_by,
         selector=selector,

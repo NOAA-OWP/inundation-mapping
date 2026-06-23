@@ -890,7 +890,10 @@ def eval_plots(
             select_by = 'nws_lid'
             selector = list(all_ahps_datasets.nws_lid.unique())
             metadata_url = f'{API_BASE_URL}/metadata'
-            metadata_list, _ = get_metadata(metadata_url, select_by, selector)
+            metadata_list, _, err_msg = get_metadata(metadata_url, select_by, selector)
+            if err_msg != "":
+                print(err_msg)
+
             # Create geospatial data from WRDS output
             _, gdf = aggregate_wbd_hucs(metadata_list, Path(WBD_LAYER), retain_attributes=True)
             # Trim out unecessary columns and rename remaining columns

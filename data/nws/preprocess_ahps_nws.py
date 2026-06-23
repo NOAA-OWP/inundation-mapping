@@ -91,7 +91,7 @@ def preprocess_nws(source_dir, destination, reference_raster):
         # Get metadata of site and search for NWM segments x miles upstream/x miles downstream
         select_by = 'nws_lid'
         selector = [code]
-        metadata_list, metadata_df = get_metadata(
+        metadata_list, metadata_df, err_msg = get_metadata(
             metadata_url,
             select_by,
             selector,
