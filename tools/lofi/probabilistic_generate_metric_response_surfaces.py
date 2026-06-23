@@ -100,7 +100,7 @@ def create_flood_maps(
         if os.path.exists(final_inundation_path) and not overwrite:
             continue
 
-        mask_path = os.path.join(hydrofabric_dir, str(huc), 'wbd.gpkg')
+        # mask_path = os.path.join(hydrofabric_dir, str(huc), 'wbd.gpkg')
 
         # Sub-divide src
         src_output_file = "htable_branch" + "_{0}" + f"_{N}_{obank_N}_{s}.feather"
@@ -124,7 +124,7 @@ def create_flood_maps(
             flow_path,
             hydro_table_df=os.path.join(src_output_path, src_output_file),
             inundation_raster=final_inundation_path,
-            mask=mask_path,
+            # mask=mask_path,
             verbose=False,
             # num_workers=num_jobs,
             num_workers=num_threads,
@@ -134,7 +134,14 @@ def create_flood_maps(
             show_progress_bar=False,
         )
 
+        # TODO: Jun 2026: consider changing this to a "with" and "load"
+        # to stop possible read file collisions
+        # ie)
+        # ds = None
+        # with rxr.open_rasterio(final_inundation_path) as src:
+        #    ds = src.load()
         ds = rxr.open_rasterio(final_inundation_path)
+
         nodata, crs = ds.rio.nodata, ds.rio.crs
         nodata_mask = ds == nodata
         ds.data = xr.where(ds < 0, 0, ds)
@@ -201,7 +208,12 @@ def evaluate_maps(
         file_name = bench.split('/')[-1].split('.')[0]
         site, flow = file_name.split('_')[0], file_name.split('_')[-1]
 
-        # Open benchmark dataset
+        # TODO: Jun 2026: consider changing this to a "with" and "load"
+        # to stop possible read file collisions
+        # ie)
+        # b_mark = None
+        # with rxr.open_rasterio(bench, mask_and_scale=True) as src:
+        #    b_mark = src.load()
         b_mark = rxr.open_rasterio(bench, mask_and_scale=True)
 
         # Find all relevant candidate datasets
@@ -221,6 +233,12 @@ def evaluate_maps(
 
             cbar.set_description(f"Running candidate maps {c_idx} of {len(candidate_maps)}")
 
+            # TODO: Jun 2026: consider changing this to a "with" and "load"
+            # to stop possible read file collisions
+            # ie)
+            # cand = None
+            # with rxr.open_rasterio(c_path, mask_and_scale=True) as src:
+            #    cand = src.load()
             # Open candidate dataset
             cand = rxr.open_rasterio(c_path, mask_and_scale=True)
 

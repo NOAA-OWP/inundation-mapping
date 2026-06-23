@@ -390,13 +390,13 @@ def run_fb_inundation(  # renamed from run_inundation
             map_file,
             mosaic_attribute='inundation_rasters',
             mosaic_output=output_extent_tif,
-            mask=os.path.join(fim_run_dir, huc, 'wbd.gpkg'),
             unit_attribute_name='huc8',
             nodata=csf.ELEV_NODATA_VALUE,
             num_workers=1,
             remove_inputs=False,
             subset=None,
             verbose=False,
+            show_progress_bar=False,
         )
 
         logging.info(f"{huc} : {ahps_site} : {magnitude} - Mosaic inundation complete")

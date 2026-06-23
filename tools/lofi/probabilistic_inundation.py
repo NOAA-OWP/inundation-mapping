@@ -475,7 +475,7 @@ def inundate_probabilistic(
     fim_outputs_dir = outputs_dir
 
     # Masks for HUC Domain
-    mask_path = os.path.join(hydrofabric_dir, huc, 'wbd.gpkg')
+    # mask_path = os.path.join(hydrofabric_dir, huc, 'wbd.gpkg')
 
     # Percentiles and data to add
     percentiles = {'90': 10, '75': 25, '50': 50, '25': 75, '10': 90}
@@ -564,7 +564,7 @@ def inundate_probabilistic(
             flow_file,
             hydro_table_df=os.path.join(htable_output_path, htable_output_file),
             inundation_raster=final_inundation_path,
-            mask=mask_path,
+            # mask=mask_path,
             verbose=not quiet,
             # num_workers=num_jobs,
             num_workers=num_threads,

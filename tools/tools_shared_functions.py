@@ -1,14 +1,10 @@
 #!/usr/bin/env python3
 
-import csv
 import datetime as dt
-import gc
-import glob
 import json
 import logging
 import os
 import pathlib
-import pickle
 import traceback
 from pathlib import Path
 
@@ -16,8 +12,6 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio
-import rasterio.crs
-import rasterio.shutil
 import requests
 import rioxarray as rxr
 import urllib3
@@ -661,207 +655,228 @@ def get_stats_table_from_binary_rasters(
 
     """
 
+    # Jun 2026: gc.collect() now can create memory deadlocks depending on what memory dependencies are currently in place
+    # especially if it a shared pointer in an MP/MT condition. Let 'del' take care of it and also use "with" even if it
+    # creates an
+
     # Load benchmark and candidate data
-    benchmark_raster = rxr.open_rasterio(benchmark_raster_path)
-    cell_area = np.abs(np.prod(benchmark_raster.rio.resolution()))
-    candidate_raster = rxr.open_rasterio(candidate_raster_path)
-    candidate_raster.data = xr.where(
-        (candidate_raster != candidate_raster.rio.nodata) & (candidate_raster >= 0), 1, candidate_raster
-    )
-    candidate_raster.data = xr.where(
-        (candidate_raster != candidate_raster.rio.nodata) & (candidate_raster < 0), 0, candidate_raster
-    )
-    candidate_raster.data = xr.where(candidate_raster == candidate_raster.rio.nodata, 10, candidate_raster)
-    candidate_raster = candidate_raster.rio.write_nodata(10)
-    benchmark_raster.data = xr.where(benchmark_raster == benchmark_raster.rio.nodata, 10, benchmark_raster)
-    benchmark_raster = benchmark_raster.rio.write_nodata(10)
+    # Load it into a local memory object so it will release the rxr which holds the file open
+    # which can create collisions if that file is in use via MP or MT
+    try:
+        # TODO: Jun 2026: As benchmark file is a heavily used file in alpha testing, we should look into
+        # adjustments to be open/closed as quick as possible.
+        # rioxarray and rasterio use lazyloaded and can keep a file open.
+        benchmark_raster = rxr.open_rasterio(benchmark_raster_path)
+        cell_area = np.abs(np.prod(benchmark_raster.rio.resolution()))
+        benchmark_raster.data = xr.where(
+            benchmark_raster == benchmark_raster.rio.nodata, 10, benchmark_raster
+        )
+        benchmark_raster = benchmark_raster.rio.write_nodata(10)
 
-    pairing_dictionary = {
-        (0, 0): 0,
-        (0, 1): 1,
-        (0, 10): 10,
-        (1, 0): 2,
-        (1, 1): 3,
-        (1, 10): 5,
-        (4, 0): 4,
-        (4, 1): 4,
-        (4, 10): 10,
-        (10, 0): 10,
-        (10, 1): 10,
-        (10, 10): 10,
-    }
+        candidate_raster = rxr.open_rasterio(candidate_raster_path)
+        candidate_raster.data = xr.where(
+            (candidate_raster != candidate_raster.rio.nodata) & (candidate_raster >= 0), 1, candidate_raster
+        )
+        candidate_raster.data = xr.where(
+            (candidate_raster != candidate_raster.rio.nodata) & (candidate_raster < 0), 0, candidate_raster
+        )
+        candidate_raster.data = xr.where(
+            candidate_raster == candidate_raster.rio.nodata, 10, candidate_raster
+        )
+        candidate_raster = candidate_raster.rio.write_nodata(10)
 
-    # Loop through exclusion masks and mask the agreement_array.
-    all_masks_df = None
-    if mask_dict != {}:
-        for poly_layer in mask_dict:
-            operation = mask_dict[poly_layer]['operation']
+        pairing_dictionary = {
+            (0, 0): 0,
+            (0, 1): 1,
+            (0, 10): 10,
+            (1, 0): 2,
+            (1, 1): 3,
+            (1, 10): 5,
+            (4, 0): 4,
+            (4, 1): 4,
+            (4, 10): 10,
+            (10, 0): 10,
+            (10, 1): 10,
+            (10, 10): 10,
+        }
 
-            if operation == 'exclude':
-                poly_path = mask_dict[poly_layer]['path']
-                buffer_val = 0 if mask_dict[poly_layer]['buffer'] is None else mask_dict[poly_layer]['buffer']
+        # Loop through exclusion masks and mask the agreement_array.
+        all_masks_df = None
+        if mask_dict != {}:
+            for poly_layer in mask_dict:
+                operation = mask_dict[poly_layer]['operation']
 
-                # Read mask bounds with candidate boundary box
-                poly_all = gpd.read_file(poly_path, bbox=candidate_raster.rio.bounds())
+                if operation == 'exclude':
+                    poly_path = mask_dict[poly_layer]['path']
+                    buffer_val = (
+                        0 if mask_dict[poly_layer]['buffer'] is None else mask_dict[poly_layer]['buffer']
+                    )
 
-                # Make sure features are present in bounding box area before projecting.
-                # Continue to next layer if features are absent.
-                if poly_all.empty:
-                    del poly_all
-                    gc.collect()
-                    continue
+                    # Read mask bounds with candidate boundary box
+                    # NOTE: Jun 2026: our gpd is using pyogrio which auto uses pyarrow as a memory
+                    # cache. Sometimes, if a file collision hits showing things like
+                    # OSError: database disk image is malformed, you can bypass pyarrow. It will slow it
+                    # down fractionlly, but should help with the file collisions.
+                    # Adding use_arrow=False forces pyogrio to use Numpy arrays (so careful on python package
+                    # versioning. (see Dockerfile, numpy version reload to lower versions. TBD))
+                    poly_all = gpd.read_file(poly_path, bbox=candidate_raster.rio.bounds(), use_arrow=False)
 
-                # Project layer to reference crs.
-                poly_all_proj = poly_all.to_crs(candidate_raster.rio.crs)
+                    # Make sure features are present in bounding box area before projecting.
+                    # Continue to next layer if features are absent.
+                    if poly_all.empty:
+                        del poly_all
+                        continue
 
-                # Buffer if buffer val exists
-                poly_all_proj = poly_all_proj.buffer(buffer_val) if buffer_val != 0 else poly_all_proj
+                    # Project layer to reference crs.
+                    poly_all_proj = poly_all.to_crs(candidate_raster.rio.crs)
 
-                if all_masks_df is not None:
-                    all_masks_df = pd.concat([all_masks_df, poly_all_proj])
-                else:
-                    all_masks_df = poly_all_proj
+                    # Buffer if buffer val exists
+                    poly_all_proj = poly_all_proj.buffer(buffer_val) if buffer_val != 0 else poly_all_proj
 
-                del poly_all, poly_all_proj
-                gc.collect()
+                    if all_masks_df is not None:
+                        all_masks_df = pd.concat([all_masks_df, poly_all_proj])
+                    else:
+                        all_masks_df = poly_all_proj
 
-    stats_table_dictionary = {}  # Initialize empty dictionary.
+                    del poly_all, poly_all_proj
 
-    c_aligned, b_aligned = candidate_raster.gval.homogenize(benchmark_raster, target_map="candidate")
+        stats_table_dictionary = {}  # Initialize empty dictionary.
 
-    del candidate_raster, benchmark_raster
-    gc.collect()
+        c_aligned, b_aligned = candidate_raster.gval.homogenize(benchmark_raster, target_map="candidate")
 
-    agreement_map = c_aligned.gval.compute_agreement_map(
-        b_aligned, comparison_function='pairing_dict', pairing_dict=pairing_dictionary
-    )
+        del candidate_raster, benchmark_raster
 
-    del c_aligned, b_aligned
-    gc.collect()
-
-    agreement_map_og = agreement_map.copy()
-    agreement_map.rio.write_nodata(4, inplace=True)
-
-    # Mask if mask_dict is provided
-    if all_masks_df is not None:
-        agreement_map = agreement_map.rio.clip(all_masks_df['geometry'], invert=True)
-        agreement_map.data = xr.where(
-            agreement_map_og.sel({'x': agreement_map.coords['x'], 'y': agreement_map.coords['y']}) == 10,
-            10,
-            agreement_map,
+        agreement_map = c_aligned.gval.compute_agreement_map(
+            b_aligned, comparison_function='pairing_dict', pairing_dict=pairing_dictionary
         )
 
-    crosstab_table = agreement_map.gval.compute_crosstab()
+        del c_aligned, b_aligned
 
-    metrics_table = crosstab_table.gval.compute_categorical_metrics(
-        positive_categories=[1], negative_categories=[0], metrics="all"
-    )
+        agreement_map_og = agreement_map.copy()
+        agreement_map.rio.write_nodata(4, inplace=True)
 
-    # Only write the agreement raster if user-specified.
-    if agreement_raster != None:
-        agreement_map_write = agreement_map.rio.write_nodata(10, encoded=True)
-        agreement_map_write.rio.to_raster(agreement_raster, dtype=np.uint8, driver="COG")
-
-        del agreement_map_write
-        gc.collect()
-
-        # Write legend text file
-        legend_txt = os.path.join(os.path.split(agreement_raster)[0], 'read_me.txt')
-
-        now = dt.datetime.now()
-        current_time = now.strftime("%m/%d/%Y %H:%M:%S")
-
-        with open(legend_txt, 'w') as f:
-            f.write("%s\n" % '0: True Negative')
-            f.write("%s\n" % '1: False Negative')
-            f.write("%s\n" % '2: False Positive')
-            f.write("%s\n" % '3: True Positive')
-            f.write(
-                "%s\n" % '4: Masked area (excluded from contingency table analysis). '
-                'Mask layers: {mask_dict}'.format(mask_dict=mask_dict)
+        # Mask if mask_dict is provided
+        if all_masks_df is not None:
+            agreement_map = agreement_map.rio.clip(all_masks_df['geometry'], invert=True)
+            agreement_map.data = xr.where(
+                agreement_map_og.sel({'x': agreement_map.coords['x'], 'y': agreement_map.coords['y']}) == 10,
+                10,
+                agreement_map,
             )
-            f.write("%s\n" % 'Results produced at: {current_time}'.format(current_time=current_time))
 
-    # Store summed pixel counts in dictionary.
-    stats_table_dictionary.update(
-        {
-            'total_area': cross_walk_gval_fim(
-                metric_df=metrics_table, cell_area=cell_area, masked_count=np.sum(agreement_map.data == 4)
-            )
-        }
-    )
+        crosstab_table = agreement_map.gval.compute_crosstab()
 
-    del crosstab_table, metrics_table
-    gc.collect()
+        metrics_table = crosstab_table.gval.compute_categorical_metrics(
+            positive_categories=[1], negative_categories=[0], metrics="all"
+        )
 
-    # After agreement_array is masked with default mask layers, check for inclusion masks in mask_dict.
-    if mask_dict != {}:
-        for poly_layer in mask_dict:
-            operation = mask_dict[poly_layer]['operation']
+        # Only write the agreement raster if user-specified.
+        if agreement_raster != None:
+            agreement_map_write = agreement_map.rio.write_nodata(10, encoded=True)
+            agreement_map_write.rio.to_raster(agreement_raster, dtype=np.uint8, driver="COG")
 
-            if operation == 'include':
-                poly_path = mask_dict[poly_layer]['path']
-                buffer_val = 0 if mask_dict[poly_layer]['buffer'] is None else mask_dict[poly_layer]['buffer']
+            del agreement_map_write
 
-                # Read mask bounds with candidate boundary box
-                poly_all = gpd.read_file(poly_path, bbox=agreement_map.rio.bounds())
+            # Write legend text file
+            legend_txt = os.path.join(os.path.split(agreement_raster)[0], 'read_me.txt')
 
-                # Make sure features are present in bounding box area before projecting.
-                # Continue to next layer if features are absent.
-                if poly_all.empty:
-                    del poly_all
-                    gc.collect()
-                    continue
+            now = dt.datetime.now()
+            current_time = now.strftime("%m/%d/%Y %H:%M:%S")
 
-                poly_all_proj = poly_all.to_crs(agreement_map.rio.crs)
-
-                # Buffer if buffer val exists
-                poly_all_proj = poly_all_proj.buffer(buffer_val) if buffer_val != 0 else poly_all_proj
-
-                poly_handle = poly_layer + '_b' + str(buffer_val) + 'm'
-
-                # Do analysis on inclusion masked area
-                agreement_map_include = agreement_map.rio.clip(poly_all_proj['geometry'])
-                agreement_map_include.data = xr.where(
-                    agreement_map_og.sel(
-                        {'x': agreement_map_include.coords['x'], 'y': agreement_map_include.coords['y']}
-                    )
-                    == 10,
-                    10,
-                    agreement_map_include,
+            with open(legend_txt, 'w') as f:
+                f.write("%s\n" % '0: True Negative')
+                f.write("%s\n" % '1: False Negative')
+                f.write("%s\n" % '2: False Positive')
+                f.write("%s\n" % '3: True Positive')
+                f.write(
+                    "%s\n" % '4: Masked area (excluded from contingency table analysis). '
+                    'Mask layers: {mask_dict}'.format(mask_dict=mask_dict)
                 )
+                f.write("%s\n" % 'Results produced at: {current_time}'.format(current_time=current_time))
 
-                crosstab_table = agreement_map_include.gval.compute_crosstab()
-
-                metrics_table = crosstab_table.gval.compute_categorical_metrics(
-                    positive_categories=[1], negative_categories=[0], metrics="all"
+        # Store summed pixel counts in dictionary.
+        stats_table_dictionary.update(
+            {
+                'total_area': cross_walk_gval_fim(
+                    metric_df=metrics_table, cell_area=cell_area, masked_count=np.sum(agreement_map.data == 4)
                 )
+            }
+        )
 
-                if agreement_raster:
-                    # Write the layer_agreement_raster.
-                    layer_agreement_raster = os.path.join(
-                        os.path.split(agreement_raster)[0], poly_handle + '_agreement.tif'
+        del crosstab_table, metrics_table
+
+        # After agreement_array is masked with default mask layers, check for inclusion masks in mask_dict.
+        if mask_dict != {}:
+            for poly_layer in mask_dict:
+                operation = mask_dict[poly_layer]['operation']
+
+                if operation == 'include':
+                    poly_path = mask_dict[poly_layer]['path']
+                    buffer_val = (
+                        0 if mask_dict[poly_layer]['buffer'] is None else mask_dict[poly_layer]['buffer']
                     )
-                    agreement_map_write = agreement_map_include.rio.write_nodata(10, encoded=True)
-                    agreement_map_write.rio.to_raster(layer_agreement_raster, dtype=np.uint8, driver="COG")
-                    del agreement_map_write
-                    gc.collect()
 
-                # Update stats table dictionary
-                stats_table_dictionary.update(
-                    {
-                        poly_handle: cross_walk_gval_fim(
-                            metric_df=metrics_table,
-                            cell_area=cell_area,
-                            masked_count=np.sum(agreement_map_include.data == 4),
+                    # Read mask bounds with candidate boundary box
+                    poly_all = gpd.read_file(poly_path, bbox=agreement_map.rio.bounds())
+
+                    # Make sure features are present in bounding box area before projecting.
+                    # Continue to next layer if features are absent.
+                    if poly_all.empty:
+                        del poly_all
+                        continue
+
+                    poly_all_proj = poly_all.to_crs(agreement_map.rio.crs)
+
+                    # Buffer if buffer val exists
+                    poly_all_proj = poly_all_proj.buffer(buffer_val) if buffer_val != 0 else poly_all_proj
+
+                    poly_handle = poly_layer + '_b' + str(buffer_val) + 'm'
+
+                    # Do analysis on inclusion masked area
+                    agreement_map_include = agreement_map.rio.clip(poly_all_proj['geometry'])
+                    agreement_map_include.data = xr.where(
+                        agreement_map_og.sel(
+                            {'x': agreement_map_include.coords['x'], 'y': agreement_map_include.coords['y']}
                         )
-                    }
-                )
-                del agreement_map_include, poly_all, poly_all_proj, metrics_table, crosstab_table
-                gc.collect()
+                        == 10,
+                        10,
+                        agreement_map_include,
+                    )
 
-    del agreement_map
-    gc.collect()
+                    crosstab_table = agreement_map_include.gval.compute_crosstab()
+
+                    metrics_table = crosstab_table.gval.compute_categorical_metrics(
+                        positive_categories=[1], negative_categories=[0], metrics="all"
+                    )
+
+                    if agreement_raster:
+                        # Write the layer_agreement_raster.
+                        layer_agreement_raster = os.path.join(
+                            os.path.split(agreement_raster)[0], poly_handle + '_agreement.tif'
+                        )
+                        agreement_map_write = agreement_map_include.rio.write_nodata(10, encoded=True)
+                        agreement_map_write.rio.to_raster(
+                            layer_agreement_raster, dtype=np.uint8, driver="COG"
+                        )
+                        del agreement_map_write
+
+                    # Update stats table dictionary
+                    stats_table_dictionary.update(
+                        {
+                            poly_handle: cross_walk_gval_fim(
+                                metric_df=metrics_table,
+                                cell_area=cell_area,
+                                masked_count=np.sum(agreement_map_include.data == 4),
+                            )
+                        }
+                    )
+                    del agreement_map_include, poly_all, poly_all_proj, metrics_table, crosstab_table
+
+        del agreement_map
+    except Exception as ex:
+        logging.critical(f"An error occurred while loading stats from {benchmark_raster_path}")
+        logging.critical(traceback.format_exc())
+        raise ex
 
     return stats_table_dictionary
 

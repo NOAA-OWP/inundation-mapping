@@ -3,9 +3,10 @@
 import argparse
 import logging
 import os
+import sys
 import traceback
 import warnings
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed, wait
+from concurrent.futures import ThreadPoolExecutor, as_completed, wait
 from typing import List, Optional, Tuple, Union
 
 import pandas as pd
@@ -169,61 +170,70 @@ def Inundate_gms(
     # It might be happening here. Not sure yet but appears MT is not really working becuse
     # of the generator.
 
-    try:
-        with ThreadPoolExecutor(max_workers=num_workers) as executor:
+    # ARGGGGG.... Thread pools with python logging = a growing logging memory which can overload
+    # the system. Need to change it to a logging queue and share that.
 
+    try:
+        # We could upgrade to creating an event and queue system passed into each thread to stop
+        # catestrophic errors quicker, but it can be messy
+        with ThreadPoolExecutor(max_workers=num_workers) as executor:
             executor_generator = {
                 executor.submit(inundate, **inp): ids for inp, ids in inundate_input_generator
             }
 
-            # TODO: Jun 2026, replace this idx system
-            idx = 0
-            for future in tqdm(
-                as_completed(executor_generator),
+            # Using tqdm manually instead of part of as_completed, we have more
+            # control over future results and exceptions
+            # and using tqdm with a threadexecutor with as_complete stops
+            # the thread from truly operating in a multi threading mode
+            pbar = tqdm(
                 total=len(executor_generator),
                 desc=f"Inundating branches with {num_workers} workers",
-                disable=(show_progress_bar is False),
-            ):            
+                disable=(not show_progress_bar),
+            )
+
+            # TODO: Jun 2026, replace this idx system
+            idx = 0
+            for future in as_completed(executor_generator):
                 hucCode, branch_id = executor_generator[future]
+
                 # logging.debug(f"index {idx}: {hucCode} - {branch_id}")
                 try:
+                    if future is not None:
+                        if future.cancelled():  # for keyboard CTRL-C's generally
+                            continue
+                        if future.exception():  # Just reraise as is
+                            raise future.exception()
+                    # We do not use the result at this time
 
-                    # TODO: Jun 2026: This can be improved to work with the result object better
-                    # and improve this MT and how it captures errors.
-                    # ie) check future.cancelled and future.excption
-                    if not future.cancelled():
-                        future.result()
-
-                except (hydroTableHasOnlyLakes, NoForecastFound) as exc:
+                except (hydroTableHasOnlyLakes, NoForecastFound) as e:
                     # TODO: Jun 2026, Check scripts other the run_test_case.py to see
                     #  if the log_file args is still used
                     if log_file is not None and log_file != "":
                         print(
-                            f"Warning: {hucCode},{branch_id}: {exc.__class__.__name__}",
+                            f"Warning: {hucCode},{branch_id}: {e.__class__.__name__}",
                             file=open(log_file, "a"),
                         )
                     # else:
                     # TODO: Jun 2026: yes.. commenting this out can bury some scripts if they do
                     # not have a logger or pass in a log_file path.
-                    # print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
-                    logging.warning(
-                        f"Warning: {hucCode},{branch_id}: {exc.__class__.__name__}, {exc}",
-                        file=open(log_file, "a"),
-                    )
+                    # Note: When a logger does not have a file attached, logger will auto goes to screen
+                    logging.warning(f"Warning: {e.__class__.__name__} -- {hucCode}/{branch_id}")
 
                 except Exception as exc:
                     # TODO: Jun 2026, Check scripts other the run_test_case.py to see
                     #  if the log_file args is still used
                     if log_file is not None and log_file != "":
                         print(
-                            f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=open(log_file, "a")
+                            f"Error: {sys._getframe().f_code.co_name} -- {hucCode}/{branch_id}, {exc}",
+                            file=open(log_file, "a"),
                         )
                     # else:
                     # TODO: Jun 2026: yes.. commenting this out can bury some scripts if they do
                     # not have a logger or pass in a log_file path.
                     # print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
 
-                    logging.critical(f"Error: {hucCode},{branch_id},{exc.__class__.__name__}")
+                    context = f"{sys._getframe().f_code.co_name} -- {hucCode}/{branch_id}"
+                    logging.critical(f"Error: {context} : {exc}")
                     logging.critical(traceback.format_exc())
 
                     # Note: You can not sys.exit from a ProcessPoolExecutor directly
@@ -231,7 +241,7 @@ def Inundate_gms(
                     # but you can shutdown and stop the executor from creating more.
                     # The trick is recongizing that each child process can throw an
                     # ThreadPoolExecutors can abort treads in process.
-                    executor.shutdown(wait=False, cancel_futures=True)
+                    executor.shutdown(wait=False, cancel_futures=True)  # yes.. need wait True for MT
                     raise exc  # yes.. reraise
 
                 else:  # excutes only if the try was successful
@@ -255,19 +265,25 @@ def Inundate_gms(
                         pass
 
                     idx += 1
+                    pbar.update(1)  # ✅ Progress update for each completed task
 
             # power down pool
             # if future.running():
             #     executor.shutdown(wait=True)
 
     except Exception as ex:
-        # msg = f"Critical Error: {hucs},{ex.__class__.__name__}"
         # TODO: Jun 2026: Now that we are adding logging, do we need this log file test?
+        # Note: If a logger is not setup, logging messages will go to screen only.
         if log_file is not None and log_file != "":
-            print(f"{hucs}: {ex.__class__.__name__}, {ex}", file=open(log_file, "a"))
+            print(f"{hucs}: {sys._getframe().f_code.co_name}, {ex}", file=open(log_file, "a"))
+
         logging.critical(f"Error while inundating based on {forecast}")
         logging.critical(traceback.format_exc())
+        # Note: you can not use sys.exit in ProcessPools.
         raise ex  # yes.. reraise, so we can shut inudation down.
+    finally:
+        if pbar:  # All mp tasks are done.
+            pbar.close()
 
     # make filename dataframe
     output_fileNames_df = pd.DataFrame(

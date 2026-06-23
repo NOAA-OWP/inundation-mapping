@@ -507,7 +507,7 @@ def produce_mosaicked_inundation(
             map_file.copy(),
             mosaic_attribute=mosaic_attribute,
             mosaic_output=mosaic_output,
-            mask=mask,
+            # mask=mask,
             unit_attribute_name=unit_attribute_name,
             nodata=elev_raster_ndv,
             remove_inputs=remove_intermediate,

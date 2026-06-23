@@ -104,19 +104,25 @@ def synthesize_test_cases(
     print("")
 
     # check job numbers
-    # Jun 2026: No longer relavent as you can run the combo of huc/bench * branches much higher
+    # Jun 2026: Now that we have threading, we can have combo of huc/bench * branches that is much higher
     # as branches are used for multi-theading which has much higher capacity
-    # total_cpus_requested = job_number_huc * job_number_branch
-    # total_cpus_available = os.cpu_count() - 1
-    # if total_cpus_requested > total_cpus_available:
-    #     print("Error:")
-    #     raise ValueError(
-    #         f'The HUC job number of {job_number_huc} (-jh)'
-    #         f' multiplied by the branch job number of {job_number_branch} (-th),'
-    #         f' exceeds your machine\'s available CPU count of {total_cpus_available} ({os.cpu_count()} - 1)\n'
-    #         'Please lower the job_number_huc or job_number_branch to create a multipled value that is less'
-    #         f' than {total_cpus_available} for this tool for this server.'
-    #     )
+    # But we still don't want it to go crazy
+    total_cpus_requested = job_number_alpha_tests * job_number_branch
+    total_cpus_available = os.cpu_count() - 1
+    if total_cpus_requested > total_cpus_available:
+        msg = f"\nIMPORTANT WARNING:\n   You have set the -ja (job_number_alpha_tests) at {job_number_alpha_tests}"
+        f"\n   and the -jb (job_number_branch) at {job_number_branch}."
+        f"\n   Multiplying the two gives you {total_cpus_requested} which is acceptable within reason."
+        f"\n   Your machine has {total_cpus_available} available."
+        "\n   While it is perfectly acceptable to go higher then the max cpus, due to the use of multi-threading,"
+        "\n   very high values can risk overloading the server. The system can only go as fast as lowest of the"
+        "\n   CPU/Memory/Network speeds. If you see long spikes in one of those areas, consider lowering your"
+        "\n   your job numbers."
+        "\n\n    Hit CTRL-C to abort."
+        print(msg)
+        # give them a few seconds to read it.
+        time.sleep(5)  # gives the a min to read this.
+        print("")
 
     try:
         # remove the old one
@@ -176,6 +182,10 @@ def synthesize_test_cases(
             # Loop through all test cases, build the alpha test arguments, and submit them to the process pool
             executor_dict = {}
 
+            pbar = tqdm(
+                total=len(applicable_hand_huc_test_cases),
+                desc=f"Running alpha test cases with {job_number_alpha_tests} workers",
+            )
             try:
 
                 for test_case_class in applicable_hand_huc_test_cases:
@@ -202,31 +212,35 @@ def synthesize_test_cases(
                 # Remember.. you can't really stop each WIP child proc, but you can
                 # catch the errors and stop new processes from starting up.
 
-                for future in tqdm(
-                    as_completed(executor_dict), total=len(executor_dict), 
-                    desc=f"Running alpha test cases with {job_number_alpha_tests} workers"
-                ):                
-                    try:
-                        if future is not None:
-                            if future.cancelled():
-                                continue
-                            if future.exception():
-                                raise future.exception()  # re-raise it
-                            num_successful_tests += 1
-                    except Exception as fex:
-                        logging.critical("Error returned by future")
-                        logging.critical(traceback.format_exc())
-                        # Note: you can not use sys.exit in ProcessPools.
-                        raise fex  # yes.. raise it. If an alpha_test fails, shut it down
+                for future in as_completed(executor_dict):
+
+                    # for future in tqdm(
+                    #     as_completed(executor_dict), total=len(executor_dict),
+                    #     desc=f"Running alpha test cases with {job_number_alpha_tests} workers"
+                    # ):
+                    if future is not None:
+                        if future.cancelled():  # for keyboard CTRL-C's generally
+                            continue
+                        if future.exception():  # Just reraise as is
+                            raise future.exception()
+                        # We do not use the result at this time
+                    num_successful_tests += 1
+                    pbar.update(1)  # ✅ Progress update for each completed task
 
             except Exception as ex:
                 # this covers fails in the original call to test_case_class.alpha_test such as
                 # bad definition.
                 logging.critical(f"*** Error: {ex}")
                 logging.critical(traceback.format_exc())
-                logging.info("Shutting down ProcessPoolExecutor")
+                raise ex
                 # Note: Even though we use the "wait" flag, most WIP processes can not be
                 # aborted when using ProcessPool
+            finally:
+                # Attempts to stop process if possible. Not always successful
+                logging.info("Shutting down ProcessPoolExecutor")
+                # for process in executor._processes.values():
+                #     process.terminate()
+
                 executor.shutdown(
                     wait=False, cancel_futures=True
                 )  # tells the ProcessPoolExecutor to stop accepting new tasks. Even cancel the running tasks as soon as possible
@@ -235,14 +249,13 @@ def synthesize_test_cases(
                 # there will be a delay in shutting it down though as it does not auto kill all wip workers, just
                 # stops new ones.
 
-            finally:
-                # This will also merge -error.log and -warning.log files into the
-                # respective parent error, warning files.
-                # Granted.. putting it in "finally" will mean we get the logs a bit out of order
-                # but all errors and criticals are in the logs at least twice, so look at
-                # the last error messages and it will have context
-                logging.debug(f"Merging child log files into parent logs. {log_file_path} - {mp_log_prefix}")
-                sf.merge_child_logs_into_parent_log(log_file_path, mp_log_prefix)
+        # This will also merge -error.log and -warning.log files into the
+        # respective parent error, warning files.
+        # Granted.. putting it in "finally" will mean we get the logs a bit out of order
+        # but all errors and criticals are in the logs at least twice, so look at
+        # the last error messages and it will have context
+        logging.debug(f"Merging child log files into parent logs. {log_file_path} - {mp_log_prefix}")
+        sf.merge_child_logs_into_parent_log(log_file_path, mp_log_prefix)
 
         if num_successful_tests == 0:
             logging.warning("Skipping creating metrics file as there was not successful alpha tests")
@@ -257,6 +270,7 @@ def synthesize_test_cases(
                 huc_list=huc_list,
             )
     except Exception:
+        # No need to reraise
         logging.critical("An exception has occurred")
         logging.critical(traceback.format_exc())
     finally:

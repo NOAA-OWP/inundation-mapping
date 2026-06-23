@@ -2,6 +2,8 @@ import argparse
 import errno
 import logging
 import os
+import sys
+import traceback
 from timeit import default_timer as timer
 from typing import List, Optional, Union
 
@@ -15,7 +17,6 @@ from src.utils.shared_variables import elev_raster_ndv
 
 
 # It now uses MultiThread versus MultiProc
-# TODO: Jun 2026 Review all args as many are no longer in use
 def produce_mosaicked_inundation(
     hydrofabric_dir: str,
     hucs: Union[str, List[str]],
@@ -25,14 +26,13 @@ def produce_mosaicked_inundation(
     inundation_polygon: Optional[str] = None,
     depths_raster: Optional[str] = None,
     map_filename: Optional[str] = None,
-    mask: Optional[str] = None,
     unit_attribute_name: Optional[str] = "huc8",
     remove_intermediate: Optional[bool] = True,
     verbose: Optional[bool] = False,
     is_mosaic_for_branches: Optional[bool] = False,
     num_workers: Optional[int] = 1,
     precalb_option: Optional[bool] = False,
-    windowed: Optional[bool] = False,
+    windowed: Optional[bool] = True,
     log_file: Optional[str] = None,
     nodata: Optional[int] = elev_raster_ndv,
     show_progress_bar: Optional[bool] = True,
@@ -64,8 +64,6 @@ def produce_mosaicked_inundation(
         Full path to output depths_raster. Pixel values will be in meters
     map_filename : Optional[str], default = None
         If not None saves the mapfiles to a csv file
-    mask : Optional[str], default = None
-        The inclusive mask for the final mosaicked datasets
     unit_attribute_name : Optional[str], default="huc8"
         The name of the processing unit
     remove_intermediate : Optional[bool], default=True
@@ -92,114 +90,122 @@ def produce_mosaicked_inundation(
     if inundation_raster is None and depths_raster is None:
         raise ValueError("Must supply either inundation_raster or depths_raster.")
 
-    # Check that output directory exists. Notify user that output directory will be created if not.
-    for output_file in [inundation_raster, inundation_polygon, depths_raster]:
-        if output_file is None:
-            continue
-        parent_dir = os.path.split(output_file)[0]
-        if not os.path.exists(parent_dir):
-            # TODO: Jun 2026: left vprint in as some apps to not have logging yet
-            # Check other scripts calling this to see if it has valu anymore.
-            # This may also affect the "verbose" flag.
-            fh.vprint(
-                "Parent directory for "
-                + os.path.split(output_file)[1]
-                + " does not exist. The parent directory will be produced.",
-                verbose,
-            )
-            # logging.debug(msg)
-            os.makedirs(parent_dir, exist_ok=True)
-        # TODO: Jun 2026: Do we want to remove it to clean it?
+    mosaic_file_path = ""
 
-    # Check that hydrofabric_dir exists
-    if not s3_or_local_path_exists(hydrofabric_dir):
-        raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), hydrofabric_dir)
+    try:
+        # Check that output directory exists. Notify user that output directory will be created if not.
+        for output_file in [inundation_raster, inundation_polygon, depths_raster]:
+            if output_file is None:
+                continue
+            parent_dir = os.path.split(output_file)[0]
+            if not os.path.exists(parent_dir):
+                # TODO: Jun 2026: left vprint in as some apps to not have logging yet
+                # Check other scripts calling this to see if it has valu anymore.
+                # This may also affect the "verbose" flag.
+                fh.vprint(
+                    "Parent directory for "
+                    + os.path.split(output_file)[1]
+                    + " does not exist. The parent directory will be produced.",
+                    verbose,
+                )
+                # logging.debug(msg)
+                os.makedirs(parent_dir, exist_ok=True)
+            # TODO: Jun 2026: Do we want to remove it to clean it?
 
-    # If the "hucs" argument is really one huc, convert it to a list
-    if type(hucs) is str:
-        hucs = [hucs]
+        # Check that hydrofabric_dir exists
+        if not s3_or_local_path_exists(hydrofabric_dir):
+            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), hydrofabric_dir)
 
-    # Check that huc folder exists in the hydrofabric_dir.
-    for huc in hucs:
-        if not s3_or_local_path_exists(os.path.join(hydrofabric_dir, huc)):
-            raise FileNotFoundError(
-                (errno.ENOENT, os.strerror(errno.ENOENT), os.path.join(hydrofabric_dir, huc))
-            )
+        # If the "hucs" argument is really one huc, convert it to a list
+        if type(hucs) is str:
+            hucs = [hucs]
 
-    # Check that flow file exists
-    if not isinstance(flow_file, pd.DataFrame) and not os.path.exists(flow_file):
-        raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), flow_file)
+        # Check that huc folder exists in the hydrofabric_dir.
+        for huc in hucs:
+            if not s3_or_local_path_exists(os.path.join(hydrofabric_dir, huc)):
+                raise FileNotFoundError(
+                    (errno.ENOENT, os.strerror(errno.ENOENT), os.path.join(hydrofabric_dir, huc))
+                )
 
-    # Jun 2026: Now that we are using threads, the cpu limits are no longer appliable
-    # We mostly want to watch the network performance monitor to set a good value here
-    # Check job numbers and raise error if necessary
-    # total_cpus_available = os.cpu_count() - 1
-    # if num_workers > total_cpus_available:
-    #     raise ValueError(
-    #         "The number of workers (-w), {}, "
-    #         "exceeds your machine's available CPU count minus one ({}). "
-    #         "Please lower the num_workers.".format(num_workers, total_cpus_available)
-    #     )
+        # Check that flow file exists
+        if not isinstance(flow_file, pd.DataFrame) and not os.path.exists(flow_file):
+            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), flow_file)
 
-    # Call Inundate_gms
-    # TODO: Jun 2026: Trace other non run_test_case scripts to see if the verbose flag is used anymore
-    map_file = Inundate_gms(
-        hydrofabric_dir=hydrofabric_dir,
-        forecast=flow_file,
-        hydro_table_df=hydro_table_df,
-        hucs=hucs,
-        num_workers=num_workers,
-        inundation_raster=inundation_raster,
-        depths_raster=depths_raster,
-        verbose=False,
-        precalb_option=precalb_option,
-        windowed=windowed,
-        log_file=log_file,
-        show_progress_bar=show_progress_bar,
-    )
+        # Jun 2026: Now that we are using threads, the cpu limits are no longer appliable
+        # We mostly want to watch the network performance monitor to set a good value here
+        # Check job numbers and raise error if necessary
+        # total_cpus_available = os.cpu_count() - 1
+        # if num_workers > total_cpus_available:
+        #     raise ValueError(
+        #         "The number of workers (-w), {}, "
+        #         "exceeds your machine's available CPU count minus one ({}). "
+        #         "Please lower the num_workers.".format(num_workers, total_cpus_available)
+        #     )
 
-    # Write map file if designated
-    if map_filename is not None:
-        if not os.path.isdir(os.path.dirname(map_filename)):
-            os.makedirs(os.path.dirname(map_filename))
+        # Call Inundate_gms
+        # TODO: Jun 2026: Trace other non run_test_case scripts to see if the verbose flag is used anymore
+        map_file = Inundate_gms(
+            hydrofabric_dir=hydrofabric_dir,
+            forecast=flow_file,
+            hydro_table_df=hydro_table_df,
+            hucs=hucs,
+            num_workers=num_workers,
+            inundation_raster=inundation_raster,
+            depths_raster=depths_raster,
+            verbose=verbose,
+            precalb_option=precalb_option,
+            windowed=windowed,
+            log_file=log_file,
+            show_progress_bar=show_progress_bar,
+        )
 
-        map_file.to_csv(map_filename, index=False)
+        # Write map file if designated
+        if map_filename is not None:
+            if not os.path.isdir(os.path.dirname(map_filename)):
+                os.makedirs(os.path.dirname(map_filename))
 
-    # TODO: see note about about vprint
-    fh.vprint("Mosaicking extent...", verbose)
-    if verbose:
-        logging.info(f"Mosaicking extent... for {flow_file}")
-    else:
-        logging.debug(f"Mosaicking extent... for {flow_file}")
+            map_file.to_csv(map_filename, index=False)
 
-    for mosaic_attribute in ["depths_rasters", "inundation_rasters"]:
-        mosaic_output = None
-        if mosaic_attribute == "inundation_rasters":
-            if inundation_raster is not None:
-                mosaic_output = inundation_raster
-        elif mosaic_attribute == "depths_rasters":
-            if depths_raster is not None:
-                mosaic_output = depths_raster
+        # TODO: see note about about vprint
+        fh.vprint("Mosaicking extent...", verbose)
+        if verbose:
+            logging.info(f"Mosaicking extent... for {flow_file}")
+        else:
+            logging.debug(f"Mosaicking extent... for {flow_file}")
 
-        if mosaic_output is not None:
-            # Call Mosaic_inundation
-            mosaic_file_path = Mosaic_inundation(
-                map_file.copy(),
-                mosaic_attribute=mosaic_attribute,
-                mosaic_output=mosaic_output,
-                mask=mask,
-                unit_attribute_name=unit_attribute_name,
-                nodata=nodata,
-                remove_inputs=remove_intermediate,
-                verbose=verbose,
-                is_mosaic_for_branches=is_mosaic_for_branches,
-                inundation_polygon=inundation_polygon,
-                show_progress_bar=show_progress_bar,
-            )
+        for mosaic_attribute in ["depths_rasters", "inundation_rasters"]:
+            mosaic_output = None
+            if mosaic_attribute == "inundation_rasters":
+                if inundation_raster is not None:
+                    mosaic_output = inundation_raster
+            elif mosaic_attribute == "depths_rasters":
+                if depths_raster is not None:
+                    mosaic_output = depths_raster
 
-    # TODO: see note about about vprint
-    fh.vprint("Mosaicking extent complete", verbose)
-    logging.debug("Mosaicking extent complete")
+            if mosaic_output is not None:
+                # Call Mosaic_inundation
+                mosaic_file_path = Mosaic_inundation(
+                    map_file.copy(),
+                    mosaic_attribute=mosaic_attribute,
+                    mosaic_output=mosaic_output,
+                    unit_attribute_name=unit_attribute_name,
+                    nodata=nodata,
+                    remove_inputs=remove_intermediate,
+                    verbose=verbose,
+                    is_mosaic_for_branches=is_mosaic_for_branches,
+                    inundation_polygon=inundation_polygon,
+                    show_progress_bar=show_progress_bar,
+                )
+
+        # TODO: see note about about vprint
+        # Note: if a logging system has not been setup, default logging goes to screen
+        fh.vprint("Mosaicking extent complete", verbose)
+        logging.debug("Mosaicking extent complete")
+
+    except Exception as ex:
+        logging.critical(f"Error producing mosiacked inundation base on {flow_file}")
+        logging.critical(traceback.format_exc())
+        raise ex
 
     return mosaic_file_path
 
@@ -255,7 +261,6 @@ if __name__ == "__main__":
         default=None,
         type=str,
     )
-    parser.add_argument("-k", "--mask", help="Name of mask file.", required=False, default=None, type=str)
     parser.add_argument(
         "-a",
         "--unit_attribute_name",

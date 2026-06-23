@@ -2,6 +2,9 @@
 import argparse
 import logging
 import os
+import random
+import sys
+import time
 import traceback
 from datetime import datetime
 from os.path import splitext
@@ -39,6 +42,7 @@ class NoForecastFound(Exception):
 # NOTE: Jun 2026: the "rem (rem_path)" and "catchments (catchments_path)" args were changed
 # exlusively to string paths only to help with rasterio open connection control.
 # Nothing used the input for rasterio.io.DatasetReader anyways.
+# num_workers was never used and was removed.
 def inundate(
     rem_path: str,
     catchments_path: str,
@@ -46,7 +50,7 @@ def inundate(
     hydro_table: Union[str, pd.DataFrame],
     forecast: Union[str, pd.DataFrame],
     mask_type: Optional[Union[str, List[str]]] = None,
-    hucs: str = None,
+    hucs: Optional[Union[str, fiona.Collection]] = None,
     hucs_layerName: Optional[str] = None,
     subset_hucs: Optional[Union[str, List[str]]] = None,
     aggregate: Optional[bool] = False,
@@ -123,10 +127,11 @@ def inundate(
 
     """
 
+    # commented out as it fills the logs heavily
     # if verbose:
-    #     logging.info(f"Start Inundating based on {forecast} and {rem_path} - {datetime.now().strftime('%H:%M:%S.%f')[:-3]}")
+    #     logging.info(f"Start Inundating based on {forecast} and {rem_path}")
     # else:
-    #     logging.debug(f"Start Inundating based on {forecast} and {rem_path} - {datetime.now().strftime('%H:%M:%S.%f')[:-3]}")
+    #     logging.debug(f"Start Inundating based on {forecast} and {rem_path}")
 
     # Keep this off generally as it can create a TON of logs
     # logging.debug("+++++++++++++++++++++++++++++++")
@@ -134,15 +139,19 @@ def inundate(
     # logging.debug(locals())
     # logging.debug("+++++++++++++++++++++++++++++++")
 
+    # June 2026:
+    # Most scripts that call this function use an MP or MT. When it first starts, they all hit this
+    # function at the same time. Putting a random time sleeper helps manage that a little lowering
+    # resource needs a little and network bottlenecks.
+    # random between 0 and 5 seconds
+    time.sleep(random.randint(0, 5))
+
     # check that aggregate is only done for hucs mode
     aggregate = bool(aggregate)
     if aggregate:
         logging.warning("Aggregate feature currently not working. Setting to false for now.")
         aggregate = False
 
-    # To help close object correctly on exception
-    rem = None
-    catchments = None
     try:
         # input rem
         # Load then into memory data in order to close the rasterio connection earlier
@@ -154,21 +163,11 @@ def inundate(
             raise Exception(f"Catchments file of {catchments_path} does not exist")
 
         # input rem
-        # if isinstance(rem, str):
-        #     rem = rasterio.open(rem)
-        # elif isinstance(rasterio.io.DatasetReader):
-        #     pass
-        # else:
-        #     raise TypeError("Pass rasterio DatasetReader or filepath for rem")
+        # TODO: Jun 2026: This keeps the rem open for a while. Find a way to let it go sooner
         rem = rasterio.open(rem_path)
 
         # input catchments grid
-        # if isinstance(catchments, str):
-        #     catchments = rasterio.open(catchments)
-        # elif isinstance(rasterio.io.DatasetReader):
-        #     pass
-        # else:
-        #     raise TypeError("Pass rasterio DatasetReader or filepath for catchments")
+        # TODO: Jun 2026: This keeps the rem open for a while. Find a way to let it go sooner
         catchments = rasterio.open(catchments_path)
 
         # open hucs
@@ -281,16 +280,11 @@ def inundate(
         logging.critical(f"Critical Error while inundating for {forecast} / {rem_path}")
         logging.critical(traceback.format_exc())
         raise ex  # yes, re-raise
-    finally:
-        if rem is not None:
-            rem.close()
-        if catchments is not None:
-            catchments.close()
 
         # if verbose:
-        #     logging.info(f"Done Inundating based on {forecast} and {rem_path} - {datetime.now().strftime('%H:%M:%S.%f')[:-3]}")
+        #     logging.info(f"Done Inundating based on {forecast} and {rem_path}")
         # else:
-        #     logging.debug(f"Done Inundating based on {forecast} and {rem_path} - {datetime.now().strftime('%H:%M:%S.%f')[:-3]}")
+        #     logging.debug(f"Done Inundating based on {forecast} and {rem_path}")
 
     return inundation_rasters, depth_rasters, inundation_polys
 

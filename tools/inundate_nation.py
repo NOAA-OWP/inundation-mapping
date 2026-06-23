@@ -28,8 +28,6 @@ from src.utils.shared_functions import FIM_Helpers as fh
 
 # TODO: Nov 2023, Logging system appears to be not working correctly.
 # TODO: Jun 2026: Switch to src.utils.shared_functions.setup_file_logger
-
-
 def inundate_nation(
     fim_run_dir,
     output_dir,
@@ -134,6 +132,9 @@ def inundate_nation(
                 procs_list.append([magnitude_output_dir, rasfile, output_bool_dir, fim_version])
 
         # Multiprocess --> create boolean inundation rasters for all hucs
+        # TODO: Jun 2026: This is very loose and might be subject now to memory leaks or freeze up
+        # as seen in other apps this month. Consider upgrading or at least review
+        # It really needs a try/except as the pool can get stuck open on exceptions.
         if len(procs_list) > 0:
             with Pool(processes=job_number) as pool:
                 pool.map(create_bool_rasters, procs_list)
@@ -197,12 +198,14 @@ def run_inundation(args):
     print()
 
     # Jun 2026: gms_multi_process no longer available as it is now Multi-threaded only
+    # Also show_progress_bar (TQDM was added and defaulted on. See how it looks.
+    # It has been a bit finicky with not updating itself great, but try it and add a card
+    # if it not working correctly. It is untested when visible.
     produce_mosaicked_inundation(
-        fim_run_dir,
-        huc_list,
-        forecast,
+        hydrofabric_dir=fim_run_dir,
+        hucs=huc_list,
+        flow_file=forecast,
         inundation_raster=inundation_raster,
-        # num_workers=job_number,
         num_workers=thread_number,
         remove_intermediate=True,
         verbose=True,
@@ -210,6 +213,7 @@ def run_inundation(args):
         # gms_multi_process=True,
         precalb_option=precalb,
         show_progress_bar=True,
+        windowed=True,  # Jun 2026: if stability issues, consider changing this to false.
     )
 
 
@@ -446,8 +450,15 @@ if __name__ == "__main__":
 
     parser.add_argument('-j', '--job-number', help='The number of jobs', required=False, default=1, type=int)
 
+    # Jun 2026: Threading in inundate_gms has been updated. It has not be stress tested but try at 20 or 40
+    # keep an eye on the performance counters to see if you are overthrottling.
     parser.add_argument(
-        '-t', '--thread-number', help='The number of threads', required=False, default=1, type=int
+        '-t',
+        '--thread-number',
+        help='The number of threads, can go higher up to 20 to 40 (untested at high amounts)',
+        required=False,
+        default=1,
+        type=int,
     )
 
     args = vars(parser.parse_args())

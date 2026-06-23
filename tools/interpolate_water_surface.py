@@ -12,6 +12,9 @@ from rasterio.fill import fillnodata
 from tools_shared_variables import elev_raster_ndv
 
 
+# Jun 2026: Possible deprecation. If revived, needs review and updates
+
+
 def interpolate_wse(
     inundation_depth_raster,
     hydroconditioned_dem,
@@ -80,6 +83,7 @@ def interpolate_wse(
     with rasterio.open(output_depth_raster, 'w', **profile) as dst:
         dst.write(final_depth)
 
+
 # TODO: Jun 2026: If this tool is in use or rebuilt, the log_file is not in use
 # but if this is changed to a full logging system, it not needed.
 def inundate_with_catchment_spillover(
@@ -139,7 +143,6 @@ def inundate_with_catchment_spillover(
         map_file,
         mosaic_attribute='depths_rasters',
         mosaic_output=depths_raster,
-        mask=None,
         unit_attribute_name='huc8',
         nodata=elev_raster_ndv,
         num_workers=1,

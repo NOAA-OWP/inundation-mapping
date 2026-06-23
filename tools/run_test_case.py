@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-import json
+
 import logging
 import os
+import random
 import re
 import shutil
-
-# import sys
+import time
 import traceback
 from datetime import datetime, timezone
 
-import pandas as pd
+# import pandas as pd
 from inundate_mosaic_wrapper import produce_mosaicked_inundation
 
 # from inundation import inundate
@@ -231,10 +231,19 @@ class Test_Case(Benchmark):
             to ensure unique log files per MP
         '''
 
+        # June 2026:
+        # When this first starts, they all hit this function at the same time often hitting the same files.
+        # This is mostly true when we have a huc with more than one benchmark type. One alpha_test case is
+        # based on one huc + benchmark type. They will both aim to get huc level files at the same time.
+        # Putting a random time sleeper helps manage that a little lowering resource needs a little and network
+        # bottlenecks. random between 0 and 5 seconds
+        time.sleep(random.randint(0, 5))
+
         start_time = datetime.now(timezone.utc)
         try:
             if log_folder != "":
                 log_file_path = sf.setup_file_logger(log_folder, f"{log_prefix}_{self.test_id}")
+
             if verbose:
                 logging.info("")  # helps find the sections in the logs
                 logging.info(f">>>>>>>>>> Started Alpha Test for {self.test_id}")
@@ -267,12 +276,7 @@ class Test_Case(Benchmark):
                     inclusion_area_buffer = 0
                 self.stats_modes_list.append(inclusion_area_name + '_b' + str(inclusion_area_buffer) + 'm')
 
-            # Delete the directory if it exists
-            # Sometimes with MP, os commands can collide in race conditions depending on what folders
-            # are remove folders (folder in folder and possibly others)
-            # This is the huc test case folder
-            if os.path.exists(self.dir):
-                shutil.rmtree(self.dir, ignore_errors=True)
+            # ie) /data/test_cases/ble_test_cases/12090301_ble/testing_versions/Rob_alpha_test_3
             os.makedirs(self.dir, exist_ok=True)
 
             # Get the magnitudes and lids for the current huc and loop through them
@@ -308,9 +312,7 @@ class Test_Case(Benchmark):
             raise kiex
         except Exception as ex:
             logging.critical(f"An exception has occured for {self.test_id}")
-            # Temporarily adding stack trace
             logging.critical(traceback.format_exc())
-            # sys.exit(1)  # Note: you can not have this inside an MP as it won't really work
             raise ex
         finally:
             if verbose:
@@ -379,7 +381,6 @@ class Test_Case(Benchmark):
             hucs=self.huc,
             flow_file=benchmark_flows,
             inundation_raster=predicted_raster_path,
-            mask=os.path.join(self.fim_huc_dir, "wbd.gpkg"),
             verbose=verbose,
             num_workers=branch_workers,
             precalb_option=precalb_option,

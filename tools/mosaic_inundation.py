@@ -4,21 +4,22 @@
 import argparse
 import logging
 import os
+import sys
 import traceback
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from threading import Lock
 from typing import Optional, Union
 
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio
-import rioxarray as rxr
-import xarray as xr
-from geocube.api.core import make_geocube
+
+# import rioxarray as rxr
+# import xarray as xr
+# from geocube.api.core import make_geocube
 from rasterio.features import shapes
 from rasterio.merge import merge
-from shapely.geometry import box
+
+# from shapely.geometry import box
 from shapely.geometry.multipolygon import MultiPolygon
 from shapely.geometry.polygon import Polygon
 from tqdm import tqdm
@@ -29,16 +30,14 @@ from src.utils.shared_variables import elev_raster_ndv
 
 gpd.options.io_engine = "pyogrio"
 
+
 # TODO: Jun 2026: We will likely want to change this as we upgrade logging everywhere (see run_test_case.py)
 # The newer system has a bunch of new features, but the biggest is that if we use our python.logging
 # it logs everything we might want
-
-
 def Mosaic_inundation(
     map_file: Union[str, pd.DataFrame],
     mosaic_attribute: str,
     mosaic_output: Optional[str] = None,
-    mask: Optional[str] = None,
     unit_attribute_name: Optional[str] = "huc8",
     nodata: Optional[int] = elev_raster_ndv,
     remove_inputs: Optional[bool] = False,
@@ -59,8 +58,6 @@ def Mosaic_inundation(
         Attribute to mosaic the map files
     mosaic_output: Optional[str], default = None
         Name of final mosaiced inundation file
-    mask: Optional[str], default = None
-        Name of file to inclusively mask final output file
     unit_attribute_name: Optional[str], default = None
         Processing unit to mosaic inundation
     nodata: Optional[int], default = elev_raster_ndv
@@ -97,93 +94,96 @@ def Mosaic_inundation(
     if mosaic_attribute not in ("inundation_rasters", "depths_rasters"):
         raise ValueError("Pass inundation_rasters or depths_raster for mosaic_attribute argument")
 
-    # load file
-    if isinstance(map_file, pd.DataFrame):
-        inundation_maps_df = map_file
-        del map_file
-    elif isinstance(map_file, str):
-        inundation_maps_df = pd.read_csv(map_file, dtype={unit_attribute_name: str, "branchID": str})
-    else:
-        raise TypeError("Pass Pandas Dataframe or file path string to csv for map_file argument")
-
-    # inundation_maps_df = inundation_maps_df.dropna(axis=0, how="all")
-    # remove all records where the three inudation paths are empty
-    # TODO: Jun 2026: Rob.. research this. Sometimes all three are nulls. It
-    # seems to be ok if I leave this test out, but fails when I put the test in.
-    # inundation_maps_df = inundation_maps_df.dropna(
-    #     subset=['inundation_rasters', 'depths_rasters', 'inundation_polygons']
-    # )
-    # if len(inundation_maps_df) == 0:
-    #     raise Exception(
-    #         f"inundation_maps_df has no values in the three raster/polygon columns for {mosaic_output}"
-    #     )
-
-    # subset
-    if subset is not None:
-        subset_mask = inundation_maps_df.loc[:, unit_attribute_name].isin(subset)
-        inundation_maps_df = inundation_maps_df.loc[subset_mask, :]
-
-    # unique aggregation units
-    aggregation_units = inundation_maps_df.loc[:, unit_attribute_name].unique()
-
-    inundation_maps_df = inundation_maps_df.set_index(unit_attribute_name, drop=True)
-
     ag_mosaic_output = ""
-    remove_at_end = []
-    for ag in tqdm(
-        aggregation_units, disable=(show_progress_bar is False), desc=f"Mosaicking FIMs for {mosaic_output}"
-    ):
-        try:
-            inundation_maps_list = inundation_maps_df.loc[ag, mosaic_attribute].tolist()
-        except AttributeError as ae:
-            logging.error(f"Attribute error while processing {mosaic_output}: {ae}")
-            inundation_maps_list = [inundation_maps_df.loc[ag, mosaic_attribute]]
-            # TODO: Jun 2026: Should we re-raise this? It wasn't before
+    try:
+        # load file
+        if isinstance(map_file, pd.DataFrame):
+            inundation_maps_df = map_file
+            del map_file
+        elif isinstance(map_file, str):
+            inundation_maps_df = pd.read_csv(map_file, dtype={unit_attribute_name: str, "branchID": str})
+        else:
+            raise TypeError("Pass Pandas Dataframe or file path string to csv for map_file argument")
 
-        # logging.debug(f"inundation_maps_list is {inundation_maps_list} for {mosaic_output}")
+        # inundation_maps_df = inundation_maps_df.dropna(axis=0, how="all")
+        # remove all records where the three inudation paths are empty
+        # TODO: Jun 2026: Rob.. research this. Sometimes all three are nulls. It
+        # seems to be ok if I leave this test out, but fails when I put the test in.
+        # inundation_maps_df = inundation_maps_df.dropna(
+        #     subset=['inundation_rasters', 'depths_rasters', 'inundation_polygons']
+        # )
+        # if len(inundation_maps_df) == 0:
+        #     raise Exception(
+        #         f"inundation_maps_df has no values in the three raster/polygon columns for {mosaic_output}"
+        #     )
 
-        # Some processes may have already added the ag value (if it is a huc) to
-        # the file name, so don't re-add it.
-        # Only add the huc into the name if branches are being processed, as
-        # sometimes the mosaic is not for gms branches but maybe mosaic of an
-        # fr set with a gms composite map.
+        # subset
+        if subset is not None:
+            subset_mask = inundation_maps_df.loc[:, unit_attribute_name].isin(subset)
+            inundation_maps_df = inundation_maps_df.loc[subset_mask, :]
 
-        ag_mosaic_output = mosaic_output
-        if (is_mosaic_for_branches) and (ag not in mosaic_output):
-            ag_mosaic_output = fh.append_id_to_file_name(mosaic_output, ag)  # change it
+        # unique aggregation units
+        aggregation_units = inundation_maps_df.loc[:, unit_attribute_name].unique()
 
-        # are we no longer using the "mask" object? Does look like it has been used for a long time.
-        logging.debug("Starting mosaic_by_unit")
-        remove_list = mosaic_by_unit(
-            inundation_maps_list,
-            ag_mosaic_output,
-            nodata,
-            remove_inputs=remove_inputs,
-            # mask=mask,
-        )
+        inundation_maps_df = inundation_maps_df.set_index(unit_attribute_name, drop=True)
 
-        if len(remove_list) > 0:
-            remove_at_end.extend(remove_list)
-            remove_at_end = list(set(remove_at_end))  # Ensures unique values
+        remove_at_end = []
+        for ag in tqdm(
+            aggregation_units,
+            disable=(show_progress_bar is False),
+            desc=f"Mosaicking FIMs for {mosaic_output}",
+        ):
+            try:
+                inundation_maps_list = inundation_maps_df.loc[ag, mosaic_attribute].tolist()
+            except AttributeError as ae:
+                logging.error(f"Attribute error while processing {mosaic_output}: {ae}")
+                inundation_maps_list = [inundation_maps_df.loc[ag, mosaic_attribute]]
+                # TODO: Jun 2026: Should we re-raise this? It wasn't before
+                raise ae
 
-    if inundation_polygon is not None:
-        mosaic_final_inundation_extent_to_poly(ag_mosaic_output, inundation_polygon)
+            # logging.debug(f"inundation_maps_list is {inundation_maps_list} for {mosaic_output}")
 
-    if remove_inputs:
-        # fh.vprint("Removing inputs ...", verbose)
+            # Some processes may have already added the ag value (if it is a huc) to
+            # the file name, so don't re-add it.
+            # Only add the huc into the name if branches are being processed, as
+            # sometimes the mosaic is not for gms branches but maybe mosaic of an
+            # fr set with a gms composite map.
 
-        for remove_file in remove_at_end:
-            if os.path.exists(remove_file):
-                # In theory, the file should exist but sometimes does not (errors? Multi-threading?)
-                os.remove(remove_file)
+            ag_mosaic_output = mosaic_output
+            if (is_mosaic_for_branches) and (ag not in mosaic_output):
+                ag_mosaic_output = fh.append_id_to_file_name(mosaic_output, ag)  # change it
 
-    msg = f"Completed mosaic for {mosaic_output}"
-    if verbose:
-        # print(f"Removing inputs ... (in Mosiac_inundation) .. {mosaic_output}")
-        logging.info(msg)
-    else:
-        logging.debug(msg)
+            logging.debug("Starting mosaic_by_unit")
+            remove_list = mosaic_by_unit(
+                inundation_maps_list, ag_mosaic_output, nodata, remove_inputs=remove_inputs
+            )
 
+            if len(remove_list) > 0:
+                remove_at_end.extend(remove_list)
+                remove_at_end = list(set(remove_at_end))  # Ensures unique values
+
+        if inundation_polygon is not None:
+            mosaic_final_inundation_extent_to_poly(ag_mosaic_output, inundation_polygon)
+
+        if remove_inputs:
+            # fh.vprint("Removing inputs ...", verbose)
+
+            for remove_file in remove_at_end:
+                if os.path.exists(remove_file):
+                    # In theory, the file should exist but sometimes does not (errors? Multi-threading?)
+                    os.remove(remove_file)
+
+        msg = f"Completed mosaic for {mosaic_output}"
+        if verbose:
+            # print(f"Removing inputs ... (in Mosiac_inundation) .. {mosaic_output}")
+            logging.info(msg)
+        else:
+            logging.debug(msg)
+
+    except Exception as ex:
+        logging.critical(f"Critical Error while creating a mosaic for {mosaic_output}")
+        logging.critical(traceback.format_exc())
+        raise ex
     # Return file name and path of the final mosaic output file.
     # Might be empty.
     return ag_mosaic_output
@@ -195,7 +195,6 @@ def mosaic_by_unit(
     mosaic_output: str,
     nodata: Optional[int] = elev_raster_ndv,
     remove_inputs: Optional[bool] = False,
-    # mask: Optional[str] = None,  # Jun 2026: Should this be used?
 ) -> Union[list, None]:
     """
     Mosaic inundation extents or depths
@@ -210,8 +209,6 @@ def mosaic_by_unit(
         Value to represent nodata
     remove_inputs: Optional[bool], default = False
         Whether to remove intermediate input files
-    mask: Optional[str], default = None  (kept temp )
-        Name of file to inclusively mask final output file
 
     Returns
     -------
@@ -251,6 +248,7 @@ def mosaic_by_unit(
 #     This was adjusted as part of PR 1605, 4.8.10.0 in Oct 2025, but never worked.
 #     tracing it showed that it always failed and appears to not be needed.
 #     Commenting it out for now.
+# NOTE: if revived, it needs upgrades for all places for .open and needs logging and other perf reviews
 # def mask_mosaic(mosaic, polys, polys_layer=None, outfile=None, workers=4, quiet=True):
 
 #     if isinstance(mosaic, str):
@@ -412,14 +410,6 @@ if __name__ == "__main__":
         "--mosaic-attribute",
         help="Attribute name: should be either inundation_rasters or depths_rasters.",
         required=True,
-        type=str,
-    )
-    parser.add_argument(
-        "-a",
-        "--mask",
-        help="File path to vector polygon mask used to clip mosaic (optional). Default is None",
-        required=False,
-        default=None,
         type=str,
     )
     parser.add_argument(
