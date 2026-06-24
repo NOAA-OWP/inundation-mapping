@@ -1,6 +1,36 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.14._ - 2026-_____ - [PR#1843](https://github.com/NOAA-OWP/inundation-mapping/pull/1843)
+
+Adds improved logging, datum correction, and error handling to the USGS curves retrieval script (and supporting functions). Fixed and updated the NWS LID Geopackage script. Resolved the Pandas FutureWarnings (previously present in USGS rating curve retrieval and CatFIM processing) that were caused by joining tables with missing column data types (caused by NA values in the input metadata).
+
+### Changes
+- `config/huc_lists/uat_and_alpha_domain_huc_list.lst`: Added two new pacific islands HUCs.
+ - `data/nws/preprocess_ahps_nws.py`: Updated output of `ngvd_to_navd_ft()` and `get_metadata()`.
+ - `data/usgs/get_usgs_rating_curves.py`: Renamed main function from `usgs_rating_to_elev()` → `get_usgs_rating_curves()`. Added comprehensive logging throughout all stages. Refactored datum correction logic with better error handling. Introduced `site_status_df` to track site processing status across all stages. Added `__run_rating_curve_retrieval()` wrapper function for better organization. Improved VDatum API error handling with retry logic and timeout handling. New helper functions: `__write_rc_and_site_files()`, `make_status_summary()`. Enhanced docstrings with detailed Arguments/Returns sections.
+ - `data/usgs/preprocess_ahps_usgs.py`: Updated output of `ngvd_to_navd_ft()` and `get_metadata()`.
+ - `data/wrds/download_process_wrds.py`: Updated output of `get_metadata()`.
+ - `data/wrds/generate_nws_lid.py`: Moved from tools folder to data/wrds folder. Updated processing, removed unused code, and improved prints and comments. Added .env and keep all rows input params. 
+ - `data/wrds/mimic_wrds_data.py`: Updated output of `get_metadata()`.
+ - `src/utils/shared_functions.py`: Moved `run_vdatum_for_region()` function out of `ngvd_to_navd_ft()` and added comprehensive error handling. Added API retry logic using `Retry` and `HTTPAdapter` from requests library. Added error message returns to `get_metadata()` and `get_rating_curve()` functions. New `rollup_log_files()` function to replace `concat_files()`. Improved `ngvd_to_navd_ft()` with error message returns and better exception handling. Better handling of CRS conversion failures and VDatum API errors. Added column type definitions for WRDS metadata to prevent Pandas FutureErrors.
+ - `src/utils/shared_validators.py`: File mode changed.
+ - `src/utils/shared_variables.py`: File mode changed.
+ - `src/bash_variables.env`: Update path to NWS LID Geopackage and USGS gages outputs.
+ - `src/run_huc.sh`: Update path to NWS LID Geopackage.
+ - `tools/catfim/notebooks/eval_catfim_metadata.ipynb`: Updated outputs of `get_metadata()`.
+ - `tools/catfim/catfim_process_huc.py`: Update outputs of `ngvd_to_navd_ft()`.
+ - `tools/catfim/catfim_shared_functions.py`: Updated `load_restricted_sites()` function to handle NA vals correctly.
+ - `tools/catfim/generate_categorical_fim.py`: Updated logging rollup.
+ - `tools/aggregate_csv_files.py`: Created `concat_files()` function.
+ - `tools/eval_plots.py`: Update outputs of `get_metadata()`.
+ - `tools/fimr_to_benchmark.py`: Update outputs of `get_metadata()`.
+ - `tools/test_case_by_hydro_id.py`: Updated docstring of `catchment_zonal_statistics()` function.
+ - `tools/tools_shared_functions.py`: Fixed logging-related issues. New `rollup_log_files()` function (deprecated `concat_files()`). Code cleanup (commented out unused imports)
+ - `tools/tools_shared_variables.py`: Added a WRDS metadata column type dictionary.
+
+<br/>
+
 ## v4.9.14.0 - 2026-05-13 - [PR#1805](https://github.com/NOAA-OWP/inundation-mapping/pull/1805)
 
 Upgrades GDAL base image to v3.12.3 (ghcr.io/osgeo/gdal:ubuntu-small-3.12.3) and upgrades Python dependencies. There were a few major hurdles in upgrading beyond the previous GDAL v.3.8.4 primarily due to the fact that v3.8.4 was the last version to use Python 3.10 and GDAL v3.12.3 uses Python 3.12, including:
