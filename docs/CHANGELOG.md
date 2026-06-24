@@ -29,6 +29,89 @@ Adds improved logging, datum correction, and error handling to the USGS curves r
  - `tools/tools_shared_functions.py`: Fixed logging-related issues. New `rollup_log_files()` function (deprecated `concat_files()`). Code cleanup (commented out unused imports)
  - `tools/tools_shared_variables.py`: Added a WRDS metadata column type dictionary.
 
+## v4.9.16.2 - 2026-06-18 - [PR#1855](https://github.com/NOAA-OWP/inundation-mapping/pull/1855)
+This PR closes issue #1788. 
+
+The `pull_osm_bridges.py` would silently time out on dense HUCs (e.g., HUC 02060006 — Columbia/Silver Spring, MD) and exit with a misleading "Success" log and no output file. This PR fixes that with a recursive 2×2 polygon splitting strategy and proper failure reporting. 
+
+
+### Changes
+- data/bridges/pull_osm_bridges.py
+- src/bash_variables.env
+<br/>
+
+## v4.9.16.1 - 2026-06-18 - [PR#1856](https://github.com/NOAA-OWP/inundation-mapping/pull/1856)
+
+This PR closes issue #1814 and resolves an inconsistency between FIMpact road-inundation results and the corresponding FIM spatial inundation map. Stray inundated roads have been observed at multiple locations with very small reported flood depths as shown [here](https://github.com/NOAA-OWP/inundation-mapping/issues/1814#issuecomment-4314616790) despite the absence of corresponding adjacent inundated cells in the FIM map.
+
+### Root cause
+
+The FIM spatial inundation and FIMpact workflows used different minimum flood-depth criteria:
+
+* `inundate_mosaic_wrapper.py` treats flood depths below `0.03048 m` (`0.1 ft`) as dry.
+* `fimpacts_inundation.py` previously retained all positive flood-depth values.
+
+As a result, roads with flood depths greater than zero but below `0.1 ft` could be reported as inundated in FIMpact even though the corresponding pixels were treated as dry in the FIM spatial products. This inconsistency can produce isolated stray roads in the FIMpact results.
+
+### Fix
+
+Updated `fimpacts_inundation.py` to apply the same minimum flood-depth threshold used by `inundate_mosaic_wrapper.py`.  Roads with flood depths below `0.1 ft` will now be treated as dry and excluded from the FIMpact outputs, preventing isolated stray roads caused by inconsistent depth filtering.
+
+
+### Changes
+- tools/fimpacts_inundation.py
+<br/>
+
+## v4.9.16.0 - 2026-06-02 - [PR#1787](https://github.com/NOAA-OWP/inundation-mapping/pull/1787)
+
+This PR closes issues #1778, #1795, and  #1796 and includes the following enhancements to the OSM bridge data acquisition pipeline.
+
+### Adding pdal to docker image
+Updated the lidar bridge workflow to run PDAL from the standard Docker image instead of requiring a separate conda environment. In [`data/bridges/make_rasters_using_lidar.py`](c:/Users/ali.forghani/Desktop/dev-lidar-bridge-upgrade/inundation-mapping/data/bridges/make_rasters_using_lidar.py), the two PDAL execution points were changed from Python `pdal` bindings to the PDAL CLI by writing the pipeline JSON to a temporary file and invoking `pdal pipeline` with `subprocess`. The pipeline definitions themselves were unchanged.
+
+Docker image changes (Implemented through PR #1805):
+- Added a dedicated PDAL runtime inside the image using `micromamba`, installed at `/opt/pdal-env`.
+- Installed `pdal=2.9.3` in that isolated environment, along with matching `gdal`, `proj`, and `proj-data`.
+- Kept the main container Python and geospatial stack unchanged to avoid interfering with existing GDAL/geopandas behavior.
+- Exposed the isolated PDAL binary through environment variables, using `PDAL_CLI_PATH=/opt/pdal-env/bin/pdal` and `PDAL_ENV_ROOT=/opt/pdal-env`.
+
+How `make_rasters_using_lidar.py` uses that environment:
+- The script now runs PDAL through the CLI with `subprocess.run(...)` instead of relying on Python PDAL bindings.
+- Before invoking PDAL, the script sets `PROJ_LIB`, `PROJ_DATA`, and `GDAL_DATA` only for the PDAL subprocess so it uses the matching runtime data in `/opt/pdal-env`.
+
+
+### Updates for the Pre-clipping tool
+Updated `clip_vectors_to_wbd.py` to support the new OSM bridge data layout, where bridge files are already pre-clipped by HUC. The tool no longer expects regional bridge GeoPackages for the normal preclip path. Instead, when `osm_bridges` is selected for preclip/transfer, it reads `osm_bridges_modified_dir` from `bash_variables.env` and transfers the matching `huc_<HUC>_osm_bridges_modified.gpkg` file into the HUC preclip folder as `osm_bridges_subset.gpkg`. 
+
+### Changes
+- data/bridges/pull_osm_bridges.py
+- data/bridges/make_rasters_using_lidar.py
+- data/bridges/make_dem_dif_for_bridges.py
+- data/wbd/generate_pre_clip_fim_huc8.py
+- data/wbd/clip_vectors_to_wbd.py
+- src/bash_variables.env
+- Dockerfile.dev (Implemented through PR #1805)
+- Dockerfile.owp (Implemented through PR #1805)
+
+### Removals
+- data/bridges/conda_fim_bridges_enviro.yml
+- data/bridges/setup_conda_for_make_rasters.txt
+<br/>
+
+## v4.9.15.0 - 2026-06-02 - [PR#1816](https://github.com/NOAA-OWP/inundation-mapping/pull/1816)
+
+This pull request introduces a dedicated preprocessing workflow to identify and fill DEM "pits" (large and deep artificial depressions). This introduces a new input data script to process a directory of DEM files and generates new input filled elevation rasters (new input files). Resolves #815 
+
+### Additions
+
+- `data/usgs/pit_detect_fill.py`: provides a new batch-processing utility that identifies and selectively fills topographic sinks ("pits") using a two tiered approach. 1) OSM informed detection - identifies artificial pits by cross-referencing OSM polygons with terrain detected depressions (richdem filled areas). 2) Terrain-based filtering uses geometric and statistical metrics (depth, circularity, and pixel count) to identify and fill natural sinks that meet criteria but didn't coencide with OSM polys. Creates a series of new output files mimicing the input DEM file structure. 
+
+### Changes
+
+- `config/params_template.env`: updated the `thalweg_lateral_elev_threshold` parameter from 3 meters to 10 meters. This is the max elevation difference allowed in the lateral thalweg search algorithm. This was increased to 10m to allow more flexibility in detecting the terrain-defined thalweg since we've now filled in many of the deep/artificial pits that previously caused issued with the thalweg elevation.
+- `config/deny_unit.lst`: updated dem tif file names
+- `src/bash_variables.env`: added in the new input file variables for the pit_filled vrt files
+- `src/run_huc.sh`: added new logic to merge the original input DEM and the pit-filled elevation DEM.
 <br/>
 
 ## v4.9.14.0 - 2026-05-13 - [PR#1805](https://github.com/NOAA-OWP/inundation-mapping/pull/1805)

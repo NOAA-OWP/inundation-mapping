@@ -28,6 +28,7 @@ if [ $huc2Identifier -eq 19 ]; then
     huc_CRS=$ALASKA_CRS
     huc_input_DEM_domain=$input_DEM_domain_Alaska
     input_DEM=$input_DEM_Alaska
+    input_pit_fill=$input_DEM_pit_fills_Alaska
     dem_domain_filename=DEM_Domain.gpkg
     input_bridge_elev_diff=$input_bridge_elev_diff_alaska
 
@@ -35,6 +36,7 @@ elif [ $hucNumber -eq 22010000 ]; then
     huc_CRS=$GUAM_CRS
     huc_input_DEM_domain=$input_DEM_domain_Guam
     input_DEM=$input_DEM_Guam
+    input_pit_fill=$input_DEM_pit_fills_Guam
     dem_domain_filename=DEM_Domain.gpkg
     input_bridge_elev_diff=$input_bridge_elev_diff_guam
 
@@ -42,6 +44,7 @@ elif [ $hucNumber -eq 22030001 ]; then
     huc_CRS=$AMERICAN_SAMOA_CRS
     huc_input_DEM_domain=$input_DEM_domain_AmericanSamoa
     input_DEM=$input_DEM_AmericanSamoa
+    input_pit_fill=$input_DEM_pit_fills_AmericanSamoa
     dem_domain_filename=DEM_Domain.gpkg
     input_bridge_elev_diff=$input_bridge_elev_diff_americansamoa
 
@@ -49,6 +52,7 @@ else
     huc_CRS=$DEFAULT_FIM_PROJECTION_CRS
     huc_input_DEM_domain=$input_DEM_domain
     input_DEM=$input_DEM
+    input_pit_fill=$input_DEM_pit_fills
     dem_domain_filename=HUC6_dem_domain.gpkg
     input_bridge_elev_diff=$input_bridge_elev_diff
 
@@ -162,16 +166,33 @@ mkdir -p $tempCurrentBranchDataDir
 ## CLIP RASTERS
 echo -e $startDiv"Clipping rasters to branches $hucNumber $branch_zero_id"
 # Note: don't need to use gdalwarp -cblend as we are using a buffered wbd
-[ ! -f $tempCurrentBranchDataDir/dem_meters.tif ] && {
+[ ! -f $tempCurrentBranchDataDir/dem_meters_orig.tif ] && {
 gdalwarp -cutline $tempHucDataDir/wbd_buffered.gpkg -crop_to_cutline -ot Float32 -r near -of "GTiff" \
     -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" \
-    -co "BIGTIFF=YES" -t_srs $huc_CRS -tr $res $res -tap $input_DEM $tempHucDataDir/dem_meters.tif
+    -co "BIGTIFF=YES" -t_srs $huc_CRS -tr $res $res -tap $input_DEM $tempHucDataDir/dem_meters_orig.tif
+# Clip the DEM pit filled rasters from the vrt
+gdalwarp -cutline $tempHucDataDir/wbd_buffered.gpkg -crop_to_cutline -ot Float32 -r near -of "GTiff" \
+    -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" \
+    -co "BIGTIFF=YES" -t_srs $huc_CRS -tr $res $res -tap $input_pit_fill $tempHucDataDir/dem_meters_pit_fill.tif
 
 # Clip the bridge elevation diff raster (DEM_diff). Used 'near' to make sure neighboring cells do not get any interpolated value
 gdalwarp -cutline $tempHucDataDir/wbd_buffered.gpkg -crop_to_cutline -ot Float32 -r near -of "GTiff" \
     -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" \
     -co "BIGTIFF=YES" -t_srs $huc_CRS -tr $res $res -tap $input_bridge_elev_diff $tempHucDataDir/bridge_elev_diff_meters.tif
 }
+
+## Combine Raw DEM with Pit Fill DEM (use pit fill elev)
+# The pit fill is listed second so it draws on top of the original DEM.
+gdalbuildvrt $tempHucDataDir/combined_dem.vrt \
+    $tempHucDataDir/dem_meters_orig.tif \
+    $tempHucDataDir/dem_meters_pit_fill.tif
+# Translate the VRT back into a compressed GeoTIFF
+gdal_translate -ot Float32 -of "GTiff" \
+    -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" \
+    $tempHucDataDir/combined_dem.vrt \
+    $tempHucDataDir/dem_meters.tif
+# Clean up the temporary VRT file
+rm $tempHucDataDir/combined_dem.vrt
 
 ## GET RASTER METADATA
 echo -e $startDiv"Get DEM Metadata $hucNumber $branch_zero_id"
