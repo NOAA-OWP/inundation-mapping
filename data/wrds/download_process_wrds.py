@@ -52,7 +52,7 @@ def label_data_file(label, lst_hucs):
     # Add a leading underscore to the label if it's not empty
     label = f'_{label}' if label != '' else label
 
-    date_formatted = datetime.now().strftime('%y%m%d')
+    date_formatted = datetime.now().strftime('%Y%m%d')
 
     label_with_date = f'{label}{subset}_{date_formatted}'
 
