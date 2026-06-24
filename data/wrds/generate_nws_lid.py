@@ -40,7 +40,8 @@ def __validate_inputs(env_file, workspace, keep_blank_nwm):
     if not os.path.exists(workspace):
         raise Exception(f'Workspace filepath does not exist. Check workspace input filepath: {workspace}')
 
-    out_filepath = os.path.join(workspace, 'nws_lid.gpkg')
+    today = datetime.now().strftime('%y%m%d')
+    out_filepath = os.path.join(workspace, f'nws_lid_{today}.gpkg')
 
     # Make sure this val is a true boolean
     keep_blank_nwm = bool(keep_blank_nwm)
