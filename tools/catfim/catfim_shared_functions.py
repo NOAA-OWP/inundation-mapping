@@ -280,9 +280,12 @@ def load_restricted_sites(catfim_type):
 
     df_restricted_sites = pd.read_csv(file_path, dtype=str)
 
-    df_restricted_sites['nws_lid'].fillna("", inplace=True)
-    df_restricted_sites['restricted_reason'].fillna("", inplace=True)
-    df_restricted_sites['catfim_type'].fillna("", inplace=True)
+    # df_restricted_sites['nws_lid'].fillna("", inplace=True)
+    # df_restricted_sites['restricted_reason'].fillna("", inplace=True)
+    # df_restricted_sites['catfim_type'].fillna("", inplace=True)
+    df_restricted_sites['nws_lid'] = df_restricted_sites['catfim_type'].fillna("")
+    df_restricted_sites['restricted_reason'] = df_restricted_sites['catfim_type'].fillna("")
+    df_restricted_sites['catfim_type'] = df_restricted_sites['catfim_type'].fillna("")
 
     # Remove extra empty spaces on either side of all cellls
     df_restricted_sites['nws_lid'] = df_restricted_sites['nws_lid'].str.strip()
@@ -511,9 +514,9 @@ def finalize_sites_mapping_status(
 
     # Once sites_gdf has been created, check that it has stuff in it
     if len(sites_gdf) == 0:
-        msg = f"{huc_function_tag} Unable to finalize HUC, sites_gdf is empty."
-        logging.error(msg)
-        raise Exception(msg)
+        msg = f"{huc_function_tag} Unable to finalize sites mapping status, sites_gdf is empty."
+        logging.warning(msg)
+        return
 
     # ------------------------------------
     # Update mapping status in sites_gdf (the only sites that should be updated here are the unmapped sites,
