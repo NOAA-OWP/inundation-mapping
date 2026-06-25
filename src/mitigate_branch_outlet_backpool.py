@@ -404,7 +404,9 @@ def mitigate_branch_outlet_backpool(
 
                     # --------------------------------------------------------------
                     # Calculate the slope and length of the newly trimmed flows
-                    output_flows, new_length_km = calculate_length_and_slope(trimmed_flows, dem_filename, slope_min)
+                    output_flows, new_length_km = calculate_length_and_slope(
+                        trimmed_flows, dem_filename, slope_min
+                    )
 
                     # --------------------------------------------------------------
                     # Polygonize pixel catchments using subprocess

@@ -313,7 +313,9 @@ def split_flows(
                 # Calculate channel slope
                 start_point = line_points[0]
                 end_point = line_points[-1]
-                start_elev, end_elev = [i[0] for i in rasterio.sample.sample_gen(dem, [start_point, end_point])]
+                start_elev, end_elev = [
+                    i[0] for i in rasterio.sample.sample_gen(dem, [start_point, end_point])
+                ]
                 slope = float(abs(start_elev - end_elev) / lineString.length)
                 if slope < slope_min:
                     slope = slope_min

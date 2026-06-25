@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
 import argparse
+from contextlib import nullcontext
 
 import geopandas as gpd
 import numpy as np
 import rasterio
-from contextlib import nullcontext
 from shapely.geometry import Point
 
 from utils.shared_functions import getDriver
