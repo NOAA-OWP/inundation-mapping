@@ -127,7 +127,7 @@ fi
 
 ## D8 FLOW DIR - BRANCHES (NOT 0) (NWM levelpath streams) ##
 echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber $current_branch_id"
-python3 $srcDir/run_taudem_d8flowdir.py \
+python3 $srcDir/run_taudem_subprocess.py d8flowdir \
     -n $ncores_fd \
     -t $taudemDir2 \
     -fel $tempCurrentBranchDataDir/dem_burned_filled_$current_branch_id.tif \
