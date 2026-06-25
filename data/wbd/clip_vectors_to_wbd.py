@@ -163,7 +163,6 @@ def subset_vector_layers(
         nwm_streams = os.getenv('input_nwm_flows_Alaska')
         nwm_headwaters = os.getenv('input_nwm_headwaters_Alaska')
         levee_protected_areas = os.getenv('input_nld_levee_protected_areas_Alaska')
-        osm_bridges = os.getenv('osm_bridges_alaska')
         osm_roads = os.getenv('osm_roads_alaska')
         huc_CRS = os.getenv('ALASKA_CRS')
         input_LANDSEA = os.getenv('input_landsea_Alaska')
@@ -175,7 +174,6 @@ def subset_vector_layers(
         nwm_streams = os.getenv('input_nhd_flows_Guam')
         nwm_headwaters = os.getenv('input_nhd_headwaters_Guam')
         levee_protected_areas = os.getenv('input_nld_levee_protected_areas_Guam')
-        osm_bridges = os.getenv('osm_bridges_guam')
         osm_roads = os.getenv('osm_roads_guam')
         huc_CRS = os.getenv('GUAM_CRS')
         input_LANDSEA = os.getenv('input_landsea_Guam')
@@ -187,7 +185,6 @@ def subset_vector_layers(
         nwm_streams = os.getenv('input_nhd_flows_AmericanSamoa')
         nwm_headwaters = os.getenv('input_nhd_headwaters_AmericanSamoa')
         levee_protected_areas = os.getenv('input_nld_levee_protected_areas_AmericanSamoa')
-        osm_bridges = os.getenv('osm_bridges_americansamoa')
         osm_roads = os.getenv('osm_roads_americansamoa')
         huc_CRS = os.getenv('AMERICAN_SAMOA_CRS')
         input_LANDSEA = os.getenv('input_landsea_AmericanSamoa')
@@ -199,7 +196,6 @@ def subset_vector_layers(
         nwm_streams = os.getenv('input_nwm_flows')
         nwm_headwaters = os.getenv('input_nwm_headwaters')
         levee_protected_areas = os.getenv('input_nld_levee_protected_areas')
-        osm_bridges = os.getenv('osm_bridges')
         osm_roads = os.getenv('osm_roads')
         huc_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
 
@@ -207,6 +203,8 @@ def subset_vector_layers(
             input_LANDSEA = os.getenv('input_GL_boundaries')
         else:
             input_LANDSEA = os.getenv('input_landsea')
+
+    osm_bridges_modified_dir = os.getenv('osm_bridges_modified_dir')
 
     # read wbd and wbd_buffered that are needed for clipping
     wbd = gpd.read_file(os.path.join(huc_directory, wbd_filename))
@@ -341,24 +339,20 @@ def subset_vector_layers(
         else:
             logging.warning(f"Missing file: osm_bridges for {huc} not found at {src}.")
     else:
-        # Subset OSM (Open Street Map) bridges
-        logging.info(f"Clipping OSM Bridges for {huc}")
-        if os.path.exists(osm_bridges):
-            logging.info(f"Using osm_bridges source for {huc}: {osm_bridges}")
-            subset_osm_bridges_gdb = gpd.read_file(osm_bridges, mask=wbd_buffer, engine="fiona")
-            if subset_osm_bridges_gdb.empty:
-                print("-- No applicable bridges for this HUC")
-                logging.info("-- No applicable bridges for this HUC")
-            else:
-                subset_osm_bridges_gdb.to_file(
-                    os.path.join(huc_directory, output_filenames['osm_bridges']),
-                    driver='GPKG',
-                    index=False,
-                    crs=huc_CRS,
-                    engine="fiona",
-                )
+        # Bridge modified files are already HUC-level, so stage them directly.
+        dst = os.path.join(huc_directory, output_filenames['osm_bridges'])
 
-            del subset_osm_bridges_gdb
+        if not osm_bridges_modified_dir:
+            logging.warning(
+                "Missing osm_bridges_modified_dir environment variable; osm_bridges not transferred."
+            )
+        else:
+            src = os.path.join(osm_bridges_modified_dir, f'huc_{huc}_osm_bridges_modified.gpkg')
+            if os.path.exists(src):
+                logging.info(f"Transferring recently pulled osm_bridges for {huc} from {src}.")
+                shutil.copy2(src, dst)
+            else:
+                logging.warning(f"Missing file: recently pulled osm_bridges for {huc} not found at {src}.")
 
     if not preclipping_flags['osm_roads']:
         src = os.path.join(copy_from_dir, huc, output_filenames['osm_roads'])
