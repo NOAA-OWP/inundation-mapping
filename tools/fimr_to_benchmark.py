@@ -97,7 +97,7 @@ def fimr_to_benchmark(fimr_path, output_path):
     select_by = 'usgs_site_code'
     selector = [first_gage]  # change to usgs location id from fimr dataframe
     must_include = 'usgs_data.active'
-    metadata_list, metadata_df = get_metadata(
+    metadata_list, metadata_df, err_msg = get_metadata(
         metadata_url,
         select_by,
         selector,

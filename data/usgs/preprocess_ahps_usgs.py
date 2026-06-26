@@ -187,7 +187,7 @@ def preprocess_usgs(source_dir, destination, reference_raster):
         # Get metadata of site and search for NWM segments x miles upstream/x miles downstream
         select_by = 'nws_lid'
         selector = [code]
-        metadata_list, metadata_df = get_metadata(
+        metadata_list, metadata_df, err_msg = get_metadata(
             metadata_url,
             select_by,
             selector,
@@ -285,7 +285,7 @@ def preprocess_usgs(source_dir, destination, reference_raster):
         # Adjust datum to NAVD88 if needed (Assumes that if vcs not NGVD29 or NGVD 1929 it is in NAVD88)
         if datum_data.get('vcs') in ['NGVD29', 'NGVD 1929']:
             # Get the datum adjustment to convert NGVD to NAVD.
-            datum_adj_ft = ngvd_to_navd_ft(datum_info=datum_data)
+            datum_adj_ft, __ = ngvd_to_navd_ft(datum_info=datum_data)
             datum88 = round(datum + datum_adj_ft, 2)
         else:
             datum88 = datum
