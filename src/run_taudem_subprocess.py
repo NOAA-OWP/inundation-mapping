@@ -310,7 +310,11 @@ def run_catchhydrogeo(taudem_dir, hand_path, catch_path, catchlist_path, slp_pat
         sys.exit(1)
 
 
-if __name__ == "__main__":
+def main():
+    """
+    Main CLI entry point for TauDEM subprocess wrapper.
+    Parses command-line arguments and routes to the appropriate TauDEM function.
+    """
     parser = argparse.ArgumentParser(
         description="Run TauDEM tools (d8flowdir, flowdircond, streamnet, gagewatershed, or catchhydrogeo)"
     )
@@ -420,3 +424,7 @@ if __name__ == "__main__":
         )
     else:
         parser.print_help()
+
+
+if __name__ == "__main__":
+    main()
