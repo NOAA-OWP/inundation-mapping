@@ -6,7 +6,8 @@ import random
 import re
 import sys
 import traceback
-from concurrent.futures import ProcessPoolExecutor
+import warnings
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import datetime
 from functools import partial
 from os.path import join
@@ -18,14 +19,25 @@ import pandas as pd
 from run_test_case_mannN_optz_func import (
     alpha_test,
     correct_nonmonotonic_src,
-    filter_longitudinal_discharge_jitters,
     list_all_test_cases,
+    src_bankfull_lookup,
+    subdiv_geometry,
+    subdiv_mannings_eq,
 )
 from scipy.optimize import NonlinearConstraint, differential_evolution, minimize
 from tools_shared_variables import MAGNITUDE_DICT, TEST_CASES_DIR
 
 
 AHPS_BENCHMARK_CATEGORIES = ["usgs", "nws"]
+
+
+# *********************************************************
+warnings.filterwarnings(
+    "ignore",
+    message="DataFrameGroupBy.apply operated on the grouping columns",
+    category=FutureWarning,
+    module="gval.comparison.compute_categorical_metrics",
+)
 
 
 # *********************************************************
@@ -49,62 +61,55 @@ def initialize_mannN(fim_dir, huc, mannN_file):
     mannN_df = mannN_data_df_huc.drop_duplicates(subset=['feature_id'], keep='first')
     mannN_df.index = range(len(mannN_df))
     mannN_df = mannN_df.drop(columns=['ID', 'order_'])
-    mannN_df = mannN_df.rename(columns={'channel_n': 'ManningN'})
+    mannN_df = mannN_df.rename(columns={'channel_n': 'MannN_channel'})  # 'ManningN'})
     mannN_df = mannN_df.rename(columns={'overbank_n': 'MannN_obank'})
 
-    initial_mannN_df = mannN_df[['feature_id', 'ManningN', 'MannN_obank']]
+    initial_mannN_df = mannN_df[['feature_id', 'MannN_channel', 'MannN_obank']]
 
     return initial_mannN_df
 
 
 # *********************************************************
 def read_initial_hydroTables(fim_dir, huc):
-
     huc_dir = join(fim_dir, huc)
-    # Get hydro_table and src_full from each branch
-    ht_all_branches_path = []
-    src_all_branches_path = []
-    branches = os.listdir(join(huc_dir, 'branches'))
-    for branch in branches:
-        # if int(branch) > 0:
-        ht_full = join(huc_dir, 'branches', str(branch), f'hydroTable_{branch}.csv')
-        if os.path.isfile(ht_full):
-            ht_all_branches_path.append(ht_full)
-        src_full = join(huc_dir, 'branches', str(branch), f'src_full_crosswalked_{branch}.csv')
+    branches_dir = join(huc_dir, 'branches')
 
-        if os.path.isfile(src_full):
-            src_all_branches_path.append(src_full)
+    if not os.path.isdir(branches_dir):
+        raise FileNotFoundError(f"Branches directory does not exist: {branches_dir}")
 
     initial_hydroTables_ls = []
-    for pth in range(len(src_all_branches_path)):  # ht_path in ht_all_branches_path:
-        ht_name = os.path.basename(ht_all_branches_path[pth])
-        branch = ht_name.split(".")[0].split("_")[-1]
-        ht_df_ini = pd.read_csv(ht_all_branches_path[pth], dtype={'feature_id': 'int64'}, low_memory=False)
+
+    branches = sorted(
+        os.listdir(branches_dir),
+        key=lambda branch: (0, int(branch)) if str(branch).isdigit() else (1, str(branch)),
+    )
+
+    for branch in branches:
+        branch_dir = join(branches_dir, str(branch))
+
+        if not os.path.isdir(branch_dir):
+            continue
+
+        ht_full = join(branch_dir, f'hydroTable_{branch}.csv')  # src_full_crosswalked
+
+        if not os.path.isfile(ht_full):
+            continue
+
+        ht_df_ini = pd.read_csv(ht_full, dtype={'feature_id': 'int64'}, low_memory=False)
         ht_df_ini["branch_id"] = branch
 
-        src_df = pd.read_csv(src_all_branches_path[pth], dtype={'feature_id': 'int64'}, low_memory=False)
-        src_geo_df = src_df[
-            [
-                'WetArea_chan (m2)',
-                'HydraulicRadius_chan (m)',
-                'WetArea_obank (m2)',
-                'HydraulicRadius_obank (m)',
-                'bankfull_proxy',
-            ]
-        ]
+        initial_hydroTables_ls.append(ht_df_ini)
 
-        ht_df = pd.concat([ht_df_ini, src_geo_df], axis=1)
-        ht_df['branch'] = branch
-        initial_hydroTables_ls.append(ht_df)
+    if not initial_hydroTables_ls:
+        raise ValueError(f"No hydroTables found for HUC {huc} in {branches_dir}")
 
     return initial_hydroTables_ls
 
 
 # *********************************************************
-def recalculate_Q_with_mannN_and_update_hydroTables_ls(
-    hydroTables_ls, mannN_ch_values, mannN_ob_values, feature_ids, fim_dir
+def recalculate_Q_with_newMannN_and_update_hydroTables_ls(
+    hydroTables_ls, mannN_ch_values, mannN_ob_values, feature_ids, df_bflows, huc
 ):
-
     updated_hydroTables_ls = []
     for ht_df in hydroTables_ls:
         if 'manningN_ch_optz' in ht_df.columns:
@@ -116,11 +121,42 @@ def recalculate_Q_with_mannN_and_update_hydroTables_ls(
                     'optzN_on',
                     'overbank_n',
                     'channel_n',
-                    'discharge_cms',
+                    # 'discharge_cms',
+                    ## Bankfull columns
+                    # 'HydroID',
+                    'bankfull_flow',
+                    'Stage_bankfull',
+                    'bankfull_proxy',
+                    'BedArea_bankfull',
+                    'Volume_bankfull',
+                    'HRadius_bankfull',
+                    'SurfArea_bankfull',
+                    ## Subdivision columns
+                    'subdiv_applied',
+                    'Discharge (m3s-1)_subdiv',
+                    'Volume_chan (m3)',
+                    'Volume_obank (m3)',
+                    'BedArea_chan (m2)',
+                    'BedArea_obank (m2)',
+                    'WettedPerimeter_chan (m)',
+                    'WettedPerimeter_obank (m)',
                 ],
                 axis=1,
+                errors='ignore',
             )
 
+        # Calculate bankfull columns
+        branch_id = int(ht_df["branch_id"].iloc[0])
+        ht_df = src_bankfull_lookup(
+            ht_df, df_bflows, huc, branch_id  # df_src src_full_filename,  # bankfull_flow_filepath
+        )
+
+        # Calculate subdiv geometry variables
+        ht_df = subdiv_geometry(ht_df)
+
+        ## Merge (crosswalk) the df of Manning's n with the SRC df
+        ## (using the channel/fplain delination in the 'Stage_bankfull')
+        # df_src = df_src.merge(df_mann, how='left', on='feature_id')
         # Create a temporary dataframe with updated ManningN values
         temp_mannN_df = pd.DataFrame(
             {
@@ -133,30 +169,28 @@ def recalculate_Q_with_mannN_and_update_hydroTables_ls(
         # Merge the updated ManningN values
         ht_df = ht_df.merge(temp_mannN_df, how='left', on='feature_id')
 
-        # Calculations of channel and overbank discharges
-        Q_ch = (
-            ht_df['WetArea_chan (m2)']
-            * pow(ht_df['HydraulicRadius_chan (m)'], 2.0 / 3)
-            * pow(ht_df['SLOPE'], 0.5)
-            / ht_df['manningN_ch_optz']
-        )
-        Q_ob = (
-            ht_df['WetArea_obank (m2)']
-            * pow(ht_df['HydraulicRadius_obank (m)'], 2.0 / 3)
-            * pow(ht_df['SLOPE'], 0.5)
-            / ht_df['manningN_ob_optz']
-        )
-        ht_df['Discharge(cms)_optzN'] = Q_ob + Q_ch
+        ## Check if there are any missing data in the 'Stage_bankfull' column
+        ## (these are locations where subdiv will not be applied)
+        ht_df['subdiv_applied'] = np.where(
+            ht_df['Stage_bankfull'].isnull(), False, True
+        )  # create field to identify where vmann is applied (True=yes; False=no)
 
+        ## Calculate Manning's equation discharge for channel, overbank, and total
+        ht_df = subdiv_mannings_eq(ht_df)
+
+        ## Use the default discharge column when vmann is not being applied
+        ht_df['Discharge (m3s-1)_subdiv'] = np.where(
+            ht_df['subdiv_applied'] == False, ht_df['discharge_cms'], ht_df['Discharge (m3s-1)_subdiv']
+        )  # reset the discharge value back to the original if vmann=false
         ht_df['optzN_on'] = True
-        ht_df['discharge_cms'] = ht_df['Discharge(cms)_optzN']
+        ht_df['Discharge(cms)_optzN'] = ht_df['Discharge (m3s-1)_subdiv']
+        ht_df['discharge_cms'] = ht_df['Discharge (m3s-1)_subdiv']
         ht_df['channel_n'] = ht_df['manningN_ch_optz']
         ht_df['overbank_n'] = ht_df['manningN_ob_optz']
 
         ht_df1 = correct_nonmonotonic_src(ht_df)
-        ht_df2 = filter_longitudinal_discharge_jitters(fim_dir, ht_df1)
 
-        updated_hydroTables_ls.append(ht_df2)
+        updated_hydroTables_ls.append(ht_df1)
 
     return updated_hydroTables_ls
 
@@ -177,7 +211,7 @@ def reformat_hydroTable_for_alpha_test(hydroTables_ls):
     }
     hydroTable_all = hydroTables_df[htable_req_cols]
     hydroTable_all = hydroTable_all.astype(data_types)
-    hydroTable_all.set_index(["HUC", "feature_id", "HydroID"], inplace=True)
+    hydroTable_all = hydroTable_all.set_index(["HUC", "feature_id", "HydroID"])
 
     return hydroTable_all
 
@@ -305,8 +339,6 @@ def create_master_metrics_df(fim_version, huc):
                                         full_json_path = os.path.join(magnitude_dir, f)
                                         if os.path.exists(full_json_path):
                                             stats_dict = json.load(open(full_json_path))
-                                            # print("checking if it does solve the json just for 1 huc or not")
-                                            # print(stats_dict)
 
                                             for metric in metrics_to_write:
                                                 sub_list_to_append.append(stats_dict[metric])
@@ -432,7 +464,6 @@ def synthesize_test_cases(huc, fim_version, hydroTable_all, job_number_branch, b
         benchmark_categories=benchmark_category,  # [benchmark_category]
         output_dir=output_dir,
     )
-    # print(hydroTable_all)
     model = "GMS"
     # job_number_huc = 1
     overwrite = True
@@ -453,40 +484,7 @@ def synthesize_test_cases(huc, fim_version, hydroTable_all, job_number_branch, b
                 verbose=verbose,
                 gms_workers=job_number_branch,
             )
-    # job_number_branch = 6
-    # Set up multiprocessor
-    # with ProcessPoolExecutor(max_workers=1) as executor:  # job_number_huc
-    #     # Loop through all test cases,
-    #     # build the alpha test arguments,
-    #     # and submit them to the process pool
-    #     executor_dict = {}
-    #     for test_case_class in all_test_cases:
-    #         if test_case_class is not None:
-    #             if not os.path.exists(test_case_class['fim_dir']):
-    #                 continue
-    #             alpha_test_args = {
-    #                 'test_case_dic': test_case_class,
-    #                 'hydroTable_all': hydroTable_all,
-    #                 'calibrated': calibrated,
-    #                 'model': model,
-    #                 'mask_type': 'huc',
-    #                 'overwrite': overwrite,
-    #                 'verbose': verbose,
-    #                 'gms_workers': job_number_branch,
-    #             }
-    #             try:
-    #                 future = executor.submit(alpha_test, **alpha_test_args)
 
-    #                 executor_dict[future] = test_case_class['test_id']
-    #             except Exception as ex:
-    #                 print(f"*** {ex}")
-    #                 traceback.print_exc()
-    #                 sys.exit(1)
-
-    # # Send the executor to the progress bar and wait for all MS tasks to finish
-    # progress_bar_handler(
-    #     executor_dict, True, f"Running {model} alpha test cases with {job_number_huc} workers"
-    # )
     metrics_df = create_master_metrics_df(fim_version, huc)
 
     print("=" * 40)
@@ -500,6 +498,28 @@ def synthesize_test_cases(huc, fim_version, hydroTable_all, job_number_branch, b
     time_duration = end_time - start_time
     print(f"Duration: {str(time_duration).split('.')[0]}")
     print()
+
+    return metrics_df
+
+
+# *********************************************************
+def validate_metrics_df(metrics_df, huc, iteration, bench_cat):
+    if metrics_df.empty:
+        raise ValueError(f"No metrics were produced for HUC {huc}, iteration {iteration[0]}")
+
+    required_cols = ['false_negatives_count', 'false_positives_count']
+
+    if bench_cat != 'ahps':
+        required_cols.append('magnitude')
+
+    missing_cols = [col for col in required_cols if col not in metrics_df.columns]
+    if missing_cols:
+        raise ValueError(
+            f"Metrics for HUC {huc}, iteration {iteration[0]} are missing columns: {missing_cols}"
+        )
+
+    metrics_df['false_negatives_count'] = pd.to_numeric(metrics_df['false_negatives_count'], errors='raise')
+    metrics_df['false_positives_count'] = pd.to_numeric(metrics_df['false_positives_count'], errors='raise')
 
     return metrics_df
 
@@ -527,6 +547,7 @@ class EarlyStopper:
 def objective_function(
     mannN_coef,
     feature_ids,
+    df_bflows,
     initial_hydroTables_ls,
     fim_version,
     huc,
@@ -535,6 +556,7 @@ def objective_function(
     iteration,
     job_number_branch,
     bench_cat,
+    run_id,
 ):
     mannN_ch_coef = mannN_coef[0]
     mannN_ob_coef = mannN_coef[1]
@@ -549,44 +571,52 @@ def objective_function(
     mannN_ob_values_ini.fill(0.120)
     mannN_ob_values = mannN_ob_values_ini * mannN_ob_coef
 
-    updated_hydroTables_ls = recalculate_Q_with_mannN_and_update_hydroTables_ls(
-        initial_hydroTables_ls, mannN_ch_values, mannN_ob_values, feature_ids, fim_dir
+    updated_hydroTables_ls = recalculate_Q_with_newMannN_and_update_hydroTables_ls(
+        initial_hydroTables_ls, mannN_ch_values, mannN_ob_values, feature_ids, df_bflows, huc
+    )
+    print(
+        f"current median discharge for the first branch: {np.median(updated_hydroTables_ls[0]['discharge_cms'])}"
     )
 
     hydroTable_all = reformat_hydroTable_for_alpha_test(updated_hydroTables_ls)
+
     output_dir = os.path.dirname(os.path.dirname(fim_dir))
 
     if bench_cat == 'ahps':
 
-        benchmark_cat = ['nws', 'usgs']  # ['ble', 'nws', 'usgs']
+        benchmark_cat = ['nws', 'usgs']
         metrics_df = synthesize_test_cases(
             huc, fim_version, hydroTable_all, job_number_branch, benchmark_cat, output_dir
         )
+        metrics_df = validate_metrics_df(metrics_df, huc, iteration, bench_cat)
 
         # AHPS sites
         fn_count_all = np.sum(metrics_df['false_negatives_count'])
         fp_count_all = np.sum(metrics_df['false_positives_count'])
         loss_mannN = fn_count_all + fp_count_all
+
     else:
         # BLE sites/ ras sites
-        benchmark_cat = ['ble']  # ['ble', 'nws', 'usgs']
+        benchmark_cat = ['ble']
         metrics_df = synthesize_test_cases(
             huc, fim_version, hydroTable_all, job_number_branch, benchmark_cat, output_dir
         )
-        fn_count_100 = metrics_df['false_negatives_count'][metrics_df['magnitude'] == '100yr']
-        fp_count_100 = metrics_df['false_positives_count'][metrics_df['magnitude'] == '100yr']
-        loss_mannN = fn_count_100[1] + fp_count_100[1]
+        metrics_df = validate_metrics_df(metrics_df, huc, iteration, bench_cat)
 
-    # benchmark_cat = ['nws', 'usgs']  # ['ble', 'nws', 'usgs']
-    # metrics_df = synthesize_test_cases(huc, fim_version, hydroTable_all, job_number_branch, benchmark_cat, output_dir)
-    # # AHPS sites
-    # fn_count_all = np.sum(metrics_df['false_negatives_count'])
-    # fp_count_all = np.sum(metrics_df['false_positives_count'])
-    # loss_mannN = fn_count_all + fp_count_all
+        metrics_100yr = metrics_df.loc[metrics_df['magnitude'] == '100yr']
+
+        if metrics_100yr.empty:
+            raise ValueError(f"No 100yr BLE metrics found for HUC {huc}")
+
+        fn_count_100 = pd.to_numeric(metrics_100yr['false_negatives_count'], errors='raise').sum()
+        fp_count_100 = pd.to_numeric(metrics_100yr['false_positives_count'], errors='raise').sum()
+
+        loss_mannN = fn_count_100 + fp_count_100
 
     print(f'Current loss: {loss_mannN}')
     print("")
 
+    metrics_df['run_id'] = run_id
     metrics_df['iteration'] = iteration[0]  # *len(metrics_df)
     metrics_df['total_loss'] = loss_mannN
     metrics_df['mannN_ch_coef'] = mannN_coef[0]
@@ -603,7 +633,7 @@ def objective_function(
         metrics_df.to_csv(metrics_csv_path, index=False)
     else:
         existing_metrix_df = pd.read_csv(metrics_csv_path)
-        combined_df = pd.concat([existing_metrix_df, metrics_df])
+        combined_df = pd.concat([existing_metrix_df, metrics_df], ignore_index=True)
         combined_df.to_csv(metrics_csv_path, index=False)
 
     iteration[0] += 1
@@ -645,14 +675,19 @@ def partial_optimization_huc(
         fim_version = os.path.basename(os.path.normpath(fim_dir))
         initial_hydroTables_ls = read_initial_hydroTables(fim_dir, huc)
 
-        bounds = [(0.1, 3.0), (0.15, 2.0)]
+        bankfull_flows_file = 'inputs/rating_curve/bankfull_flows/nwm3_high_water_threshold_cms.csv'
+        df_bflows = pd.read_csv(bankfull_flows_file, dtype={'feature_id': int})
+
+        bounds = [(0.1, 2.0), (0.15, 1.7)]
 
         iteration = [0]  # Use a list to allow modification inside the callback function
 
+        run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
         # Create a partial function for the objective function with fixed arguments
         obj_func_partial = partial(
             objective_function,
             feature_ids=feature_ids,
+            df_bflows=df_bflows,
             initial_hydroTables_ls=initial_hydroTables_ls,
             fim_version=fim_version,
             huc=huc,
@@ -661,13 +696,14 @@ def partial_optimization_huc(
             iteration=iteration,
             job_number_branch=job_number_branch,
             bench_cat=bench_cat,
+            run_id=run_id,
         )
 
         cons = NonlinearConstraint(constraint1, 0, np.inf)
 
-        initial_population = [
+        initial_population = [  # Your original guess
             [1.0, 1.0],
-            [0.4, 0.7],  # Your original guess
+            [0.4, 0.7],
             [0.9, 0.9],
             [1.0, 0.5],
             [1.0, 1.5],
@@ -675,16 +711,12 @@ def partial_optimization_huc(
             [0.5, 1.5],
             [0.5, 1.0],
             [0.5, 0.5],
-            [1.0, 1.9],
-            [1.9, 1.0],
-            [0.2, 1.9],
             [0.2, 1.0],
             [0.2, 0.2],
             [0.16, 0.5],
             [0.16, 1.0],
             [0.16, 0.8],
-            # [1.0, 0.9], [1.0, 1.1], [1.1, 0.9], [1.1, 1.0], [1.1, 1.1],
-            # [0.9, 1.1], [0.9, 1.0], [1.5, 1.5], [1.9, 1.9],
+            [0.16, 1.5],
         ]
 
         # Fill the rest of the population with random values
@@ -761,17 +793,42 @@ def multi_process_optimization(
     bench_cat,
 ):
     start_time = datetime.now()
-    dt_string = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
+    dt_string = start_time.strftime("%m/%d/%Y %H:%M:%S")
     print(f"MannN optimization started: {dt_string}")
     print()
 
-    fim_hucs = [h for h in os.listdir(fim_dir) if re.match(r'\d{8}', h)]
+    if not os.path.isdir(fim_dir):
+        raise FileNotFoundError(f"FIM directory does not exist: {fim_dir}")
 
-    with ProcessPoolExecutor(max_workers=int(job_number_huc)) as executor:
-        # Loop through all test cases,
-        # build the alpha test arguments,
-        # and submit them to the process pool
-        executor_dict = {}
+    fim_hucs = sorted(
+        h
+        for h in os.listdir(fim_dir)
+        if re.fullmatch(r'\d{8}', h) and os.path.isdir(os.path.join(fim_dir, h))
+    )
+
+    if not fim_hucs:
+        raise ValueError(f"No HUC8 directories found in {fim_dir}")
+
+    try:
+        max_huc_workers = int(job_number_huc)
+    except ValueError as exc:
+        raise ValueError(f"job_number_huc must be an integer. Got: {job_number_huc}") from exc
+
+    if max_huc_workers < 1:
+        raise ValueError(f"job_number_huc must be >= 1. Got: {job_number_huc}")
+
+    max_huc_workers = min(max_huc_workers, len(fim_hucs))
+
+    print(f"Found {len(fim_hucs)} HUCs to process")
+    print(f"Using {max_huc_workers} HUC worker(s)")
+    print(f"Using {job_number_branch} branch worker(s) per HUC")
+    print()
+
+    failed_hucs = []
+
+    with ProcessPoolExecutor(max_workers=max_huc_workers) as executor:
+        future_to_huc = {}
+
         for huc in fim_hucs:
             par_optimization_args = {
                 'fim_dir': fim_dir,
@@ -780,22 +837,33 @@ def multi_process_optimization(
                 'job_number_branch': job_number_branch,
                 'bench_cat': bench_cat,
             }
+
+            future = executor.submit(partial_optimization_huc, **par_optimization_args)
+            future_to_huc[future] = huc
+
+        for future in as_completed(future_to_huc):
+            huc = future_to_huc[future]
+
             try:
-                future = executor.submit(partial_optimization_huc, **par_optimization_args)
-                executor_dict[future] = huc
+                future.result()
+                print(f"Finished MannN optimization for HUC {huc}")
             except Exception as ex:
-                print(f"*** {ex}")
+                failed_hucs.append(huc)
+                print(f"Failed MannN optimization for HUC {huc}: {ex}")
                 traceback.print_exc()
-                sys.exit(1)
 
     end_time = datetime.now()
-    dt_string = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
+    dt_string = end_time.strftime("%m/%d/%Y %H:%M:%S")
+    print()
     print(f"MannN optimization ended: {dt_string}")
 
-    # Calculate duration
     time_duration = end_time - start_time
     print(f"Duration: {str(time_duration).split('.')[0]}")
     print()
+
+    if failed_hucs:
+        failed_hucs_str = ", ".join(failed_hucs)
+        raise RuntimeError(f"MannN optimization failed for {len(failed_hucs)} HUC(s): {failed_hucs_str}")
 
 
 # *********************************************************
