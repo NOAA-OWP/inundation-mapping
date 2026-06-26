@@ -29,7 +29,7 @@ if [ $huc2Identifier -eq 19 ]; then
     huc_input_DEM_domain=$input_DEM_domain_Alaska
     input_DEM=$input_DEM_Alaska
     input_pit_fill=$input_DEM_pit_fills_Alaska
-    dem_domain_filename=DEM_Domain.gpkg
+    # dem_domain_filename=DEM_Domain.parquet
     input_bridge_elev_diff=$input_bridge_elev_diff_alaska
 
 elif [ $hucNumber -eq 22010000 ]; then
@@ -37,7 +37,7 @@ elif [ $hucNumber -eq 22010000 ]; then
     huc_input_DEM_domain=$input_DEM_domain_Guam
     input_DEM=$input_DEM_Guam
     input_pit_fill=$input_DEM_pit_fills_Guam
-    dem_domain_filename=DEM_Domain.gpkg
+    # dem_domain_filename=DEM_Domain.parquet
     input_bridge_elev_diff=$input_bridge_elev_diff_guam
 
 elif [ $hucNumber -eq 22030001 ]; then
@@ -45,7 +45,7 @@ elif [ $hucNumber -eq 22030001 ]; then
     huc_input_DEM_domain=$input_DEM_domain_AmericanSamoa
     input_DEM=$input_DEM_AmericanSamoa
     input_pit_fill=$input_DEM_pit_fills_AmericanSamoa
-    dem_domain_filename=DEM_Domain.gpkg
+    # dem_domain_filename=DEM_Domain.parquet
     input_bridge_elev_diff=$input_bridge_elev_diff_americansamoa
 
 else
@@ -53,7 +53,7 @@ else
     huc_input_DEM_domain=$input_DEM_domain
     input_DEM=$input_DEM
     input_pit_fill=$input_DEM_pit_fills
-    dem_domain_filename=HUC6_dem_domain.gpkg
+    # dem_domain_filename=HUC6_dem_domain.parquet
     input_bridge_elev_diff=$input_bridge_elev_diff
 
 fi
