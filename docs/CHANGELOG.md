@@ -1,6 +1,18 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.x.x - 2026-06-26 - [PR#1870](https://github.com/NOAA-OWP/inundation-mapping/pull/1870)
+Updated the taudem shell execution to instead use python subprocess calls (refactoring only). This change allows for better error/warning handling. Resolves #1827 
+
+### Additions
+`src/run_taudem_subprocess.py`: new python script dedicated to running all taudem tool executions 
+
+### Changes
+`src/delineate_hydros_and_produce_HAND.sh`: updated taudem calls to use new python subprocess script; retained all input variables
+`src/run_by_branch.sh`: updated taudem call to use new python subprocess script; retained all input variables
+`src/run_huc.sh`: updated taudem call to use new python subprocess script; retained all input variables; retained all input variables
+<br/>
+
 ## v4.9.16.2 - 2026-06-18 - [PR#1855](https://github.com/NOAA-OWP/inundation-mapping/pull/1855)
 This PR closes issue #1788. 
 
