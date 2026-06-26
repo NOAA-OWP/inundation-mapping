@@ -28,6 +28,31 @@ Adds improved logging, datum correction, and error handling to the USGS curves r
  - `tools/test_case_by_hydro_id.py`: Updated docstring of `catchment_zonal_statistics()` function.
  - `tools/tools_shared_functions.py`: Fixed logging-related issues. New `rollup_log_files()` function (deprecated `concat_files()`). Code cleanup (commented out unused imports)
  - `tools/tools_shared_variables.py`: Added a WRDS metadata column type dictionary.
+## v4.9.17.0 - 2026-06-26 - [PR#1865](https://github.com/NOAA-OWP/inundation-mapping/pull/1865)
+
+Adds a script to convert from raster to vector, replicating `gdal_polygonize.py` but instead using Python in order to take advantage of geoparquet and avoid SQLite issues related to geopackages.
+
+The script is applied to acquiring DEMs (`data/usgs/acquire_and_preprocess_3dep_dems.py`).
+
+### Additions
+- `src/utils/polygonize_raster.py`: Converts raster to vector using Python
+
+### Changes
+- `data`
+    - `usgs/acquire_and_preprocess_3dep_dems.py`:  Also removed part of the repair feature so it no longer tests file sizes, only missing files. File size tests were no longer applicable once we moved from HUC6 to HUC8 CONUS DEMs.
+    - `usgs/pit_detect_file.py`:  add list sort and standardized duration footer.
+- `src/run_huc.sh`: removed code for unused variable of dem_domain_filename
+
+#### Convert DEM_Domain to geoparquet for the following files:
+- `config/deny_unit.lst`
+- `data/`
+    - `nhdplus/preprocess_nhdplus.py`
+    - `usgs/acquire_and_preprocess_3dep_dems.py`
+    - `wbd/`
+        - `generate_pre_clip_fim_huc8.py`
+        - `preprocess_wbd.py`
+
+<br/>
 
 ## v4.9.16.2 - 2026-06-18 - [PR#1855](https://github.com/NOAA-OWP/inundation-mapping/pull/1855)
 This PR closes issue #1788. 
