@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.9.x.x - 2026-06-17 - [PR#1865](https://github.com/NOAA-OWP/inundation-mapping/pull/1865)
+## v4.9.17.0 - 2026-06-26 - [PR#1865](https://github.com/NOAA-OWP/inundation-mapping/pull/1865)
 
 Adds a script to convert from raster to vector, replicating `gdal_polygonize.py` but instead using Python in order to take advantage of geoparquet and avoid SQLite issues related to geopackages.
 
