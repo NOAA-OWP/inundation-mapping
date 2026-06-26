@@ -25,6 +25,7 @@ def get_gcs_ensembles(
     aggregate_forecast_method: str = "max_to_forecast",
     days_ahead: int = 5,
     hours_ahead: int = 0,
+    gcs: gcsfs.GCSFileSystem = None,
 ):
     """
     Method to collect ensembles for NOMADS service
@@ -50,11 +51,12 @@ def get_gcs_ensembles(
         How many days in the future to use in aggregation
     hours_ahead: int, default = 0
         How many hours in addition to days to use in aggregation
-
-
+    gcs: gcsfs.GCSFileSystem = None
+        Google cloud storage file object
     """
 
-    gcs = gcsfs.GCSFileSystem()
+    if gcs is None:
+        gcs = gcsfs.GCSFileSystem()
 
     # National Blend of Models Forced Medium Range (6 successively older forecasts)
     if ens_type == "nbm":

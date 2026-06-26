@@ -376,8 +376,8 @@ def get_subdivided_src(
     df_src['WettedPerimeter_obank (m)'] = df_src['BedArea_obank (m2)'] / df_src['LENGTHKM'] / 1000
 
     # Subdivide Geometry ----------------------------------------------------------------------------------
-    df_src['channel_n'] = channel_manning
-    df_src['overbank_n'] = overbank_manning
+    df_src['channel_n'] = df_src['channel_n'] + channel_manning
+    df_src['overbank_n'] = df_src['overbank_n'] + overbank_manning
     df_src['subdiv_applied'] = ~df_src['Stage_bankfull'].isnull()  # creat
 
     # Subdivide Manning Eq --------------------------------------------------------------------------------
@@ -742,7 +742,7 @@ def progress_bar_handler(executor_dict, verbose, desc) -> list:
 
 
 def inundate_hucs(
-    ensembles: str,
+    ensembles: Union[str, xr.Dataset],
     parameters: str,
     hydrofabric_dir: str,
     outputs_dir: str,
@@ -765,10 +765,10 @@ def inundate_hucs(
 
     Parameters
     ----------
-    ensembles: str
-        Location of nws ensemble NetCDF file
-    parameters: str
-        Location of parameter parquet file
+    ensembles: Union[str, xr.Dataset]
+        Path or object for nws ensemble file
+    parameters: Union[str, pd.Datafra,e
+        Path or DataFrame of parameter parquet file
     hydrofabric_dir: str
         Directory with the hydrofabric directories
     outputs_dir: str
@@ -777,7 +777,7 @@ def inundate_hucs(
         HUCs to process probabilistic inundation for
     mosaic_prob_output_name: str
         Name of final mosaiced probabilistic FIM
-    posterior_dist: Optional[str], default = None
+    posterior_dist: Optional[Union[str, pd.DataFrame]], default = None
         Name of posterior df
     day: Optional[int], default = 6
         Days ahead to pick from reference forecast time
