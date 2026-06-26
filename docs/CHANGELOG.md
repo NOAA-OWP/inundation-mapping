@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.9.14._ - 2026-_____ - [PR#1843](https://github.com/NOAA-OWP/inundation-mapping/pull/1843)
+## v4.9.17.1 - 2026-06-26 - [PR#1843](https://github.com/NOAA-OWP/inundation-mapping/pull/1843)
 
 Adds improved logging, datum correction, and error handling to the USGS curves retrieval script (and supporting functions). Fixed and updated the NWS LID Geopackage script. Resolved the Pandas FutureWarnings (previously present in USGS rating curve retrieval and CatFIM processing) that were caused by joining tables with missing column data types (caused by NA values in the input metadata).
 
@@ -28,6 +28,8 @@ Adds improved logging, datum correction, and error handling to the USGS curves r
  - `tools/test_case_by_hydro_id.py`: Updated docstring of `catchment_zonal_statistics()` function.
  - `tools/tools_shared_functions.py`: Fixed logging-related issues. New `rollup_log_files()` function (deprecated `concat_files()`). Code cleanup (commented out unused imports)
  - `tools/tools_shared_variables.py`: Added a WRDS metadata column type dictionary.
+<br/>
+
 ## v4.9.17.0 - 2026-06-26 - [PR#1865](https://github.com/NOAA-OWP/inundation-mapping/pull/1865)
 
 Adds a script to convert from raster to vector, replicating `gdal_polygonize.py` but instead using Python in order to take advantage of geoparquet and avoid SQLite issues related to geopackages.
