@@ -161,7 +161,7 @@ In addition, an upgraded `pdal` was added to the Dockerfile and `pillow` was upg
     - `run_by_branch.sh` and `run_huc.sh` Suppress GDAL Error message and fix `gdal_rasterize` nodata issue
 
 <br/>
-## v4.9.13.0 - 2026-05-13 - [PR#1811]([https://github.com/NOAA-OWP/inundation-mapping/pull/1811])
+## v4.9.13.0 - 2026-05-13 - [PR#1811](https://github.com/NOAA-OWP/inundation-mapping/pull/1811)
 
 A major reorganization of the CatFIM processing pipeline, consolidating and simplifying a complex multi-file workflow into more modular and maintainable components. New scripts (`catfim_shared_functions.py`, `catfim_process_huc.py`, `catfim_post_processing.py`) were created to centralize common operations and move CatFIM processing into a HUC-level scale (whereas previous processing was a mix of site-level, sometimes HUC-level, and sometimes full domain-scale). 
 
