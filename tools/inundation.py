@@ -44,15 +44,14 @@ class NoForecastFound(Exception):
 # Nothing used the input for rasterio.io.DatasetReader anyways.
 # num_workers was never used and was removed.
 def inundate(
+    huc: str,
+    branch_id: str,
     rem_path: str,
     catchments_path: str,
     catchment_poly: Union[str, pd.DataFrame],
     hydro_table: Union[str, pd.DataFrame],
     forecast: Union[str, pd.DataFrame],
     mask_type: Optional[Union[str, List[str]]] = None,
-    hucs: Optional[Union[str, fiona.Collection]] = None,
-    hucs_layerName: Optional[str] = None,
-    subset_hucs: Optional[Union[str, List[str]]] = None,
     aggregate: Optional[bool] = False,
     inundation_raster: Optional[str] = None,
     depths: Optional[str] = None,
@@ -66,6 +65,10 @@ def inundate(
 
     Parameters
     ----------
+    huc: str
+        Must have a valid huc in string format, already zero padded
+    branch_id: string
+        Must have the branch ID
     rem_path : str
         File path to the Relative Elevation Model raster.
         Must have the same CRS as catchments raster.
@@ -75,18 +78,11 @@ def inundate(
         File path to or rasterio dataset reader of Catchments raster. Must have the same CRS as REM raster
     hydro_table : str or pandas.DataFrame
         File path to hydro-table csv or Pandas DataFrame object with correct indices and columns.
+        It should be the huc specific hydro_table
     forecast : str or pandas.DataFrame
         File path to forecast csv or Pandas DataFrame with correct column names.
     mask_type : Optional[str], default=None
         How to mask the datasets for processing inundation
-    hucs : Optional[Union[str, fiona.Collection]], default=None
-        Batch mode only. File path or fiona collection of vector polygons in HUC 4,6,or 8's to inundate on.
-        Must have an attribute named as either "HUC4","HUC6", or "HUC8" with the associated values.
-    hucs_layerName : Optional[str], default=None
-        Batch mode only. Layer name in hucs to use if multi-layer file is passed.
-    subset_hucs : Optional[Union[str, List[str]]], default=None
-        Batch mode only. File path to line delimited file, HUC string, or list of HUC strings to
-        further subset hucs file for inundating.
     aggregate : Optional[bool], default=False
         Batch mode only. Aggregates output rasters to VRT mosaic files and merges polygons to single GPKG file
         Currently not functional. Raises warning and sets to false. On to-do list.
@@ -105,8 +101,8 @@ def inundate(
 
     Returns
     -------
-    error_code : Tuple[List[str], List[str], List[str]]
-        Map files for depths, inundation_extent, and inundation_extent polygons
+    inun_data : dict (see return below)
+        Can also return None
 
     Raises
     ------
@@ -146,15 +142,29 @@ def inundate(
     # random between 0 and 5 seconds
     time.sleep(random.randint(0, 5))
 
+    # Let it pick up the default logger even if it was never set up or was created with special handlers.
+    # When a logger is attached to, even it if is not set up, it goes to console only.
+    # This a handle only. With inundate mostly being called from indundate_gms via a threadpool
+    # this helps with managing logging collisions and a memory built up of the logger
+    # Notice: it is called "logger" and not "logging".
+    # If we need it in child classes, pass the "logger"
+    logger = logging.getLogger()
+
     # check that aggregate is only done for hucs mode
     aggregate = bool(aggregate)
     if aggregate:
-        logging.warning("Aggregate feature currently not working. Setting to false for now.")
+        logger.warning("Aggregate feature currently not working. Setting to false for now.")
         aggregate = False
 
     try:
         # input rem
         # Load then into memory data in order to close the rasterio connection earlier
+
+        if huc is None or huc == "":
+            raise Exception("huc value can not be None or empty")
+
+        if branch_id is None or branch_id == "":
+            raise Exception("branch_id value can not be None or empty")
 
         if not os.path.isfile(rem_path):
             raise Exception(f"Rem file of {rem_path} does not exist")
@@ -162,71 +172,53 @@ def inundate(
         if not os.path.isfile(catchments_path):
             raise Exception(f"Catchments file of {catchments_path} does not exist")
 
-        # input rem
-        # TODO: Jun 2026: This keeps the rem open for a while. Find a way to let it go sooner
-        rem = rasterio.open(rem_path)
-
-        # input catchments grid
-        # TODO: Jun 2026: This keeps the rem open for a while. Find a way to let it go sooner
-        catchments = rasterio.open(catchments_path)
-
-        # open hucs
-        # TODO: Jun 2026: This might always be non as it is hardcoded upstream to None. Research required.
-        if hucs is None:
-            pass
-        elif isinstance(hucs, str):
-            # TODO: Jun 2026: I traced all code using this, and no one is passing in a fiona object
-            # We should remove it, but double check it first
-            with fiona.open(hucs, 'r', layer=hucs_layerName) as huc_data:
-                hucs = huc_data  # allows for the open fiona connection to be closed
-        elif isinstance(hucs, fiona.Collection):
-            pass
-        else:
-            raise TypeError("Pass fiona collection or filepath for hucs")
-
-        # check for matching number of bands and single band only
-        assert ((rem.transform * (0, 0)) == (catchments.transform * (0, 0))) & (
-            (rem.transform * (rem.width, rem.height))
-            == (catchments.transform * (catchments.width, catchments.height))
-        ), "REM and catchments rasters require same upper left and lower right extents"
-
         # catchment stages dictionary
         if hydro_table is None:
             raise TypeError("Pass hydro table csv")
 
-        depths_profile = rem.profile.copy()
-        inundation_profile = catchments.profile.copy()
+        # input rem
+        with (
+            rasterio.open(rem_path) as rem,
+            rasterio.open(catchments_path) as catchments
+        ):
 
-        # logging.info(f"Depth Profile for {hucs} is {depths_profile} - pre update")
-        # logging.info(f"Depth inundation_profile for {hucs} is {inundation_profile} - pre update")
+            # check for matching number of bands and single band only
+            assert ((rem.transform * (0, 0)) == (catchments.transform * (0, 0))) & (
+                (rem.transform * (rem.width, rem.height))
+                == (catchments.transform * (catchments.width, catchments.height))
+            ), "REM and catchments rasters require same upper left and lower right extents"
 
-        int_16 = inundation_profile['dtype'] == 'int16'
 
-        # catchment stages dictionary
-        catchmentStagesDict, hucSet = __subset_hydroTable_to_forecast(
-            hydro_table, forecast, subset_hucs, int_16, precalb_option
-        )
+            depths_profile = rem.profile.copy()
+            inundation_profile = catchments.profile.copy()
 
-        if catchmentStagesDict is not None:
-            if src_table is not None:
-                create_src_subset_csv(hydro_table, catchmentStagesDict, src_table)
+            # logger.info(f"Depth Profile for {hucs} is {depths_profile} - pre update")
+            # logger.info(f"Depth inundation_profile for {hucs} is {inundation_profile} - pre update")
 
-            # with rasterio.open('output.tif', 'w', **profile) as dst:
-            #     dst.write(data)
+            int_16 = inundation_profile['dtype'] == 'int16'
 
-            # TODO: Jun 2026: research this more. Does rasterio might want json args now, TBD
-            # Jun 2026: Can't use blockxsize and blockysize (seeing as we are using COG GeoTiffs)
-            depths_profile.update(driver='GTiff', blockxsize=256, blockysize=256, tiled=True)
-            inundation_profile.update(driver='GTiff', blockxsize=256, blockysize=256, tiled=True, nodata=0)
+            # catchment stages dictionary
+            catchmentStagesDict, hucSet = __subset_hydroTable_to_forecast(
+                huc, hydro_table, forecast, int_16, precalb_option
+            )
 
-            # depths_profile.update(driver='GTiff', blocksize=256, tiled=True)
-            # inundation_profile.update(driver='GTiff', blocksize=256, tiled=True, nodata=0)
+            if catchmentStagesDict is not None:
+                if src_table is not None:
+                    create_src_subset_csv(hydro_table, catchmentStagesDict, src_table)
 
-            # logging.debug(f"Depth Profile for {hucs} is {depths_profile} - post update")
-            # logging.debug(f"Depth inundation_profile for {hucs} is {inundation_profile} - post update")
-            # logging.debug("*******************")
+                # TODO: Jun 2026: research this more. Does rasterio might want json args now, TBD
+                # Jun 2026: Can't use blockxsize and blockysize (seeing as we are using COG GeoTiffs)
+                depths_profile.update(driver='GTiff', blockxsize=256, blockysize=256, tiled=True)
+                inundation_profile.update(driver='GTiff', blockxsize=256, blockysize=256, tiled=True, nodata=0)
 
-            # depth_rst = rasterio.open(depths, "w+", **depths_profile) if depths is not None else None
+                # depths_profile.update(driver='GTiff', blocksize=256, tiled=True)
+                # inundation_profile.update(driver='GTiff', blocksize=256, tiled=True, nodata=0)
+
+                # logger.debug(f"Depth Profile for {hucs} is {depths_profile} - post update")
+                # logger.debug(f"Depth inundation_profile for {hucs} is {inundation_profile} - post update")
+                # logger.debug("*******************")
+
+                # depth_rst = rasterio.open(depths, "w+", **depths_profile) if depths is not None else None
 
             depth_rst = rasterio.open(depths, "w+", **depths_profile) if depths is not None else None
             inundation_rst = (
@@ -251,13 +243,13 @@ def inundate(
                 inundation_raster,
                 depths,
                 verbose,
-                hucs=hucs,
+                hucs=[huc],
                 hucSet=hucSet,
                 windowed=windowed,
                 depth_rst=depth_rst,
                 inundation_rst=inundation_rst,
                 inundation_nodata=nodata,
-                min_value=30 if int_16 else 0.03048,
+                min_value=30 if int_16 else 0.03048
             )
 
             inundation_rasters = []
@@ -276,17 +268,33 @@ def inundate(
             if inundation_rst is not None:
                 inundation_rst.close()
 
-    except Exception as ex:
-        logging.critical(f"Critical Error while inundating for {forecast} / {rem_path}")
-        logging.critical(traceback.format_exc())
-        raise ex  # yes, re-raise
-
         # if verbose:
-        #     logging.info(f"Done Inundating based on {forecast} and {rem_path}")
+        #     logger.info(f"Done Inundating based on {forecast} and {rem_path}")
         # else:
-        #     logging.debug(f"Done Inundating based on {forecast} and {rem_path}")
+        #     logger.debug(f"Done Inundating based on {forecast} and {rem_path}")
 
-    return inundation_rasters, depth_rasters, inundation_polys
+        inun_data = {"huc8": huc,
+                    "branchID": branch_id,
+                    "inundation_rasters": inundation_rasters,
+                    "depths_rasters": depth_rasters,
+                    "inundation_polygons": inundation_polys
+                    }
+        
+        return inun_data
+    
+    except (hydroTableHasOnlyLakes, NoForecastFound) as hex:
+        error_type = type(hex).__name__
+        logger.warning(f"{error_type} - Error while inundating for {huc} / {branch_id}")
+        return None
+    except Exception as ex:
+        logger.critical("++++++++++++++++++++++++++++++++++++++++++++++++")
+        logger.critical(f"Critical Error while inundating for {forecast} / {branch_id}")
+        logger.critical(traceback.format_exc())
+        raise ex  # yes, re-raise
+    finally:
+        # forces the logging handlers to flush before continuing and leaving late console messages
+        for handler in logger.handlers:
+            handler.flush()
 
 
 def __inundate_in_huc(
@@ -302,6 +310,7 @@ def __inundate_in_huc(
     window: Optional[bool] = None,
     inundation_nodata: Optional[int] = None,
     min_value=30,
+    logger = logging.Logger
 ) -> Tuple[str, str, str]:
     """
     Inundate within the chosen scope
@@ -330,6 +339,8 @@ def __inundate_in_huc(
         Whether to use window memory optimization
     inundation_nodata : Optional[int], default = None
         Value for inundation extent nodata
+    logger: The active logger. It may not have been explicitly set up but it does exist as
+        it was created or attached to via inundate function.
 
     Returns
     -------
@@ -339,8 +350,8 @@ def __inundate_in_huc(
     """
     # verbose print
     if hucCode is not None:
-        __vprint("Inundating {} ...".format(hucCode), verbose)
-        logging.debug("Inundating {} ...".format(hucCode))
+        #  __vprint("Inundating {} ...".format(hucCode), verbose)
+        logger.debug("Inundating {} ...".format(hucCode))
 
     rem, catchments = __go_fast_mapping(
         rem_array,
@@ -505,13 +516,6 @@ def __make_windows_generator(
     """
 
     if hucs is not None:
-        # get attribute name for HUC column
-        for huc in hucs:
-            for hucColName in huc['properties'].keys():
-                if 'HUC' in hucColName:
-                    # hucSize = int(hucColName[-1])
-                    break
-            break
 
         # make windows
         for huc in hucs:
@@ -523,7 +527,7 @@ def __make_windows_generator(
 
                 return None
 
-            if __return_huc_in_hucSet(huc['properties'][hucColName], hucSet) is None:
+            if __return_huc_in_hucSet(huc, hucSet) is None:
                 continue
 
             try:
@@ -561,14 +565,12 @@ def __make_windows_generator(
             except ValueError:  # shape doesn't overlap raster
                 continue  # skip to next HUC
 
-            hucCode = huc['properties'][hucColName]
-
             yield {
                 "rem_array": rem_array,
                 "catchments_array": catchments_array,
                 "depth_rst": depth_rst,
                 "inundation_rst": inundation_rst,
-                "hucCode": hucCode,
+                "hucCode": huc,
                 "catchmentStagesDict": catchmentStagesDict,
                 "depths": depths,
                 "inundation_raster": inundation_raster,
@@ -639,23 +641,25 @@ def __make_windows_generator(
 
 
 def __subset_hydroTable_to_forecast(
+    huc: str,
     hydroTable: Union[str, pd.DataFrame],
     forecast: Union[str, pd.DataFrame],
-    subset_hucs=None,
     process_int16=True,
     precalb_option: bool = False,
 ) -> Tuple[typed.Dict, List[str]]:
     """
     Subset hydrotable with forecast
+    Note: logger not sent in as an arg. If you need a logger, add it as an arg. 
+    See example at __inundate_in_huc
 
     Parameters
     ----------
+    huc: str
+        Assumed to be zero padded
     hydroTable: Union[str, pd.DataFrame]
-        Filepath for the forecast file
+        Filepath for the forecast file.  It is already the HUC version of the hydrotable
     forecast: Union[str, pd.DataFrame]
         Whether to rename the headers in the forecast file
-    subset_hucs: Union[str, list]
-        List to subset the hydrotable
     process_int16: bool, default = True
         Whether to process inundation with int16 datatype
 
@@ -666,6 +670,7 @@ def __subset_hydroTable_to_forecast(
 
     """
     if isinstance(hydroTable, str):
+
         htable_req_cols = [
             'HUC',
             'feature_id',
@@ -732,38 +737,15 @@ def __subset_hydroTable_to_forecast(
             pass  # consider checking for dtypes, indices, and columns
         else:
             raise TypeError("Pass path to forecast file csv or Pandas DataFrame")
-
-        # susbset hucs if passed
-        if subset_hucs is not None:
-            if isinstance(subset_hucs, list):
-                if len(subset_hucs) == 1:
-                    try:
-                        subset_hucs = open(subset_hucs[0]).read().split('\n')
-                    except FileNotFoundError:
-                        pass
-            elif isinstance(subset_hucs, str):
-                try:
-                    subset_hucs = open(subset_hucs).read().split('\n')
-                except FileNotFoundError:
-                    subset_hucs = [subset_hucs]
-
-            # subsets HUCS
-            subset_hucs_orig = subset_hucs.copy()
-            subset_hucs = []
-            for huc in np.unique(hydroTable.index.get_level_values('HUC')):
-                for sh in subset_hucs_orig:
-                    if huc.startswith(sh):
-                        subset_hucs += [huc]
-
-            hydroTable = hydroTable[np.in1d(hydroTable.index.get_level_values('HUC'), subset_hucs)]
-
+  
     # join tables
     try:
         hydroTable = hydroTable.join(forecast, on=['feature_id'], how='inner')
     except AttributeError:
-        raise NoForecastFound("No forecast value found for the passed feature_ids in the Hydro-Table")
+        raise NoForecastFound("No forecast values found for the passed feature_ids in the Hydro-Table for"
+                              f"huc of {huc} and forecast ")
 
-    else:
+    else:  # more/less a "finally keyword" ???
 
         # initialize dictionary
         catchmentStagesDict = (
@@ -804,6 +786,9 @@ def read_nwm_forecast_file(forecast_file, rename_headers: Optional[bool] = True)
     """
     Reads NWM netcdf comp files and converts to forecast data frame
 
+    Note: logger not sent in as an arg. If you need a logger, add it as an arg. 
+    See example at __inundate_in_huc
+
     Parameters
     ----------
     forecast_file: str
@@ -838,17 +823,12 @@ def read_nwm_forecast_file(forecast_file, rename_headers: Optional[bool] = True)
     return flows_df
 
 
-# TODO: Jun 2026: Consider upgrading callign scripts to current FIM shared function logging
-# system. That would the need for this.
-def __vprint(message, verbose):
-
-    if verbose:
-        print(message)
-
-
 def create_src_subset_csv(hydro_table: str, catchmentStagesDict: dict, src_table: str):
     """
     Create a subset synthetic rating curve table
+
+    Note: logger not sent in as an arg. If you need a logger, add it as an arg. 
+    See example at __inundate_in_huc
 
     Parameters
     ----------
@@ -885,8 +865,11 @@ def create_src_subset_csv(hydro_table: str, catchmentStagesDict: dict, src_table
 if __name__ == '__main__':
     # parse arguments
 
-    # TODO: Jun 2026: This has not worked for a while. We may want to consider removing it favor of
-    # coming in via inundate_gms.py
+    # TODO: Jun 2026: This looks like it has not worked for a while.
+    # We may want to consider removing it favor of coming in via inundate_gms.py
+
+    # We may want to create a logger if coming in via command line. See shared_functions.setup_file_logger
+    # Otherwise, a logger, either customized or by default will exist.
 
     parser = argparse.ArgumentParser(
         description='Rapid inundation mapping for FOSS FIM. Operates in single-HUC and batch modes.'
@@ -990,5 +973,5 @@ if __name__ == '__main__':
     args = vars(parser.parse_args())
     # feature_id = 5253867
 
-    # TODO: Jun 2026: This has not worked for a while. We may want to consider removing it favor of
-    # coming in via inundate_gms.py
+    # TODO: Jun 2026: This looks like it has not worked for a while.
+    # We may want to consider removing it favor of coming in via inundate_gms.py

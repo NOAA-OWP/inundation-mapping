@@ -1551,8 +1551,6 @@ class StreamBranchPolygons(StreamNetwork):
             vector_filename = vector
             # vector = gpd.read_file(vector_filename,layer=vector_layer)
 
-            # TODO: Jun 2026: fiona.open keeps open connections to the file. Consider changing
-            # this to copy out the vector file to another open or some sort of other scope control
             vector = fiona.open(vector_filename, "r", layer=vector_layer)
         elif isinstance(vector, fiona.Collection):
             pass

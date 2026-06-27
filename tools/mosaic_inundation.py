@@ -181,6 +181,7 @@ def Mosaic_inundation(
             logging.debug(msg)
 
     except Exception as ex:
+        logging.critical("++++++++++++++++++++++++++++++++++++++++++++++++")        
         logging.critical(f"Critical Error while creating a mosaic for {mosaic_output}")
         logging.critical(traceback.format_exc())
         raise ex

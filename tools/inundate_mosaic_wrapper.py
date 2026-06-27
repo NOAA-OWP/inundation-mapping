@@ -203,6 +203,7 @@ def produce_mosaicked_inundation(
         logging.debug("Mosaicking extent complete")
 
     except Exception as ex:
+        logging.critical("++++++++++++++++++++++++++++++++++++++++++++++++")        
         logging.critical(f"Error producing mosiacked inundation base on {flow_file}")
         logging.critical(traceback.format_exc())
         raise ex

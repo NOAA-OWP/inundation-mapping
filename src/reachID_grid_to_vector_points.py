@@ -17,9 +17,6 @@ gpd.options.io_engine = "pyogrio"
 def convert_grid_cells_to_points(raster, index_option, output_points_filename=False):
     # Input raster
 
-    # TODO: Jun 2026: Change all rasterio.open commands to better scope contol.
-    # Using either the "with" syntax, or open the file / read / explicit close
-
     if isinstance(raster, str):
         raster = rasterio.open(raster, 'r')
 

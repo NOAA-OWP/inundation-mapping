@@ -242,6 +242,9 @@ class Test_Case(Benchmark):
         start_time = datetime.now(timezone.utc)
         try:
             if log_folder != "":
+                # Each logger get the name of fim_logger but each are in a ProcessPoolExecutor
+                # so they will not collide. But giving it a specific name makes it easier
+                # to share with a ThreadPoolExecutor in inundation
                 log_file_path = sf.setup_file_logger(log_folder, f"{log_prefix}_{self.test_id}")
 
             if verbose:
@@ -311,6 +314,7 @@ class Test_Case(Benchmark):
             # sys.exit(1)  # Note: you can not have this inside an MP as it won't really work
             raise kiex
         except Exception as ex:
+            logging.critical("++++++++++++++++++++++++++++++++++++++++++++++++")
             logging.critical(f"An exception has occured for {self.test_id}")
             logging.critical(traceback.format_exc())
             raise ex

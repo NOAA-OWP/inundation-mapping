@@ -230,32 +230,25 @@ def synthesize_test_cases(
             except Exception as ex:
                 # this covers fails in the original call to test_case_class.alpha_test such as
                 # bad definition.
+                logging.critical("++++++++++++++++++++++++++++++++++++++++++++++++")                
                 logging.critical(f"*** Error: {ex}")
                 logging.critical(traceback.format_exc())
-                raise ex
+                pbar.close()
                 # Note: Even though we use the "wait" flag, most WIP processes can not be
                 # aborted when using ProcessPool
-            finally:
-                # Attempts to stop process if possible. Not always successful
-                logging.info("Shutting down ProcessPoolExecutor")
-                # for process in executor._processes.values():
-                #     process.terminate()
-
                 executor.shutdown(
-                    wait=False, cancel_futures=True
+                    wait=True, cancel_futures=True
                 )  # tells the ProcessPoolExecutor to stop accepting new tasks. Even cancel the running tasks as soon as possible
+                # raise ex  Do not re-raise and do not sys.exit
 
-                # sys.exit(1) # sys.exit does not work inside an MP. You have to rethrow after shutting down the executor
-                # there will be a delay in shutting it down though as it does not auto kill all wip workers, just
-                # stops new ones.
-
-        # This will also merge -error.log and -warning.log files into the
-        # respective parent error, warning files.
-        # Granted.. putting it in "finally" will mean we get the logs a bit out of order
-        # but all errors and criticals are in the logs at least twice, so look at
-        # the last error messages and it will have context
-        logging.debug(f"Merging child log files into parent logs. {log_file_path} - {mp_log_prefix}")
-        sf.merge_child_logs_into_parent_log(log_file_path, mp_log_prefix)
+            finally:
+                # This will also merge -error.log and -warning.log files into the
+                # respective parent error, warning files.
+                # Granted.. putting it in "finally" will mean we get the logs a bit out of order
+                # but all errors and criticals are in the logs at least twice, so look at
+                # the last error messages and it will have context
+                logging.debug(f"Merging child log files into parent logs. {log_file_path} - {mp_log_prefix}")
+                sf.merge_child_logs_into_parent_log(log_file_path, mp_log_prefix)
 
         if num_successful_tests == 0:
             logging.warning("Skipping creating metrics file as there was not successful alpha tests")
@@ -271,6 +264,7 @@ def synthesize_test_cases(
             )
     except Exception:
         # No need to reraise
+        logging.critical("++++++++++++++++++++++++++++++++++++++++++++++++")        
         logging.critical("An exception has occurred")
         logging.critical(traceback.format_exc())
     finally:

@@ -52,7 +52,7 @@ gp.options.io_engine = "pyogrio"
 # has its own log file. There is now a new log rollup function in here to
 # roll all of the child log files back into the parent log if you like.
 # merge_child_logs_into_parent_log
-def setup_file_logger(log_file_dir, log_file_name_prefix):
+def setup_file_logger(log_file_dir, log_file_name_prefix, logger_name=""):
     """
 
     This creates a file name for you. I will take the log_file_name_prefix, then append a dt, then extension
@@ -120,7 +120,11 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
     if not os.path.isdir(log_file_dir):
         raise Exception("This script likely does have permission to add a log folder")
 
-    logger = logging.getLogger()
+    if logger_name == "":
+        logger = logging.getLogger()
+    else:
+        logger = logging.getLogger("logger_name")
+
     logger.setLevel(logging.DEBUG)
     # logger.propagate = False # Prevent propagation to the root logger
 
@@ -173,7 +177,7 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
 
 # This one is more designed to be for multi-proc as it has logger handler names
 # Notice how it does not have a "console / stream handler"? hence, a special function for MP
-def setup_mp_file_logger(log_file_path: str, logger_name: str, level=logging.DEBUG):
+def setup_mp_file_logger(log_file_path: str, logger_name: str):
     """
 
     Create a logger bound by a strict bijection:
@@ -239,7 +243,7 @@ def setup_mp_file_logger(log_file_path: str, logger_name: str, level=logging.DEB
     _LOGGER_REGISTRY.setdefault(logger_name, abs_path)
 
     logger = logging.getLogger(logger_name)
-    logger.setLevel(level)
+    logger.setLevel(logging.DEBUG)
 
     # Prevent duplicate handlers if already exists
     if not logger.handlers:
