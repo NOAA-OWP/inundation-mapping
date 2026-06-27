@@ -18,7 +18,7 @@ from multiprocessing import Manager
 from os.path import splitext
 from pathlib import Path
 
-import fiona
+# import fiona
 import geopandas as gp
 import numpy as np
 import pandas as pd
@@ -271,8 +271,8 @@ def setup_mp_file_logger(log_file_path: str, logger_name: str):
         file_handler = logging.FileHandler(log_file_path)
         file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(formatter)
-        os.chmod(log_file_path, mode=permissions_code)
         logger.addHandler(file_handler)
+        os.chmod(log_file_path, mode=permissions_code)
         logger.propagate = False  # avoid logging to root logger too
 
     return logger
@@ -304,6 +304,52 @@ def l_print(msg, file_logger, log_level="info", screen_queue=None):
             file_logger.critical(msg)
         case _:
             raise Exception("Invalid log level value. Options are debug, info, warning, error and critical")
+
+
+def rollup_log_files(src_file, trg_file, remove_old_src_file=True):
+    # Sometimes we want to append log file onto another file.
+    # For example, a temp mp log file into the parent log.
+
+    # This will not error out if the files do not exist
+    # only send back a True / False (successful)
+
+    # this will also look for rollups automatically for -warning and -error files
+
+    if not os.path.exists(src_file) or not os.path.exists(trg_file):
+        return False
+
+    with open(src_file, 'r') as src:
+        with open(trg_file, 'a') as trg:
+            shutil.copyfileobj(src, trg)
+
+    if remove_old_src_file:
+        os.remove(src_file)
+
+    # ----------------
+    # This will auto rollup warning files if they exist
+    warning_src_file_name = src_file.replace(".log", "-warnings.log")
+    warning_trg_file_name = trg_file.replace(".log", "-warnings.log")
+    if os.path.exists(warning_src_file_name) and os.path.exists(warning_trg_file_name):
+        with open(warning_src_file_name, 'r') as src:
+            with open(warning_trg_file_name, 'a') as trg:
+                shutil.copyfileobj(src, trg)
+
+        if remove_old_src_file:
+            os.remove(warning_src_file_name)
+
+    # ----------------
+    # This will auto rollup errors files if they exist
+    error_src_file_name = src_file.replace(".log", "-errors.log")
+    error_trg_file_name = trg_file.replace(".log", "-errors.log")
+    if os.path.exists(error_src_file_name) and os.path.exists(error_trg_file_name):
+        with open(error_src_file_name, 'r') as src:
+            with open(error_trg_file_name, 'a') as trg:
+                shutil.copyfileobj(src, trg)
+
+        if remove_old_src_file:
+            os.remove(error_src_file_name)
+
+    return True
 
 
 # This is helpful when using MP. You can setup the parent log, then in the MP child code, you
@@ -679,343 +725,6 @@ def run_with_mp(
         raise ex2
 
     return results
-
-
-# #################################
-# Multi proc tools
-
-# Jun 2026: This version of run_with_mp is very similar to run_with_mp except:
-# run_with_mp has a completely different logging system, which includes passing in a
-# specific instance of a logging class, plus it re-uses that custom logger and all
-# MP classes share the same logging files.
-# This version uses the default python logger with adjsuted attributes and assigns
-# a partial log file name to all child MP which each make their own logs.
-# At the end of this function it will call a different function named merge_child_logs_into_parent_log
-# which rolls up the child logs. Why does this exist? It does not use a custom screen queue and each
-# child MP has its own logs and no risk of file collisions when writing to logs
-# def run_with_mp_w_py_logger(
-#     task_function,
-#     tasks_args_list,
-#     task_id_key,
-#     parent_log_file,
-#     child_log_prefix,
-#     show_progress=True,  # Optional show tqdm.
-#     max_workers=4,
-# ):
-
-#     """
-
-#     Parameters
-#     ----------
-#     - task_function: str
-#         function name for each child beign processed. ie) process_child_huc
-
-#     - task_args_list: List of dictionaries
-#         ie) [
-#                 {"huc": "12090301",
-#                  "file_path": "...blah/blah/hucs"}
-#         ]
-#         Good to use one dict object that has a unique id for each item in the
-#         list. ie) each huc be a unique vale. Should be a simple string.
-#         The task_id_key below shows which field is unique per child MP.
-
-#     - task_id_key: str
-#         Name of one of the dictionary fields that can be used as as a unique ID
-#         for each child process.  ie) "huc" (name of the dictionary field above)
-
-#     - parent_log_file: str
-#         Path and file name of the parent log file. Likely already set as default py logger.
-#         The folder will be extracted and used as the folder path for child log files
-#         but the child logs will have the prefix and a unique id.
-
-#     - child_log_prefix: str
-#         Each child mp will create its own py logger and set its log file name to
-#         startign with this child_log_prefix. Later, it will be used to search for
-#         all files usign that prefix and roll it into the master default py logger
-#         which already has been set for the parent log file and path.
-#         ie) alpha_test  (becomes {alpha_test}_{some id and/or date/time).log
-
-#         Note: By using the native py logger in the child function along with the setup_file_logger,
-#         each log file will use the customary log file, error log file and warnign log file.
-
-#     - show_progress: bool
-#         True: show TQDM
-#         False: don't show TQDM
-
-#     - max_workers: in
-#         Number of process worker jobs
-
-#     Returns
-#     -------
-#     dictionary
-#         key is: a value based on a field from the origina task_args_list.
-#             ie). In the task_arg_list example above, it has a field named "huc".
-#             In incoming arg for "task_id_key" was "huc", which means the "huc" field
-#             from the task_arg_list uses its "huc" value as a return key in the
-#             return reponse.
-#         value:
-#             depends what the child function returns, it is becomes the value here.
-#             ie) if the child function returned a list as its second arg, that becomes
-#             the value here. If it returns a string in its second return arg from the
-#             child function, it is the value here.
-
-#     """
-
-#     '''
-#     NOTES:
-#     This setup does not use a shared log for each child.
-#         - It has its own "parent" log file. Usually the same one as the default py logger.
-#         - Each child has its own python logger with the same overridden args, and each of those
-#           child log file have custom names and do not risk file write collisions.
-#           Eech child log does have a "child_prefix" key in the file name which is used to
-#           roll each child log into the parent via the merge_child_logs_into_parent_log function.
-#           It will extract the file path from the incoming parent_log_file and put the child logs
-#           in that same folder (of course with the child prefix)
-#         - It will maintain the concept of log, error log, warning log for the parent and child log
-#           files.
-
-#     - Use try/except in both the task function and this wrapper:
-#         - Child MP process functions should always have it's own try/except to handle issues gracefully.
-#         - This wrapper catches unexpected crashes (e.g., segfaults or crashes in subprocesses).
-#         - Inside helper functions feel free to log any information. but no need to raise errors.
-#         - The only exception is that when we really need to address a special case like API limits and wait and retry.
-
-#     - Inside your task function or helpers, pass in the child_log prefix, and each child MP needs
-#         - To create its own py logger using setup_file_logger and its designated logger
-#         - They are fully capturing via try/except inside that function.
-#         - Ensure if follows the rules about return valuse from the child mp function. see rules lower.
-
-#     '''
-
-#     '''
-#     +++++++++++++++++++++
-#     ####  TASK RETURN VALUES FROM CHILD FUNCTION TO THE POOL ####
-
-#     Note: The overall task rules are identical to run_with_mp.
-#     TODO: Can we considate these two functions somehow?
-
-#     Different tools have different needs for how it uses it's MP functions and what it returns from
-#      run_with_mp_w_py_logger.
-
-#     This tool requires that two things are returned: a return code, then a list (might be empty
-#        or any just one list item containing any object such as a bool, string, dictionary, dataframe, etc)
-#        If you the task is succesful and you have no specific need for anything to return, just return an empty
-#        list. ie) [].
-#        Only one item inside the list can be returned and it will be extracted to add to the growing
-#        main return set. results = {}.
-#        In the end, you will have a set of T/F, dictionaries, dataframes, string, etc
-
-#     -  A status code. options are:
-#           1: Success and show tqdm or print success line
-#           0: Fail but don't shut down, advance the pbar AND show the tqdm / print error or warning message
-#          -1: Critical Fail and the entire script should be aborted
-
-#     Some examples of usage:
-#        data\roads\pull_osm_roads.py wants a T/F returned for every mp item, so its mp process
-#        named "single_huc_job" returns:
-#                1, [True]  (meaning success and add "True" to the run_by_mp result set)
-#                0, [False] (meaning fail don't shut down the entire process, add the value of
-#                     False to the run_with_mp return results and show the tqdm / print message
-
-#     Another example:
-#        data\usgs\get_usgs_rating_curves.py have different needs. Inside its mp function,
-#        named "__mp___mp_get_site_rating_curve" could have three scenerios (at a min)
-#               1, [some dataframe]  (success and add the dataframe to the run_by_mp result set)
-#               0, [None]  (Fail but there is nothing to add to the run_by_mp result set)
-#              -1, [None]  (Catestrophic fail, shut down the entire script)
-
-#     ++++++++++++++++++++++
-#     '''
-
-#     # Validation
-#     if not task_function or task_function.strip() == "":
-#         raise Exception("task_function argument can not be None or empty")
-#     if tasks_args_list is None or len(tasks_args_list) == 0:
-#         raise Exception("tasks_args_list can not be None or empty")
-#     if not task_id_key or task_id_key.strip() == "":
-#         raise Exception("task_id_key can not be None or empty")
-#     if not parent_log_file or parent_log_file.strip() == "":
-#         raise Exception("log_folder_path can not be None or empty")
-#     if not child_log_prefix or child_log_prefix.strip() == "":
-#         raise Exception("child_log_prefix can not be None or empty")
-
-#     # TODO: Add a validation test to ensure the task_id_key exists as a poplated key in all items
-#     # in the tasks_args_list.
-
-#     try:
-
-#         # There are a wide number of ways a mp can die. It might be programatically
-#         #   - code level exception explicity thrown
-#         #   - an implicit code level exceipt
-#         #   - can be a system level such as a CTRL-C
-#         #   - CPU collisons, etc
-
-#         # Because there are multiple ways that an MP can crash, it very easy to leave either
-#         #   an orphaned process (memory leak) that is still forceing the program to stay open.
-#         #   While it may seem like a person can just do try/except inside the as_complete, that
-#         #   is not true. If the basic definition call to the child function call is bad, it won't
-#         #   get back a future result, so you need a different try / except outside the future
-#         #   result testing. Hence.. the multi-layer try/except.
-#         #   Also, TQDM is a threaded tool and it has to be managed
-#         #   to make sure it doesn't get stuck as well.
-#         #   This is why we have a bizarre exception handling system here and it works pretty well.
-#         #
-#         # Also as mentioned... can not kill an mp that has already started. There is no abort a currently running
-#         #   mp (threads you can but not MP's and threads come with a whole new set of challenges and only advised
-#         #   for explicit reasons for our FIM applications). This tool keeps the option open to decide if the error
-#         #   is logged and continues or shuts down the entire application.  Simply putting sys.exit(1) does not
-#         #   work and can often hang up the script. It all comes down to memory management, python garbage dumps,
-#         #   and how objects are used (passed versus reference).
-
-#         # Main point here:  You can shut down the overall MP, but you can not stop a mp task in action. You can only
-#         #   send issues commands telling the code to stop and it will stop new tasks from starting. Then wait for
-#         #   the wip tasks to complete. ie) If you have 20 Jobs and one kills the app, you have to wait until all
-#         #   the remaining 19 tasks to finish before it fully stops and this can take a few mins.
-
-#         # When an MP dies and we want to shut down the app, we have to let it finish the wip mps, then we can
-#         #   abort and stop new ones from firing.
-
-#         # CTRL-C entered multiple of times from console will stop the two program faster as it will kill
-#         # each child process one at a time, but CTRL-C a bunch of times can kill it.
-#         # However, if you CTRL-C abort, close your container to release the memory leaks or unclosed
-#         # processes and restart a new container.
-
-#         results = {}
-#         log_folder = os.path.dirname(parent_log_file)
-#         with ProcessPoolExecutor(max_workers=max_workers) as executor:
-
-#             future_to_id = {}
-#             # up to this point, the code is run immediately--submision is done right away. Now we wait for each job to be completed and be processed as below
-#             pbar = tqdm(
-#                 total=len(tasks_args_list), desc="Processing tasks", unit="task", disable=(not show_progress)
-#             )
-
-#             # Some mp functions might throw an exception, which means it may not get to as_completed
-#             # We still need to catch that and if so, shut down the script.
-#             try:
-#                 for i, task_kwargs in enumerate(
-#                     tasks_args_list
-#                 ):  # for each dictionary of keyword arguments (kwargs)
-#                     task_id = task_kwargs.get(
-#                         task_id_key, task_id
-#                     )  # this make a unique id (e.g. HUC number) for the task
-#                     # Techically.. this is a dup field, one as "huc"
-#                     # the other as "task_id".
-
-#                     # also pass the loggers and task id
-#                     kwargs_updated = task_kwargs.copy()
-#                     kwargs_updated["log_folder"] = log_folder
-#                     kwargs_updated["child_log_prefix"] = child_log_prefix
-#                     kwargs_updated["task_id"] = task_id
-
-#                     # Submits tasks to workers in parallel. IMMEDIATELY after submitting (not after finishing
-#                     # the subprocess job) we get back a Future object, which is like a order number to
-#                     # track your requested food in a restaurant while waiting).
-#                     future = executor.submit(task_function, **kwargs_updated)
-#                     future_to_id[future] = task_id
-
-#                 # Catestophic errors mean we can not 100% guarantee all mp's will come back as_completed.
-#                 for future in as_completed(future_to_id):
-#                     task_id = future_to_id[future]
-
-#                     # The rtn_value can be T/F, a string, dataset, list, dictionary (?), pretty much anything.
-#                     # See notes above about return values.
-#                     rtn_code, rtn_value = future.result()
-
-#                     if rtn_code == 1:  # Positive = good
-#                         # success and show tqdm or print line
-#                         if show_progress:
-#                             tqdm.write(
-#                                 f"✅ Success for {task_id}"
-#                             )  # do not use print otherwise a new updated bar is created after each print line
-#                         else:
-#                             print(f"✅ Success for {task_id}")
-#                         file_logger.info(f"✅ Success for {task_id}")
-
-#                     elif rtn_code == 0:  # Fail but not shut down the pool.
-#                         if show_progress:
-#                             tqdm.write(f"❌ Error reported for {task_id}.")
-#                         else:
-#                             print(f"❌ Error reported for {task_id}.")
-#                         file_logger.info(f"❌ Error reported for {task_id}.")
-
-#                     else:  # rtn_code == -1, but really any negative int
-#                         # Catestrophic fails, shut the tool down (and assumes the mp logged the reason why)
-#                         # throw an exception to shut down and cleanup all objects (pool, tqdm, queue)
-#                         raise Exception(
-#                             f"Critical Error: Abort Program from task id = {task_id}."
-#                             " See exception details in the logs."
-#                         )
-
-#                     results[task_id] = rtn_value
-
-#                     if pbar:
-#                         # print("task bar being updated")
-#                         pbar.update(1)  # ✅ Progress update for each completed task
-
-#                 if pbar:  # All mp tasks are done.
-#                     pbar.close()
-
-#             except Exception as ex:
-#                 # The child mp function should have it's own try/except but in case something slips
-#                 # through or they forgot to add it.
-
-#                 error_msg = f"❌ Critical error: {ex}"
-#                 traceback_msg = traceback.format_exc()
-#                 print(error_msg)
-#                 print(traceback_msg)
-#                 file_logger.critical(error_msg)
-#                 file_logger.critical(traceback_msg)
-
-#                 dt_string = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-#                 final_msg = f"Program aborted at {dt_string} due to error in {task_id}"
-#                 file_logger.critical(final_msg)
-
-#                 file_logger.info("Process pool shutting down")
-#                 print(
-#                     "Process pool shutting down. This may take a while depending on how many jobs."
-#                     " Jobs currently in progress will need to complete for this can fully shut down.",
-#                     flush=True,
-#                 )
-#                 print("", flush=True)
-#                 executor.shutdown(
-#                     wait=False, cancel_futures=True
-#                 )  # tells the ProcessPoolExecutor to stop accepting new tasks. Even cancel the running tasks as soon as possible
-
-#                 # CTRL-C can trigger secondary exceptions when objects inside this page are still held
-#                 # open. Make sure you close and restart the docker container if you use CTRL-C to abort.
-
-#                 # Yes.. seems weird to have this here and a new exception.
-#                 # But it helps force shut down other objects like manual logging and a
-#                 # a queue.
-#                 pbar.close()  # aborts the progress bar
-
-#                 if console_queue_thread:
-#                     screen_queue.put("DONE")  # sends the stop SIGNAL to thread
-#                     console_queue_thread.join()  # official closure of thread
-#                 # re raising instead of sys.exit to help ensure all objects are cleaned up correctly
-#                 raise Exception("Shutting down. Cleaning up caches and objects....")
-
-#         # if the pool finished correctly, shut down the remaining queue.
-#         if console_queue_thread:
-#             screen_queue.put("DONE")  # sends the stop SIGNAL to thread
-#             console_queue_thread.join()  # official closure of thread
-
-#     # This is primarily used when using CTRL-C to which can leave orphaned processes
-#     except Exception as ex2:
-#         print("Still shutting down, hang in there", flush=True)
-#         print(ex2, flush=True)
-#         if console_queue_thread:
-#             screen_queue.put("DONE")  # sends the stop SIGNAL to thread
-#             console_queue_thread.join()  # official closure of thread
-
-#         # This hanging in some scenarios such as a bug in this function. Triggered by a mp child
-#         # function not returning values correctly.
-#         # sys.exit(1)
-#         # need to rethrow
-#         raise ex2
-
-#     return results
 
 
 # #################################

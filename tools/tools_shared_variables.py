@@ -84,7 +84,6 @@ acceptable_alt_meth_code_list = ["A", "D", "F", "G", "I", "J", "L", "N", "R", "U
 # https://help.waterdata.usgs.gov/code/site_tp_query?fmt=html
 acceptable_site_type_list = ["ST"]
 
-
 # Lists of acceptable spellings for CRSs and VCSs, for use in tools_shared_functions.py when checking for typos in CRSs and VCSs.
 # These lists are not exhaustive, but are based on the most common typos found in the test cases.
 
@@ -126,7 +125,6 @@ ACCEPTED_NGVD29_SPELLINGS = [
     'USGS NAD 1929',
 ]
 
-
 ACCEPTED_NAD83_SPELLINGS = [
     '1983',
     'NAD83',
@@ -154,3 +152,66 @@ ACCEPTED_NAVD88_SPELLINGS = [
     'NAVD-88',
     'NAVD 1988',
 ]
+
+# Column types for the WRDS metadata
+WRDS_METADATA_COL_TYPES = {
+    'identifiers_nwm_feature_id': 'str',
+    'identifiers_env_can_gage_id': 'str',
+    'identifiers_usgs_site_code': 'str',
+    'identifiers_goes_id': 'str',
+    'nwm_feature_data_latitude': 'float',
+    'nwm_feature_data_longitude': 'float',
+    'nwm_feature_data_altitude': 'float',
+    'nwm_feature_data_slope': 'float',
+    'nwm_feature_data_stream_order': 'float',
+    'nwm_feature_data_stream_length': 'float',
+    'nwm_feature_data_mannings_roughness': 'float',
+    'nwm_feature_data_channel_side_slope': 'float',
+    'nwm_feature_data_nhd_waterbody_comid': 'str',
+    'nwm_feature_data_downstream_feature_id': 'str',
+    'env_can_gage_data_name': 'str',
+    'env_can_gage_data_latitude': 'float',
+    'env_can_gage_data_longitude': 'float',
+    'env_can_gage_data_map_link': 'str',
+    'env_can_gage_data_water_course': 'str',
+    'env_can_gage_data_drainage_area': 'float',
+    'env_can_gage_data_contrib_drainage_area': 'float',
+    'nws_data_name': 'str',
+    'nws_data_huc': 'str',
+    'nws_data_rfc': 'str',
+    'nws_data_wfo': 'str',
+    'nws_data_hsa': 'str',
+    'nws_data_state': 'str',
+    'nws_data_county': 'str',
+    'nws_data_latitude': 'float',
+    'nws_data_longitude': 'float',
+    'nws_data_zero_datum': 'float',
+    'nws_data_county_code': 'float',
+    'nws_data_vertical_datum_name': 'str',
+    'nws_data_horizontal_datum_name': 'str',
+    'nws_preferred_huc': 'str',
+    'nws_preferred_longitude': 'float',
+    'nws_preferred_latitude': 'float',
+    'nws_preferred_latlon_datum_name': 'str',
+    'usgs_preferred_huc': 'str',
+    'usgs_preferred_latlon_datum_name': 'str',
+    'usgs_data_name': 'str',
+    'usgs_data_huc': 'str',
+    'usgs_data_state': 'str',
+    'usgs_data_active': 'str',
+    'usgs_data_geo_rfc': 'str',
+    'usgs_data_site_type': 'str',
+    'usgs_data_map_link': 'str',
+    'usgs_data_latitude': 'float',
+    'usgs_data_longitude': 'float',
+    'usgs_data_latlon_datum_name': 'str',
+    'usgs_data_altitude': 'float',
+    'usgs_data_alt_datum_code': 'str',
+    'usgs_data_drainage_area': 'float',
+    'usgs_data_alt_method_code': 'str',
+    'usgs_data_alt_accuracy_code': 'float',
+    'usgs_data_coord_method_code': 'str',
+    'usgs_data_contrib_drainage_area': 'float',
+    'usgs_data_coord_accuracy_code': 'str',
+    'usgs_data_gages_ii_reference': 'str',
+}

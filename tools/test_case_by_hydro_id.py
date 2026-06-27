@@ -346,19 +346,19 @@ if __name__ == "__main__":
     parser.add_argument(
         '-b',
         '--benchmark_category',
-        help='Choice of truth data. Options are: all, ble, ifc, nws, usgs, ras2fim',
+        help='REQUIRED: Choice of truth data. Options are: all, ble, ifc, nws, usgs, ras2fim',
         required=True,
     )
     parser.add_argument(
         '-v',
         '--version',
-        help='The fim version to use. eg) hand_4_5_11_1. Note: folder must be in the previous_fim folder.',
+        help='REQUIRED: The fim version to use. eg) hand_4_5_11_1. Note: folder must be in the previous_fim folder.',
         required=True,
     )
     parser.add_argument(
         '-g',
         '--gpkg',
-        help='Filepath and filename to hold exported gpkg file.'
+        help='REQUIRED: Filepath and filename to hold exported gpkg file.'
         ' eg. /data/fim_performance/hand_4_5_11_1/fim_performance_catchments.gpkg.'
         ' A CSV with the same name will also be written.',
         required=True,
