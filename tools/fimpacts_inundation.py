@@ -43,11 +43,15 @@ def get_evaluated_stage(fimpact_df, fim_run_dir, huc):
             fimpact_df.at[row.name, 'evaluated_stage'] = evaluated_stage
 
 
-def road_risk_status(
-    fim_run_dir: str, flow_file: str, output_file_path: str, limit_hucs: list = []
+def inundation_status(
+    fim_run_dir: str,
+    flow_file: str,
+    output_file_path: str,
+    limit_hucs: list = [],
+    feature_type: str = 'roads',
 ) -> gpd.GeoDataFrame:
     """
-    This function detect which roads are inundated by a specified flow file and calculated the flood depth.
+    This function detects which roads/buildings are inundated by a specified flow file and calculates flood depth.
     The function requires a flow file (expected to follow the schema used by 'inundation_mosaic_wrapper')
     with data organized by 'feature_id' and 'discharge' in cms. The output includes a geopackage
     containing inundated roads with their maximum flood depth.
@@ -56,8 +60,31 @@ def road_risk_status(
         fim_run_dir (str):    Path to FIM outputs were written by fim_pipeline.
         flow_file (str):      Path to csv flow file to be used for inundation.
         output_file_path (str):             Path to output geopackage file.
-        limit_hucs (list):    Optional. If specified, only the roads in these HUCs will be processed.
+        limit_hucs (list):    Optional. If specified, only those HUCs will be processed.
+        feature_type (str):   Optional. One of ['roads', 'buildings'].
     """
+
+    supported_feature_types = {
+        'roads': {
+            'fimpact_filename': 'osm_roads_fimpact.csv',
+            'subset_filename': 'osm_roads_subset.gpkg',
+            'join_id': 'osmid_catchid',
+            'id_columns': ['osmid', 'huc8', 'HydroID', 'feature_id', 'branch'],
+        },
+        'buildings': {
+            'fimpact_filename': 'buildings_fimpact.csv',
+            'subset_filename': 'buildings_subset.gpkg',
+            'join_id': 'UUID',
+            'id_columns': ['UUID', 'huc8', 'HydroID', 'feature_id', 'branch'],
+        },
+    }
+
+    if feature_type not in supported_feature_types:
+        raise ValueError(
+            f"Unsupported feature_type '{feature_type}'. Choose from: {list(supported_feature_types.keys())}"
+        )
+
+    feature_config = supported_feature_types[feature_type]
 
     # Check that fim run directory exists
     if not os.path.exists(fim_run_dir):
@@ -101,16 +128,16 @@ def road_risk_status(
     for huc in hucs:
         print(f'Processing HUC: {huc}')
         # Construct the file path
-        fimpact_path = os.path.join(fim_run_dir, huc, 'osm_roads_fimpact.csv')
-        roads_path = os.path.join(fim_run_dir, huc, 'osm_roads_subset.gpkg')
+        fimpact_path = os.path.join(fim_run_dir, huc, feature_config['fimpact_filename'])
+        feature_path = os.path.join(fim_run_dir, huc, feature_config['subset_filename'])
 
         # Check if the file exists
-        if not os.path.exists(fimpact_path) or not os.path.exists(roads_path):
-            print(f"No FIMpact data in HUC {huc}. Skipping...")
+        if not os.path.exists(fimpact_path) or not os.path.exists(feature_path):
+            print(f"No {feature_type} FIMpact data in HUC {huc}. Skipping...")
             continue
 
-        # Open the roads fimpact, making sure the ids are read as str
-        cols_to_str = ['osmid', 'huc8', 'HydroID', 'feature_id', 'branch']
+        # Open the fimpact file, making sure key ids are read as str
+        cols_to_str = feature_config['id_columns']
         dtype_dict = {col: str for col in cols_to_str}
 
         fimpact_df = pd.read_csv(fimpact_path, dtype=dtype_dict)
@@ -133,28 +160,31 @@ def road_risk_status(
         fimpact_df['flood_depth'] = fimpact_df['evaluated_stage'] - fimpact_df['threshold_hand']
 
         # for now, remove any record with negative flood depth. these may happen due to non-monotonic src especially in branch zero.
-        fimpact_df = fimpact_df[fimpact_df['flood_depth'] >= 0]
+        # also ignore any flood depth less than 0.03048m (0.1 ft) to match with FIM spatial maps ( see inundation.py:364-367:)
+        fimpact_df = fimpact_df[fimpact_df['flood_depth'] >= 0.03048]
         fimpact_df['flood_depth_ft'] = fimpact_df['flood_depth'] * 3.28084
 
-        # open roads geometry
-        roads_gdf = gpd.read_file(roads_path)[['osmid_catchid', 'geometry']]
+        # open feature geometry
+        feature_id = feature_config['join_id']
+        feature_gdf = gpd.read_file(feature_path)[[feature_id, 'geometry']]
 
-        # merge to get geometry of roads and add it to fimpact
-        # No need to worry for huc numbers since for each huc iteration, we should not have any duplicated road with multiple hucs
-        # and it is ok (good) to have multiple records for a osmid_catchid if they are from different hucs runs. This is what we want
-        fimpact_gdf = fimpact_df.merge(roads_gdf, on='osmid_catchid', how='left')
+        # merge to get geometry and add it to fimpact
+        fimpact_gdf = fimpact_df.merge(feature_gdf, on=feature_id, how='left')
 
-        fimpact_gdf = gpd.GeoDataFrame(fimpact_gdf, geometry='geometry', crs=roads_gdf.crs)
+        fimpact_gdf = gpd.GeoDataFrame(fimpact_gdf, geometry='geometry', crs=feature_gdf.crs)
 
         # Reproject to EPSG:4326
         fimpact_gdf = fimpact_gdf.to_crs('epsg:4326')
 
         fimpact_gdfs_list.append(fimpact_gdf)
 
+    if not fimpact_gdfs_list:
+        raise ValueError(f'No inundated {feature_type} records found for the requested HUCs/run.')
+
     # Concatenate all GeoDataFrame into a single GeoDataFrame
     fimpact_gdfs = gpd.GeoDataFrame(pd.concat(fimpact_gdfs_list, ignore_index=True))
 
-    fimpact_gdfs = fimpact_gdfs.loc[fimpact_gdfs.groupby(['osmid_catchid'])['flood_depth'].idxmax()]
+    fimpact_gdfs = fimpact_gdfs.loc[fimpact_gdfs.groupby([feature_config['join_id']])['flood_depth'].idxmax()]
 
     fimpact_gdfs.to_file(output_file_path, driver="GPKG", engine='fiona')
 
@@ -167,7 +197,9 @@ if __name__ == "__main__":
     # -f data/inputs/rating_curve/nwm_recur_flows/nwm3_17C_recurr_50_0_cms.csv
 
     # Parse arguments
-    parser = argparse.ArgumentParser(description="Detect which road are inundated by a specified flow file.")
+    parser = argparse.ArgumentParser(
+        description="Detect which roads/buildings are inundated by a specified flow file."
+    )
     parser.add_argument(
         "-y", "--fim_run_dir", help="Directory path to FIM run directory.", required=True, type=str
     )
@@ -184,14 +216,23 @@ if __name__ == "__main__":
     parser.add_argument(
         "-u",
         "--limit_hucs",
-        help="Optional. If specified, only the roads in these HUCs will be processed.",
+        help="Optional. If specified, only these HUCs will be processed.",
         required=False,
         type=str,
         nargs="+",
     )
+    parser.add_argument(
+        "-t",
+        "--feature_type",
+        help="Feature type to process. Options: roads, buildings.",
+        required=True,
+        type=str,
+        choices=['roads', 'buildings'],
+        default='roads',
+    )
 
     start = timer()
 
-    road_risk_status(**vars(parser.parse_args()))
+    inundation_status(**vars(parser.parse_args()))
 
     print(f"Completed in {round((timer() - start)/60, 2)} minutes.")

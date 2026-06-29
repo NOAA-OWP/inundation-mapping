@@ -185,12 +185,12 @@ def create_usgs_rating_database(
         ]
         final_df = pd.concat([final_df, calc_df], ignore_index=True)
         # Log any negative HAND elev values and remove from database
-        log_text += 'Warning: Negative HAND stage values -->\n'
+        log_text += 'INFO: Negative HAND stage values -->\n'
         log_text += calc_df[calc_df['hand'] < 0].to_string() + '\n'
         final_df = final_df[final_df['hand'] > 0]
         # Log any signifant differences btw the NWM flow value and closest USGS rating flow
         # This ensures that we consistently sample the USGS rating curves at known intervals - NWM recur flow
-        log_text += 'Warning: Large variance (>10%) between NWM flow and closest USGS flow -->\n'
+        log_text += 'INFO: Large variance (>10%) between NWM flow and closest USGS flow -->\n'
         log_text += calc_df[calc_df['check_variance'] > 0.1].to_string() + '\n'
         final_df = final_df[final_df['check_variance'] < 0.1]
         final_df['submitter'] = 'usgs_rating_wrds_api_' + final_df['location_id'].astype(str)
