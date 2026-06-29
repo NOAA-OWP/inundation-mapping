@@ -88,8 +88,9 @@ def get_fim_probability_distributions(
 
         if 'magnitude' in posterior_df.columns:
             if magnitude is None:
-                raise "Magnitude missing"
-            posterior_df = posterior_df[posterior_df['magnitude'] == magnitude]
+                posterior_df = posterior_df.iloc[:3]
+            else:
+                posterior_df = posterior_df[posterior_df['magnitude'] == magnitude]
 
         dist = []
         posterior_df = posterior_df.set_index('parameter_name')
@@ -141,7 +142,7 @@ def generate_streamflow_percentiles(
     # If there is no feature in the NWM parameters file
     if feature not in params_weibull.index:
         rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'ensemble': '1'})['streamflow']))
-        rv['feature_id'] = feature
+        rv['feature_id'] = str(feature)
         return rv
     else:
         parameters = params_weibull.loc[feature]
@@ -154,7 +155,7 @@ def generate_streamflow_percentiles(
 
     except Exception:
         rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'ensemble': '1'})['streamflow']))
-        rv['feature_id'] = feature
+        rv['feature_id'] = str(feature)
         return rv
 
     streamflow_values = ensemble_forecast['streamflow'].values
@@ -210,12 +211,12 @@ def generate_streamflow_percentiles(
             '50': max(0, custom_dist.ppf(0.5)),
             '25': max(0, custom_dist.ppf(0.75)),
             '10': max(0, custom_dist.ppf(0.9)),
-            'feature_id': feature,
+            'feature_id': str(feature),
         }
 
     else:
         rv = dict.fromkeys(dkeys, max(0, streamflow_expon_values[0]))
-        rv['feature_id'] = feature
+        rv['feature_id'] = str(feature)
         return rv
 
 
@@ -280,16 +281,7 @@ def analyze_nonmonotonic_src(srcs_df, channel_manning, slope_adj):
     return srcs_df
 
 
-def get_subdivided_src(
-    hydrofabric_dir,
-    huc,
-    branch,
-    channel_manning,
-    overbank_manning,
-    slope_adj,
-    htable_directory,
-    htable_output,
-):
+def get_subdivided_src(hydrofabric_dir, huc, branch, channel_manning, overbank_manning, slope_adj):
     """
     Method for subdividing a synthetic rating curve based on the high water threshold
 
@@ -307,10 +299,6 @@ def get_subdivided_src(
         Value for overbank manning roughness
     slope_adj: float
         Adjustment of the calculated slope
-    htable_directory: str
-        Directory to synthetic rating curves
-    htable_output: str
-        To get synthetic rating curve
 
     """
 
@@ -482,18 +470,17 @@ def get_subdivided_src(
     df_htable['feature_id'] = df_htable['feature_id'].astype(str)
     df_htable['precalb_discharge_cms'] = 0
 
-    output_table = os.path.join(htable_directory, htable_output.format(branch))
-    df_htable.to_feather(output_table)
+    return df_htable
 
 
 def inundate_probabilistic(
-    ensembles: str,
-    parameters: str,
+    ensembles: Union[str, xr.Dataset],
+    parameters: Union[str, pd.DataFrame],
     hydrofabric_dir: str,
     outputs_dir: str,
     huc: str,
     mosaic_prob_output_name: str,
-    posterior_dist: Optional[str] = None,
+    posterior_dist: Optional[Union[str, pd.DataFrame]] = None,
     day: Optional[int] = 6,
     hour: Optional[int] = 0,
     overwrite: Optional[bool] = False,
@@ -510,9 +497,9 @@ def inundate_probabilistic(
 
     Parameters
     ----------
-    ensembles: str
+    ensembles: Union[str, xr.Dataset]
         Path to load medium range ensembles
-    parameters: str
+    parameters: Union[str, xr.DataFrame]
         Path to load fit parameters to distributions
     hydrofabric_dir: str
         Directory with the hydrofabric directories
@@ -522,7 +509,7 @@ def inundate_probabilistic(
         Huc to process probabilistic FIM
     mosaic_prob_output_name: str
         Name of final mosaiced probabilistic FIM
-    posterior_dist: str = None
+    posterior_dist: Optional[Union[str, pd.DataFrame]] = None
         Name of posterior df
     day: Optional[int], default = 6
         Days ahead to pick from reference forecast time
@@ -551,9 +538,20 @@ def inundate_probabilistic(
         raise ValueError("Either output_raster or output_vector must be set to True")
 
     # Load datasets
-    ensembles = xr.open_dataset(ensembles, engine="h5netcdf")
+    if isinstance(ensembles, str):
+        ensembles = xr.open_dataset(ensembles, engine="h5netcdf")
+    elif isinstance(ensembles, xr.Dataset):
+        pass
+    else:
+        raise ValueError("Either ensembles must be a str or xr.Dataset")
 
-    parameters_df = pd.read_parquet(parameters)
+    if isinstance(parameters, str):
+        parameters_df = pd.read_parquet(parameters)
+    elif isinstance(parameters, pd.DataFrame):
+        parameters_df = parameters
+    else:
+        raise ValueError("Either parameters must be a str or pd.DataFrame")
+
     params_weibull = parameters_df.loc[parameters_df['distribution_name'] == 'weibull_min']
     params_weibull = params_weibull.set_index('feature_id')
 
@@ -596,14 +594,9 @@ def inundate_probabilistic(
     # Make directories if they do not exist
     output_file_name = os.path.basename(mosaic_prob_output_name)
     base_output_path = os.path.join(fim_outputs_dir, str(huc))
-    src_output_path = os.path.join(base_output_path, 'srcs')
-    htable_output_path = src_output_path
-    flow_path = os.path.join(base_output_path, 'flows')
 
-    # Create directories if they do not exist
+    # Create directory if it does not exist
     os.makedirs(base_output_path, exist_ok=True)
-    os.makedirs(src_output_path, exist_ok=True)
-    os.makedirs(flow_path, exist_ok=True)
 
     # Find the original hydrotable
     all_branches = s3_or_local_glob(os.path.join(hydrofabric_dir, huc, "branches", "*"))
@@ -624,31 +617,20 @@ def inundate_probabilistic(
         if os.path.exists(final_inundation_path) and not overwrite:
             continue
 
-        htable_output_file = "htable_{0}.feather"
         for branch in all_branches:
-            get_subdivided_src(
-                hydrofabric_dir,
-                huc,
-                branch,
-                channel_n,
-                overbank_n,
-                slope_adj,
-                htable_output_path,
-                htable_output_file,
-            )
+            h_table = get_subdivided_src(hydrofabric_dir, huc, branch, channel_n, overbank_n, slope_adj)
 
-        flow_file = os.path.join(flow_path, f'{huc}_{percentile}_flow.csv')
-
-        df = pd.DataFrame(
+        flow_df = pd.DataFrame(
             {"feature_id": percentile_values['feature_id'], "discharge": percentile_values[percentile]}
         )
-        df.to_csv(flow_file, index=False)
+
+        flow_df = flow_df.set_index('feature_id')
 
         produce_mosaicked_inundation(
             hydrofabric_dir,
             huc,
-            flow_file,
-            hydro_table_df=os.path.join(htable_output_path, htable_output_file),
+            flow_df,
+            hydro_table_df=h_table,
             inundation_raster=final_inundation_path,
             mask=mask_path,
             verbose=not quiet,
@@ -706,10 +688,6 @@ def inundate_probabilistic(
     if output_raster is False:
         os.remove(out_rast)
 
-    # Remove SRC path and flow path
-    shutil.rmtree(src_output_path)
-    shutil.rmtree(flow_path)
-
 
 def progress_bar_handler(executor_dict, verbose, desc) -> list:
     """Show progress of operation
@@ -742,13 +720,13 @@ def progress_bar_handler(executor_dict, verbose, desc) -> list:
 
 
 def inundate_hucs(
-    ensembles: str,
-    parameters: str,
+    ensembles: Union[str, xr.Dataset],
+    parameters: Union[str, pd.DataFrame],
     hydrofabric_dir: str,
     outputs_dir: str,
     hucs: list,
     mosaic_prob_output_name: str,
-    posterior_dist: Optional[str] = None,
+    posterior_dist: Optional[Union[str, pd.DataFrame]] = None,
     day: Optional[int] = 6,
     hour: Optional[int] = 0,
     overwrite: Optional[bool] = False,
@@ -765,10 +743,10 @@ def inundate_hucs(
 
     Parameters
     ----------
-    ensembles: str
-        Location of nws ensemble NetCDF file
-    parameters: str
-        Location of parameter parquet file
+    ensembles: Union[str, xr.Dataset]
+        Path or object for nws ensemble file
+    parameters: Union[str, pd.DataFrame]
+        Path or DataFrame of parameter parquet file
     hydrofabric_dir: str
         Directory with the hydrofabric directories
     outputs_dir: str
@@ -777,7 +755,7 @@ def inundate_hucs(
         HUCs to process probabilistic inundation for
     mosaic_prob_output_name: str
         Name of final mosaiced probabilistic FIM
-    posterior_dist: Optional[str], default = None
+    posterior_dist: Optional[Union[str, pd.DataFrame]], default = None
         Name of posterior df
     day: Optional[int], default = 6
         Days ahead to pick from reference forecast time
