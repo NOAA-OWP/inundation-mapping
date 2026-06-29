@@ -177,7 +177,7 @@ def setup_file_logger(log_file_dir, log_file_name_prefix, logger_name=""):
 
 # This one is more designed to be for multi-proc as it has logger handler names
 # Notice how it does not have a "console / stream handler"? hence, a special function for MP
-def setup_mp_file_logger(log_file_path: str, logger_name: str):
+def setup_mp_file_logger(log_file_path: str, logger_name: str, level=logging.DEBUG):
     """
 
     Create a logger bound by a strict bijection:
@@ -243,7 +243,7 @@ def setup_mp_file_logger(log_file_path: str, logger_name: str):
     _LOGGER_REGISTRY.setdefault(logger_name, abs_path)
 
     logger = logging.getLogger(logger_name)
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(level)
 
     # Prevent duplicate handlers if already exists
     if not logger.handlers:

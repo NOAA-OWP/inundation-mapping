@@ -29,6 +29,10 @@ from tqdm import tqdm
 from src.utils.shared_functions import FIM_Helpers as fh
 
 
+# NOTE: Jun 2026:  With major updates being made to inudation files, this tool will no longer
+# work and requires major updates including optimizations.
+# It was agreed that it was ok to defer as this script might not even be used anymore
+
 # TODO: Jun 2026: Why do we have so much duplication to run_test_cases.py
 # if we do want to keep this and not rebuild... consider rebuilding it to use our
 # standard logging system. See synthesize_test_case.py, run_test_case.py and various

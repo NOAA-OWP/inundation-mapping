@@ -34,9 +34,6 @@ def preprocess_benchmark_static(benchmark_raster, reference_raster, out_raster_p
 
     '''
     # Open and read raster and benchmark rasters
-
-    # TODO: Jun 2026: Change these two rasterio.open commands to better scope contol.
-    # Using either the "with" syntax, or open the file / read / explicit close
     reference = rasterio.open(reference_raster)
     benchmark = rasterio.open(benchmark_raster)
     benchmark_arr = benchmark.read(1)

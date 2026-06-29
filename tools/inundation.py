@@ -19,6 +19,7 @@ from shapely.geometry import shape
 
 import src.utils.shared_functions as sf
 
+
 gpd.options.io_engine = "pyogrio"
 
 
@@ -26,6 +27,7 @@ class hydroTableHasOnlyLakes(Exception):
     """Raised when a Hydro-Table only has lakes"""
 
     pass
+
 
 class NoForecastFound(Exception):
     """Raised when no forecast is available for a given Hydro-Table"""
@@ -150,10 +152,7 @@ def inundate(
 
         # input rem
         # logger.debug(f"rem_path is {rem_branch_path} for {huc}/{branch_id}")
-        with (
-            rasterio.open(rem_branch_path) as rem_rst,
-            rasterio.open(catchments_file_path) as catchments_rst
-        ):
+        with rasterio.open(rem_branch_path) as rem_rst, rasterio.open(catchments_file_path) as catchments_rst:
 
             # check for matching number of bands and single band only
             assert ((rem_rst.transform * (0, 0)) == (catchments_rst.transform * (0, 0))) & (
@@ -179,7 +178,9 @@ def inundate(
                 # TODO: Jun 2026: research this more. Does rasterio might want json args now, TBD
                 # Jun 2026: Can't use blockxsize and blockysize (seeing as we are using COG GeoTiffs) ??
                 depths_profile.update(driver='GTiff', blockxsize=256, blockysize=256, tiled=True)
-                inundation_profile.update(driver='GTiff', blockxsize=256, blockysize=256, tiled=True, nodata=0)
+                inundation_profile.update(
+                    driver='GTiff', blockxsize=256, blockysize=256, tiled=True, nodata=0
+                )
 
                 # depths_profile.update(driver='GTiff', blocksize=256, tiled=True)
                 # inundation_profile.update(driver='GTiff', blocksize=256, tiled=True, nodata=0)
@@ -190,7 +191,11 @@ def inundate(
 
                 # depth_rst = rasterio.open(depths, "w+", **depths_profile) if depths is not None else None
 
-                depth_rst = rasterio.open(depths_branch_raster_path, "w+", **depths_profile) if depths_branch_raster_path is not None else None
+                depth_rst = (
+                    rasterio.open(depths_branch_raster_path, "w+", **depths_profile)
+                    if depths_branch_raster_path is not None
+                    else None
+                )
                 inundation_rst = (
                     rasterio.open(inundation_branch_raster_path, "w+", **inundation_profile)
                     if (inundation_branch_raster_path is not None and inundation_profile is not None)
@@ -198,7 +203,9 @@ def inundate(
                 )
 
                 nodata = (
-                    np.int16(inundation_profile['nodata']) if int_16 else np.int32(inundation_profile['nodata'])
+                    np.int16(inundation_profile['nodata'])
+                    if int_16
+                    else np.int32(inundation_profile['nodata'])
                 )
 
                 # make windows generator
@@ -258,15 +265,16 @@ def inundate(
                 if len(inundation_polys) > 0:
                     inundation_polys_file_name = inundation_polys[0]
 
-                inun_data = {"huc8": huc,
-                            "branchID": branch_id,
-                            "inundation_rasters": inundation_rasters_file_name,
-                            "depths_rasters": depth_rasters_file_name,
-                            "inundation_polygons": inundation_polys_file_name
-                            }
+                inun_data = {
+                    "huc8": huc,
+                    "branchID": branch_id,
+                    "inundation_rasters": inundation_rasters_file_name,
+                    "depths_rasters": depth_rasters_file_name,
+                    "inundation_polygons": inundation_polys_file_name,
+                }
 
         return inun_data
-    
+
     except (hydroTableHasOnlyLakes, NoForecastFound) as hex:
         error_type = type(hex).__name__
         logger.warning(f"{error_type} - Error while inundating for {huc} / {branch_id}")
@@ -429,7 +437,7 @@ def __go_fast_mapping(
 # and subset_hucs to None. This means the code block in here for "if hucs is not None:". was never used
 # which was good as there is a bug in that code block that would have thrown an exception as the
 # fossid column is not valid.
-# With those columns now being invalid, it also means the catchments_poly (catchments_poly_path) arg 
+# With those columns now being invalid, it also means the catchments_poly (catchments_poly_path) arg
 # and the mask_type column are also no longer needed
 def __make_windows_generator(
     rem_rst: rasterio.io.DatasetReader,
@@ -607,7 +615,7 @@ def __subset_hydroTable_to_forecast(
 ) -> Tuple[typed.Dict, List[str]]:
     """
     Subset hydrotable with forecast
-    Note: logger not sent in as an arg. If you need a logger, add it as an arg. 
+    Note: logger not sent in as an arg. If you need a logger, add it as an arg.
     See example at __inundate_in_huc
 
     Parameters
@@ -695,13 +703,15 @@ def __subset_hydroTable_to_forecast(
             pass  # consider checking for dtypes, indices, and columns
         else:
             raise TypeError("Pass path to forecast file csv or Pandas DataFrame")
-  
+
     # join tables
     try:
         hydroTable = hydroTable.join(forecast, on=['feature_id'], how='inner')
     except AttributeError:
-        raise NoForecastFound("No forecast values found for the passed feature_ids in the Hydro-Table for"
-                              f"huc of {huc} and forecast ")
+        raise NoForecastFound(
+            "No forecast values found for the passed feature_ids in the Hydro-Table for"
+            f"huc of {huc} and forecast "
+        )
 
     else:  # more/less a "finally keyword" ???
 
@@ -744,7 +754,7 @@ def read_nwm_forecast_file(forecast_file, rename_headers: Optional[bool] = True)
     """
     Reads NWM netcdf comp files and converts to forecast data frame
 
-    Note: logger not sent in as an arg. If you need a logger, add it as an arg. 
+    Note: logger not sent in as an arg. If you need a logger, add it as an arg.
     See example at __inundate_in_huc
 
     Parameters
@@ -779,6 +789,7 @@ def read_nwm_forecast_file(forecast_file, rename_headers: Optional[bool] = True)
     flows_df = flows_df.dropna()
 
     return flows_df
+
 
 # Jun 2026: commented out __main__ : does not appear to have worked for a while
 # Consider using inundate_gms.py

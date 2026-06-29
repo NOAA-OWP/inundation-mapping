@@ -245,7 +245,7 @@ class Test_Case(Benchmark):
                 # Each logger get the name of fim_logger but each are in a ProcessPoolExecutor
                 # so they will not collide. But giving it a specific name makes it easier
                 # to share with a ThreadPoolExecutor in inundation
-                log_file_path = sf.setup_file_logger(log_folder, f"{log_prefix}_{self.test_id}")
+                sf.setup_file_logger(log_folder, f"{log_prefix}_{self.test_id}")
 
             if verbose:
                 logging.info("")  # helps find the sections in the logs

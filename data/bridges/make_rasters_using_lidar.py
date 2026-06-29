@@ -358,7 +358,6 @@ def make_rasters_in_parallel(
 
     except Exception as e:
         error_message = f"Error processing {osmid}: {str(e)}"
-        print(error_message)
         logging.error(error_message)
         logging.error(traceback.format_exc())
 

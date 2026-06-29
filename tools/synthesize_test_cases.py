@@ -230,7 +230,7 @@ def synthesize_test_cases(
             except Exception as ex:
                 # this covers fails in the original call to test_case_class.alpha_test such as
                 # bad definition.
-                logging.critical("++++++++++++++++++++++++++++++++++++++++++++++++")                
+                logging.critical("++++++++++++++++++++++++++++++++++++++++++++++++")
                 logging.critical(f"*** Error: {ex}")
                 logging.critical(traceback.format_exc())
                 pbar.close()
@@ -264,7 +264,7 @@ def synthesize_test_cases(
             )
     except Exception:
         # No need to reraise
-        logging.critical("++++++++++++++++++++++++++++++++++++++++++++++++")        
+        logging.critical("++++++++++++++++++++++++++++++++++++++++++++++++")
         logging.critical("An exception has occurred")
         logging.critical(traceback.format_exc())
     finally:

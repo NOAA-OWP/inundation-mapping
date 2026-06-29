@@ -13,6 +13,7 @@ from rasterio.fill import fillnodata
 from src.utils.shared_functions import setup_file_logger
 from tools.tools_shared_variables import elev_raster_ndv
 
+
 def interpolate_wse(
     inundation_depth_raster,
     hydroconditioned_dem,
@@ -81,6 +82,7 @@ def interpolate_wse(
     with rasterio.open(output_depth_raster, 'w', **profile) as dst:
         dst.write(final_depth)
 
+
 def inundate_with_catchment_spillover(
     hydrofabric_dir,
     hucs,
@@ -94,7 +96,9 @@ def inundate_with_catchment_spillover(
     verbose=False,
 ):
 
-    log_file_path = setup_file_logger(log_file_dir=hydrofabric_dir, log_file_name_prefix="inundate_water_surface")
+    log_file_path = setup_file_logger(
+        log_file_dir=hydrofabric_dir, log_file_name_prefix="inundate_water_surface"
+    )
     print(f"Logs will be saved to {log_file_path}")
     setup_file_logger(hydrofabric_dir, "interpolate_water_surface.log")
 

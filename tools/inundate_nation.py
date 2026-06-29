@@ -16,8 +16,8 @@ from rasterio.enums import Resampling
 from rasterio.shutil import copy
 from rio_vrt import build_vrt
 
-from src.utils.shared_functions import setup_file_logger
 from src.utils.shared_functions import FIM_Helpers as fh
+from src.utils.shared_functions import setup_file_logger
 
 
 # INUN_REVIEW_DIR = r'/data/inputs/rating_curve/nwm_recur_flows/'
@@ -27,8 +27,6 @@ from src.utils.shared_functions import FIM_Helpers as fh
 # DEFAULT_OUTPUT_DIR = '/data/inundation_review/inundate_nation/mosaic_output/'
 
 
-# TODO: Nov 2023, Logging system appears to be not working correctly.
-# TODO: Jun 2026: Switch to src.utils.shared_functions.setup_file_logger
 def inundate_nation(
     fim_run_dir,
     output_dir,
@@ -204,7 +202,7 @@ def run_inundation(args):
     # It has been a bit finicky with not updating itself great, but try it and add a card
     # if it not working correctly. It is untested when visible.
 
-    # However, it would be well worth adding a ProcessPoolExecutor here, similar to the one in 
+    # However, it would be well worth adding a ProcessPoolExecutor here, similar to the one in
     # synthesis_test_case. The you use the num_workers there.
     produce_mosaicked_inundation(
         hydrofabric_dir=fim_run_dir,

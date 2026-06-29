@@ -1550,7 +1550,6 @@ class StreamBranchPolygons(StreamNetwork):
         if isinstance(vector, str):
             vector_filename = vector
             # vector = gpd.read_file(vector_filename,layer=vector_layer)
-
             vector = fiona.open(vector_filename, "r", layer=vector_layer)
         elif isinstance(vector, fiona.Collection):
             pass

@@ -113,7 +113,7 @@ def create_flood_maps(
                 )
 
         # Make inundation extent output
-        # Jun 2026: orig num_workers=num_jobs arg is no longer available. 
+        # Jun 2026: orig num_workers=num_jobs arg is no longer available.
         # As there is only one HUC, there is no sense wrapping this in a MP or MT
         produce_mosaicked_inundation(
             hydrofabric_dir,
@@ -316,7 +316,7 @@ if __name__ == "__main__":
         #     'sites': sites,
         'flows': flows,
         'hucs': [huc],
-        #'num_jobs': 8,  # Jun 2026: no longer in use
+        # 'num_jobs': 8,  # Jun 2026: no longer in use
         'num_threads': 40,  # Jun 2026: Change from 8
         'overwrite': True,
         'windowed': False,

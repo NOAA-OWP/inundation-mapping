@@ -90,7 +90,8 @@ def produce_mosaicked_inundation(
     # logging.debug(f"num_workers is {num_workers} and show_progress_bar is {show_progress_bar}")
     # Check that inundation_raster or depths_raster is supplied
     if (inundation_raster_path is None and inundation_raster_path == "") and (
-        depths_raster_path is None and depths_raster_path == ""):
+        depths_raster_path is None and depths_raster_path == ""
+    ):
         raise ValueError("Must supply either inundation_raster path or depths_raster path.")
 
     mosaic_file_path = ""
@@ -102,11 +103,11 @@ def produce_mosaicked_inundation(
                 continue
             parent_dir = os.path.split(output_file_path)[0]
             if not os.path.exists(parent_dir):
-                msg=f"Parent directory for {os.path.split(output_file_path)[1]} does not exist."
+                msg = f"Parent directory for {os.path.split(output_file_path)[1]} does not exist."
                 "The parent directory will be produced."
                 if verbose:
                     logging.info(msg)
-               # logging.debug(msg)
+                # logging.debug(msg)
                 os.makedirs(parent_dir, exist_ok=True)
             # TODO: Jun 2026: Do we want to remove it to clean it?
 
@@ -202,7 +203,7 @@ def produce_mosaicked_inundation(
             logging.debug(f"Mosaicking extent complete. Saved to {mosaic_file_path}")
 
     except Exception as ex:
-        logging.critical("++++++++++++++++++++++++++++++++++++++++++++++++")        
+        logging.critical("++++++++++++++++++++++++++++++++++++++++++++++++")
         logging.critical(f"Error producing mosiacked inundation for {hucs}")
         logging.critical(traceback.format_exc())
         raise ex
@@ -235,7 +236,12 @@ if __name__ == "__main__":
         type=str,
     )
     parser.add_argument(
-        "-i", "--inundation-raster-path", help="Inundation raster output.", required=False, default=None, type=str
+        "-i",
+        "--inundation-raster-path",
+        help="Inundation raster output.",
+        required=False,
+        default=None,
+        type=str,
     )
     parser.add_argument(
         "-p",

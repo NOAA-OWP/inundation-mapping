@@ -25,6 +25,7 @@ from src.utils.shared_functions import s3_or_local_isfile, s3_or_local_path_exis
 # A new gval is already ready to plug into fix this. We can remove it later.
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
+
 def Inundate_gms(
     hydrofabric_dir: str,
     forecast_file_path: str,
@@ -119,16 +120,17 @@ def Inundate_gms(
     # make inundate generator
     # Jun 2026: generators do not play well with threadpoolexecutors
     # Changed to an array of dicionaries
-    inundate_input_args = __inundate_gms_generator(hucs_branches,
-                                                   hydrofabric_dir,
-                                                   inundation_raster,
-                                                   depths_raster,
-                                                   forecast_file_path,
-                                                   hydro_table_df,
-                                                   verbose=verbose,
-                                                   windowed=windowed,
-                                                   precalb_option=precalb_option,
-                                                )
+    inundate_input_args = __inundate_gms_generator(
+        hucs_branches,
+        hydrofabric_dir,
+        inundation_raster,
+        depths_raster,
+        forecast_file_path,
+        hydro_table_df,
+        verbose=verbose,
+        windowed=windowed,
+        precalb_option=precalb_option,
+    )
 
     # logging.debug(f"back from __inundate_gms_generator for {hucs} with number of branches
     #   of {len(hucs_branches)}")
@@ -153,7 +155,7 @@ def Inundate_gms(
     try:
         # We could upgrade to creating an event and queue system passed into each thread to stop
         # catestrophic errors quicker, but it can be messy
-        futures = {}        
+        futures = {}
         with ThreadPoolExecutor(max_workers=num_threads) as executor:
 
             # Using tqdm manually instead of part of as_completed, we have more
@@ -167,9 +169,9 @@ def Inundate_gms(
             )
 
             for inp in inundate_input_args:
-                    future = executor.submit(inundate, **inp)
-                    future_id = f"{inp['huc']}-{inp['branch_id']}"
-                    futures[future] = future_id
+                future = executor.submit(inundate, **inp)
+                future_id = f"{inp['huc']}-{inp['branch_id']}"
+                futures[future] = future_id
 
             for future in as_completed(futures):
 
@@ -180,8 +182,8 @@ def Inundate_gms(
                         continue
 
                     if future.exception() is not None:
-                        raise future.exception()   # re-raise it
-                    
+                        raise future.exception()  # re-raise it
+
                     if future.result() is not None:
                         inun_data_list.append(future.result())
 
@@ -190,18 +192,19 @@ def Inundate_gms(
                     context = f"{sys._getframe().f_code.co_name} -- {future_id}"
                     logging.critical("++++++++++++++++++++++++++++++++++++++++++++++++")
                     logging.critical(f"Error: {context} : {exc}")
-                    logging.critical("Thread pool shutting down")                    
+                    logging.critical("Thread pool shutting down")
 
-                    print("Process pool shutting down. This may take a while depending on how many jobs."
-                           " Jobs currently in progress will need to complete for this can fully shut down.",
-                           flush=True,
-                        )
+                    print(
+                        "Process pool shutting down. This may take a while depending on how many jobs."
+                        " Jobs currently in progress will need to complete for this can fully shut down.",
+                        flush=True,
+                    )
                     print("", flush=True)
 
                     # Note: You can not sys.exit from executors directly
                     # all processes inside the ThreadPools tasks can be aborted
                     # but it is very messy and not really necessary
-                    pbar.close()  # aborts the progress bar                    
+                    pbar.close()  # aborts the progress bar
                     executor.shutdown(wait=True, cancel_futures=True)  # yes.. need wait True for MT
                     raise exc  # yes.. reraise
 
@@ -394,7 +397,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "-u", "--hucs", help="List of HUCS to run", required=False, default=None, type=str, nargs="+"
     )
-    parser.add_argument("-f", "--forecast-file-path", help="Forecast discharges in CMS as CSV file", required=True)
+    parser.add_argument(
+        "-f", "--forecast-file-path", help="Forecast discharges in CMS as CSV file", required=True
+    )
     parser.add_argument(
         "-i",
         "--inundation-raster",
@@ -424,8 +429,12 @@ if __name__ == "__main__":
         "-vr", "--verbose", help="Verbose printing", required=False, default=False, action="store_true"
     )
     parser.add_argument(
-        "-sp", "--show-progress-bar", help="Show tqdm progress bar", required=False,
-          default=True, action="store_false"
+        "-sp",
+        "--show-progress-bar",
+        help="Show tqdm progress bar",
+        required=False,
+        default=True,
+        action="store_false",
     )
 
     Inundate_gms(**vars(parser.parse_args()))

@@ -16,7 +16,6 @@ gpd.options.io_engine = "pyogrio"
 
 def convert_grid_cells_to_points(raster, index_option, output_points_filename=False):
     # Input raster
-
     if isinstance(raster, str):
         raster = rasterio.open(raster, 'r')
 
