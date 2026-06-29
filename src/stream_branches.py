@@ -811,6 +811,8 @@ class StreamNetwork(gpd.GeoDataFrame):
             str(h)[0:4] + str(b + 1).zfill(max_branch_id_digits) for b, h in enumerate(outlet_reach_ids)
         ]
 
+        self[branch_id_attribute] = self[branch_id_attribute].astype(object)
+
         self.loc[outlet_reach_ids, branch_id_attribute] = branch_ids
         Q = deque(outlet_reach_ids)
         visited = set(outlet_reach_ids)

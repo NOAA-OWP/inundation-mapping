@@ -147,7 +147,7 @@ def download_format_metadata(site_thresholds_csv, metadata_url, DEFAULT_DATA_CRS
     # Download and format metadata
     lid_list = thresholds_df['nws_lid'].tolist()
 
-    oconus_meta_list, ___ = get_metadata(
+    oconus_meta_list, ___, err_msg = get_metadata(
         metadata_url,
         select_by='nws_lid',
         selector=lid_list,
@@ -155,6 +155,9 @@ def download_format_metadata(site_thresholds_csv, metadata_url, DEFAULT_DATA_CRS
         upstream_trace_distance=None,
         downstream_trace_distance=None,
     )
+
+    if err_msg != "":
+        print(err_msg)
 
     print(f'Downloaded metadata for {len(oconus_meta_list)} sites from WRDS API.')
 

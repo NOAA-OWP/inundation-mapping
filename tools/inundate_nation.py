@@ -30,7 +30,15 @@ from utils.shared_functions import FIM_Helpers as fh
 
 
 def inundate_nation(
-    fim_run_dir, output_dir, magnitude_key, flow_file, huc_list, inc_mosaic, job_number, thread_number
+    fim_run_dir,
+    output_dir,
+    magnitude_key,
+    flow_file,
+    huc_list,
+    inc_mosaic,
+    precalb,
+    job_number,
+    thread_number,
 ):
     assert os.path.exists(flow_file), f"ERROR: could not find the flow file: {flow_file}"
 
@@ -58,6 +66,7 @@ def inundate_nation(
     logging.info(f"magnitude_key: {magnitude_key}")
     logging.info(f"flow_file: {flow_file}")
     logging.info(f"inc_mosaic: {str(inc_mosaic)}")
+    logging.info(f"Precalibration Discharge: {str(precalb)}")
 
     magnitude_output_dir = os.path.join(output_dir, output_base_file_name)
 
@@ -86,7 +95,16 @@ def inundate_nation(
 
     logging.info(f"Inundation mosaic wrapper outputs will saved here: {magnitude_output_dir}")
     run_inundation(
-        [fim_run_dir, huc_list, magnitude_key, magnitude_output_dir, flow_file, job_number, thread_number]
+        [
+            fim_run_dir,
+            huc_list,
+            magnitude_key,
+            magnitude_output_dir,
+            flow_file,
+            job_number,
+            thread_number,
+            precalb,
+        ]
     )
 
     # Perform mosaic operation
@@ -120,7 +138,7 @@ def inundate_nation(
             logging.info(msg)
 
         # Perform VRT creation and mosaic all of the huc rasters using boolean rasters
-        vrt_raster_mosaic(output_bool_dir, output_dir, output_base_file_name, thread_number)
+        vrt_raster_mosaic(output_bool_dir, output_dir, output_base_file_name, thread_number, precalb)
 
         # now cleanup the temp bool directory
         shutil.rmtree(output_bool_dir, ignore_errors=True)
@@ -155,6 +173,7 @@ def run_inundation(args):
     forecast = args[4]
     job_number = args[5]
     thread_number = args[6]
+    precalb = args[7]
 
     # Define file paths for use in inundate().
 
@@ -182,6 +201,7 @@ def run_inundation(args):
         verbose=True,
         is_mosaic_for_branches=True,
         gms_multi_process=True,
+        precalb_option=precalb,
     )
 
 
@@ -223,7 +243,7 @@ def create_bool_rasters(args):
         dst.write(array.astype(rasterio.uint8))
 
 
-def vrt_raster_mosaic(output_bool_dir, output_dir, fim_version_tag, threads):
+def vrt_raster_mosaic(output_bool_dir, output_dir, fim_version_tag, threads, precalb):
     crs_groups = defaultdict(list)
 
     # Group rasters by CRS
@@ -242,7 +262,10 @@ def vrt_raster_mosaic(output_bool_dir, output_dir, fim_version_tag, threads):
 
     # Build VRTs and mosaics for each group
     for epsg_code, raster_list in crs_groups.items():
-        output_mosaic_name = f"{fim_version_tag}_EPSG{epsg_code}_mosaic.tif"
+        if precalb:
+            output_mosaic_name = f"{fim_version_tag}_EPSG{epsg_code}_precalb_mosaic.tif"
+        else:
+            output_mosaic_name = f"{fim_version_tag}_EPSG{epsg_code}_mosaic.tif"
         output_mosaic_raster = os.path.join(output_dir, output_mosaic_name)
 
         # Define COG creation options for the FINAL mosaic
@@ -401,6 +424,15 @@ if __name__ == "__main__":
         '--inc_mosaic',
         help='Optional flag to produce mosaic of FIM extent rasters',
         action='store_true',
+    )
+
+    parser.add_argument(
+        '-p',
+        '--precalb',
+        help='Optional flag to use the pre-calibrated discharge from the SRCs',
+        action='store_true',
+        required=False,
+        default=False,
     )
 
     parser.add_argument('-j', '--job-number', help='The number of jobs', required=False, default=1, type=int)
