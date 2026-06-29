@@ -7,8 +7,14 @@ Fixes an error in the usgs_gage_unit_setup.py file for an error while casting to
 
 Previously the 'feature_id' column could be Null, but a recent change when creating the usgs_gage file accidently changed that column default value from Null to "None" (str).  Compensated for it here.
 
+During a full UAT test with this fix, it bubbled up another problem of alpha scores for usgs and nws dropping significantly.  I reverted the three lines in bash_variables to the earlier usgs gage files to the previous Sept 2025 set, then re-ran UAT. Results are now good. That suggests that there is data problems with the new usgs gage data. 
+
+bash_variables file reverted to the Sept 2025 set of usgs files.
+
 ### Changes
-- `src\usgs_gage_unit_setup.py`: as described above.
+- `src'
+    - `usgs_gage_unit_setup.py`: as described above.
+    - `bash_variables.env`: as described above.
 <br/>
 
 ## v4.9.17.1 - 2026-06-26 - [PR#1843](https://github.com/NOAA-OWP/inundation-mapping/pull/1843)
