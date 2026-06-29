@@ -6,6 +6,7 @@ import logging
 import os
 import pathlib
 import time
+import traceback
 import warnings
 from pathlib import Path
 
@@ -733,7 +734,7 @@ def get_stats_table_from_binary_rasters(
                     # Buffer if buffer val exists
                     poly_all_proj = poly_all_proj.buffer(buffer_val) if buffer_val != 0 else poly_all_proj
 
-                    if all_masks_df is not None:
+                    if all_masks_df is not None and not all_masks_df.empty:
                         all_masks_df = pd.concat([all_masks_df, poly_all_proj])
                     else:
                         all_masks_df = poly_all_proj
@@ -756,7 +757,7 @@ def get_stats_table_from_binary_rasters(
         agreement_map.rio.write_nodata(4, inplace=True)
 
         # Mask if mask_dict is provided
-        if all_masks_df is not None:
+        if all_masks_df is not None and not all_masks_df.empty:
             agreement_map = agreement_map.rio.clip(all_masks_df['geometry'], invert=True)
             agreement_map.data = xr.where(
                 agreement_map_og.sel({'x': agreement_map.coords['x'], 'y': agreement_map.coords['y']}) == 10,
@@ -885,6 +886,9 @@ def get_stats_table_from_binary_rasters(
 ########################################################################
 # Functions related to categorical fim and ahps evaluation
 ########################################################################
+# TODO: Jun 2026: if it makes sense, it is possible to use a native logger
+# ie) logging.info.  If a logger has not specifically been created, native python logging
+# just prints to screen instead.
 def get_metadata(
     metadata_url,
     select_by,

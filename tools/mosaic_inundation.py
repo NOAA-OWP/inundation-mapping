@@ -34,12 +34,15 @@ gpd.options.io_engine = "pyogrio"
 # TODO: Jun 2026: We will likely want to change this as we upgrade logging everywhere (see run_test_case.py)
 # The newer system has a bunch of new features, but the biggest is that if we use our python.logging
 # it logs everything we might want
+# Also see note at mask_mosaic. Technically we do need mask_path of workers value anymore
 def Mosaic_inundation(
     map_file: Union[str, pd.DataFrame],
     mosaic_attribute: str,
     mosaic_output: Optional[str] = None,
+    mask_path: Optional[str] = None,
     unit_attribute_name: Optional[str] = "huc8",
     nodata: Optional[int] = elev_raster_ndv,
+    workers: Optional[int] = 1,
     remove_inputs: Optional[bool] = False,
     subset: Optional[str] = None,
     verbose: Optional[bool] = True,
@@ -58,10 +61,14 @@ def Mosaic_inundation(
         Attribute to mosaic the map files
     mosaic_output: Optional[str], default = None
         Name of final mosaiced inundation file
+    mask: Optional[str], default = None
+        Name of file to inclusively mask final output file
     unit_attribute_name: Optional[str], default = None
         Processing unit to mosaic inundation
     nodata: Optional[int], default = elev_raster_ndv
         Value to represent nodata
+    workers: Optional[int], default = 1
+    Number of parallel processes to use
     remove_inputs: Optional[bool], default = False
         Whether to remove intermediate input files
     subset: Optional[str], default = None
@@ -136,7 +143,7 @@ def Mosaic_inundation(
             try:
                 inundation_maps_list = inundation_maps_df.loc[ag, mosaic_attribute].tolist()
             except AttributeError as ae:
-                logging.error(f"Attribute error while processing {mosaic_output}: {ae}")
+                logging.critical(f"Attribute error while processing {mosaic_output}: {ae}")
                 inundation_maps_list = [inundation_maps_df.loc[ag, mosaic_attribute]]
                 # TODO: Jun 2026: Should we re-raise this? It wasn't before
                 raise ae
@@ -153,9 +160,13 @@ def Mosaic_inundation(
             if (is_mosaic_for_branches) and (ag not in mosaic_output):
                 ag_mosaic_output = fh.append_id_to_file_name(mosaic_output, ag)  # change it
 
-            logging.debug("Starting mosaic_by_unit")
+            # logging.debug("Starting mosaic_by_unit")
             remove_list = mosaic_by_unit(
-                inundation_maps_list, ag_mosaic_output, nodata, remove_inputs=remove_inputs
+                inundation_maps_list,
+                ag_mosaic_output,
+                nodata,
+                remove_inputs=remove_inputs,
+                mask_path=mask_path,
             )
 
             if len(remove_list) > 0:
@@ -190,12 +201,17 @@ def Mosaic_inundation(
     return ag_mosaic_output
 
 
-# Jun 2026: Number of workers remove as it is no longer relavent
+# Jun 2026: See note in mask_mosaic function which has not worked
+# for quite a while. This means both wokers, mask and verbose are not needed
+# Number of workers remove as it is no longer relavent
 def mosaic_by_unit(
     inundation_maps_list: list,
     mosaic_output: str,
     nodata: Optional[int] = elev_raster_ndv,
+    workers: Optional[int] = 1,
     remove_inputs: Optional[bool] = False,
+    mask_path: Optional[str] = None,
+    verbose: Optional[bool] = False,
 ) -> Union[list, None]:
     """
     Mosaic inundation extents or depths
@@ -208,8 +224,14 @@ def mosaic_by_unit(
         Name of final mosaiced inundation file
     nodata: Optional[int], default = elev_raster_ndv
         Value to represent nodata
+    workers: Optional[int], default = 1
+        Number of parallel processes to use
     remove_inputs: Optional[bool], default = False
         Whether to remove intermediate input files
+    mask_path: Optional[str], default = None
+        Name of file to inclusively mask final output file
+    verbose: Optional[bool], default = True
+        Quiet output
 
     Returns
     -------
@@ -221,10 +243,7 @@ def mosaic_by_unit(
 
         merge(inundation_maps_list, method='max', nodata=nodata, dst_path=mosaic_output)
 
-        # Jun 2026:
-        #     This was adjusted as part of PR 1605, 4.8.10.0 in Oct 2025, but never worked.
-        #     tracing it showed that it always failed and appears to not be needed.
-        #     Commenting it out for now.
+        # see note at mask_mosaic
         # if mask:
         #     # fh.vprint("Masking ...", verbose)
         #     if verbose:
@@ -322,7 +341,7 @@ def mosaic_by_unit(
 
 #         for future in as_completed(results):
 #             try:
-#                 # TODO: Jun 2026: Upgrade this to look for future.result
+#                 # TODO: Jun 2026: Upgrade this to look for future.result if this gets fixed
 #                 # future.exception, etc.
 #                 # future.result()
 #                 if future is not None:

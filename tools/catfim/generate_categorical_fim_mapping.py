@@ -367,14 +367,12 @@ def run_fb_inundation(  # renamed from run_inundation
 
         map_file = Inundate_gms(
             hydrofabric_dir=fim_run_dir,
-            forecast=magnitude_flows_csv_path,
-            num_workers=job_number_inundate,  # TODO: keep multiproc? currently defaults to 1
+            forecast_file_path=magnitude_flows_csv_path,
             hydro_table_df=None,
             hucs=huc,
             inundation_raster=output_extent_tif,
             depths_raster=None,
             verbose=False,
-            log_file=None,
             output_fileNames=None,
             show_progress_bar=False,
         )

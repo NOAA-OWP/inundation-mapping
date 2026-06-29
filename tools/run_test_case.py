@@ -296,7 +296,6 @@ class Test_Case(Benchmark):
                         branch_workers=branch_workers,
                         precalb_option=precalb_option,
                         verbose=verbose,
-                        log_file_path=log_file_path,
                     )
 
                 # Clean up 'total_area' outputs from AHPS sites
@@ -331,9 +330,7 @@ class Test_Case(Benchmark):
                     f" Duration: {sf.calculate_duration_msg(start_time)}"
                 )
 
-    def _inundate_and_compute(
-        self, magnitude, lid, precalb_option, branch_workers=1, verbose=False, log_file_path=""
-    ):
+    def _inundate_and_compute(self, magnitude, lid, precalb_option, branch_workers=1, verbose=False):
         '''Method for inundating and computing contingency rasters as part of the alpha_test.
         Used by both the alpha_test() and composite() methods.
 
@@ -384,12 +381,13 @@ class Test_Case(Benchmark):
             hydrofabric_dir=os.path.dirname(self.fim_huc_dir),
             hucs=self.huc,
             flow_file=benchmark_flows,
-            inundation_raster=predicted_raster_path,
+            inundation_raster_path=predicted_raster_path,
+            map_filename=os.path.join(os.path.dirname(predicted_raster_path), "map_data.csv"),
+            mask_path=os.path.join(self.fim_huc_dir, "wbd.gpkg"),
             verbose=verbose,
-            num_workers=branch_workers,
+            num_threads=branch_workers,
             precalb_option=precalb_option,
             windowed=True,
-            log_file=log_file_path,
             show_progress_bar=False,
         )
 

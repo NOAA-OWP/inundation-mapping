@@ -306,6 +306,8 @@ def l_print(msg, file_logger, log_level="info", screen_queue=None):
             raise Exception("Invalid log level value. Options are debug, info, warning, error and critical")
 
 
+# TODO: Jun 2026: this rollup_log_files and merge_child_logs_into_parent_log are both new functions
+# We should check if we can merge them.
 def rollup_log_files(src_file, trg_file, remove_old_src_file=True):
     # Sometimes we want to append log file onto another file.
     # For example, a temp mp log file into the parent log.

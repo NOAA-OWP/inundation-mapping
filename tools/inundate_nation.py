@@ -16,6 +16,7 @@ from rasterio.enums import Resampling
 from rasterio.shutil import copy
 from rio_vrt import build_vrt
 
+from src.utils.shared_functions import setup_file_logger
 from src.utils.shared_functions import FIM_Helpers as fh
 
 
@@ -56,8 +57,8 @@ def inundate_nation(
     fim_version = os.path.basename(os.path.normpath(fim_run_dir))
     output_base_file_name = magnitude_key + "_" + fim_version
 
-    # TODO: Jun 2026: Switch to src.utils.shared_functions.setup_file_logger
-    __setup_logger(output_dir, output_base_file_name)
+    log_file_path = setup_file_logger(log_file_dir=output_dir, log_file_name_prefix="inundation_nation")
+    print(f"Logs will be saved to {log_file_path}")
     logging.info(f"Using fim version: {fim_version}")
 
     start_dt = datetime.now()
@@ -104,7 +105,7 @@ def inundate_nation(
             magnitude_key,
             magnitude_output_dir,
             flow_file,
-            # job_number, # Jun 2026: No longer in use in run_inundation
+            # job_number, # Jun 2026: temp not in use, see notes below
             thread_number,
             precalb,
         ]
@@ -132,7 +133,7 @@ def inundate_nation(
                 procs_list.append([magnitude_output_dir, rasfile, output_bool_dir, fim_version])
 
         # Multiprocess --> create boolean inundation rasters for all hucs
-        # TODO: Jun 2026: This is very loose and might be subject now to memory leaks or freeze up
+        # TODO: Jun 2026: This is loose and might be subject now to memory leaks or freeze up
         # as seen in other apps this month. Consider upgrading or at least review
         # It really needs a try/except as the pool can get stuck open on exceptions.
         if len(procs_list) > 0:
@@ -159,6 +160,7 @@ def inundate_nation(
     fh.print_current_date_time()
     logging.info(logging.info(datetime.now().strftime("%Y_%m_%d-%H_%M_%S")))
     end_time = datetime.now()
+    print(f"Logs will be saved to {log_file_path}")
     logging.info(fh.print_date_time_duration(start_dt, end_time))
 
 
@@ -201,12 +203,15 @@ def run_inundation(args):
     # Also show_progress_bar (TQDM was added and defaulted on. See how it looks.
     # It has been a bit finicky with not updating itself great, but try it and add a card
     # if it not working correctly. It is untested when visible.
+
+    # However, it would be well worth adding a ProcessPoolExecutor here, similar to the one in 
+    # synthesis_test_case. The you use the num_workers there.
     produce_mosaicked_inundation(
         hydrofabric_dir=fim_run_dir,
         hucs=huc_list,
         flow_file=forecast,
-        inundation_raster=inundation_raster,
-        num_workers=thread_number,
+        inundation_raster_path=inundation_raster,
+        num_threads=thread_number,
         remove_intermediate=True,
         verbose=True,
         is_mosaic_for_branches=True,
@@ -320,39 +325,39 @@ def vrt_raster_mosaic(output_bool_dir, output_dir, fim_version_tag, precalb):
             vrt_file = None
 
 
-def __setup_logger(output_folder_path, log_file_name_key, log_level=logging.INFO):
-    start_time = datetime.now()
-    file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
-    log_file_name = f"{log_file_name_key}-{file_dt_string}.log"
+# def __setup_logger(output_folder_path, log_file_name_key, log_level=logging.INFO):
+#     start_time = datetime.now()
+#     file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
+#     log_file_name = f"{log_file_name_key}-{file_dt_string}.log"
 
-    log_file_path = os.path.join(output_folder_path, log_file_name)
-    print('Log file created here:' + str(log_file_path))
+#     log_file_path = os.path.join(output_folder_path, log_file_name)
+#     print('Log file created here:' + str(log_file_path))
 
-    # Clear previous logging configuration
-    logging.getLogger().handlers = []
+#     # Clear previous logging configuration
+#     logging.getLogger().handlers = []
 
-    # Create a StreamHandler and set the level
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(log_level)
+#     # Create a StreamHandler and set the level
+#     console_handler = logging.StreamHandler()
+#     console_handler.setLevel(log_level)
 
-    # Create a FileHandler and set the level
-    file_handler = logging.FileHandler(log_file_path)
-    file_handler.setLevel(log_level)
+#     # Create a FileHandler and set the level
+#     file_handler = logging.FileHandler(log_file_path)
+#     file_handler.setLevel(log_level)
 
-    # Create a formatter and set the formatter for the handlers
-    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-    console_handler.setFormatter(formatter)
-    file_handler.setFormatter(formatter)
+#     # Create a formatter and set the formatter for the handlers
+#     formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+#     console_handler.setFormatter(formatter)
+#     file_handler.setFormatter(formatter)
 
-    # Add the handlers to the logger
-    logger = logging.getLogger()
-    logger.setLevel(log_level)
-    logger.addHandler(console_handler)
-    logger.addHandler(file_handler)
+#     # Add the handlers to the logger
+#     logger = logging.getLogger()
+#     logger.setLevel(log_level)
+#     logger.addHandler(console_handler)
+#     logger.addHandler(file_handler)
 
-    # Log the start time
-    logger.info(f'Started: {start_time.strftime("%m/%d/%Y %H:%M:%S")}')
-    logger.info("----------------")
+#     # Log the start time
+#     logger.info(f'Started: {start_time.strftime("%m/%d/%Y %H:%M:%S")}')
+#     logger.info("----------------")
 
 
 if __name__ == "__main__":
@@ -448,6 +453,7 @@ if __name__ == "__main__":
         default=False,
     )
 
+    # Jun 2026: This is not really used for now until this script creates it own ProcessPoolExecutor
     parser.add_argument('-j', '--job-number', help='The number of jobs', required=False, default=1, type=int)
 
     # Jun 2026: Threading in inundate_gms has been updated. It has not be stress tested but try at 20 or 40

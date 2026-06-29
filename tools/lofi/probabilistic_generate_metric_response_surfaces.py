@@ -29,8 +29,7 @@ def create_flood_maps(
     flows: List[str],
     overwrite: Optional[bool] = False,
     num_threads: Optional[int] = 1,
-    num_jobs: Optional[int] = 1,  # No longer in use
-    log_file: Optional[str] = None,
+    # num_jobs: Optional[int] = 1,  # No longer in use
     windowed: Optional[bool] = False,
 ):
     """
@@ -60,8 +59,6 @@ def create_flood_maps(
         Number of threads to run operation
     # num_jobs : Optional[int], default = 1
     #     Number of processes to run operation
-    log_file : Optional[str], default = None
-        File to write statements to
 
     """
     # Count of how many maps will be created
@@ -100,7 +97,7 @@ def create_flood_maps(
         if os.path.exists(final_inundation_path) and not overwrite:
             continue
 
-        # mask_path = os.path.join(hydrofabric_dir, str(huc), 'wbd.gpkg')
+        mask_path = os.path.join(hydrofabric_dir, str(huc), 'wbd.gpkg')
 
         # Sub-divide src
         src_output_file = "htable_branch" + "_{0}" + f"_{N}_{obank_N}_{s}.feather"
@@ -116,20 +113,19 @@ def create_flood_maps(
                 )
 
         # Make inundation extent output
-        # Jun 2026: num_workers arg is no longer available
-        # It was not previously used correctly.
+        # Jun 2026: orig num_workers=num_jobs arg is no longer available. 
+        # As there is only one HUC, there is no sense wrapping this in a MP or MT
         produce_mosaicked_inundation(
             hydrofabric_dir,
             huc,
             flow_path,
             hydro_table_df=os.path.join(src_output_path, src_output_file),
-            inundation_raster=final_inundation_path,
-            # mask=mask_path,
+            inundation_raster_path=final_inundation_path,
+            mask_path=mask_path,
             verbose=False,
             # num_workers=num_jobs,
-            num_workers=num_threads,
+            num_threads=num_threads,
             windowed=windowed,
-            log_file=log_file,
             remove_intermediate=True,
             show_progress_bar=False,
         )
@@ -320,7 +316,7 @@ if __name__ == "__main__":
         #     'sites': sites,
         'flows': flows,
         'hucs': [huc],
-        'num_jobs': 8,  # Jun 2026: no longer in use
+        #'num_jobs': 8,  # Jun 2026: no longer in use
         'num_threads': 40,  # Jun 2026: Change from 8
         'overwrite': True,
         'windowed': False,

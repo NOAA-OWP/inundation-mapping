@@ -3,18 +3,21 @@
 import argparse
 import logging
 import os
+import random
 import sys
+import time
 import traceback
 import warnings
-from concurrent.futures import ThreadPoolExecutor, as_completed, wait
-from typing import List, Optional, Tuple, Union
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
+from typing import List, Optional, Union
 
 import pandas as pd
-from inundation import NoForecastFound, hydroTableHasOnlyLakes, inundate
+from inundation import inundate
 from tqdm import tqdm
 
 from src.utils.shared_functions import FIM_Helpers as fh
-from src.utils.shared_functions import s3_or_local_isfile, s3_or_local_path_exists
+from src.utils.shared_functions import s3_or_local_isfile, s3_or_local_path_exists, setup_file_logger
 
 
 # Suppress only FutureWarnings
@@ -22,20 +25,15 @@ from src.utils.shared_functions import s3_or_local_isfile, s3_or_local_path_exis
 # A new gval is already ready to plug into fix this. We can remove it later.
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
-
-# TODO: Jun 2026: Trace other non run_test_case scripts to see if the verbose flag is used anymore
-# TODO: Jun 2026, Check scripts other the run_test_case.py to see
-#   if the log_file args is still used
 def Inundate_gms(
     hydrofabric_dir: str,
-    forecast: Union[str, pd.DataFrame],
-    num_workers: Optional[int] = 1,
+    forecast_file_path: str,
+    hucs: Union[List[str], str] = None,
+    num_threads: Optional[int] = 1,
     hydro_table_df: Optional[Union[str, pd.DataFrame]] = None,
-    hucs: Optional[List[str]] = None,
     inundation_raster: Optional[str] = None,
     depths_raster: Optional[str] = None,
     verbose: Optional[bool] = False,
-    log_file: Optional[str] = None,
     output_fileNames: Optional[str] = None,
     precalb_option: Optional[bool] = False,
     windowed: Optional[bool] = True,
@@ -48,22 +46,18 @@ def Inundate_gms(
         Directory with flood inundation mapping outputs
     forecast: Union[str, pd.DataFrame]
         Data with streamflow associated with feature id
-    num_workers: Optional[int], default = 1
-        Number of threads to useNumber of processes to run in parallel
+    hucs: List[str] or string, default = None but will error if empty
+        List of hucs to process GMS
+    num_threads: Optional[int], default = 1
+        Number of threads to run in parallel
     hydro_table_df: Optional[Union[str, pd.DataFrame]], default = None
         Hydro table path or DataFrame
-    hucs: Optional[List[str]], default = None
-        List of hucs to process GMS
     inundation_raster : str
         Name of inundation extent raster
-    inundation_polygon: Optional[str], default = None
-        Name of inundation polygon vector
     depths_raster : str
         Name of depth raster
     verbose: Optional[bool], default = False
         Whether to qsilence output or not
-    log_file: Optional[str], default = None
-        Name of file to log output
     output_fileNames: Optional[str], default = None
         Name of file to output filenames from gms inundation routine
     precalb_option: Optional[bool], default = False
@@ -80,61 +74,61 @@ def Inundate_gms(
     """
 
     # input handling
-    if hucs is not None:
+    if isinstance(hucs, list):
+        if len(hucs) == 0:
+            raise ValueError("hucs (list or string) can not be empty")
+        # validate that huc list is valid
         try:
             _ = (i for i in hucs)
         except TypeError:
             raise ValueError("hucs argument must be an iterable")
 
     if isinstance(hucs, str):
+        if hucs == "":
+            raise ValueError("hucs (list or string) can not be empty")
         hucs = [hucs]
-
-    # TODO: Jun 2026: Trace other non run_test_case scripts to see if the verbose flag is used anymore
-    # log file
-    # if log_file is not None and log_file != "":
-    #     # if os.path.exists(log_file):
-    #     #     os.remove(log_file)
-
-    #     if verbose:
-    #         with open(log_file, 'a') as f:
-    #             f.write("HUC8,BranchID,Exception")
 
     if verbose and show_progress_bar:
         logging.info(
-            f"--- Starting Inundate_gms for {forecast} based on {hydrofabric_dir} with {num_workers} workers"
+            f"--- Starting Inundate_gms for {forecast_file_path} based on {hydrofabric_dir} with {num_threads} workers"
         )
     else:
         logging.debug(
-            f"--- Starting Inundate_gms for {forecast} based on {hydrofabric_dir} with {num_workers} workers"
+            f"--- Starting Inundate_gms for {forecast_file_path} based on {hydrofabric_dir} with {num_threads} workers"
         )
+
+    # June 2026:
+    # Most scripts that call this function use an ProcessPoolExecutor. When it first starts, they all hit this
+    # function at the same time. Putting a random time sleeper helps manage that a little lowering
+    # resource needs a little and network bottlenecks, especially if they are all hitting one hucs files at one time.
+    # random between 0 and 3 seconds.
+    time.sleep(random.randint(0, 3))
 
     # load fim inputs
     hucs_branches_all = pd.read_csv(
         os.path.join(hydrofabric_dir, "fim_inputs.csv"), header=None, dtype={0: str, 1: str}
     )
 
-    if hucs is not None:
-        hucs = set(hucs)
-        huc_indices = hucs_branches_all.loc[:, 0].isin(hucs)
-        hucs_branches = hucs_branches_all.loc[huc_indices, :]
+    hucs = set(hucs)
+    huc_indices = hucs_branches_all.loc[:, 0].isin(hucs)
+    hucs_branches = hucs_branches_all.loc[huc_indices, :]
 
     # get number of branches
-    number_of_branches = len(hucs_branches)
+    # number_of_branches = len(hucs_branches)
 
     # make inundate generator
     # Jun 2026: generators do not play well with threadpoolexecutors
     # Changed to an array of dicionaries
-    inundate_input_args = __inundate_gms_generator(
-        hucs_branches,
-        hydrofabric_dir,
-        inundation_raster,
-        depths_raster,
-        forecast,
-        hydro_table_df,
-        verbose=verbose,
-        windowed=windowed,
-        precalb_option=precalb_option,
-    )
+    inundate_input_args = __inundate_gms_generator(hucs_branches,
+                                                   hydrofabric_dir,
+                                                   inundation_raster,
+                                                   depths_raster,
+                                                   forecast_file_path,
+                                                   hydro_table_df,
+                                                   verbose=verbose,
+                                                   windowed=windowed,
+                                                   precalb_option=precalb_option,
+                                                )
 
     # logging.debug(f"back from __inundate_gms_generator for {hucs} with number of branches
     #   of {len(hucs_branches)}")
@@ -155,12 +149,12 @@ def Inundate_gms(
     # it is highly discourage but possible to use a processpoolexecutor inside a
     # processpoolexecutor, which is why this is a ThreadPoolExecutor
 
-    inun_data_list = []
+    inun_data_list = []  # list of dictionaries
     try:
         # We could upgrade to creating an event and queue system passed into each thread to stop
         # catestrophic errors quicker, but it can be messy
         futures = {}        
-        with ThreadPoolExecutor(max_workers=num_workers) as executor:
+        with ThreadPoolExecutor(max_workers=num_threads) as executor:
 
             # Using tqdm manually instead of part of as_completed, we have more
             # control over future results and exceptions
@@ -168,7 +162,7 @@ def Inundate_gms(
             # the thread from truly operating in a multi threading mode
             pbar = tqdm(
                 total=len(inundate_input_args),
-                desc=f"Inundating branches with {num_workers} workers",
+                desc=f"Inundating branches with {num_threads} workers",
                 disable=(not show_progress_bar),
             )
 
@@ -188,21 +182,10 @@ def Inundate_gms(
                     if future.exception() is not None:
                         raise future.exception()   # re-raise it
                     
-                    if future.result is not None:
-                        inun_data_list.append(future.result)
+                    if future.result() is not None:
+                        inun_data_list.append(future.result())
 
                 except Exception as exc:
-                    # TODO: Jun 2026, Check scripts other the run_test_case.py to see
-                    #  if the log_file args is still used
-                    if log_file is not None and log_file != "":
-                        print(
-                            f"Error: {sys._getframe().f_code.co_name} -- {future_id}, {exc}",
-                            file=open(log_file, "a"),
-                        )
-                    # else:
-                    # TODO: Jun 2026: yes.. commenting this out can bury some scripts if they do
-                    # not have a logger or pass in a log_file path.
-                    # print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
 
                     context = f"{sys._getframe().f_code.co_name} -- {future_id}"
                     logging.critical("++++++++++++++++++++++++++++++++++++++++++++++++")
@@ -226,26 +209,23 @@ def Inundate_gms(
                 pbar.update(1)
 
     except Exception as ex:
-        # TODO: Jun 2026: Now that we are adding logging, do we need this log file test?
-        # Note: If a logger is not setup, logging messages will go to screen only.
-        if log_file is not None and log_file != "":
-            print(f"{hucs}: {sys._getframe().f_code.co_name}, {ex}", file=open(log_file, "a"))
-
         logging.critical("++++++++++++++++++++++++++++++++++++++++++++++++")
-        logging.critical(f"Error while inundating based on {forecast}")
+        logging.critical(f"Error while inundating based on {forecast_file_path}")
         logging.critical(traceback.format_exc())
         # Note: you can not use sys.exit in ProcessPools.
         raise ex  # yes.. reraise, so we can shut inudation down.
 
     # make filename dataframe
-    output_fileNames_df = pd.DataFrame(inun_data_list)
+    if len(inun_data_list) != 0:
+        output_fileNames_df = pd.DataFrame(inun_data_list)
 
-    # TODO: SEARCH other apps, this is None from run_test_case chain
-    # logging.debug(f"output_fileNames is {output_fileNames}")
-    if output_fileNames is not None:  # could be empty and that is ok
-        output_fileNames_df.to_csv(output_fileNames, index=False)
+        if output_fileNames is not None and output_fileNames != "":
+            output_fileNames_df.to_csv(output_fileNames, index=False)
+            logging.info(f"Inundation file data saved to {output_fileNames}")
 
-    return output_fileNames_df
+        return output_fileNames_df
+    else:
+        return None
 
 
 def __inundate_gms_generator(
@@ -253,7 +233,7 @@ def __inundate_gms_generator(
     hydrofabric_dir: str,
     inundation_raster: str,
     depths_raster: str,
-    forecast: Union[str, pd.DataFrame],
+    forecast_file_path: str,
     hydro_table_df: Union[str, pd.DataFrame],
     verbose: Optional[bool] = False,
     precalb_option: Optional[bool] = False,
@@ -299,10 +279,10 @@ def __inundate_gms_generator(
         # logging.debug(f" __inundate_gms_generator for {branch_dir}")
 
         rem_file_name = f"rem_zeroed_masked_{branch_id}.tif"
-        rem_branch = os.path.join(branch_dir, rem_file_name)
+        rem_branch_path = os.path.join(branch_dir, rem_file_name)
 
         catchments_file_name = f"gw_catchments_reaches_filtered_addedAttributes_{branch_id}.tif"
-        catchments_branch = os.path.join(branch_dir, catchments_file_name)
+        catchments_file_path = os.path.join(branch_dir, catchments_file_name)
 
         if isinstance(hydro_table_df, pd.DataFrame):
             hydro_table_all = hydro_table_df.set_index(["HUC", "feature_id", "HydroID"], inplace=False)
@@ -332,7 +312,6 @@ def __inundate_gms_generator(
 
             # TODO: Jun 2026: Does the s3 path part still work in light of the Jun 2026 update?
             if s3_or_local_path_exists(os.path.join(huc_dir, "hydrotable.csv")):
-
                 hydro_table_huc = os.path.join(huc_dir, "hydrotable.csv")
                 # FIM versions > 4.3.5 use an aggregated hydrotable file rather than individual branch hydrotables
                 htable_req_cols = [
@@ -366,36 +345,36 @@ def __inundate_gms_generator(
                 hydro_table_branch = os.path.join(branch_dir, f"hydroTable_{branch_id}.csv")
 
         xwalked_file_name = f"gw_catchments_reaches_filtered_addedAttributes_crosswalked_{branch_id}.gpkg"
-        catchment_poly = os.path.join(branch_dir, xwalked_file_name)
+        catchments_poly_path = os.path.join(branch_dir, xwalked_file_name)
 
         # branch output
         # Some other functions that call in here already added a huc, so only add it if not yet there
         if (inundation_raster is not None) and (huc not in inundation_raster):
-            inundation_branch_raster = fh.append_id_to_file_name(inundation_raster, [huc, branch_id])
+            inundation_branch_raster_path = fh.append_id_to_file_name(inundation_raster, [huc, branch_id])
         else:
-            inundation_branch_raster = fh.append_id_to_file_name(inundation_raster, branch_id)
+            inundation_branch_raster_path = fh.append_id_to_file_name(inundation_raster, branch_id)
 
         if (depths_raster is not None) and (huc not in depths_raster):
-            depths_branch_raster = fh.append_id_to_file_name(depths_raster, [huc, branch_id])
+            depths_branch_raster_path = fh.append_id_to_file_name(depths_raster, [huc, branch_id])
         else:
-            depths_branch_raster = fh.append_id_to_file_name(depths_raster, branch_id)
+            depths_branch_raster_path = fh.append_id_to_file_name(depths_raster, branch_id)
 
         # identifiers
         # identifiers = (huc, branch_id)
 
         # inundate input
+        # Jun 2026: See notes in inundate about masking now n/a
         inundate_input = {
             "huc": huc,
             "branch_id": branch_id,
-            "rem_path": rem_branch,
-            "catchments_path": catchments_branch,
-            "catchment_poly": catchment_poly,
+            "rem_branch_path": rem_branch_path,
+            "catchments_file_path": catchments_file_path,
+            "catchments_poly_path": catchments_poly_path,
             "hydro_table": hydro_table_branch,
-            "forecast": forecast,
+            "forecast_file_path": forecast_file_path,
             "mask_type": "filter",
-            "aggregate": False,
-            "inundation_raster": inundation_branch_raster,
-            "depths": depths_branch_raster,
+            "inundation_branch_raster_path": inundation_branch_raster_path,
+            "depths_branch_raster_path": depths_branch_raster_path,
             "verbose": verbose,
             "precalb_option": precalb_option,
             "windowed": windowed,
@@ -410,23 +389,16 @@ if __name__ == "__main__":
     # parse arguments
     parser = argparse.ArgumentParser(description="Inundate FIM")
     parser.add_argument(
-        "-y", "--hydrofabric_dir", help="Directory path to FIM hydrofabric by processing unit", required=True
+        "-y", "--hydrofabric-dir", help="Directory path to FIM hydrofabric by processing unit", required=True
     )
     parser.add_argument(
         "-u", "--hucs", help="List of HUCS to run", required=False, default=None, type=str, nargs="+"
     )
-    parser.add_argument("-f", "--forecast", help="Forecast discharges in CMS as CSV file", required=True)
+    parser.add_argument("-f", "--forecast-file-path", help="Forecast discharges in CMS as CSV file", required=True)
     parser.add_argument(
         "-i",
         "--inundation-raster",
         help="Inundation Raster output. Only writes if designated.",
-        required=False,
-        default=None,
-    )
-    parser.add_argument(
-        "-p",
-        "--inundation-polygon",
-        help="Inundation polygon output. Only writes if designated.",
         required=False,
         default=None,
     )
@@ -450,6 +422,10 @@ if __name__ == "__main__":
     parser.add_argument("-w", "--num-workers", help="Number of Workers", required=False, default=1)
     parser.add_argument(
         "-vr", "--verbose", help="Verbose printing", required=False, default=False, action="store_true"
+    )
+    parser.add_argument(
+        "-sp", "--show-progress-bar", help="Show tqdm progress bar", required=False,
+          default=True, action="store_false"
     )
 
     Inundate_gms(**vars(parser.parse_args()))

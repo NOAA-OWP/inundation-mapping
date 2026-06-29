@@ -188,16 +188,15 @@ def multi_process_catchment_boundaries(
             except Exception as ex:
                 print(f"*** {ex}")
                 # TODO: consider changing traceback.print_exc() to
-                # logging.critical(traceback.format_exc())
+                #     logging.critical(traceback.format_exc())
+
                 # traceback.print_exc() goes straight to native logs if set up
                 # traceback.format_exc() returns a string that you can log, print or whatever
-
                 traceback.print_exc()
 
-                # TODO: this won't work. sys.exit inside a ProcessPool will not be honored
-                # Need to use:
-                #    executor.shutdown(wait=False, cancel_futures=True)
-                sys.exit(1)
+                # Jun 2026: sys.exit does not work in a MP or MT.
+                executor.shutdown(wait=True, cancel_futures=True)
+                # sys.exit(1)
 
 
 if __name__ == "__main__":
