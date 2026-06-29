@@ -6,6 +6,7 @@ import multiprocessing
 import os
 import sys
 import time
+from datetime import datetime, timezone
 from functools import partial
 
 import fiona
@@ -17,6 +18,8 @@ from rasterio.features import rasterize
 from rasterio.warp import transform_bounds
 from scipy.ndimage import binary_opening, generate_binary_structure, label
 from skimage.measure import regionprops
+
+import src.utils.shared_functions as sf
 
 
 # ==========================================
@@ -213,6 +216,9 @@ def main(args=None):
         required=True,
         help="Path to output pit filled DEM directory (suggest subdir of input DEM dir).",
     )
+
+    # NOTE: Jun 2026: There is no tool or notes on generating a new osm polygon file (-p)
+    # It is considered rare to require a new one. If required, see Ryan S.
     parser.add_argument(
         "-p", "--polygons", required=True, help="Path to OSM polygons file (e.g. .gpkg or .shp)."
     )
@@ -244,6 +250,7 @@ def main(args=None):
     if not dem_files:
         logging.warning(f"No .tif files found in {parsed_args.input}")
         return
+    dem_files.sort()
 
     logging.info(f"Running {len(dem_files)} DEMs with {parsed_args.jobs} jobs.")
 
@@ -252,7 +259,8 @@ def main(args=None):
 
     total_pits = 0
     total_failures = 0
-    start_run_time = time.time()
+    # start_run_time = time.time()
+    overall_start_dt = datetime.now(timezone.utc)
 
     with multiprocessing.Pool(processes=parsed_args.jobs) as pool:
         for result in pool.imap_unordered(worker_func, dem_files):
@@ -270,7 +278,7 @@ def main(args=None):
                 total_failures += 1
 
     logging.info("-" * 40)
-    logging.info(f"Total time: {time.time() - start_run_time:.2f} seconds")
+    logging.info(sf.calculate_duration_msg(overall_start_dt))
     logging.info(f"Total pits detected: {total_pits} | Failures: {total_failures}")
     logging.info("-" * 40)
 

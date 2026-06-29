@@ -1,6 +1,94 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.17.1 - 2026-06-26 - [PR#1843](https://github.com/NOAA-OWP/inundation-mapping/pull/1843)
+
+Adds improved logging, datum correction, and error handling to the USGS curves retrieval script (and supporting functions). Fixed and updated the NWS LID Geopackage script. Resolved the Pandas FutureWarnings (previously present in USGS rating curve retrieval and CatFIM processing) that were caused by joining tables with missing column data types (caused by NA values in the input metadata).
+
+### Changes
+- `config/huc_lists/uat_and_alpha_domain_huc_list.lst`: Added two new pacific islands HUCs.
+ - `data/nws/preprocess_ahps_nws.py`: Updated output of `ngvd_to_navd_ft()` and `get_metadata()`.
+ - `data/usgs/get_usgs_rating_curves.py`: Renamed main function from `usgs_rating_to_elev()` → `get_usgs_rating_curves()`. Added comprehensive logging throughout all stages. Refactored datum correction logic with better error handling. Introduced `site_status_df` to track site processing status across all stages. Added `__run_rating_curve_retrieval()` wrapper function for better organization. Improved VDatum API error handling with retry logic and timeout handling. New helper functions: `__write_rc_and_site_files()`, `make_status_summary()`. Enhanced docstrings with detailed Arguments/Returns sections.
+ - `data/usgs/preprocess_ahps_usgs.py`: Updated output of `ngvd_to_navd_ft()` and `get_metadata()`.
+ - `data/wrds/download_process_wrds.py`: Updated output of `get_metadata()`.
+ - `data/wrds/generate_nws_lid.py`: Moved from tools folder to data/wrds folder. Updated processing, removed unused code, and improved prints and comments. Added .env and keep all rows input params. 
+ - `data/wrds/mimic_wrds_data.py`: Updated output of `get_metadata()`.
+ - `src/utils/shared_functions.py`: Moved `run_vdatum_for_region()` function out of `ngvd_to_navd_ft()` and added comprehensive error handling. Added API retry logic using `Retry` and `HTTPAdapter` from requests library. Added error message returns to `get_metadata()` and `get_rating_curve()` functions. New `rollup_log_files()` function to replace `concat_files()`. Improved `ngvd_to_navd_ft()` with error message returns and better exception handling. Better handling of CRS conversion failures and VDatum API errors. Added column type definitions for WRDS metadata to prevent Pandas FutureErrors.
+ - `src/utils/shared_validators.py`: File mode changed.
+ - `src/utils/shared_variables.py`: File mode changed.
+ - `src/bash_variables.env`: Update path to NWS LID Geopackage and USGS gages outputs.
+ - `src/run_huc.sh`: Update path to NWS LID Geopackage.
+ - `tools/catfim/notebooks/eval_catfim_metadata.ipynb`: Updated outputs of `get_metadata()`.
+ - `tools/catfim/catfim_process_huc.py`: Update outputs of `ngvd_to_navd_ft()`.
+ - `tools/catfim/catfim_shared_functions.py`: Updated `load_restricted_sites()` function to handle NA vals correctly.
+ - `tools/catfim/generate_categorical_fim.py`: Updated logging rollup.
+ - `tools/aggregate_csv_files.py`: Created `concat_files()` function.
+ - `tools/eval_plots.py`: Update outputs of `get_metadata()`.
+ - `tools/fimr_to_benchmark.py`: Update outputs of `get_metadata()`.
+ - `tools/test_case_by_hydro_id.py`: Updated docstring of `catchment_zonal_statistics()` function.
+ - `tools/tools_shared_functions.py`: Fixed logging-related issues. New `rollup_log_files()` function (deprecated `concat_files()`). Code cleanup (commented out unused imports)
+ - `tools/tools_shared_variables.py`: Added a WRDS metadata column type dictionary.
+<br/>
+
+## v4.9.17.0 - 2026-06-26 - [PR#1865](https://github.com/NOAA-OWP/inundation-mapping/pull/1865)
+
+Adds a script to convert from raster to vector, replicating `gdal_polygonize.py` but instead using Python in order to take advantage of geoparquet and avoid SQLite issues related to geopackages.
+
+The script is applied to acquiring DEMs (`data/usgs/acquire_and_preprocess_3dep_dems.py`).
+
+### Additions
+- `src/utils/polygonize_raster.py`: Converts raster to vector using Python
+
+### Changes
+- `data`
+    - `usgs/acquire_and_preprocess_3dep_dems.py`:  Also removed part of the repair feature so it no longer tests file sizes, only missing files. File size tests were no longer applicable once we moved from HUC6 to HUC8 CONUS DEMs.
+    - `usgs/pit_detect_file.py`:  add list sort and standardized duration footer.
+- `src/run_huc.sh`: removed code for unused variable of dem_domain_filename
+
+#### Convert DEM_Domain to geoparquet for the following files:
+- `config/deny_unit.lst`
+- `data/`
+    - `nhdplus/preprocess_nhdplus.py`
+    - `usgs/acquire_and_preprocess_3dep_dems.py`
+    - `wbd/`
+        - `generate_pre_clip_fim_huc8.py`
+        - `preprocess_wbd.py`
+
+<br/>
+
+## v4.9.16.2 - 2026-06-18 - [PR#1855](https://github.com/NOAA-OWP/inundation-mapping/pull/1855)
+This PR closes issue #1788. 
+
+The `pull_osm_bridges.py` would silently time out on dense HUCs (e.g., HUC 02060006 — Columbia/Silver Spring, MD) and exit with a misleading "Success" log and no output file. This PR fixes that with a recursive 2×2 polygon splitting strategy and proper failure reporting. 
+
+
+### Changes
+- data/bridges/pull_osm_bridges.py
+- src/bash_variables.env
+<br/>
+
+## v4.9.16.1 - 2026-06-18 - [PR#1856](https://github.com/NOAA-OWP/inundation-mapping/pull/1856)
+
+This PR closes issue #1814 and resolves an inconsistency between FIMpact road-inundation results and the corresponding FIM spatial inundation map. Stray inundated roads have been observed at multiple locations with very small reported flood depths as shown [here](https://github.com/NOAA-OWP/inundation-mapping/issues/1814#issuecomment-4314616790) despite the absence of corresponding adjacent inundated cells in the FIM map.
+
+### Root cause
+
+The FIM spatial inundation and FIMpact workflows used different minimum flood-depth criteria:
+
+* `inundate_mosaic_wrapper.py` treats flood depths below `0.03048 m` (`0.1 ft`) as dry.
+* `fimpacts_inundation.py` previously retained all positive flood-depth values.
+
+As a result, roads with flood depths greater than zero but below `0.1 ft` could be reported as inundated in FIMpact even though the corresponding pixels were treated as dry in the FIM spatial products. This inconsistency can produce isolated stray roads in the FIMpact results.
+
+### Fix
+
+Updated `fimpacts_inundation.py` to apply the same minimum flood-depth threshold used by `inundate_mosaic_wrapper.py`.  Roads with flood depths below `0.1 ft` will now be treated as dry and excluded from the FIMpact outputs, preventing isolated stray roads caused by inconsistent depth filtering.
+
+
+### Changes
+- tools/fimpacts_inundation.py
+<br/>
+
 ## v4.9.16.0 - 2026-06-02 - [PR#1787](https://github.com/NOAA-OWP/inundation-mapping/pull/1787)
 
 This PR closes issues #1778, #1795, and  #1796 and includes the following enhancements to the OSM bridge data acquisition pipeline.
@@ -73,7 +161,7 @@ In addition, an upgraded `pdal` was added to the Dockerfile and `pillow` was upg
     - `run_by_branch.sh` and `run_huc.sh` Suppress GDAL Error message and fix `gdal_rasterize` nodata issue
 
 <br/>
-## v4.9.13.0 - 2026-05-13 - [PR#1811]([https://github.com/NOAA-OWP/inundation-mapping/pull/1811])
+## v4.9.13.0 - 2026-05-13 - [PR#1811](https://github.com/NOAA-OWP/inundation-mapping/pull/1811)
 
 A major reorganization of the CatFIM processing pipeline, consolidating and simplifying a complex multi-file workflow into more modular and maintainable components. New scripts (`catfim_shared_functions.py`, `catfim_process_huc.py`, `catfim_post_processing.py`) were created to centralize common operations and move CatFIM processing into a HUC-level scale (whereas previous processing was a mix of site-level, sometimes HUC-level, and sometimes full domain-scale). 
 
