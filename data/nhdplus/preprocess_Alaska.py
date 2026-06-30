@@ -172,9 +172,7 @@ def preprocess_dem(input_dem_zip_file, out_dem_folder, region, target_crs_number
     __polygonize(out_dem_folder)
 
 
-def preprocess_streams(
-    region, hucs, target_crs_number, inputs_dir, reference_fabric_folder, reference_fabric_filename
-):
+def preprocess_streams(region, hucs, target_crs_number, inputs_dir, reference_fabric_file):
     """
     Preprocess Alaska streams for a specific region.
 
@@ -187,16 +185,14 @@ def preprocess_streams(
             The target CRS number.
         inputs_dir : str
             The directory containing input data files.
-        reference_fabric_folder : str
-            The directory containing the reference fabric
-        reference_fabric_filename : str
+        reference_fabric_file : str
             The name of the streams data.
     """
 
     # Convert input flowpathss to necessary format
-    reference_fabric_file = os.path.join(reference_fabric_folder, reference_fabric_filename)
     if not os.path.exists(reference_fabric_file):
         sys.exit(f"reference fabric file {reference_fabric_file} does not exist. Exiting...")
+    reference_fabric_folder = os.path.dirname(reference_fabric_file)
     flowpaths = gpd.read_file(reference_fabric_file, layer='flowpaths')
     target_crs = CRS.from_epsg(target_crs_number)
     if flowpaths.crs != target_crs:
@@ -232,15 +228,15 @@ def preprocess_streams(
     catchments.to_file(os.path.join(reference_fabric_folder, 'catchments_Alaska.gpkg'), driver='GPKG')
 
     # Extract and reproject WBD
-    wbd_dir = os.path.join(inputs_dir, 'wbd/HUC8_Alaska')
-    wbd = os.path.join(wbd_dir, f'WBD_{region}_3338.gpkg')
+    wbd_dir = os.path.join(inputs_dir, 'wbd')
+    wbd = os.path.join(wbd_dir, 'WBD_Alaska_3338.gpkg')
     if not os.path.exists(wbd_dir):
         os.makedirs(wbd_dir)
     if not os.path.exists(wbd):
         sys.exit(f"WBD file {wbd} does not exist. Exiting...")
     WBD = gpd.read_file(wbd, columns=['HUC8'])
     WBD = WBD.to_crs(epsg=target_crs_number)
-    WBD.to_file(f'{inputs_dir}/wbd/WBD_{region}.gpkg', layer='WBDHU8', driver='GPKG')
+    WBD.to_file(f'{inputs_dir}/wbd/WBD_{region}_{target_crs_number}.gpkg', layer='WBDHU8', driver='GPKG')
 
     download_nfhl_wrapper(
         huc_list=hucs, output_folder=os.path.join(inputs_dir, 'fema/nfhl', region), num_processes=14
@@ -272,6 +268,8 @@ if __name__ == "__main__":
     )
     parser.add_argument('-t', '--reference_fabric_folder', type=str, help='Folder for streams outputs')
     parser.add_argument('-s', '--reference_fabric_filename', type=str, help='Name of streams file')
+    parser.add_argument('-d', '--input_dem_zip_file', type=str, required=True, help='Input DEM ZIP file')
+    parser.add_argument('-e', '--out_dem_folder', type=str, required=True, help='Out DEM folder')
 
     args = vars(parser.parse_args())
 
@@ -281,21 +279,16 @@ if __name__ == "__main__":
     inputs_dir = args['inputs_dir']
     region = args['region']
     target_crs_number = args['target_crs_number']
-    target_crs = CRS.from_epsg(target_crs_number)
-    reference_fabric_folder = args['reference_fabric_folder']
-    reference_fabric_filename = args['reference_fabric_filename']
+    reference_fabric_file = args['reference_fabric_file']
+    input_dem_zip_file = args['input_dem_zip_file']
+    out_dem_folder = args['out_dem_folder']
 
     # ### Unzip, merge tiles, and reproject/rescale DEMs
-    # preprocess_dem()
-
-    # Setup for preprocessing streams
-    # reference_fabric_file = os.path.join(reference_fabric_folder, reference_fabric_filename)
+    preprocess_dem(input_dem_zip_file, out_dem_folder, region, target_crs_number)
 
     if region == 'Fairbanks':
         hucs = ['19080306', '19080307']
     elif region == 'Juneau':
         hucs = ['19010301']
 
-    preprocess_streams(
-        region, hucs, target_crs_number, inputs_dir, reference_fabric_folder, reference_fabric_filename
-    )
+    preprocess_streams(region, hucs, target_crs_number, inputs_dir, reference_fabric_file)
