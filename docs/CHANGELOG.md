@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.9.x.x - 2026-06-27 - [PR#1873](https://github.com/NOAA-OWP/inundation-mapping/pull/1873)
+## v4.9.17.2 - 2026-07-01 - [PR#1873](https://github.com/NOAA-OWP/inundation-mapping/pull/1873)
 
 Fixes an error in the usgs_gage_unit_setup.py file for an error while casting to int on a column.
 
