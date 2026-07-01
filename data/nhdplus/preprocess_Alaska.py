@@ -9,19 +9,106 @@ import os
 import shutil
 import subprocess
 import sys
+from datetime import datetime, timezone
 
 import geopandas as gpd
+import pandas as pd
 import rasterio as rio
-from osgeo import gdal
 from rasterio.crs import CRS
 from rasterio.enums import Resampling
 from rasterio.merge import merge
 from rasterio.vrt import WarpedVRT
 
+import src.utils.shared_functions as sf
 from data.create_vrt_file import create_vrt_file
 from data.nfhl.download_fema_nfhl import download_nfhl_wrapper
-from data.usgs.acquire_and_preprocess_3dep_dems import __polygonize
 from src.derive_headwaters import findHeadWaterPoints
+from src.utils.polygonize_raster import polygonize
+from src.utils.shared_functions import FIM_Helpers as fh
+
+
+def __polygonize(target_output_folder_path, file_logger):
+
+    # TODO: Jun 2025: Find a way to speed this up  (add MP or MT???)
+    # Can likely just send the mp/mt send back the gpkg, add it to an array, then concat, and dissolve
+    """
+    Create a polygon of 3DEP domain from individual HUC DEMS which are then dissolved into a single polygon
+
+    Note: If you have to re-run this tool to repair some DEMs, this section must be re-run and is by default.
+
+    """
+    dem_domain_file = os.path.join(target_output_folder_path, 'DEM_Domain.parquet')
+
+    msg = f" - Polygonizing -- {dem_domain_file} - Started (be patient, it can take a while)"
+    sf.l_print(msg, file_logger, "info")
+
+    start_time = datetime.now(timezone.utc)
+    sf.l_print(f"Polygonation start time: {start_time.strftime('%m/%d/%Y %H:%M:%S')}", file_logger, "info")
+
+    dem_files = glob.glob(os.path.join(target_output_folder_path, '*.tif'))
+
+    if len(dem_files) == 0:
+        raise Exception("There are no DEMs to polygonize")
+
+    dem_files.sort()
+
+    dem_parquets = gpd.GeoDataFrame()
+
+    for n, dem_file in enumerate(dem_files):
+        sf.l_print(f"Polygonizing: {dem_file}", file_logger, "info")
+        edge_tif = f'{os.path.splitext(dem_file)[0]}_edge.tif'
+        edge_parquet = f'{os.path.splitext(edge_tif)[0]}.parquet'
+
+        # Calculate a constant valued raster from valid DEM cells
+        if not os.path.exists(edge_tif):
+            subprocess.run(
+                [
+                    'gdal_calc.py',
+                    '-A',
+                    dem_file,
+                    f'--outfile={edge_tif}',
+                    '--calc=where(A > -900, 1, 0)',
+                    '--co',
+                    'BIGTIFF=YES',
+                    '--co',
+                    'NUM_THREADS=ALL_CPUS',
+                    '--co',
+                    'TILED=YES',
+                    '--co',
+                    'COMPRESS=LZW',
+                    '--co',
+                    'SPARSE_OK=TRUE',
+                    '--type=Byte',
+                    '--quiet',
+                ]
+            )
+
+        # Polygonize constant valued raster
+        # subprocess.run(['gdal_polygonize.py', '-8', edge_tif, '-q', '-f', 'GPKG', edge_parquet])
+        polygonize(edge_tif, edge_parquet, connectivity=8, quiet=True)
+
+        gdf = gpd.read_parquet(edge_parquet)
+
+        if n == 0:
+            dem_parquets = gdf
+        else:
+            dem_parquets = pd.concat([dem_parquets, gdf])
+
+        os.remove(edge_tif)
+        os.remove(edge_parquet)
+
+    dem_parquets['DN'] = 1
+    dem_dissolved = dem_parquets.dissolve(by='DN')
+    dem_dissolved.to_parquet(dem_domain_file)
+
+    if not os.path.exists(dem_domain_file):
+        sf.l_print(f" - Polygonizing -- {dem_domain_file} - Failed", file_logger, "error")
+    else:
+        sf.l_print(f" - Polygonizing -- {dem_domain_file} - Complete", file_logger, "info")
+
+    end_time = datetime.now(timezone.utc)
+    sf.l_print(f"Polygonization end time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}", file_logger, "info")
+    sf.l_print(fh.print_date_time_duration(start_time, end_time, print_dur_msg=False), file_logger, "info")
 
 
 def unzip(zip_path, extract_to="."):
@@ -68,108 +155,136 @@ def preprocess_dem(input_dem_zip_file, out_dem_folder, region, target_crs_number
     Preprocess ifsar DTM 5 meter to 10 meter DEM
     """
 
-    ### UNZIP AND MOSAIC TILES
-    dem_root_raw = os.path.dirname(input_dem_zip_file)
+    # -------------------
+    # setup logs
+    overall_start_time = datetime.now(timezone.utc)
+    file_dt_string = overall_start_time.strftime("%Y_%m_%d-%H_%M_%S")
+    log_file_name = f"ifsar_downloaded-{file_dt_string}.log"
+    log_file_path = os.path.join(out_dem_folder, log_file_name)
+    file_logger = sf.setup_mp_file_logger(log_file_path, "ifsar_downloaded")
 
-    os.makedirs(dem_root_raw, exist_ok=True)
+    # sf.l_print(f"Downloading to {out_dem_folder}", file_logger, "info")
 
-    # 0. MANUALLY Download ifsar DTM 5 meter from AK DGGS [https://elevation.alaska.gov] to input_dem_zip_file
-    if not os.path.exists(input_dem_zip_file):
-        print(
-            f'ERROR: {input_dem_zip_file} does not exist. It needs to be downloaded from AK DGGS (https://elevation.alaska.gov)'
-        )
-        sys.exit(1)
+    # ### UNZIP AND MOSAIC TILES
+    # os.makedirs(out_dem_folder, exist_ok=True)
 
-    # Unzip to zip_dir
-    unzip(input_dem_zip_file, out_dem_folder)
+    # # 0. MANUALLY Download ifsar DTM 5 meter from AK DGGS [https://elevation.alaska.gov] to input_dem_zip_file
+    # if not os.path.exists(input_dem_zip_file):
+    #     print(
+    #         f'ERROR: {input_dem_zip_file} does not exist. It needs to be downloaded from AK DGGS (https://elevation.alaska.gov)'
+    #     )
+    #     sys.exit(1)
 
-    # 1. Configuration (Double-check this path!)
-    output_mosaic = os.path.join(out_dem_folder, f'{region}_ifsar_DTM_{target_crs_number}.tif')
-    target_crs = CRS.from_epsg(target_crs_number)
-    target_res = 10
+    # # Unzip the parent zip file into out_dem_folder
+    # unzip(input_dem_zip_file, out_dem_folder)
 
-    # Convert to absolute path to avoid relative path confusion
-    zip_dir = os.path.dirname(input_dem_zip_file)
-    absolute_zip_dir = os.path.abspath(zip_dir)
-    zip_pattern = os.path.join(absolute_zip_dir, "*.zip")
-    zip_files = glob.glob(zip_pattern)
+    # # 1. Configuration
+    # output_mosaic = os.path.join(out_dem_folder, f'{region}_ifsar_DTM_{target_crs_number}.tif')
+    # target_crs = CRS.from_epsg(target_crs_number)
+    # target_res = 10
 
-    # --- DIAGNOSTIC CHECK ---
-    if not zip_files:
-        raise FileNotFoundError(
-            f"\n[ERROR] No .zip files found matching the pattern: {zip_pattern}\n"
-            f"Please verify that the directory exists and contains your .zip archives."
-        )
+    # # 2. Track down the EXTRACTED sub-zips inside out_dem_folder
+    # import zipfile
+    # absolute_out_folder = os.path.abspath(out_dem_folder)
 
-    src_files_to_mosaic = []
-    for zip_path in zip_files:
-        base_name = os.path.splitext(os.path.basename(zip_path))[0]
-        vsi_path = f"/vsizip/{zip_path}/{base_name}.tif"
-        src_files_to_mosaic.append(vsi_path)
+    # # Locate the nested directory structure on disk
+    # extracted_zip_dir = os.path.join(absolute_out_folder, "dds4", "ifsar", "dtm")
+    # zip_pattern = os.path.join(extracted_zip_dir, "*.zip")
+    # zip_files = glob.glob(zip_pattern)
 
-    opened_datasets = []
-    vrt_datasets = []
+    # src_files_to_mosaic = []
 
-    try:
-        # 2. Open files and handle CRS check/reprojection dynamically
-        for path in src_files_to_mosaic:
-            try:
-                src = rio.open(path)
-                opened_datasets.append(src)
-            except Exception as e:
-                print(f"Skipping {path} because it couldn't be opened. Error: {e}")
-                continue
+    # print(f"Scanning {len(zip_files)} extracted sub-archives for TIFFs...")
 
-            if src.crs != target_crs:
-                print(f"Reprojecting on-the-fly: {os.path.basename(path)}")
-                vrt = WarpedVRT(src, crs=target_crs)
-                vrt_datasets.append(vrt)
-            else:
-                print(f"Already EPSG:3338: {os.path.basename(path)}")
-                vrt_datasets.append(src)
+    # # Step B: Peek inside each sub-zip on disk to find its inner .tif
+    # for sub_zip_path in zip_files:
+    #     try:
+    #         with zipfile.ZipFile(sub_zip_path, 'r') as sub_zip:
+    #             # Find the .tif file inside (case-insensitive)
+    #             tif_names = [
+    #                 name for name in sub_zip.namelist()
+    #                 if name.lower().endswith('.tif') or name.lower().endswith('.tiff')
+    #             ]
 
-        # Double check we have valid opened datasets before merging
-        if not vrt_datasets:
-            raise ValueError("No valid TIFF datasets were successfully opened.")
+    #             for tif_name in tif_names:
+    #                 # Construct the single virtual path targeting the extracted sub-zip on disk
+    #                 # Syntax: /vsizip/{absolute_path_to_sub_zip}/{tif_name}
+    #                 vsi_path = f"/vsizip/{sub_zip_path}/{tif_name}"
+    #                 src_files_to_mosaic.append(vsi_path)
+    #     except Exception as e:
+    #         print(f"Warning: Could not read sub-archive {sub_zip_path}: {e}")
 
-        # 3. Merge
-        print(f"\nMosaicing and resampling {len(vrt_datasets)} files to {target_res}m...")
-        mosaic, out_trans = merge(
-            vrt_datasets,
-            res=target_res,  # Forces the output cell size to 10x10
-            resampling=Resampling.bilinear,  # Smooths the 5m data into 10m cells (use Resampling.nearest for discrete/classified data)
-        )
+    # # --- DIAGNOSTIC CHECK ---
+    # if not src_files_to_mosaic:
+    #     raise FileNotFoundError(
+    #         f"\n[ERROR] No .tif files could be mapped inside the extracted sub-zips in: {extracted_zip_dir}\n"
+    #     )
 
-        # 4. Define output metadata
-        out_meta = vrt_datasets[0].meta.copy()
-        out_meta.update(
-            {
-                "driver": "GTiff",
-                "height": mosaic.shape[1],
-                "width": mosaic.shape[2],
-                "transform": out_trans,
-                "crs": target_crs,
-            }
-        )
+    # print(f"Successfully mapped {len(src_files_to_mosaic)} sub-zip TIFF datasets for mosaicing.")
 
-        # 5. Write the final result
-        with rio.open(output_mosaic, "w", **out_meta) as dest:
-            dest.write(mosaic)
+    # opened_datasets = []
+    # vrt_datasets = []
 
-        print(f"\nSuccess! Mosaic saved to {output_mosaic}")
+    # try:
+    #     # 2. Open files and handle CRS check/reprojection dynamically
+    #     for path in src_files_to_mosaic:
+    #         try:
+    #             src = rio.open(path)
+    #             opened_datasets.append(src)
+    #         except Exception as e:
+    #             print(f"Skipping {path} because it couldn't be opened. Error: {e}")
+    #             continue
 
-    finally:
-        # Clean up everything safely
-        for vrt in vrt_datasets:
-            if isinstance(vrt, WarpedVRT):
-                vrt.close()
-        for src in opened_datasets:
-            src.close()
+    #         if src.crs != target_crs:
+    #             print(f"Reprojecting on-the-fly: {os.path.basename(path)}")
+    #             vrt = WarpedVRT(src, crs=target_crs)
+    #             vrt_datasets.append(vrt)
+    #         else:
+    #             print(f"Already EPSG:3338: {os.path.basename(path)}")
+    #             vrt_datasets.append(src)
 
-    create_vrt_file(out_dem_folder, 'hand_seamless_3dep_dems.vrt')
+    #     # Double check we have valid opened datasets before merging
+    #     if not vrt_datasets:
+    #         raise ValueError("No valid TIFF datasets were successfully opened.")
+
+    #     # 3. Merge
+    #     print(f"\nMosaicing and resampling {len(vrt_datasets)} files to {target_res}m...")
+    #     mosaic, out_trans = merge(
+    #         vrt_datasets,
+    #         res=target_res,  # Forces the output cell size to 10x10
+    #         resampling=Resampling.bilinear,  # Smooths the 5m data into 10m cells (use Resampling.nearest for discrete/classified data)
+    #     )
+
+    #     # 4. Define output metadata
+    #     out_meta = vrt_datasets[0].meta.copy()
+    #     out_meta.update(
+    #         {
+    #             "driver": "GTiff",
+    #             "height": mosaic.shape[1],
+    #             "width": mosaic.shape[2],
+    #             "transform": out_trans,
+    #             "crs": target_crs,
+    #         }
+    #     )
+
+    #     # 5. Write the final result
+    #     with rio.open(output_mosaic, "w", **out_meta) as dest:
+    #         dest.write(mosaic)
+
+    #     print(f"\nSuccess! Mosaic saved to {output_mosaic}")
+
+    # finally:
+    #     # Clean up everything safely
+    #     for vrt in vrt_datasets:
+    #         if isinstance(vrt, WarpedVRT):
+    #             vrt.close()
+    #     for src in opened_datasets:
+    #         src.close()
+
+    # create_vrt_file(out_dem_folder, 'hand_seamless_3dep_dems.vrt')
 
     # Create DEM_Domain.gpkg
-    __polygonize(out_dem_folder)
+    __polygonize(out_dem_folder, file_logger)
 
 
 def preprocess_streams(region, hucs, target_crs_number, inputs_dir, reference_fabric_file):
@@ -266,8 +381,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '-c', '--target_crs_number', type=int, required=False, default='3338', help='EPSG CRS number'
     )
-    parser.add_argument('-t', '--reference_fabric_folder', type=str, help='Folder for streams outputs')
-    parser.add_argument('-s', '--reference_fabric_filename', type=str, help='Name of streams file')
+    parser.add_argument('-s', '--reference_fabric_file', type=str, help='Name of streams file')
     parser.add_argument('-d', '--input_dem_zip_file', type=str, required=True, help='Input DEM ZIP file')
     parser.add_argument('-e', '--out_dem_folder', type=str, required=True, help='Out DEM folder')
 
