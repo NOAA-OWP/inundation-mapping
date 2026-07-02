@@ -6,7 +6,6 @@ import re
 import sys
 import traceback
 from argparse import ArgumentParser
-from concurrent.futures import ProcessPoolExecutor, as_completed
 from os.path import join
 
 import geopandas as gpd

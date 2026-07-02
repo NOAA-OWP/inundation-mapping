@@ -1,6 +1,5 @@
 import argparse
 import os
-import shutil
 
 import geopandas as gpd
 import pandas as pd

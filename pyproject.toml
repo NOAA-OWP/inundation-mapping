@@ -81,7 +81,6 @@ extend-ignore = """
     E712,
     W503,
     W391,
-    F401,
     F403,
     """
 exclude = ["*.csv", "*.yml", "*.txt"]

@@ -1,6 +1,5 @@
 import argparse
 import datetime as dt
-import glob
 import os
 import shlex
 import sys

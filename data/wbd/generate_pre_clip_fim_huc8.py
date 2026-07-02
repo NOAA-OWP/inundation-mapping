@@ -18,7 +18,6 @@ import geopandas as gpd
 from clip_vectors_to_wbd import subset_vector_layers
 from dotenv import load_dotenv
 
-from src.utils.shared_functions import FIM_Helpers as fh
 
 
 """

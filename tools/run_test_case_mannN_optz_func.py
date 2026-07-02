@@ -19,7 +19,6 @@ from tools_shared_functions import compute_contingency_stats_from_rasters
 from tools_shared_variables import (  # INPUTS_DIR,
     AHPS_BENCHMARK_CATEGORIES,
     MAGNITUDE_DICT,
-    OUTPUTS_DIR,
     PREVIOUS_FIM_DIR,
     TEST_CASES_DIR,
     elev_raster_ndv,

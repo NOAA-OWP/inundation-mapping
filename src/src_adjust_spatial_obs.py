@@ -2,7 +2,6 @@
 
 import argparse
 import datetime as dt
-import multiprocessing
 import os
 import sys
 from multiprocessing import Pool

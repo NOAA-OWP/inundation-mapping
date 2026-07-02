@@ -1,17 +1,11 @@
 #!/usr/bin/env python3
 import argparse
 import datetime as dt
-import multiprocessing
 import os
-import re
-import shutil
-import sys
 import traceback
 import warnings
-from functools import reduce
 from multiprocessing import Pool
-from os.path import dirname, isdir, isfile, join
-from pathlib import Path
+from os.path import isdir, isfile, join
 
 import matplotlib.pyplot as plt
 import numpy as np

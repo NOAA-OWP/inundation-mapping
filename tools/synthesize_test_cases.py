@@ -7,9 +7,8 @@ import os
 import re
 import sys
 import traceback
-from concurrent.futures import ProcessPoolExecutor, as_completed, wait
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import datetime
-from multiprocessing import Pool
 
 import pandas as pd
 from run_test_case import Test_Case

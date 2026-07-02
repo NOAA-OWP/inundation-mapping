@@ -2,18 +2,14 @@
 
 import argparse
 import datetime as dt
-import json
-import multiprocessing
 import os
 import sys
-from collections import deque
 from multiprocessing import Pool
-from pathlib import Path
 
 import pandas as pd
 
 from src_roughness_optimization import update_rating_curve
-from utils.shared_functions import check_file_age, concat_huc_csv
+from utils.shared_functions import check_file_age
 
 
 '''

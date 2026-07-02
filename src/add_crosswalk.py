@@ -8,7 +8,6 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 from numpy import unique
-from rasterstats import zonal_stats
 
 from utils.fim_enums import FIM_exit_codes
 from utils.shared_functions import getDriver

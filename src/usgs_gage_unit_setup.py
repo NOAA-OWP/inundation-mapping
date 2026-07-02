@@ -4,13 +4,10 @@ import argparse
 import os
 import re
 import warnings
-from posixpath import dirname
 
 import geopandas as gpd
 import pandas as pd
-from shapely.geometry import Point
 
-from utils.shared_variables import PREP_CRS
 
 
 gpd.options.io_engine = "pyogrio"

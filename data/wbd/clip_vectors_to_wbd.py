@@ -10,7 +10,6 @@ from pathlib import Path
 
 import geopandas as gpd
 import pandas as pd
-import rasterio as rio
 from dotenv import load_dotenv
 from shapely.geometry import LineString, MultiPolygon, Point, Polygon
 from shapely.ops import nearest_points

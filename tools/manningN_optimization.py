@@ -2,7 +2,6 @@ import argparse
 import csv
 import json
 import os
-import random
 import re
 import sys
 import traceback
@@ -12,7 +11,6 @@ from functools import partial
 from os.path import join
 
 import geopandas as gpd
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from run_test_case_mannN_optz_func import (
@@ -21,7 +19,7 @@ from run_test_case_mannN_optz_func import (
     filter_longitudinal_discharge_jitters,
     list_all_test_cases,
 )
-from scipy.optimize import NonlinearConstraint, differential_evolution, minimize
+from scipy.optimize import NonlinearConstraint, differential_evolution
 from tools_shared_variables import MAGNITUDE_DICT, TEST_CASES_DIR
 
 

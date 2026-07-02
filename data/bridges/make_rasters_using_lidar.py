@@ -12,17 +12,13 @@ import traceback
 from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import datetime, timezone
-from multiprocessing import Pool
-from pathlib import Path
 
 import geopandas as gpd
 import laspy
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import xarray as xr
 from scipy.spatial import KDTree
-from shapely.geometry import MultiPoint, Point
+from shapely.geometry import MultiPoint
 from tqdm import tqdm
 
 

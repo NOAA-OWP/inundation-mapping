@@ -4,12 +4,9 @@ import argparse
 
 import geopandas as gpd
 import numpy as np
-import pandas as pd
 from shapely.geometry import MultiLineString
 
 import stream_branches as sb
-from utils.shared_functions import getDriver
-from utils.shared_variables import FIM_ID
 
 
 gpd.options.io_engine = "pyogrio"

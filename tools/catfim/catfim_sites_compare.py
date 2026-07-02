@@ -12,8 +12,6 @@ import numpy as np
 import pandas as pd
 from pyproj import CRS
 from shapely import wkt
-from shapely.geometry import MultiPolygon, Point, Polygon
-from shapely.ops import cascaded_union, unary_union
 
 
 pd.options.mode.chained_assignment = None  # default='warn'

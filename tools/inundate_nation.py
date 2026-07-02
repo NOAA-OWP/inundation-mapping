@@ -13,7 +13,6 @@ from multiprocessing import Pool
 import rasterio
 from inundate_mosaic_wrapper import produce_mosaicked_inundation
 from rasterio.enums import Resampling
-from rasterio.shutil import copy
 from rio_vrt import build_vrt
 
 from utils.shared_functions import FIM_Helpers as fh

@@ -2,10 +2,9 @@
 
 import argparse
 import os
-from glob import glob, iglob
+from glob import iglob
 
 import geopandas as gpd
-import pandas as pd
 from shapely.geometry import Point
 
 

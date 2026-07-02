@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import os
-import pathlib
-import sys
 import traceback
-from collections import defaultdict
 from pathlib import Path
 
 import geopandas as gpd
@@ -28,7 +25,6 @@ from tools_shared_functions import (
     select_grids,
 )
 
-from utils.shared_variables import PREP_PROJECTION, VIZ_PROJECTION
 
 
 # TODO: Jun 2025: Change this to have a path to the config via an arg.

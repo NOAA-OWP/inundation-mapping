@@ -4,7 +4,6 @@ from glob import glob
 from itertools import product
 from typing import List, Optional
 
-import gval
 import numpy as np
 import rioxarray as rxr
 import xarray as xr

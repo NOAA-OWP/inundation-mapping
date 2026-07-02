@@ -12,7 +12,7 @@ import shutil
 # import sys
 import threading
 import traceback
-from concurrent.futures import Future, ProcessPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import datetime, timezone
 from multiprocessing import Manager
 from os.path import splitext
@@ -20,7 +20,6 @@ from pathlib import Path
 
 # import fiona
 import geopandas as gp
-import numpy as np
 import pandas as pd
 from fsspec.core import url_to_fs
 from tqdm import tqdm

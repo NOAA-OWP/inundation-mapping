@@ -1,17 +1,9 @@
-import argparse
-import datetime as dt
-import json
-import multiprocessing
 import os
-import sys
 from collections import deque
-from multiprocessing import Pool
 
 import geopandas as gpd
 import numpy as np
 import pandas as pd
-import rasterio
-from geopandas.tools import sjoin
 
 from utils.shared_variables import DOWNSTREAM_THRESHOLD, ROUGHNESS_MAX_THRESH, ROUGHNESS_MIN_THRESH
 

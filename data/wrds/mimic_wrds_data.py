@@ -3,7 +3,7 @@
 import argparse
 import os
 import pickle
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 
 import geopandas as gpd
 import pandas as pd

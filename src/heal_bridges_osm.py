@@ -1,5 +1,4 @@
 import argparse
-import glob
 import os
 import re
 
@@ -7,7 +6,6 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio
-import xarray as xr
 from rasterio import features
 from rasterio.warp import Resampling, reproject
 from rasterstats import zonal_stats

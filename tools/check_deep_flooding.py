@@ -10,7 +10,6 @@ import rasterio
 import rasterio.crs
 import rasterio.mask
 import rasterio.shutil
-from rasterio.warp import Resampling, calculate_default_transform, reproject
 from shapely.geometry import box
 
 

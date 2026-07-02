@@ -5,7 +5,7 @@ import argparse
 
 from tqdm import tqdm
 
-from stream_branches import StreamBranchPolygons, StreamNetwork
+from stream_branches import StreamBranchPolygons
 
 
 if __name__ == '__main__':

@@ -6,7 +6,6 @@ import logging
 import os
 import re
 import shutil
-import sys
 import time
 import traceback
 import warnings

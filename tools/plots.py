@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from matplotlib.ticker import FixedFormatter, FixedLocator, FormatStrFormatter, NullFormatter
+from matplotlib.ticker import FixedLocator, FormatStrFormatter, NullFormatter
 from statsmodels.robust.robust_linear_model import RLM
 
 

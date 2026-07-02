@@ -21,12 +21,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import geopandas as gpd
-import numpy as np
 import overpy
 import pandas as pd
 import pyproj
 from dotenv import load_dotenv
-from overpy.exception import OverpassGatewayTimeout, OverpassTooManyRequests
 from shapely.geometry import LineString
 
 from src.utils.shared_functions import FIM_Helpers as fh

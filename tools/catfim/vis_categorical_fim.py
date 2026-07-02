@@ -2,21 +2,16 @@
 
 import os
 import sys
-from os import listdir
 
 import geopandas as gpd
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import rasterio
 import requests
 import shapely
 from PIL import Image
-from rasterio.plot import show
-from shapely import segmentize
-from shapely.geometry import LineString, Point
-from shapely.geometry.polygon import Polygon
+from shapely.geometry import LineString
 from shapely.ops import substring
 
 

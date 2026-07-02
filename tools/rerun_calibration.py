@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import argparse
 import errno
-import glob
 import os
 import re
 import subprocess
@@ -9,9 +8,6 @@ from datetime import datetime
 from pathlib import Path
 from timeit import default_timer as timer
 
-import geopandas as gpd
-import numpy as np
-import pandas as pd
 
 from src.utils.shared_functions import run_with_mp, setup_mp_file_logger
 

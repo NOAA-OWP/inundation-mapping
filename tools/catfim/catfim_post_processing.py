@@ -5,7 +5,6 @@ import traceback
 from datetime import datetime, timezone
 
 import geopandas as gpd
-from dotenv import load_dotenv
 
 import src.utils.shared_functions as sf
 import tools.catfim.catfim_shared_functions as csf

@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 import geopandas as gpd
-import pandas as pd
 import pyarrow.parquet as pq
 from dotenv import load_dotenv
 from shapely.geometry import box

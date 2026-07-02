@@ -5,7 +5,6 @@ from timeit import default_timer as timer
 
 import geopandas as gpd
 import numpy as np
-import pandas as pd
 import rasterio
 from rasterio import features as riofeatures
 

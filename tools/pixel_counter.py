@@ -11,7 +11,7 @@ import pandas as pd
 # Import raster and vector function libraries
 # from types import NoneType
 from osgeo import gdal, ogr
-from osgeo.gdalconst import *
+
 from pixel_counter_functions import (
     get_bridge_counts,
     get_levee_counts,

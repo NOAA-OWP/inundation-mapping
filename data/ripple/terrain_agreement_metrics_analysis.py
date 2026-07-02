@@ -6,7 +6,6 @@ import re
 import sqlite3
 import traceback
 from argparse import ArgumentParser
-from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 import geopandas as gpd
