@@ -10,21 +10,22 @@ def run_d8flowdir(ncores, taudem_dir, fel_path, p_path=None, sd8_path=None):
     Throws an error if the underlying process fails.
     """
 
-    # Check that at least one output is requested (-p or -sd8)
-    if not p_path and not sd8_path:
-        print("CRITICAL: You must provide at least one output path (-p or -sd8).", file=sys.stderr)
-        sys.exit(1)
-
-    # Construct the base command dynamically
-    cmd = ["mpiexec", "-n", str(ncores), f"{taudem_dir}/d8flowdir", "-fel", fel_path]
-
-    # Add optional arguments
-    if p_path:
-        cmd.extend(["-p", p_path])
-    if sd8_path:
-        cmd.extend(["-sd8", sd8_path])
-
     try:
+        # Check that at least one output is requested (-p or -sd8)
+        if not p_path and not sd8_path:
+            raise Exception("CRITICAL ERROR: You must provide at least one output path (-p or -sd8).", file=sys.stderr)
+
+            sys.exit(1)
+
+        # Construct the base command dynamically
+        cmd = ["mpiexec", "-n", str(ncores), f"{taudem_dir}/d8flowdir", "-fel", fel_path]
+
+        # Add optional arguments
+        if p_path:
+            cmd.extend(["-p", p_path])
+        if sd8_path:
+            cmd.extend(["-sd8", sd8_path])
+    
         # We merge stderr into stdout (stderr=subprocess.STDOUT) to process both in one loop.
         # bufsize=1 and universal_newlines=True (text=True) ensure line-buffered text output.
         process = subprocess.Popen(
@@ -54,13 +55,13 @@ def run_d8flowdir(ncores, taudem_dir, fel_path, p_path=None, sd8_path=None):
 
         # Enforce strict exit code checking. If it failed, raise an exception.
         if process.returncode != 0:
-            raise RuntimeError(f"ERROR: TauDEM d8flowdir failed with exit code {process.returncode}")
+            raise RuntimeError(f"TauDEM d8flowdir failed with exit code {process.returncode}")
 
     except Exception as e:
         # Ensure the exception is printed to standard error for downstream catch
-        print(f"\n{e}", file=sys.stderr)
+        print(f"\nERROR: {e}", file=sys.stderr)
         sys.exit(1)
-
+        
 
 def run_flowdircond(taudem_dir, p_path, z_path, zfdc_path):
     """
@@ -101,11 +102,11 @@ def run_flowdircond(taudem_dir, p_path, z_path, zfdc_path):
 
         # Enforce strict exit code checking. If it failed, raise an exception.
         if process.returncode != 0:
-            raise RuntimeError(f"ERROR: TauDEM flowdircond failed with exit code {process.returncode}")
+            raise RuntimeError(f"TauDEM flowdircond failed with exit code {process.returncode}")
 
     except Exception as e:
         # Ensure the exception is printed to standard error for downstream catch
-        print(f"\n{e}", file=sys.stderr)
+        print(f"\nERROR: {e}", file=sys.stderr)
         sys.exit(1)
 
 
@@ -176,11 +177,11 @@ def run_streamnet(
 
         # Enforce strict exit code checking. If it failed, raise an exception.
         if process.returncode != 0:
-            raise RuntimeError(f"ERROR: TauDEM streamnet failed with exit code {process.returncode}")
+            raise RuntimeError(f"TauDEM streamnet failed with exit code {process.returncode}")
 
     except Exception as e:
         # Ensure the exception is printed to standard error for downstream catch
-        print(f"\n{e}", file=sys.stderr)
+        print(f"\nERROR: {e}", file=sys.stderr)
         sys.exit(1)
 
 
@@ -238,11 +239,11 @@ def run_gagewatershed(ncores, taudem_dir, p_path, gw_path, o_path, id_path):
 
         # Enforce strict exit code checking. If it failed, raise an exception.
         if process.returncode != 0:
-            raise RuntimeError(f"ERROR: TauDEM gagewatershed failed with exit code {process.returncode}")
+            raise RuntimeError(f"TauDEM gagewatershed failed with exit code {process.returncode}")
 
     except Exception as e:
         # Ensure the exception is printed to standard error for downstream catch
-        print(f"\n{e}", file=sys.stderr)
+        print(f"\nERROR: {e}", file=sys.stderr)
         sys.exit(1)
 
 
@@ -302,11 +303,11 @@ def run_catchhydrogeo(taudem_dir, hand_path, catch_path, catchlist_path, slp_pat
 
         # Enforce strict exit code checking. If it failed, raise an exception.
         if process.returncode != 0:
-            raise RuntimeError(f"ERROR: TauDEM catchhydrogeo failed with exit code {process.returncode}")
+            raise RuntimeError(f"TauDEM catchhydrogeo failed with exit code {process.returncode}")
 
     except Exception as e:
         # Ensure the exception is printed to standard error for downstream catch
-        print(f"\n{e}", file=sys.stderr)
+        print(f"\nERROR: {e}", file=sys.stderr)
         sys.exit(1)
 
 
