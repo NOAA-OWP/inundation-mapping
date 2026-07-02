@@ -11,6 +11,8 @@ Updated the taudem shell execution to instead use python subprocess calls (refac
 `src/delineate_hydros_and_produce_HAND.sh`: updated taudem calls to use new python subprocess script; retained all input variables
 `src/run_by_branch.sh`: updated taudem call to use new python subprocess script; retained all input variables
 `src/run_huc.sh`: updated taudem call to use new python subprocess script; retained all input variables; retained all input variables
+<br/>
+
 ## v4.9.17.3 - 2026-07-02 - [PR#1868](https://github.com/NOAA-OWP/inundation-mapping/pull/1868)
 This PR closes issues #1859,  #1860,  #1861, and fixes latent bugs related to `rasterio.open()` file handle leaks.
 
