@@ -5,7 +5,7 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 This PR closes issues #1859,  #1860,  #1861, and fixes latent bugs related to `rasterio.open()` file handle leaks.
 
 
-### Problemmerge
+### Problem
 `rasterio.open()` returns a persistent file handle for lazy, windowed reading (unlike `geopandas.read_file()`, which loads all data into memory and closes the file before returning). Bare calls to `rasterio.open()` without a `with` block leave that handle open until the garbage collector decides to close it.
 
 Using `del variable` is not preferable for two reasons: first, if an exception occurs before `del` is reached, the file stays open; second, even when `del` is reached, it only tells Python "I'm done with this variable" — it does not deterministically close the file handle.
