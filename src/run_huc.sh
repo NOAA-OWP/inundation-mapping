@@ -26,11 +26,18 @@ huc2Identifier=${hucNumber:0:2}
 ## SET CRS and input DEM domain
 if [ $huc2Identifier -eq 19 ]; then
     huc_CRS=$ALASKA_CRS
-    huc_input_DEM_domain=$input_DEM_domain_Alaska
-    input_DEM=$input_DEM_Alaska
-    input_pit_fill=$input_DEM_pit_fills_Alaska
     # dem_domain_filename=DEM_Domain.parquet
-    input_bridge_elev_diff=$input_bridge_elev_diff_alaska
+    if [[ "$hucNumber" -eq 19080306 || "$num" -eq 19080307 ]]; then
+        huc_input_DEM_domain=$input_DEM_domain_Alaska
+        input_DEM=$input_DEM_Alaska
+        input_pit_fill=$input_DEM_pit_fills_Alaska
+        input_bridge_elev_diff=$input_bridge_elev_diff_alaska
+    else
+        huc_input_DEM_domain=$input_DEM_domain_Fairbanks
+        input_DEM=$input_DEM_Fairbanks
+        input_pit_fill=$input_DEM_pit_fills_Fairbanks
+        input_bridge_elev_diff=$input_bridge_elev_diff_Fairbanks
+fi
 
 elif [ $hucNumber -eq 22010000 ]; then
     huc_CRS=$GUAM_CRS

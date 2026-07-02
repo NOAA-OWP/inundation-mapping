@@ -76,6 +76,7 @@ input_WBD_gdb_AmericanSamoa = os.getenv('input_WBD_gdb_AmericanSamoa')  # Americ
 
 input_DEM_domain = os.getenv('input_DEM_domain')
 input_DEM_domain_Alaska = os.getenv('input_DEM_domain_Alaska')  # Alaska
+input_DEM_domain_Fairbanks = os.getenv('input_DEM_domain_Fairbanks')  # Fairbanks
 input_DEM_domain_Guam = os.getenv('input_DEM_domain_Guam')  # Guam
 input_DEM_domain_AmericanSamoa = os.getenv('input_DEM_domain_AmericanSamoa')  # American Samoa
 
@@ -388,7 +389,10 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir, copy_from_dir, preclipping_f
         if huc2Identifier == '19':
             huc_CRS = ALASKA_CRS
             input_WBD_filename = input_WBD_gdb_Alaska
-            dem_domain = input_DEM_domain_Alaska
+            if huc in ['19080306', '19080307']:
+                dem_domain = input_DEM_domain_Fairbanks
+            else:
+                dem_domain = input_DEM_domain_Alaska
         elif huc == '22010000':  # Guam
             huc_CRS = GUAM_CRS
             input_WBD_filename = input_WBD_gdb_Guam
@@ -655,7 +659,7 @@ if __name__ == '__main__':
     )
 
     parser.add_argument('-n', '--outputs_dir', help='Directory to output all of the HUC level .gpkg files')
-    parser.add_argument('-u', '--huc_list', help='List of HUCs to genereate pre-clipped vectors for.')
+    parser.add_argument('-u', '--huc_list', help='List of HUCs to generate pre-clipped vectors for.')
 
     parser.add_argument(
         '-j',

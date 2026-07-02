@@ -43,9 +43,11 @@ def extend_outlet_streams(streams, wbd_buffered, wbd, landsea=None):
     """
     Extend outlet streams to nearest buffered WBD boundary
     """
+    errors = 0
 
     # Select only the streams that are outlets
     levelpath_outlets = streams[streams['to'] == 0]
+
     if 'index_right' in levelpath_outlets.columns:
         levelpath_outlets = levelpath_outlets.drop(columns=['index_right'])
     # levelpath_outlets_columns = [x for x in levelpath_outlets.columns]
@@ -53,6 +55,10 @@ def extend_outlet_streams(streams, wbd_buffered, wbd, landsea=None):
     # Select streams that intersect the WBD but not the WBD buffer
     # levelpath_outlets = levelpath_outlets.sjoin(wbd)[levelpath_outlets_columns]
     levelpath_outlets = levelpath_outlets.sjoin(wbd)
+
+    if levelpath_outlets.empty:
+        return streams, errors
+
     if 'index_right' in levelpath_outlets.columns:
         levelpath_outlets = levelpath_outlets.drop(columns=['index_right'])
     # levelpath_outlets = levelpath_outlets[levelpath_outlets_columns]
@@ -83,7 +89,6 @@ def extend_outlet_streams(streams, wbd_buffered, wbd, landsea=None):
         wbd_buffered['geometry'] = wbd_buffered.geometry.boundary
         wbd_buffered = gpd.GeoDataFrame(data=wbd_buffered, geometry='geometry')
 
-    errors = 0
     for index, row in levelpath_outlets.iterrows():
         levelpath_geom = row['last']
         nearest_point = nearest_points(levelpath_geom, wbd_buffered)
@@ -156,16 +161,24 @@ def subset_vector_layers(
     # Define the landsea water body mask using either Great Lakes or Ocean polygon input #
     buildings_parts_path = os.getenv('buildings_parts_path')  # one path is used for all regions
     if huc[:2] == '19':
-        nwm_lakes = os.getenv('input_nwm_lakes_Alaska')
-        nwm_catchments = os.getenv('input_nwm_catchments_Alaska')
-        nld_lines = os.getenv('input_NLD_Alaska')
-        nld_lines_preprocessed = os.getenv('input_levees_preprocessed_Alaska')
-        nwm_streams = os.getenv('input_nwm_flows_Alaska')
-        nwm_headwaters = os.getenv('input_nwm_headwaters_Alaska')
-        levee_protected_areas = os.getenv('input_nld_levee_protected_areas_Alaska')
-        osm_roads = os.getenv('osm_roads_alaska')
         huc_CRS = os.getenv('ALASKA_CRS')
         input_LANDSEA = os.getenv('input_landsea_Alaska')
+        osm_roads = os.getenv('osm_roads_alaska')
+        nld_lines = os.getenv('input_NLD_Alaska')
+        nld_lines_preprocessed = os.getenv('input_levees_preprocessed_Alaska')
+        levee_protected_areas = os.getenv('input_nld_levee_protected_areas_Alaska')
+
+        if huc in ['19080306', '19080307']:
+            nwm_lakes = os.getenv('input_nwm_lakes_Fairbanks')
+            nwm_catchments = os.getenv('input_nwm_catchments_Fairbanks')
+            nwm_streams = os.getenv('input_nwm_flows_Fairbanks')
+            nwm_headwaters = os.getenv('input_nwm_headwaters_Fairbanks')
+        else:
+            nwm_lakes = os.getenv('input_nwm_lakes_Alaska')
+            nwm_catchments = os.getenv('input_nwm_catchments_Alaska')
+            nwm_streams = os.getenv('input_nwm_flows_Alaska')
+            nwm_headwaters = os.getenv('input_nwm_headwaters_Alaska')
+
     elif huc == '22010000':  # Guam
         nwm_lakes = os.getenv('input_nhd_lakes_Guam')
         nwm_catchments = os.getenv('input_nwm_catchments_Guam')
@@ -428,8 +441,7 @@ def subset_vector_layers(
         logging.info(f"Using nwm_streams source for {huc}: {nwm_streams}")
         nwm_streams = gpd.read_file(nwm_streams, mask=wbd_buffer, engine="fiona")
 
-        if nwm_streams[nwm_streams['to'] == 0].empty:
-            nwm_streams.loc[~nwm_streams['to'].isin(nwm_streams['ID']), 'to'] = 0
+        nwm_streams.loc[~nwm_streams['to'].isin(nwm_streams['ID']), 'to'] = 0
 
         # NWM can have duplicate records, but appear to always be identical duplicates
         nwm_streams = nwm_streams.drop_duplicates(subset="ID", keep="first")

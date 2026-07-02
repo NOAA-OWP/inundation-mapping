@@ -326,7 +326,8 @@ def preprocess_streams(region, hucs, target_crs_number, inputs_dir, reference_fa
     # Extract and reproject Alaska waterbodies
     lakes = gpd.read_file(reference_fabric_file, layer='lakes')
     lakes = lakes.rename(columns={'Hylak_id': 'LakeID'})
-    lakes = lakes.to_crs(epsg=target_crs_number)
+    if lakes.crs != target_crs:
+        lakes = lakes.to_crs(epsg=target_crs_number)
     lakes = lakes[['LakeID', 'geometry']]
     lakes.to_file(os.path.join(reference_fabric_folder, 'lakes_Alaska.gpkg'), driver='GPKG')
 
@@ -339,7 +340,8 @@ def preprocess_streams(region, hucs, target_crs_number, inputs_dir, reference_fa
     # Extract and reproject Alaska catchments
     catchments = gpd.read_file(reference_fabric_file, layer='divides')
     catchments = catchments.rename(columns={'divide_id': 'ID'})
-    catchments = catchments.to_crs(epsg=target_crs_number)
+    if catchments.crs != target_crs:
+        catchments = catchments.to_crs(epsg=target_crs_number)
     catchments.to_file(os.path.join(reference_fabric_folder, 'catchments_Alaska.gpkg'), driver='GPKG')
 
     # Extract and reproject WBD
@@ -350,7 +352,8 @@ def preprocess_streams(region, hucs, target_crs_number, inputs_dir, reference_fa
     if not os.path.exists(wbd):
         sys.exit(f"WBD file {wbd} does not exist. Exiting...")
     WBD = gpd.read_file(wbd, columns=['HUC8'])
-    WBD = WBD.to_crs(epsg=target_crs_number)
+    if WBD.crs != target_crs:
+        WBD = WBD.to_crs(epsg=target_crs_number)
     WBD.to_file(f'{inputs_dir}/wbd/WBD_{region}_{target_crs_number}.gpkg', layer='WBDHU8', driver='GPKG')
 
     download_nfhl_wrapper(
