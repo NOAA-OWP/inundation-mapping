@@ -4,7 +4,6 @@
 import argparse
 import logging
 import os
-import sys
 import traceback
 from typing import Optional, Union
 
@@ -22,7 +21,6 @@ from rasterio.merge import merge
 # from shapely.geometry import box
 from shapely.geometry.multipolygon import MultiPolygon
 from shapely.geometry.polygon import Polygon
-from tqdm import tqdm
 
 from src.utils.shared_functions import FIM_Helpers as fh
 from src.utils.shared_variables import elev_raster_ndv
@@ -39,16 +37,11 @@ def Mosaic_inundation(
     map_file: Union[str, pd.DataFrame],
     mosaic_attribute: str,
     mosaic_output: Optional[str] = None,
-    mask_path: Optional[str] = None,
-    unit_attribute_name: Optional[str] = "huc8",
     nodata: Optional[int] = elev_raster_ndv,
-    workers: Optional[int] = 1,
     remove_inputs: Optional[bool] = False,
-    subset: Optional[str] = None,
     verbose: Optional[bool] = True,
     is_mosaic_for_branches: Optional[bool] = False,
-    inundation_polygon: Optional[str] = None,
-    show_progress_bar=True,
+    inundation_polygon: Optional[str] = None
 ) -> str:
     """
     Mosaic inundation extents or depths
@@ -61,18 +54,11 @@ def Mosaic_inundation(
         Attribute to mosaic the map files
     mosaic_output: Optional[str], default = None
         Name of final mosaiced inundation file
-    mask: Optional[str], default = None
-        Name of file to inclusively mask final output file
-    unit_attribute_name: Optional[str], default = None
-        Processing unit to mosaic inundation
     nodata: Optional[int], default = elev_raster_ndv
         Value to represent nodata
-    workers: Optional[int], default = 1
     Number of parallel processes to use
     remove_inputs: Optional[bool], default = False
         Whether to remove intermediate input files
-    subset: Optional[str], default = None
-        Path to file for subsetting inundation files
     verbose: Optional[bool], default = True
         Quiet output
     is_mosaic_for_branches: Optional[bool] = False,
@@ -83,8 +69,7 @@ def Mosaic_inundation(
     Returns
     -------
     str
-        File name of mosaiced output
-
+        File path of mosaiced output
     """
 
     msg = f"Starting mosaic for {mosaic_output}"
@@ -104,11 +89,12 @@ def Mosaic_inundation(
     ag_mosaic_output = ""
     try:
         # load file
+        print(f"map_file is {map_file}")
         if isinstance(map_file, pd.DataFrame):
             inundation_maps_df = map_file
             del map_file
         elif isinstance(map_file, str):
-            inundation_maps_df = pd.read_csv(map_file, dtype={unit_attribute_name: str, "branchID": str})
+            inundation_maps_df = pd.read_csv(map_file, dtype=str, cols=["huc8", "branchID"])
         else:
             raise TypeError("Pass Pandas Dataframe or file path string to csv for map_file argument")
 
@@ -124,29 +110,20 @@ def Mosaic_inundation(
         #         f"inundation_maps_df has no values in the three raster/polygon columns for {mosaic_output}"
         #     )
 
-        # subset
-        if subset is not None:
-            subset_mask = inundation_maps_df.loc[:, unit_attribute_name].isin(subset)
-            inundation_maps_df = inundation_maps_df.loc[subset_mask, :]
+        print(inundation_maps_df.info)
 
         # unique aggregation units
-        aggregation_units = inundation_maps_df.loc[:, unit_attribute_name].unique()
+        unit_attribute_name = 'huc8'
+        aggregation_units = inundation_maps_df.loc[:, 'huc8'].unique()
 
         inundation_maps_df = inundation_maps_df.set_index(unit_attribute_name, drop=True)
 
         remove_at_end = []
-        for ag in tqdm(
-            aggregation_units,
-            disable=(show_progress_bar is False),
-            desc=f"Mosaicking FIMs for {mosaic_output}",
-        ):
-            try:
-                inundation_maps_list = inundation_maps_df.loc[ag, mosaic_attribute].tolist()
-            except AttributeError as ae:
-                logging.critical(f"Attribute error while processing {mosaic_output}: {ae}")
-                inundation_maps_list = [inundation_maps_df.loc[ag, mosaic_attribute]]
-                # TODO: Jun 2026: Should we re-raise this? It wasn't before
-                raise ae
+        for ag in aggregation_units:
+            inundation_maps_list = inundation_maps_df.loc[ag, mosaic_attribute].tolist()
+
+            if inundation_maps_list.empty:
+                raise Exception("inunation map list is empty after applying the mosaic_attribute")
 
             # logging.debug(f"inundation_maps_list is {inundation_maps_list} for {mosaic_output}")
 
@@ -166,7 +143,6 @@ def Mosaic_inundation(
                 ag_mosaic_output,
                 nodata,
                 remove_inputs=remove_inputs,
-                mask_path=mask_path,
             )
 
             if len(remove_list) > 0:
@@ -208,9 +184,7 @@ def mosaic_by_unit(
     inundation_maps_list: list,
     mosaic_output: str,
     nodata: Optional[int] = elev_raster_ndv,
-    workers: Optional[int] = 1,
     remove_inputs: Optional[bool] = False,
-    mask_path: Optional[str] = None,
     verbose: Optional[bool] = False,
 ) -> Union[list, None]:
     """
@@ -224,12 +198,8 @@ def mosaic_by_unit(
         Name of final mosaiced inundation file
     nodata: Optional[int], default = elev_raster_ndv
         Value to represent nodata
-    workers: Optional[int], default = 1
-        Number of parallel processes to use
     remove_inputs: Optional[bool], default = False
         Whether to remove intermediate input files
-    mask_path: Optional[str], default = None
-        Name of file to inclusively mask final output file
     verbose: Optional[bool], default = True
         Quiet output
 
@@ -430,14 +400,6 @@ if __name__ == "__main__":
         "--mosaic-attribute",
         help="Attribute name: should be either inundation_rasters or depths_rasters.",
         required=True,
-        type=str,
-    )
-    parser.add_argument(
-        "-u",
-        "--unit-attribute-name",
-        help="Unit attribute name (optional). Default is huc8",
-        required=False,
-        default="huc8",
         type=str,
     )
     parser.add_argument(

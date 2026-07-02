@@ -479,9 +479,6 @@ def inundate_probabilistic(
     # Fim outputs directory
     fim_outputs_dir = outputs_dir
 
-    # Masks for HUC Domain
-    mask_path = os.path.join(hydrofabric_dir, huc, 'wbd.gpkg')
-
     # Percentiles and data to add
     percentiles = {'90': 10, '75': 25, '50': 50, '25': 75, '10': 90}
     percentile_values = {'feature_id': [], '90': [], '75': [], '50': [], '25': [], '10': []}
@@ -554,12 +551,12 @@ def inundate_probabilistic(
                 htable_output_file,
             )
 
-        flow_file = os.path.join(flow_path, f'{huc}_{percentile}_flow.csv')
+        flow_file_path = os.path.join(flow_path, f'{huc}_{percentile}_flow.csv')
 
         df = pd.DataFrame(
             {"feature_id": percentile_values['feature_id'], "discharge": percentile_values[percentile]}
         )
-        df.to_csv(flow_file, index=False)
+        df.to_csv(flow_file_path, index=False)
 
         # Jun 2026: num_workers in produce_mosaiked_inundation in favour of multi-threading.
         # Consider wrapping this "for" loop into a ProcessPoolExecutor
@@ -569,15 +566,12 @@ def inundate_probabilistic(
         produce_mosaicked_inundation(
             hydrofabric_dir,
             huc,
-            flow_file,
-            hydro_table_df=os.path.join(htable_output_path, htable_output_file),
+            flow_file_path,
+            hydro_table_path=os.path.join(htable_output_path, htable_output_file),
             inundation_raster_path=final_inundation_path,
-            mask_path=mask_path,
             verbose=not quiet,
-            # num_workers=num_jobs,
             num_threads=num_threads,
-            windowed=windowed,
-            show_progress_bar=False,
+            windowed=windowed
         )
 
     # percentiles

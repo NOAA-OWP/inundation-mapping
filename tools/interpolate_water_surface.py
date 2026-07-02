@@ -103,15 +103,22 @@ def inundate_with_catchment_spillover(
     setup_file_logger(hydrofabric_dir, "interpolate_water_surface.log")
 
     print("Running Inundation")
+
+    # TODO: July 1, 2026:
+    #  wrap this in a loop, processpool and/or TQDM. Inundate_gms now only accepts
+    # one huc at a time now due to performance and memory overhead.
+    # will need to get the map_files_df and contact them.
+    huc=hucs[0]  # first rec for now only. See above.
+    # for each loop, a map_files_df wil come back but for only one huc at a time.
+    # concat them, to take further for mosaicking
     map_files_df = Inundate_gms(
         hydrofabric_dir=hydrofabric_dir,
-        forecast_file_path=flow_file,
+        flow_file_path=flow_file,
         num_threads=num_workers,
-        hucs=hucs,
+        huc=huc,
         depths_raster=depths_raster,
         verbose=verbose,
-        output_fileNames=output_fileNames,
-        show_progress_bar=True,
+        output_fileNames=output_fileNames
     )
 
     print("Interpolating water surfaces for each branch")
@@ -143,14 +150,10 @@ def inundate_with_catchment_spillover(
         map_files_df,
         mosaic_attribute='depths_rasters',
         mosaic_output=depths_raster,
-        mask_path=None,
-        unit_attribute_name='huc8',
         nodata=elev_raster_ndv,
         num_workers=1,
         remove_inputs=not keep_intermediate,
-        subset=None,
-        verbose=verbose,
-        show_progress_bar=verbose,
+        verbose=verbose
     )
 
 

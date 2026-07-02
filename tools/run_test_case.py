@@ -245,7 +245,13 @@ class Test_Case(Benchmark):
                 # Each logger get the name of fim_logger but each are in a ProcessPoolExecutor
                 # so they will not collide. But giving it a specific name makes it easier
                 # to share with a ThreadPoolExecutor in inundation
-                sf.setup_file_logger(log_folder, f"{log_prefix}_{self.test_id}")
+
+                # Also, each logger should have its own name. 
+                # Just get the system proc id as part of its uniquess
+                sf.setup_file_logger(log_file_dir=log_folder,
+                                     log_file_name_prefix=f"{log_prefix}_{self.test_id}")
+ #                                     logger_name=f"alpha_test_worker_{os.getpid()}")
+                time.sleep(0.2)  # gives time for the logger to fully instanitate
 
             if verbose:
                 logging.info("")  # helps find the sections in the logs
@@ -329,6 +335,17 @@ class Test_Case(Benchmark):
                     f"Completed Alpha Test for {self.test_id}:"
                     f" Duration: {sf.calculate_duration_msg(start_time)}"
                 )
+            # we are about to exit this child logger. The logger does not automatically
+            # get killed until the procespool finishes all workers. But you can drop
+            # the handlers before returning, basically killing the logger. This is important because if you don't, the logger will
+            # keep the file open and you will not be able to delete it. This is a problem when you are running a lot of alpha_tests in a row and you want to delete the log
+            # files after each one. So, we will drop the handlers here.
+            logger = logging.getLogger()
+            handlers = logger.handlers[:]
+            for handler in handlers:
+                handler.close()
+                logger.removeHandler(handler)
+
 
     def _inundate_and_compute(self, magnitude, lid, precalb_option, branch_workers=1, verbose=False):
         '''Method for inundating and computing contingency rasters as part of the alpha_test.
@@ -379,16 +396,14 @@ class Test_Case(Benchmark):
 
         produce_mosaicked_inundation(
             hydrofabric_dir=os.path.dirname(self.fim_huc_dir),
-            hucs=self.huc,
-            flow_file=benchmark_flows,
+            huc=self.huc,
+            flow_file_path=benchmark_flows,
             inundation_raster_path=predicted_raster_path,
             map_filename=os.path.join(os.path.dirname(predicted_raster_path), "map_data.csv"),
-            mask_path=os.path.join(self.fim_huc_dir, "wbd.gpkg"),
             verbose=verbose,
             num_threads=branch_workers,
             precalb_option=precalb_option,
-            windowed=True,
-            show_progress_bar=False,
+            windowed=True
         )
 
         # Create contingency rasters and stats

@@ -367,14 +367,13 @@ def run_fb_inundation(  # renamed from run_inundation
 
         map_file = Inundate_gms(
             hydrofabric_dir=fim_run_dir,
-            forecast_file_path=magnitude_flows_csv_path,
-            hydro_table_df=None,
-            hucs=huc,
-            inundation_raster=output_extent_tif,
+            flow_file_path=magnitude_flows_csv_path,
+            hydro_table_path=None,
+            huc=huc,
+            inundation_raster_path=output_extent_tif,
             depths_raster=None,
             verbose=False,
-            output_fileNames=None,
-            show_progress_bar=False,
+            output_fileNames=None
         )
         # Jun 2026: Inundate_gms no longer offers the option of multi_process
         # but how automatically uses MultiThread
@@ -388,13 +387,10 @@ def run_fb_inundation(  # renamed from run_inundation
             map_file,
             mosaic_attribute='inundation_rasters',
             mosaic_output=output_extent_tif,
-            unit_attribute_name='huc8',
             nodata=csf.ELEV_NODATA_VALUE,
             num_workers=1,
             remove_inputs=False,
-            subset=None,
-            verbose=False,
-            show_progress_bar=False,
+            verbose=False
         )
 
         logging.info(f"{huc} : {ahps_site} : {magnitude} - Mosaic inundation complete")

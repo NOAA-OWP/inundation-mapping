@@ -110,16 +110,19 @@ def synthesize_test_cases(
     total_cpus_requested = job_number_alpha_tests * job_number_branch
     total_cpus_available = os.cpu_count() - 1
     if total_cpus_requested > total_cpus_available:
-        msg = f"\nIMPORTANT WARNING:\n   You have set the -ja (job_number_alpha_tests) at {job_number_alpha_tests}"
-        f"\n   and the -jb (job_number_branch) at {job_number_branch}."
-        f"\n   Multiplying the two gives you {total_cpus_requested} which is acceptable within reason."
-        f"\n   Your machine has {total_cpus_available} available."
-        "\n   While it is perfectly acceptable to go higher then the max cpus, due to the use of multi-threading,"
-        "\n   very high values can risk overloading the server. The system can only go as fast as lowest of the"
-        "\n   CPU/Memory/Network speeds. If you see long spikes in one of those areas, consider lowering your"
-        "\n   your job numbers."
-        "\n\n    Hit CTRL-C to abort."
-        print(msg)
+        print("")
+        print(f"""
+        "IMPORTANT WARNING:\n   You have set the -ja (job_number_alpha_tests) at {job_number_alpha_tests}
+            and the -jb (job_number_branch) at {job_number_branch}.
+            Multiplying the two gives you {total_cpus_requested} which is acceptable within reason.
+            Your machine has {total_cpus_available} available.
+
+            While it is perfectly acceptable to go higher then the max cpus, due to the use of multi-threading,
+            very high values can risk overloading the server. The system can only go as fast as lowest of the
+            CPU/Memory/Network speeds. If you see long spikes in one of those areas, consider lowering your
+            your job numbers.
+        
+        Hit CTRL-C to abort.""")
         # give them a few seconds to read it.
         time.sleep(5)  # gives the a min to read this.
         print("")
@@ -174,11 +177,17 @@ def synthesize_test_cases(
         # at the end of the process pool, we will aggregate the log files
         # which include this prefix
 
-        # By default, maxtasksperchild is set to None, meaning worker processes live as long as the process pool itself
-        # If a memory leaks exist, it can overload the system
+        # By default, maxtasksperchild is set to None, meaning worker processes live as long as the process pool itself.
+        # If a task or imported module retains state, memory can grow over time. Recycling workers periodically helps
+        # prevent that growth from accumulating across many alpha-test jobs.
+
+        max_tasks_per_child = 10  # This is critical to help recycle memory. Do not go very high, 5 to 10 is good.
+        # 20 is too high. 1 is too low as it will keep recycling and not be efficient.
 
         num_successful_tests = 0
-        with ProcessPoolExecutor(max_workers=job_number_alpha_tests) as executor:
+        with ProcessPoolExecutor(
+            max_workers=job_number_alpha_tests, max_tasks_per_child=max_tasks_per_child
+        ) as executor:
             # Loop through all test cases, build the alpha test arguments, and submit them to the process pool
             executor_dict = {}
 
@@ -227,6 +236,10 @@ def synthesize_test_cases(
                     num_successful_tests += 1
                     pbar.update(1)  # ✅ Progress update for each completed task
 
+                    # helps release the memory faster
+                    del executor_dict[future]
+                    del future
+
             except Exception as ex:
                 # this covers fails in the original call to test_case_class.alpha_test such as
                 # bad definition.
@@ -249,6 +262,8 @@ def synthesize_test_cases(
                 # the last error messages and it will have context
                 logging.debug(f"Merging child log files into parent logs. {log_file_path} - {mp_log_prefix}")
                 sf.merge_child_logs_into_parent_log(log_file_path, mp_log_prefix)
+                pbar.close()  # finish flushing it from Stdout. It will not be perfect,
+                # but it will be close enough to the actual progress.
 
         if num_successful_tests == 0:
             logging.warning("Skipping creating metrics file as there was not successful alpha tests")

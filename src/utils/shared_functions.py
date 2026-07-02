@@ -3,8 +3,9 @@
 import glob
 import inspect
 import logging
+import logging.handlers
 import os
-
+import queue
 # import pathlib
 import re
 import shutil
@@ -42,6 +43,15 @@ gp.options.io_engine = "pyogrio"
 
 
 # #################################
+class hydroTableHasOnlyLakes(Exception):
+    """Raised when a Hydro-Table only has lakes"""
+    pass
+
+class NoForecastFound(Exception):
+    """Raised when no forecast is available for a given Hydro-Table"""
+    pass
+
+# #################################
 # log file tools
 
 
@@ -51,7 +61,8 @@ gp.options.io_engine = "pyogrio"
 # You can use this one in an MP but only if you ensure that each MP process
 # has its own log file. There is now a new log rollup function in here to
 # roll all of the child log files back into the parent log if you like.
-# merge_child_logs_into_parent_log
+# merge_child_logs_into_parent_log.
+# Note: If you are calling this from inside a MP child worker, it MUST have a unique logging name
 def setup_file_logger(log_file_dir, log_file_name_prefix, logger_name=""):
     """
 
@@ -123,7 +134,10 @@ def setup_file_logger(log_file_dir, log_file_name_prefix, logger_name=""):
     if logger_name == "":
         logger = logging.getLogger()
     else:
-        logger = logging.getLogger("logger_name")
+        # Note: if you are alling this function inside a function that is a child worker
+        # of a ProcessPool, you must give it a unique name or it will hold memory pointers
+        # via loggin
+        logger = logging.getLogger(logger_name)
 
     logger.setLevel(logging.DEBUG)
     # logger.propagate = False # Prevent propagation to the root logger
@@ -276,6 +290,34 @@ def setup_mp_file_logger(log_file_path: str, logger_name: str, level=logging.DEB
         logger.propagate = False  # avoid logging to root logger too
 
     return logger
+
+
+def convert_logger_to_async(logger_name=None):
+    """Converts an existing logger to use a QueueHandler automatically."""
+    # 1. Get the existing target logger (None gets the root logger)
+    target_logger = logging.getLogger(logger_name)
+
+    # 2. Extract all handlers already attached to this logger
+    existing_handlers = target_logger.handlers[:]
+    if not existing_handlers:
+        return None  # No handlers to migrate
+
+    # 3. Create the shared queue
+    log_queue = queue.Queue(-1)
+
+    # 4. Create the QueueHandler
+    queue_handler = logging.handlers.QueueHandler(log_queue)
+
+    # 5. Remove old handlers and attach the new QueueHandler
+    for handler in existing_handlers:
+        target_logger.removeHandler(handler)
+    target_logger.addHandler(queue_handler)
+
+    # 6. Create and start the listener with the original handlers
+    listener = logging.handlers.QueueListener(log_queue, *existing_handlers)
+    listener.start()
+
+    return listener
 
 
 # This saves the msg to a log file, but also either a standard "print" or a "screen queue"

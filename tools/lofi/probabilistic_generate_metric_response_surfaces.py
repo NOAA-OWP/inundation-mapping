@@ -73,11 +73,11 @@ def create_flood_maps(
 
     # Iterate through all combinations of datasets and parameters
     loop_idx = 1
-    for N, obank_N, s, huc, flow_path in (
+    for N, obank_N, s, huc, flow_file_path in (
         pbar := tqdm(product(channel_mannings_n, overbank_mannings_n, slope_adjustments, hucs, flows))
     ):
 
-        filename = flow_path.split('/')[-1].split('.')[0].replace('flows', 'extent')
+        filename = flow_file_path.split('/')[-1].split('.')[0].replace('flows', 'extent')
 
         # Skip if overbank N is smaller than channel N
         if obank_N < N:
@@ -97,7 +97,7 @@ def create_flood_maps(
         if os.path.exists(final_inundation_path) and not overwrite:
             continue
 
-        mask_path = os.path.join(hydrofabric_dir, str(huc), 'wbd.gpkg')
+        # mask_path = os.path.join(hydrofabric_dir, str(huc), 'wbd.gpkg')
 
         # Sub-divide src
         src_output_file = "htable_branch" + "_{0}" + f"_{N}_{obank_N}_{s}.feather"
@@ -118,16 +118,15 @@ def create_flood_maps(
         produce_mosaicked_inundation(
             hydrofabric_dir,
             huc,
-            flow_path,
-            hydro_table_df=os.path.join(src_output_path, src_output_file),
+            flow_file_path,
+            hydro_table_path=os.path.join(src_output_path, src_output_file),
             inundation_raster_path=final_inundation_path,
-            mask_path=mask_path,
+            # mask_path=mask_path,
             verbose=False,
             # num_workers=num_jobs,
             num_threads=num_threads,
             windowed=windowed,
-            remove_intermediate=True,
-            show_progress_bar=False,
+            remove_intermediate=True
         )
 
         # TODO: Jun 2026: consider changing this to a "with" and "load"

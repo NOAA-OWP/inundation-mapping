@@ -745,12 +745,22 @@ def get_stats_table_from_binary_rasters(
 
         c_aligned, b_aligned = candidate_raster.gval.homogenize(benchmark_raster, target_map="candidate")
 
-        del candidate_raster, benchmark_raster
+        # Jun 2026: Note: raster.close is the most important to releaseing memory
+        # calling del after it has little value as it just releases the pointer but it is still
+        # in memory. And never, ever call gc.collect()
+        if candidate_raster is not None:
+            candidate_raster.close()
+            del candidate_raster
+        if benchmark_raster is not None:
+            benchmark_raster.close()
+            del benchmark_raster  # really don't need del, it does not do much
 
         agreement_map = c_aligned.gval.compute_agreement_map(
             b_aligned, comparison_function='pairing_dict', pairing_dict=pairing_dictionary
         )
 
+        c_aligned.close()
+        b_aligned.close()
         del c_aligned, b_aligned
 
         agreement_map_og = agreement_map.copy()
@@ -775,7 +785,7 @@ def get_stats_table_from_binary_rasters(
         if agreement_raster != None:
             agreement_map_write = agreement_map.rio.write_nodata(10, encoded=True)
             agreement_map_write.rio.to_raster(agreement_raster, dtype=np.uint8, driver="COG")
-
+            agreement_map_write.close()
             del agreement_map_write
 
             # Write legend text file
@@ -850,15 +860,19 @@ def get_stats_table_from_binary_rasters(
                         positive_categories=[1], negative_categories=[0], metrics="all"
                     )
 
-                    if agreement_raster:
+                    if agreement_raster != None:
                         # Write the layer_agreement_raster.
                         layer_agreement_raster = os.path.join(
                             os.path.split(agreement_raster)[0], poly_handle + '_agreement.tif'
                         )
+                        logging.debug(f"layer_agreement_raster is {layer_agreement_raster}")
                         agreement_map_write = agreement_map_include.rio.write_nodata(10, encoded=True)
-                        agreement_map_write.rio.to_raster(
-                            layer_agreement_raster, dtype=np.uint8, driver="COG"
-                        )
+                        # TODO: Jun 2026: Was occasionally throwing rasterio errors.
+                        # ie) 	rasterio._err.CPLE_AppDefinedError: Deleting /data/test_cases/{... a path}/sadn4_b0m_agreement.tif
+                        # failed: No such file or directory. Looks like it is a reference open from agreement_map_include
+                        # We might need to research this more.
+                        agreement_map_write.rio.to_raster(layer_agreement_raster, dtype=np.uint8, driver="COG")
+                        agreement_map_write.close()
                         del agreement_map_write
 
                     # Update stats table dictionary
@@ -871,9 +885,14 @@ def get_stats_table_from_binary_rasters(
                             )
                         }
                     )
-                    del agreement_map_include, poly_all, poly_all_proj, metrics_table, crosstab_table
+                    if agreement_map_include is not None:
+                        agreement_map_include.close()
 
-        del agreement_map
+                    del poly_all, poly_all_proj, metrics_table, crosstab_table
+
+        if agreement_map is not None:
+            agreement_map.close()
+        
     except Exception as ex:
         logging.critical(f"An error occurred while loading stats from {benchmark_raster_path}")
         logging.critical(traceback.format_exc())

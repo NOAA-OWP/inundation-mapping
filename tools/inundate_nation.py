@@ -31,7 +31,7 @@ def inundate_nation(
     fim_run_dir,
     output_dir,
     magnitude_key,
-    flow_file,
+    flow_file_path,
     huc_list,
     inc_mosaic,
     precalb,
@@ -39,7 +39,7 @@ def inundate_nation(
     thread_number,
 ):
 
-    assert os.path.exists(flow_file), f"ERROR: could not find the flow file: {flow_file}"
+    assert os.path.exists(flow_file_path), f"ERROR: could not find the flow file: {flow_file_path}"
 
     if job_number > available_cores:
         job_number = available_cores - 1
@@ -64,7 +64,7 @@ def inundate_nation(
     logging.info(f"Input FIM Directory: {fim_run_dir}")
     logging.info(f"output_dir: {output_dir}")
     logging.info(f"magnitude_key: {magnitude_key}")
-    logging.info(f"flow_file: {flow_file}")
+    logging.info(f"flow_file: {flow_file_path}")
     logging.info(f"inc_mosaic: {str(inc_mosaic)}")
     logging.info(f"Precalibration Discharge: {str(precalb)}")
 
@@ -102,7 +102,7 @@ def inundate_nation(
             huc_list,
             magnitude_key,
             magnitude_output_dir,
-            flow_file,
+            flow_file_path,
             # job_number, # Jun 2026: temp not in use, see notes below
             thread_number,
             precalb,
@@ -204,19 +204,29 @@ def run_inundation(args):
 
     # However, it would be well worth adding a ProcessPoolExecutor here, similar to the one in
     # synthesis_test_case. The you use the num_workers there.
+
+    # TODO: July 1, 2026:
+    #  wrap this in a loop, processpool and/or TQDM. Inundate_gms now only accepts
+    # one huc at a time now due to performance and memory overhead.
+    # See synethesis_test_case
+    # will need to get the map_files_df and contact them.
+    # for each loop, a map_files_df wil come back but for only one huc at a time.
+    # concat them, to take further for mosaicking
+    # 
+    
+    huc=huc_list[0]  # first rec for now only. See above.
+
     produce_mosaicked_inundation(
         hydrofabric_dir=fim_run_dir,
-        hucs=huc_list,
-        flow_file=forecast,
+        huc=huc,
+        flow_file_path=forecast,
         inundation_raster_path=inundation_raster,
         num_threads=thread_number,
         remove_intermediate=True,
         verbose=True,
         is_mosaic_for_branches=True,
-        # gms_multi_process=True,
         precalb_option=precalb,
-        show_progress_bar=True,
-        windowed=True,  # Jun 2026: if stability issues, consider changing this to false.
+        windowed=True,
     )
 
 
@@ -418,7 +428,7 @@ if __name__ == "__main__":
 
     parser.add_argument(
         '-f',
-        '--flow_file',
+        '--flow-file-path',
         help='the path and flow file to be used. '
         'ie /data/inputs/rating_curve/bankfull_flows/'
         'nwm3_high_water_threshold_cms.csv',
