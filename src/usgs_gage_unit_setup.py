@@ -7,6 +7,7 @@ import warnings
 from posixpath import dirname
 
 import geopandas as gpd
+import numpy as np
 import pandas as pd
 from shapely.geometry import Point
 
@@ -62,6 +63,8 @@ class Gage2Branch(object):
 
         # Filter USGS gages and RAS locations to huc
         self.gages = gages_locs[(gages_locs.HUC8 == self.huc8)]
+        # Jun 2026: Use to have Null in that column, now it has the string of "None"
+        self.gages["feature_id"].replace("None", np.nan, inplace=True)
 
         # Get AHPS sites within the HUC and add them to the USGS dataset
         if self.ahps_filename:
@@ -86,7 +89,7 @@ class Gage2Branch(object):
 
         # Create gages attribute
         self.gages.location_id.fillna(self.gages.nws_lid, inplace=True)
-        self.gages.loc[self.gages['nws_lid'] == 'Bogus_ID', 'nws_lid'] = None
+        # self.gages.loc[self.gages['nws_lid'] == 'Bogus_ID', 'nws_lid'] = None
 
     def sort_into_branch(self, nwm_subset_streams_levelPaths):
         nwm_reaches = gpd.read_file(nwm_subset_streams_levelPaths)
@@ -105,6 +108,8 @@ class Gage2Branch(object):
             del nwm_reaches_union
 
         # Left join gages with NWM streams to get the level path
+        # If the feature_id is Null, change it to a large neg so it won't won't merge
+        self.gages.feature_id.replace(np.nan, "-999999999", inplace=True)
         self.gages.feature_id = self.gages.feature_id.astype(int)
         self.gages = self.gages.merge(
             nwm_reaches[['feature_id', 'levpa_id', 'order_']], on='feature_id', how='left'
