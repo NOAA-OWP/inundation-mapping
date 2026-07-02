@@ -13,7 +13,9 @@ def run_d8flowdir(ncores, taudem_dir, fel_path, p_path=None, sd8_path=None):
     try:
         # Check that at least one output is requested (-p or -sd8)
         if not p_path and not sd8_path:
-            raise Exception("CRITICAL ERROR: You must provide at least one output path (-p or -sd8).", file=sys.stderr)
+            raise Exception(
+                "CRITICAL ERROR: You must provide at least one output path (-p or -sd8).", file=sys.stderr
+            )
 
             sys.exit(1)
 
@@ -25,7 +27,7 @@ def run_d8flowdir(ncores, taudem_dir, fel_path, p_path=None, sd8_path=None):
             cmd.extend(["-p", p_path])
         if sd8_path:
             cmd.extend(["-sd8", sd8_path])
-    
+
         # We merge stderr into stdout (stderr=subprocess.STDOUT) to process both in one loop.
         # bufsize=1 and universal_newlines=True (text=True) ensure line-buffered text output.
         process = subprocess.Popen(
@@ -61,7 +63,7 @@ def run_d8flowdir(ncores, taudem_dir, fel_path, p_path=None, sd8_path=None):
         # Ensure the exception is printed to standard error for downstream catch
         print(f"\nERROR: {e}", file=sys.stderr)
         sys.exit(1)
-        
+
 
 def run_flowdircond(taudem_dir, p_path, z_path, zfdc_path):
     """
