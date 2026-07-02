@@ -1,6 +1,22 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.17.2 - 2026-07-01 - [PR#1873](https://github.com/NOAA-OWP/inundation-mapping/pull/1873)
+
+Fixes an error in the usgs_gage_unit_setup.py file for an error while casting to int on a column.
+
+Previously the 'feature_id' column could be Null, but a recent change when creating the usgs_gage file accidently changed that column default value from Null to "None" (str).  Compensated for it here.
+
+During a full UAT test with this fix, it bubbled up another problem of alpha scores for usgs and nws dropping significantly.  I reverted the three lines in bash_variables to the earlier usgs gage files to the previous Sept 2025 set, then re-ran UAT. Results are now good. That suggests that there is data problems with the new usgs gage data. 
+
+bash_variables file reverted to the Sept 2025 set of usgs files.
+
+### Changes
+- `src'
+    - `usgs_gage_unit_setup.py`: as described above.
+    - `bash_variables.env`: as described above.
+<br/>
+
 ## v4.9.17.1 - 2026-06-26 - [PR#1843](https://github.com/NOAA-OWP/inundation-mapping/pull/1843)
 
 Adds improved logging, datum correction, and error handling to the USGS curves retrieval script (and supporting functions). Fixed and updated the NWS LID Geopackage script. Resolved the Pandas FutureWarnings (previously present in USGS rating curve retrieval and CatFIM processing) that were caused by joining tables with missing column data types (caused by NA values in the input metadata).
