@@ -1,5 +1,6 @@
 #!/bin/bash
-### set -e  ( Do not auto stop the script - because of AWS)
+### set -e  (Do not auto stop the script because of AWS)
+### unless debugging also do not add -o or -u
 ### We have to get to the bottom and return 0. Log anything that goes wrong
 
 :
@@ -105,28 +106,30 @@ echo "==========================================================================
 l_echo "---- Start of huc processing for $hucNumber" $hucLogFile
 
 # Process the actual huc
+# 'tee' catches all screen outputs from all pages and scripts all the way back, including
+# all branch responses. Errors and output, even if an error occurs.
+
 # Note... while each branch has its own log, that log data is also
 # part of the hucLogFile as well (duplicate). We do not need to
 # scan any logs in the logs/branch folder as they will come back into "tee"
-
-# todo: fix this to the formatted version below
 /usr/bin/time -v $srcDir/run_huc.sh 2>&1 | tee $hucLogFile
+# TODO (very low priority): fix this to the formatted version for the time command
 # /usr/bin/time -f "$time_cmd_format" $srcDir/run_huc.sh 2>&1 | tee $hucLogFile
 
-return_codes=( "${PIPESTATUS[@]}" )
-# return_codes=( "${PIPESTATUS[@]}" ) - yes, it is technically there can be more than one
-# depending how run_huc.sh is configured in its header declaration. But we will also
-# usually get just one return code.
-# and yes.. we can not use the $? here as we are messing with exit codes as it is PIPESTATUS
+#exit ${PIPESTATUS[0]} (and yes.. there can be more than one)
+# and yes.. we can not use the $? as we are messing with exit codes
 
-# We do this way instead of working directly with stderr and stdout
-# as they were messing with output logs which we always want.
+return_codes=( "${PIPESTATUS[@]}" )
 
 # err_exists=0
 # Exit codes of 60 and 61 are still true errors, but the code helps show the reason why it failed.
 # The return_codes array can result in more than one loop below.
 # Let each "code" print its own messages. We can get more than one exit code of 0 but we only want to
 # honor it and use it if no other code has appeared
+err_exists=0
+# This list helps identify that errors did exist and encourage reviewing the other log files
+# even though the errors are likely already in the standard log file
+list_error_msg="" 
 for code in "${return_codes[@]}"
 do
     # Note: It was tricky to load in the fim_enum into bash, so we will just
@@ -136,62 +139,45 @@ do
         # do nothing
 
     elif [ $code -eq 60 ]; then
-        # Yes.. this is an error, and we know why
+        # Concat to the standard log file, but also make a seperate list to help it bubble up
+        # even though it might already be there
         err_msg="***** Exit status: $code - Unit has no valid branches *****"
         l_echo "$err_msg" $hucLogFileName
-        # err_exists=1
+        list_error_msg+="${err_msg}\n"
+        err_exists=1
 
     elif [ $code -eq 61 ]; then
-        # Yes.. this is an error, and we know why
+        # Concat to the standard log file, but also make a seperate list to help it bubble up
+        # even though it might already be there
         err_msg="***** Exit status: $code - Unit has no remaining valid flowlines *****"
         l_echo "$err_msg" $hucLogFileName
-        # err_exists=1
+        list_error_msg+="${err_msg}\n"
+        err_exists=1
 
     else  # could be an exit status of 1 but can be other codes as well.
         # It is possible that some errors may not show up huc log file depending
         # how catastrophic the error was. It is possible that an exception
         # could show up in our error log file twice and that is ok.
-        err_msg="***** ERROR Exit status: $code detected *****"
+        # It may or may not already have been see by "tee" and is in the std log file.
+        err_msg="***** ERROR- Unknown Exit status: $code detected *****"
         l_echo "$err_msg" $hucLogFileName
-        # err_exists=1
+        list_error_msg+="${err_msg}\n"
+        err_exists=1
     fi
 done
 
-# +++++++++++++++++++
-# TODO: Feb 2025. If a py file throws an error, it can return Command exited with non-zero status 1
-# but we will get an exit code of 0 so we show success. Good enough for now as post processing logs
-# catch it
-
-# if [ "$does_error_exist" = "0" ]; then
-#     l_echo "     ***** Exit status: 0 - Success *****" $hucLogFile
-#     echo "Note: A temp bug may show this as success but python bugs often show up in the logs as " \
-#         "Command exited ... with non-zero status 1. Good enough for now as post processing logs catch it."
-# else
-#     # This is insurance in case this completely fails and doesn't even move it from temp dir
-#     # copy the error log over to the unit_errors folder to better isolate it
-#     cp $hucLogFileName $outputDestDir/logs/unit_errors    
-# fi
-
-# Scan for huc warnings
-grep -Hine "warning" $hucLogFile > $warningLogFile
-
-echo
-l_echo "Scanning src_calibration logs for issues"
-# lets make sure their are some log files first or grep gets mad
-if [[ -n $(find $outputDestDir -path "**/*/logs/src_calibrations/*.log" -type f) ]]; then
-    find $outputDestDir -path "**/*/logs/src_calibrations/*.log" -type f -exec grep -Hni "error" {} + >> $hucLogFile || true
-    find $outputDestDir -path "**/*/logs/src_calibrations/*.log" -type f -exec grep -Hni "exception" {} + >> $hucLogFile  || true
-    find $outputDestDir -path "**/*/logs/src_calibrations/*.log" -type f -exec grep -Hni "warning" {} + >> $warningLogFile || true    
+if [ "$err_exists" -ne 0 ]; then
+    error_log_filename=$tempHucDataDir/logs/huc_"$hucNumber"_errors.log
+    err_msg="Invalid status codes returned list:"
+    echo $err_msg >> $error_log_filename
+    echo -e $list_error_msg >> $error_log_filename
+    echo "\n\nReview unit log file for more details" >> $error_log_filename
 fi
 
-l_echo "---- End of huc processing for $hucNumber" $hucLogFile
-
-echo
-l_echo "Moving temp directory" $hucLogFile
-echo "***** Moving temp directory: $tempHucDataDir to output directory: $outputHucDataDir  *****"
-
-# Feb 2026, We can not use the "mv" command in OWP servers, so we have to do cp and rm
-# This is related to permissions in the OWP servers.
+# Move the contents of the temp directory into the outputs directory and update file permissions
+# find $tempHucDataDir -type d -exec chmod -R 777 {} +
+# In the OWP enviros, the perms are different, we have to copy them using a special copy
+# flag which is not available in mv. We have to copy, then remove the temp version
 # mv -f $tempHucDataDir $outputHucDataDir
 
 find $tempHucDataDir -type d -exec chmod -R 777 {} + 
