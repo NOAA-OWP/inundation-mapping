@@ -160,7 +160,8 @@ def inundation_status(
         fimpact_df['flood_depth'] = fimpact_df['evaluated_stage'] - fimpact_df['threshold_hand']
 
         # for now, remove any record with negative flood depth. these may happen due to non-monotonic src especially in branch zero.
-        fimpact_df = fimpact_df[fimpact_df['flood_depth'] >= 0]
+        # also ignore any flood depth less than 0.03048m (0.1 ft) to match with FIM spatial maps ( see inundation.py:364-367:)
+        fimpact_df = fimpact_df[fimpact_df['flood_depth'] >= 0.03048]
         fimpact_df['flood_depth_ft'] = fimpact_df['flood_depth'] * 3.28084
 
         # open feature geometry

@@ -280,11 +280,11 @@ def load_restricted_sites(catfim_type):
 
     df_restricted_sites = pd.read_csv(file_path, dtype=str)
 
-    df_restricted_sites['nws_lid'].fillna("", inplace=True)
-    df_restricted_sites['restricted_reason'].fillna("", inplace=True)
-    df_restricted_sites['catfim_type'].fillna("", inplace=True)
+    df_restricted_sites['nws_lid'] = df_restricted_sites['nws_lid'].fillna("")
+    df_restricted_sites['restricted_reason'] = df_restricted_sites['restricted_reason'].fillna("")
+    df_restricted_sites['catfim_type'] = df_restricted_sites['catfim_type'].fillna("")
 
-    # Remove extra empty spaces on either side of all cellls
+    # Remove extra empty spaces on either side of all cells
     df_restricted_sites['nws_lid'] = df_restricted_sites['nws_lid'].str.strip()
     df_restricted_sites['restricted_reason'] = df_restricted_sites['restricted_reason'].str.strip()
     df_restricted_sites['catfim_type'] = df_restricted_sites['catfim_type'].str.strip()
@@ -295,9 +295,9 @@ def load_restricted_sites(catfim_type):
     )
 
     # Filter df_restricted_sites by CatFIM type
-    if catfim_type == 'sb':  # Keep rows where 'catfim_type' is either 'stage' or 'both'
+    if catfim_type == 'sb':  # SB CatFIM: Keep rows where 'catfim_type' is either 'stage' or 'both'
         df_restricted_sites = df_restricted_sites[df_restricted_sites['catfim_type'].isin(['stage', 'both'])]
-    else:
+    else:  # FB CatFIM: Keep rows where 'catfim_type' is either 'flow' or 'both'
         df_restricted_sites = df_restricted_sites[df_restricted_sites['catfim_type'].isin(['flow', 'both'])]
 
     df_restricted_sites['nws_lid'] = df_restricted_sites['nws_lid'].str.upper()
@@ -313,7 +313,6 @@ def load_restricted_sites(catfim_type):
             df_restricted_sites.at[ind, 'restricted_reason'] = "Restricted Site - " + restricted_reason
 
             logging.warning(f"{restricted_reason}. Lid is '{nws_lid}'")
-            # TODO: Test that this actually makes it into the warnings log
         continue
 
     # Remove catfim_type column

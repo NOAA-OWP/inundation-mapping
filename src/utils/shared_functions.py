@@ -4,10 +4,12 @@ import glob
 import inspect
 import logging
 import os
-import pathlib
+
+# import pathlib
 import re
 import shutil
-import sys
+
+# import sys
 import threading
 import traceback
 from concurrent.futures import Future, ProcessPoolExecutor, as_completed
@@ -16,7 +18,7 @@ from multiprocessing import Manager
 from os.path import splitext
 from pathlib import Path
 
-import fiona
+# import fiona
 import geopandas as gp
 import numpy as np
 import pandas as pd
@@ -85,8 +87,6 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
     file_dt_string = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M")
     log_file_name = f"{log_file_name_prefix}_{file_dt_string}.log"
     log_file_path = os.path.join(log_file_dir, log_file_name)
-
-    permissions_code = 0o777
 
     # we will assume the parent folder already exists
     os.makedirs(log_file_dir, exist_ok=True, mode=permissions_code)
@@ -237,8 +237,8 @@ def setup_mp_file_logger(log_file_path: str, logger_name: str, level=logging.DEB
         file_handler = logging.FileHandler(log_file_path)
         file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(formatter)
-        os.chmod(log_file_path, mode=permissions_code)
         logger.addHandler(file_handler)
+        os.chmod(log_file_path, mode=permissions_code)
         logger.propagate = False  # avoid logging to root logger too
 
     return logger
@@ -270,6 +270,52 @@ def l_print(msg, file_logger, log_level="info", screen_queue=None):
             file_logger.critical(msg)
         case _:
             raise Exception("Invalid log level value. Options are debug, info, warning, error and critical")
+
+
+def rollup_log_files(src_file, trg_file, remove_old_src_file=True):
+    # Sometimes we want to append log file onto another file.
+    # For example, a temp mp log file into the parent log.
+
+    # This will not error out if the files do not exist
+    # only send back a True / False (successful)
+
+    # this will also look for rollups automatically for -warning and -error files
+
+    if not os.path.exists(src_file) or not os.path.exists(trg_file):
+        return False
+
+    with open(src_file, 'r') as src:
+        with open(trg_file, 'a') as trg:
+            shutil.copyfileobj(src, trg)
+
+    if remove_old_src_file:
+        os.remove(src_file)
+
+    # ----------------
+    # This will auto rollup warning files if they exist
+    warning_src_file_name = src_file.replace(".log", "-warnings.log")
+    warning_trg_file_name = trg_file.replace(".log", "-warnings.log")
+    if os.path.exists(warning_src_file_name) and os.path.exists(warning_trg_file_name):
+        with open(warning_src_file_name, 'r') as src:
+            with open(warning_trg_file_name, 'a') as trg:
+                shutil.copyfileobj(src, trg)
+
+        if remove_old_src_file:
+            os.remove(warning_src_file_name)
+
+    # ----------------
+    # This will auto rollup errors files if they exist
+    error_src_file_name = src_file.replace(".log", "-errors.log")
+    error_trg_file_name = trg_file.replace(".log", "-errors.log")
+    if os.path.exists(error_src_file_name) and os.path.exists(error_trg_file_name):
+        with open(error_src_file_name, 'r') as src:
+            with open(error_trg_file_name, 'a') as trg:
+                shutil.copyfileobj(src, trg)
+
+        if remove_old_src_file:
+            os.remove(error_src_file_name)
+
+    return True
 
 
 # #################################
@@ -551,24 +597,6 @@ def run_with_mp(
 
 # #################################
 # Misc tools#
-def concat_files(src_file, trg_file, remove_old_src_file=True):
-    # Sometimes we want to append log file onto another file.
-    # For example, a temp mp log file into the parent log.
-
-    # This will not error out if the files do not exist
-    # only send back a True / False (successful)
-
-    if not os.path.exists(src_file) or not os.path.exists(trg_file):
-        return False
-
-    with open(src_file, 'r') as src:
-        with open(trg_file, 'a') as trg:
-            shutil.copyfileobj(src, trg)
-
-    if remove_old_src_file:
-        os.remove(src_file)
-
-    return True
 
 
 def getDriver(fileName):
