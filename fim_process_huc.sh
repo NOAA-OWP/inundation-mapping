@@ -1,5 +1,6 @@
-#!/bin/bash -e
-umask 000
+#!/bin/bash
+### set -e  ( Do not auto stop the script - because of AWS)
+### We have to get to the bottom and return 0. Log anything that goes wrong
 
 :
 usage ()
@@ -150,7 +151,7 @@ do
         # It is possible that some errors may not show up huc log file depending
         # how catastrophic the error was. It is possible that an exception
         # could show up in our error log file twice and that is ok.
-        err_msg="***** Exit status: $code detected *****"
+        err_msg="***** ERROR Exit status: $code detected *****"
         l_echo "$err_msg" $hucLogFileName
         # err_exists=1
     fi

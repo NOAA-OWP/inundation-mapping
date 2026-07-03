@@ -1,5 +1,4 @@
 #!/bin/bash -e
-umask 000
 
 :
 usage()

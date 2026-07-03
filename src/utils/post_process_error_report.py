@@ -59,7 +59,7 @@ class HandDir(object):
 
         for huc in self.iter_hucs():
             # Search huc logs
-            huc_logs = Path(huc, 'logs', f"{huc.name}_unit.log")
+            huc_logs = Path(huc, 'logs', f"huc_{huc.name}_unit.log")
             huc_lines, huc_text, exit_code = self.log_kw_search(huc_logs)
             # Add the lines to the report for any exits codes other than zero
             if exit_code:
@@ -139,11 +139,10 @@ class HandDir(object):
 
 
 if __name__ == "__main__":
-    # parser = argparse.ArgumentParser(description='Download OSM roads for all HUCs')
-    # parser.add_argument('-o', '--output_dir', help='REQUIRED: folder path for output.', required=True)
-    # hand = HandDir('/outputs/efficient_floodplains')
-    # hand = HandDir('/outputs/choppy')
-    hand = HandDir('/data/previous_fim/hand_4_9_8_0')
-    # for h in hand.iter_hucs():
-    #    print(h)
-    hand.check_logs("/home/rdp-user/outputs_temp/log_test.csv")
+    parser = argparse.ArgumentParser(description='Look for all errors in HUC folders')
+    parser.add_argument('-n', '--hand-dir', help='REQUIRED: folder path where the HUC folder exists.', required=True)
+    parser.add_argument('-o', '--output-csv-path', help='REQUIRED: path of the csv report to be saved', required=True)
+    
+    args = vars(parser.parse_args())
+    hand = HandDir(args['hand_dir'])
+    hand.check_logs(args['output_csv_path'])
