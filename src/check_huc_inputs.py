@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 
-
 import argparse
 import os
 import pathlib
 from glob import glob
-
 
 def __read_acceptable_file_list(full_huc_list):
     filename_patterns = glob(full_huc_list)
@@ -63,7 +61,7 @@ def __check_for_membership(hucs, accepted_hucs_set, full_huc_list):
             " Edit HUC inputs or acquire datasets & try again."
             raise KeyError(msg)
 
-
+# Might be a file path (full_huc_list) or a list of hucs (ie 12090301 05030104)
 def check_hucs(hucs, full_huc_list):
     accepted_hucs = __read_acceptable_file_list(full_huc_list)
     list_hucs = __read_input_hucs(hucs)
@@ -76,7 +74,8 @@ def check_hucs(hucs, full_huc_list):
     # very first "print"
 
     # if you want to print, you can use flush. ie) print(f"number of hucs is {len(list_hucs)}", flush=True)
-
+    # by returning a print line, bash will pick it up as standard output and assign it
+    # to a variable and manage it.
     print(len(list_hucs))
 
 
@@ -84,6 +83,8 @@ if __name__ == '__main__':
 
     # This script helps ensure that all hucs passed in to pipeline or pre-processing are valid HUCs
     # and are in the full_huc_list.lst file as valid and approved HUCS.
+
+    # It is ok if this throws exceptions
 
     # parse arguments
     parser = argparse.ArgumentParser(description='Checks input hucs for availability within inputs')

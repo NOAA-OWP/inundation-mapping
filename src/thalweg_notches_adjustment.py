@@ -14,6 +14,16 @@ from os.path import join
 import numpy as np
 import pandas as pd
 
+#################################
+# CRITICAL TODO: July 4, 2026:  In the event of an exception, the log file will not exist
+# and its details as well. Besides, we really do not want to leave a file writer
+# open. Can leave memory leaks.
+# This needs a try/except with printing to log and at least a one liner
+# saying including the word "exception", which can be picked up automatically
+# by the rollup to fim_process_huc.sh or process_rerun_calibration_huc.sh
+################################
+
+
 
 # -------------------------------------------------------
 # Reseting stage column in SRCs for fixing thalweg notches
@@ -280,11 +290,16 @@ def apply_thalweg_notches_adjustment(huc_dir, huc, stage_interval, log_file_path
         # If yes, we need to raise ex, make sure to write your log_text if you need to.
         # raise Exception("Rob is tesing an exception reraise (sort of ) in thalweg")
 
+        # for now.. lets just print the exception so it can be auto picked up the .sh
+        # chain.
+        print(traceback.format_exc())
+
     try:
         with open(log_file_path, "a") as log_file:
             log_file.write(log_text + '\n')
     except Exception:
         print(f"Error trying to write to the log file of {log_file_path}\n")
+        print(traceback.format_exc())
         # ok. maybe not here.
 
 
@@ -308,29 +323,43 @@ def process_thalweg_notches_adjustment(huc_dir):  # stage_interval,
     if not os.path.isdir(log_dir):
         os.makedirs(log_dir)
     log_file_path = os.path.join(log_dir, 'thalweg_notches_adjustment.log')
-    print(f'Writing progress to log file here: {log_file_path}')
-    ## Create a time var to log run time
-    begin_time = dt.datetime.now(dt.timezone.utc)
 
-    ## Initiate log file
-    with open(log_file_path, "w") as log_file:
-        log_file.write('START TIME: ' + str(begin_time) + '\n')
-        log_file.write('#########################################################\n\n')
+    try:
 
-    # Let log_text build up starting here until the bottom.
-    log_text = ""
+        print(f'Writing progress to log file here: {log_file_path}')
+        ## Create a time var to log run time
+        begin_time = dt.datetime.now(dt.timezone.utc)
 
-    stage_interval = 0.3048  # float(os.getenv('stage_interval_meters'))
+        ## Initiate log file
 
-    huc = os.path.basename(os.path.normpath(huc_dir))
-    apply_thalweg_notches_adjustment(huc_dir, huc, stage_interval, log_file_path)
+        #  TODO: Fix THIS... it is an open file ~~~~
 
-    ## Record run time and close log file
-    end_time = dt.datetime.now(dt.timezone.utc)
-    log_text += 'END TIME: ' + str(end_time) + '\n'
-    tot_run_time = end_time - begin_time
-    log_text += 'TOTAL RUN TIME: ' + str(tot_run_time).split('.')[0]
-    log_file.close()
+        with open(log_file_path, "w") as log_file:
+            log_file.write('START TIME: ' + str(begin_time) + '\n')
+            log_file.write('#########################################################\n\n')
+
+        # Let log_text build up starting here until the bottom.
+        log_text = ""
+
+        stage_interval = 0.3048  # float(os.getenv('stage_interval_meters'))
+
+        huc = os.path.basename(os.path.normpath(huc_dir))
+        apply_thalweg_notches_adjustment(huc_dir, huc, stage_interval, log_file_path)
+
+        ## Record run time and close log file
+        end_time = dt.datetime.now(dt.timezone.utc)
+        log_text += 'END TIME: ' + str(end_time) + '\n'
+        tot_run_time = end_time - begin_time
+        log_text += 'TOTAL RUN TIME: ' + str(tot_run_time).split('.')[0]
+        log_file.close()
+
+    except Exception as ex:
+        print(f"An exception occurred. Details: {traceback.format_exc()}")
+        print(f"See {log_file_path} for context info.")
+
+        # TODO: catch the details and log as well as print.
+
+        raise ex
 
 
 if __name__ == '__main__':

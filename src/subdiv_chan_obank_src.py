@@ -23,6 +23,15 @@ from tqdm import tqdm
 sns.set_theme(style="whitegrid")
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
+#################################
+# CRITICAL TODO: July 4, 2026:  In the event of an exception, the log file will not exist
+# and its details as well. Besides, we really do not want to leave a file writer
+# open. Can leave memory leaks.
+# This needs a try/except with printing to log and at least a one liner
+# saying including the word "exception", which can be picked up automatically
+# by the rollup to fim_process_huc.sh or process_rerun_calibration_huc.sh
+################################
+
 """
     Compute channel geomety and Manning's equation using subdivision method (separate in-channel vs. overbank)
     Also apply unique Manning's n-values for channel and overbank using a user provided feature_id csv

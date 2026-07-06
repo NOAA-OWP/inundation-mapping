@@ -1,6 +1,4 @@
 #!/bin/bash -e
-umask 000
-
 ### Must have the -e flag as it auto aborts on page error. See more details
 ### below about error handling for it.
 

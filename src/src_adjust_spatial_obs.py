@@ -24,6 +24,16 @@ from utils.shared_variables import (
 gpd.options.io_engine = "pyogrio"
 
 
+#################################
+# CRITICAL TODO: July 4, 2026:  In the event of an exception, the log file will not exist
+# and its details as well. Besides, we really do not want to leave a file writer
+# open. Can leave memory leaks.
+# This needs a try/except with printing to log and at least a one liner
+# saying including the word "exception", which can be picked up automatically
+# by the rollup to fim_process_huc.sh or process_rerun_calibration_huc.sh
+################################
+
+
 # Import variables from .env file
 load_dotenv('/foss_fim/src/bash_variables.env')
 outputsDir = os.getenv("outputsDir")

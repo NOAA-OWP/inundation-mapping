@@ -1,7 +1,9 @@
 #!/bin/bash -e
-umask 000
+### Yes.. not all of our .sh files are the same with the -e flag, be design.
 
 ## INITIALIZE TOTAL TIME TIMER ##
+## Used by timers in sections below
+## Overall page timer in process_branch.sh in case of errors
 T_total_start
 
 ## SOURCE BASH FUNCTIONS
@@ -39,14 +41,6 @@ fi
 
 ## MAKE OUTPUT BRANCH DIRECTORY
 mkdir -p $tempCurrentBranchDataDir
-
-## START MESSAGE ##
-echo -e $startDiv"Processing HUC: $hucNumber - branch_id: $current_branch_id"
-
-## INITIALIZE TOTAL BRANCH TIMER ##
-T_total_start
-branch_start_time=`date +%s`
-date -u
 
 ## SUBSET VECTORS
 echo -e $startDiv"Subsetting vectors to branches $hucNumber $current_branch_id"
@@ -177,7 +171,4 @@ if [ -f $deny_branches_list ]; then
     $srcDir/outputs_cleanup.py -d $tempCurrentBranchDataDir -l $deny_branches_list -b $current_branch_id
 fi
 
-echo -e $startDiv"End Branch Processing $hucNumber $current_branch_id ..."
-date -u
-Calc_Duration "Duration : " $branch_start_time
 echo

@@ -1,8 +1,6 @@
 #!/bin/bash -e
-umask 000
-
-# Note: the line above is critical and is read and used as a special command
-# exactly as it is. The additon of the -e tells it to stop on fail.
+# The additon of the -e tells it to stop on fail and is critical
+### Yes.. not all of our .sh files are the same with the -e flag, be design.
 
 # Do not call this file directly. Call fim_process_unit_wb.sh which calls
 # this file.
@@ -20,7 +18,10 @@ export HYDRA_LAUNCHER=fork
 export DISPLAY=:0
 
 branch_list_csv_file=$tempHucDataDir/branch_ids.csv
-branch_list_lst_file=$tempHucDataDir/branch_ids.lst
+
+# This file is used only to help run_huc know what branches to process
+# Not all branches will be successful
+branch_list_lst_file=$tempHucDataDir/branch_ids_for_huc_processing.lst
 
 branchSummaryLogFile=$tempHucDataDir/logs/branch/"$hucNumber"_summary_branch.log
 
@@ -153,7 +154,7 @@ $srcDir/buffer_stream_branches.py \
     -w $tempHucDataDir/wbd_buffered.gpkg
 
 ## CREATE BRANCHID LIST FILE
-echo -e $startDiv"Create list file of branch ids for $hucNumber"
+echo -e $startDiv"Create list file of branch ids for processing for $hucNumber"
 $srcDir/generate_branch_list.py -d $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg \
     -b $branch_id_attribute \
     -o $branch_list_lst_file
@@ -347,15 +348,10 @@ if [ -f $branch_list_lst_file ]; then
     # but there will still be a branch zero
     parallel --timeout $branch_timeout -j $jobBranchLimit --joblog $branchSummaryLogFile --colsep ',' \
     -- $srcDir/process_branch.sh $runName $hucNumber :::: $branch_list_lst_file
-    Tcount
+    Calc_Duration
 else
     echo "No level paths exist with this HUC. Processing branch zero only."
 fi
-
-## Start the local csv branch list
-echo
-echo -e $startDiv"Generating Branch List"
-$srcDir/generate_branch_list_csv.py -o $branch_list_csv_file -u $hucNumber
 
 branches=$(Calc_Time $branch_processing_start_time)
 branches_percent=$(Calc_Time_Minutes_in_Percent $branch_processing_start_time)
@@ -364,28 +360,32 @@ branches_percent=$(Calc_Time_Minutes_in_Percent $branch_processing_start_time)
 if [ -f $deny_unit_list ]; then
     echo -e $startDiv"Remove files $hucNumber"
     date -u
-    Tstart
+    Tstart  # TODO: Do we need a tstart and count on this
     $srcDir/outputs_cleanup.py -d $tempHucDataDir -l $deny_unit_list -b $hucNumber
     Tcount
 fi
-
-echo "---- HUC $hucNumber - branches have now been processed"
-Calc_Duration "Duration for processing branches : " $branch_processing_start_time
-echo
-total_branches=$(wc -l < $branch_list_csv_file)
 
 ## ADJUST CALIBRATION
 ## call src adjustments..Pass False as an argument to flag it is not a rerun of calibration. 
 $srcDir/calibrate_rating_curves.sh "False" $jobBranchLimit $hucNumber
 
 
+echo "---- HUC $hucNumber - branches have now been processed"
+Calc_Duration "Duration for processing branches : " $branch_processing_start_time
+echo
+total_branches=$(wc -l < $branch_list_csv_file)
+
+
+## Start the local csv branch list
+echo
+echo -e $startDiv"Generating Branch List that have successfully completed"
+$srcDir/generate_branch_list_csv.py -o $branch_list_csv_file -u $hucNumber
+
+
+
 # WRITE TO LOG FILE CONTAINING ALL HUC PROCESSING TIMES
 total_duration_display="$hucNumber,$(Calc_Time $huc_start_time),$(Calc_Time_Minutes_in_Percent $huc_start_time),$total_branches,$branch0,$branch0_percent,$branches,$branches_percent"
 echo "$total_duration_display" >> "$tempHucDataDir/processing_time_$hucNumber.txt"
 
-date -u
-echo "---- HUC processing for $hucNumber is complete"
-Calc_Duration "Duration for huc processing: " $huc_start_time
-echo
 
 # let the script return whatever code it wants unless controlled exit like calibrate_rating_curves.sh

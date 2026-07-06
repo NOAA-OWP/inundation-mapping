@@ -14,6 +14,15 @@ from utils.shared_functions import check_file_age, concat_huc_csv
 from utils.shared_variables import USGS_CALB_TRACE_DIST
 
 
+#################################
+# CRITICAL TODO: July 4, 2026:  In the event of an exception, the log file will not exist
+# and its details as well. Besides, we really do not want to leave a file writer
+# open. Can leave memory leaks.
+# This needs a try/except with printing to log and at least a one liner
+# saying including the word "exception", which can be picked up automatically
+# by the rollup to fim_process_huc.sh or process_rerun_calibration_huc.sh
+################################
+
 '''
 The script ingests a USGS rating curve csv and a NWM flow recurrence interval database.
 The gage location will be associated to the corresponding hydroID and attributed with the HAND elevation value

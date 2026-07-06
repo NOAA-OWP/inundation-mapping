@@ -69,6 +69,10 @@ def duration_system(hydrofabric_dir, output_csv_file):
         else:
             print(f"Warning: Missing {txt_file} for HUC {huc}")
 
+    # It is possible that all hucs failed and none have durations
+    if len(hucs) == 0:
+        raise Exception("There are no huc duration files. Check if all hucs failed or code error.")
+    
     column_names = [
         "HUC8",
         "HUC Duration",
@@ -79,6 +83,7 @@ def duration_system(hydrofabric_dir, output_csv_file):
         "Branches Duration",
         "Branches Duration%",
     ]
+
     df = pd.DataFrame(all_rows, columns=column_names)
     num_hucs = len(df['HUC8'])
     num_branches = df['Branches'].astype(int).sum()

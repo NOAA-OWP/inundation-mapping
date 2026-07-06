@@ -12,6 +12,14 @@ from os.path import join
 import geopandas as gpd
 import pandas as pd
 
+#################################
+# CRITICAL TODO: July 4, 2026:  In the event of an exception, the log file will not exist
+# and its details as well. Besides, we really do not want to leave a file writer
+# open. Can leave memory leaks.
+# This needs a try/except with printing to log and at least a one liner
+# saying including the word "exception", which can be picked up automatically
+# by the rollup to fim_process_huc.sh or process_rerun_calibration_huc.sh
+################################
 
 # -------------------------------------------------------
 # Function to use RFC Bathymetry where available over eHydro Data

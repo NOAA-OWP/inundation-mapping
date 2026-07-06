@@ -1,4 +1,5 @@
 #!/bin/bash -e
+#### always leave the -e above as it means exit on fail (critical to our system)
 ### set -eo pipefail  (debugging)
 
 ## Level is equal to the parent script: 'unit' or 'branch'

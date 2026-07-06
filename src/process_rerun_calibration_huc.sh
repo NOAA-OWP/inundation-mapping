@@ -1,16 +1,17 @@
 #!/bin/bash -e
-umask 000
+### We must have the -e above which is exit on error
+### Yes.. not all of our .sh files are the same with the -e flag, be design.
 
 #####################################
 ## Note:
-##   This error handling might seem like overkill but it very helpful with rerun_calibration.py
-##   and it is critial to how this can work in both AWS mode, EC2 re-run mode and EC2 pipeline mode.
-##   These parent scripts themselves can have errors and while rerun_calibration.py can and does
-##   catch all exit the details to rerun_calibration.py.
+##    This is a wrapper for calibrate_rating_curves.sh which is run for only one HUC.
+##    This tool is called by rerun_calibation.py which has the HUC iterator in it.
+##    rerun_calibration.py has the abililty to catch all errors for this and child pages
+
+##    This this having a "tee" command, like fim_process_hucs.sh, the logs will
+##    auto catch all outputs including errors and put it in the log file
 #####################################
 
-# This is a wrapper for calibrate_rating_curves.sh which is run for only one HUC.
-# This tool is called by rerun_calibation.py which has the HUC iterator in it.
 
 # calibrate_rating_curve.sh is used in two contexts:
 # 1: As part of run_huc.sh -> fim_process_huc.sh.  fim_process_huc.sh has three critcal elements we need here
@@ -72,28 +73,14 @@ if [ "$tempHucDataDir" = "" ] ; then
     echo "Error: tempHucDataDir is an empty" >&2; exit 1
 fi
 
+# ROB.... We can likely drop in Carsons scan, with an args saying look
+# for recal records and not the reg log file
 
-# Some simple error handling
-# We add it to the log file then scan for the word "error" later down.
-# This will also handle errors in this script and not just calibrate_rating_curves.sh
-handle_error(){
-
-    echo "++++++++++++++++++++++++++++"
-    msg="Critical error in process_rerun_calibration_huc.sh itself, line number:$1"
-    l_echo "$msg" $rerunErrorLogFilename
-    msg="Error Command Submitted: $BASH_COMMAND"
-    l_echo "$msg" $rerunErrorLogFilename
-    echo "++++++++++++++++++++++++++++"
-    scan_logs_for_errors
-    # logFileScanComplete="True"
-    echo
-    exit 1  # we DO want to return a exit status of 1 to rerun_calibration.py if in failure.
-}
 
 scan_logs_for_errors(){
 
     echo "++++++++++++++++++++++++++"
-    l_echo "Scanning for issues in the logs"
+    l_echo "Scanning for issues in the logs" $rerunErrorLogFilename
     # No.. the line above is not a mistype.
     # Can't put the word "error" as as a header in the log file as it finds itself in the log files
 
@@ -132,9 +119,9 @@ scan_logs_for_errors(){
 
 # As originally designed, it seems much better to keep its own logging seperate from the
 # original logs.
-rerunlogFilename="$tempHucDataDir/logs/huc_${hucNumber}_calib_rerun.log"
-rerunErrorLogFilename="$tempHucDataDir/logs/huc_${hucNumber}_calib_rerun_errors.log"
-rerunWarningLogFilename="$tempHucDataDir/logs/huc_${hucNumber}_calib_rerun_warnings.log"
+rerunlogFilename=$tempHucDataDir/logs/huc_${hucNumber}_calib_rerun.log
+rerunErrorLogFilename=$tempHucDataDir/logs/huc_${hucNumber}_calib_rerun_errors.log
+rerunWarningLogFilename=$tempHucDataDir/logs/huc_${hucNumber}_calib_rerun_warnings.log
 
 # We need remove earlier versions from previous recalibration runs.
 rm -f $rerunlogFilename
@@ -149,7 +136,7 @@ source $srcDir/bash_variables.env
 # Tell the system the name and location of the log file
 # But don't allow calibrate_rating_curves.sh to do l_echos, only echos and prints.
 # Echos and prints are caught here via the "tee" command
-Set_log_file_path $rerunlogFilename
+# Set_log_file_path $rerunlogFilename
 
 
 echo "=========================================================================="
@@ -168,7 +155,7 @@ return_codes=( "${PIPESTATUS[@]}" )
 # turn trapping on for just here down. We can not use a trap above the "tee"
 # line unless we detected and build variables for logging files / folders.
 # Maybe for another day. Yes.. for now this has to be an acceptable hole.
-trap 'handle_error $LINENO' ERR
+# trap 'handle_error $LINENO' ERR
 
 # Yes... we can get more than one returned code, it is possible but very rare
 for code in "${return_codes[@]}"
@@ -193,3 +180,9 @@ done
 
 scan_logs_for_errors
 l_echo "---- End of recalibration for $hucNumber" $rerunlogFilename
+
+# Rob.... add scan for warnings as well
+
+
+# TODO... ROB:  can we add Carson scan tool with an arg switch?
+

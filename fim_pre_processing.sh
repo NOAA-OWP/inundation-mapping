@@ -1,7 +1,7 @@
-#!/bin/bash
-###  Do not include -e as we want a fail to continue through
-###  stop other steps and processes.
-umask 000
+#!/bin/bash -e
+### We want to keep the -e as it is ok to let errors and codes returned to fim_pipeline.sh or AWS
+### for this specific file.
+### Yes.. not all of our .sh files are the same with the -e flag, be design.
 
 :
 usage()
@@ -195,16 +195,36 @@ num_hucs=$(python3 $srcDir/check_huc_inputs.py -u ${hucList} -i ${full_huc_list_
 echo
 echo "--- Number of HUCs to process is $num_hucs"
 
+# TODO: July 2026: using setfacl is a power tool to help manage perms settings
+# but it is not yet in our Docker build. See notes in Dockerfile.dev
+# Set default permissions for the owner, group, and others
+# This forces 775 (rwxrwxr-x) on all newly created files and folders
+# setfacl -d -m u::rwx $tempHucDataDir
+# setfacl -d -m g::rwx $tempHucDataDir
+# setfacl -d -m o::rx $tempHucDataDir
+# In the meantime, we have a weird combination of inefficient chmod everywhere.
+
 if [ -d $tempRunDir ]; then
-    rm -rdf $tempRunDir/eval
+    chmod 777 -R $tempRunDir  # in theory we do not need this (but needed for aborts)
+    rm -rdf $tempRunDir
+    mkdir -p $tempRunDir
+    chmod 777 $tempRunDir
+    # Set default permissions for the owner, group, and others
+    # This forces 775 (rwxrwxr-x) on all newly created files and folders
+    # setfacl -d -m u::rwx $tempRunDir
+    # setfacl -d -m g::rwx $tempRunDir
+    # setfacl -d -m o::rx $tempRunDir
 fi
 
 # make dirs
 if [ ! -d $outputDestDir ]; then
     mkdir -p $outputDestDir
-    chmod 777 -R $outputDestDir
-    mkdir -p $tempRunDir
-	chmod 777 -R $tempRunDir
+    chmod 777 $outputDestDir
+    # Set default permissions for the owner, group, and others
+    # This forces 775 (rwxrwxr-x) on all newly created files and folders
+    # setfacl -d -m u::rwx $outputDestDir
+    # setfacl -d -m g::rwx $outputDestDir
+    # setfacl -d -m o::rx $outputDestDir
 else
     # remove these directories and files on a new or overwrite run
     rm -rdf $outputDestDir/logs
@@ -216,7 +236,7 @@ else
 fi
 
 mkdir -p $outputDestDir/logs
-# mkdir -p $outputDestDir/branch_errors
+chmod 777 $outputDestDir/logs
 
 # copy over config file and rename it (note.. yes, the envFile file can still be
 # loaded from command line and have its own values, it simply gets renamed and saved)
@@ -228,9 +248,6 @@ cp $envFile $outputDestDir/params.env
 
 args_file=$outputDestDir/runtime_args.env
 
-# reset it again (this time recursive for the new incoming folders
-chmod 777 -R $outputDestDir
-
 # the jobHucLimit is not from the args files, only jobBranchLimit
 echo "export runName=$runName" >> $args_file
 echo "export jobHucLimit=$jobHucLimit" >> $args_file
@@ -241,8 +258,5 @@ echo "export deny_branch_zero_list=$deny_branch_zero_list" >> $args_file
 echo "export has_deny_branch_zero_override=$has_deny_branch_zero_override" >> $args_file
 echo "export evaluateCrosswalk=$evaluateCrosswalk" >> $args_file
 
-chmod 777 $args_file
-
 echo "--- Pre-processing is complete"
-
 echo
