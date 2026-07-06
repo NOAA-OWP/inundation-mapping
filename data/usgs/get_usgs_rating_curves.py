@@ -870,7 +870,9 @@ def __attrib_mainstems_filter_sites(sites_gdf, all_rating_curves, site_status_df
 
     acceptable_sites_csv_path = os.path.join(output_dir, 'acceptable_sites_for_rating_curves.csv')
     logging.info(f"...to CSV at path {acceptable_sites_csv_path}")
-    acceptable_sites_gdf.to_csv(acceptable_sites_csv_path, index=False)
+    acceptable_sites_gdf.to_csv(acceptable_sites_csv_path) # TODO: Testing, leaving in the index column to see if that fixes things
+    # acceptable_sites_gdf.to_csv(acceptable_sites_csv_path, index=False)
+
 
     acceptable_sites_gpkg_path = os.path.join(output_dir, 'acceptable_sites_for_rating_curves.gpkg')
     logging.info(f"...and to GeoPackage at path {acceptable_sites_gpkg_path}")
