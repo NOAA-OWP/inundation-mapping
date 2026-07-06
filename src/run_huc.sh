@@ -27,16 +27,16 @@ huc2Identifier=${hucNumber:0:2}
 if [ $huc2Identifier -eq 19 ]; then
     huc_CRS=$ALASKA_CRS
     # dem_domain_filename=DEM_Domain.parquet
-    if [[ "$hucNumber" -eq 19080306 || "$num" -eq 19080307 ]]; then
-        huc_input_DEM_domain=$input_DEM_domain_Alaska
-        input_DEM=$input_DEM_Alaska
-        input_pit_fill=$input_DEM_pit_fills_Alaska
-        input_bridge_elev_diff=$input_bridge_elev_diff_alaska
-    else
+    if [[ "$hucNumber" -eq 19080306 || "$hucNumber" -eq 19080307 ]]; then
         huc_input_DEM_domain=$input_DEM_domain_Fairbanks
         input_DEM=$input_DEM_Fairbanks
         input_pit_fill=$input_DEM_pit_fills_Fairbanks
         input_bridge_elev_diff=$input_bridge_elev_diff_Fairbanks
+    else
+        huc_input_DEM_domain=$input_DEM_domain_Alaska
+        input_DEM=$input_DEM_Alaska
+        input_pit_fill=$input_DEM_pit_fills_Alaska
+        input_bridge_elev_diff=$input_bridge_elev_diff_alaska
 fi
 
 elif [ $hucNumber -eq 22010000 ]; then
@@ -188,18 +188,23 @@ gdalwarp -cutline $tempHucDataDir/wbd_buffered.gpkg -crop_to_cutline -ot Float32
     -co "BIGTIFF=YES" -t_srs $huc_CRS -tr $res $res -tap $input_bridge_elev_diff $tempHucDataDir/bridge_elev_diff_meters.tif
 }
 
-## Combine Raw DEM with Pit Fill DEM (use pit fill elev)
-# The pit fill is listed second so it draws on top of the original DEM.
-gdalbuildvrt $tempHucDataDir/combined_dem.vrt \
-    $tempHucDataDir/dem_meters_orig.tif \
-    $tempHucDataDir/dem_meters_pit_fill.tif
-# Translate the VRT back into a compressed GeoTIFF
-gdal_translate -ot Float32 -of "GTiff" \
-    -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" \
-    $tempHucDataDir/combined_dem.vrt \
-    $tempHucDataDir/dem_meters.tif
-# Clean up the temporary VRT file
-rm $tempHucDataDir/combined_dem.vrt
+echo -e "Pit-fill DEM"
+if [[ -f "$tempHucDataDir/dem_meters_pit_fill.tif" ]]; then
+    ## Combine Raw DEM with Pit Fill DEM (use pit fill elev)
+    # The pit fill is listed second so it draws on top of the original DEM.
+    gdalbuildvrt $tempHucDataDir/combined_dem.vrt \
+        $tempHucDataDir/dem_meters_orig.tif \
+        $tempHucDataDir/dem_meters_pit_fill.tif
+    # Translate the VRT back into a compressed GeoTIFF
+    gdal_translate -ot Float32 -of "GTiff" \
+        -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" \
+        $tempHucDataDir/combined_dem.vrt \
+        $tempHucDataDir/dem_meters.tif
+    # Clean up the temporary VRT file
+    rm $tempHucDataDir/combined_dem.vrt
+else
+    mv $tempHucDataDir/dem_meters_orig.tif $tempHucDataDir/dem_meters.tif
+fi
 
 ## GET RASTER METADATA
 echo -e $startDiv"Get DEM Metadata $hucNumber $branch_zero_id"

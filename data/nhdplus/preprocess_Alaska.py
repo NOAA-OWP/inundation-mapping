@@ -163,125 +163,140 @@ def preprocess_dem(input_dem_zip_file, out_dem_folder, region, target_crs_number
     log_file_path = os.path.join(out_dem_folder, log_file_name)
     file_logger = sf.setup_mp_file_logger(log_file_path, "ifsar_downloaded")
 
-    # sf.l_print(f"Downloading to {out_dem_folder}", file_logger, "info")
+    sf.l_print(f"Downloading to {out_dem_folder}", file_logger, "info")
 
-    # ### UNZIP AND MOSAIC TILES
-    # os.makedirs(out_dem_folder, exist_ok=True)
+    ### UNZIP AND MOSAIC TILES
+    os.makedirs(out_dem_folder, exist_ok=True)
 
-    # # 0. MANUALLY Download ifsar DTM 5 meter from AK DGGS [https://elevation.alaska.gov] to input_dem_zip_file
-    # if not os.path.exists(input_dem_zip_file):
-    #     print(
-    #         f'ERROR: {input_dem_zip_file} does not exist. It needs to be downloaded from AK DGGS (https://elevation.alaska.gov)'
-    #     )
-    #     sys.exit(1)
+    # 0. MANUALLY Download ifsar DTM 5 meter from AK DGGS [https://elevation.alaska.gov] to input_dem_zip_file
+    if not os.path.exists(input_dem_zip_file):
+        print(
+            f'ERROR: {input_dem_zip_file} does not exist. It needs to be downloaded from AK DGGS (https://elevation.alaska.gov)'
+        )
+        sys.exit(1)
 
-    # # Unzip the parent zip file into out_dem_folder
-    # unzip(input_dem_zip_file, out_dem_folder)
+    # Unzip the parent zip file into out_dem_folder
+    unzip(input_dem_zip_file, out_dem_folder)
 
-    # # 1. Configuration
-    # output_mosaic = os.path.join(out_dem_folder, f'{region}_ifsar_DTM_{target_crs_number}.tif')
-    # target_crs = CRS.from_epsg(target_crs_number)
-    # target_res = 10
+    # 1. Configuration
+    output_mosaic = os.path.join(out_dem_folder, f'{region}_ifsar_DTM_{target_crs_number}.tif')
+    target_crs = CRS.from_epsg(target_crs_number)
+    target_res = 10
 
-    # # 2. Track down the EXTRACTED sub-zips inside out_dem_folder
-    # import zipfile
-    # absolute_out_folder = os.path.abspath(out_dem_folder)
+    # 2. Track down the EXTRACTED sub-zips inside out_dem_folder
+    import zipfile
 
-    # # Locate the nested directory structure on disk
-    # extracted_zip_dir = os.path.join(absolute_out_folder, "dds4", "ifsar", "dtm")
-    # zip_pattern = os.path.join(extracted_zip_dir, "*.zip")
-    # zip_files = glob.glob(zip_pattern)
+    absolute_out_folder = os.path.abspath(out_dem_folder)
 
-    # src_files_to_mosaic = []
+    # Locate the nested directory structure on disk
+    extracted_zip_dir = os.path.join(absolute_out_folder, "dds4", "ifsar", "dtm")
+    zip_pattern = os.path.join(extracted_zip_dir, "*.zip")
+    zip_files = glob.glob(zip_pattern)
 
-    # print(f"Scanning {len(zip_files)} extracted sub-archives for TIFFs...")
+    src_files_to_mosaic = []
 
-    # # Step B: Peek inside each sub-zip on disk to find its inner .tif
-    # for sub_zip_path in zip_files:
-    #     try:
-    #         with zipfile.ZipFile(sub_zip_path, 'r') as sub_zip:
-    #             # Find the .tif file inside (case-insensitive)
-    #             tif_names = [
-    #                 name for name in sub_zip.namelist()
-    #                 if name.lower().endswith('.tif') or name.lower().endswith('.tiff')
-    #             ]
+    print(f"Scanning {len(zip_files)} extracted sub-archives for TIFFs...")
 
-    #             for tif_name in tif_names:
-    #                 # Construct the single virtual path targeting the extracted sub-zip on disk
-    #                 # Syntax: /vsizip/{absolute_path_to_sub_zip}/{tif_name}
-    #                 vsi_path = f"/vsizip/{sub_zip_path}/{tif_name}"
-    #                 src_files_to_mosaic.append(vsi_path)
-    #     except Exception as e:
-    #         print(f"Warning: Could not read sub-archive {sub_zip_path}: {e}")
+    # Step B: Peek inside each sub-zip on disk to find its inner .tif
+    for sub_zip_path in zip_files:
+        try:
+            with zipfile.ZipFile(sub_zip_path, 'r') as sub_zip:
+                # Find the .tif file inside (case-insensitive)
+                tif_names = [
+                    name
+                    for name in sub_zip.namelist()
+                    if name.lower().endswith('.tif') or name.lower().endswith('.tiff')
+                ]
 
-    # # --- DIAGNOSTIC CHECK ---
-    # if not src_files_to_mosaic:
-    #     raise FileNotFoundError(
-    #         f"\n[ERROR] No .tif files could be mapped inside the extracted sub-zips in: {extracted_zip_dir}\n"
-    #     )
+                for tif_name in tif_names:
+                    # Construct the single virtual path targeting the extracted sub-zip on disk
+                    # Syntax: /vsizip/{absolute_path_to_sub_zip}/{tif_name}
+                    vsi_path = f"/vsizip/{sub_zip_path}/{tif_name}"
+                    src_files_to_mosaic.append(vsi_path)
+        except Exception as e:
+            print(f"Warning: Could not read sub-archive {sub_zip_path}: {e}")
 
-    # print(f"Successfully mapped {len(src_files_to_mosaic)} sub-zip TIFF datasets for mosaicing.")
+    # --- DIAGNOSTIC CHECK ---
+    if not src_files_to_mosaic:
+        raise FileNotFoundError(
+            f"\n[ERROR] No .tif files could be mapped inside the extracted sub-zips in: {extracted_zip_dir}\n"
+        )
 
-    # opened_datasets = []
-    # vrt_datasets = []
+    print(f"Successfully mapped {len(src_files_to_mosaic)} sub-zip TIFF datasets for mosaicing.")
 
-    # try:
-    #     # 2. Open files and handle CRS check/reprojection dynamically
-    #     for path in src_files_to_mosaic:
-    #         try:
-    #             src = rio.open(path)
-    #             opened_datasets.append(src)
-    #         except Exception as e:
-    #             print(f"Skipping {path} because it couldn't be opened. Error: {e}")
-    #             continue
+    opened_datasets = []
+    vrt_datasets = []
 
-    #         if src.crs != target_crs:
-    #             print(f"Reprojecting on-the-fly: {os.path.basename(path)}")
-    #             vrt = WarpedVRT(src, crs=target_crs)
-    #             vrt_datasets.append(vrt)
-    #         else:
-    #             print(f"Already EPSG:3338: {os.path.basename(path)}")
-    #             vrt_datasets.append(src)
+    try:
+        # 2. Open files and handle CRS check/reprojection dynamically
+        for path in src_files_to_mosaic:
+            try:
+                src = rio.open(path)
+                opened_datasets.append(src)
+            except Exception as e:
+                print(f"Skipping {path} because it couldn't be opened. Error: {e}")
+                continue
 
-    #     # Double check we have valid opened datasets before merging
-    #     if not vrt_datasets:
-    #         raise ValueError("No valid TIFF datasets were successfully opened.")
+            if src.crs != target_crs:
+                print(f"Reprojecting on-the-fly: {os.path.basename(path)}")
+                # Provide explicit src_nodata and nodata to the VRT so it never passes None to merge()
 
-    #     # 3. Merge
-    #     print(f"\nMosaicing and resampling {len(vrt_datasets)} files to {target_res}m...")
-    #     mosaic, out_trans = merge(
-    #         vrt_datasets,
-    #         res=target_res,  # Forces the output cell size to 10x10
-    #         resampling=Resampling.bilinear,  # Smooths the 5m data into 10m cells (use Resampling.nearest for discrete/classified data)
-    #     )
+                # Check if the source file has a nodata value, default to -999999 if it doesn't
+                file_nodata = src.nodata if src.nodata is not None else -999999
 
-    #     # 4. Define output metadata
-    #     out_meta = vrt_datasets[0].meta.copy()
-    #     out_meta.update(
-    #         {
-    #             "driver": "GTiff",
-    #             "height": mosaic.shape[1],
-    #             "width": mosaic.shape[2],
-    #             "transform": out_trans,
-    #             "crs": target_crs,
-    #         }
-    #     )
+                vrt = WarpedVRT(src, crs=target_crs, src_nodata=file_nodata, nodata=-999999)
+                vrt_datasets.append(vrt)
+            else:
+                print(f"Already EPSG:3338: {os.path.basename(path)}")
+                # If it doesn't need reprojection but is missing a nodata value,
+                # we wrap it in a clean VRT anyway just to safely force the nodata property
+                if src.nodata is None:
+                    vrt = WarpedVRT(src, src_nodata=-999999, nodata=-999999)
+                    vrt_datasets.append(vrt)
+                else:
+                    vrt_datasets.append(src)
 
-    #     # 5. Write the final result
-    #     with rio.open(output_mosaic, "w", **out_meta) as dest:
-    #         dest.write(mosaic)
+        # Double check we have valid opened datasets before merging
+        if not vrt_datasets:
+            raise ValueError("No valid TIFF datasets were successfully opened.")
 
-    #     print(f"\nSuccess! Mosaic saved to {output_mosaic}")
+        # 3. Merge
+        print(f"\nMosaicing and resampling {len(vrt_datasets)} files to {target_res}m...")
+        mosaic, out_trans = merge(
+            vrt_datasets,
+            res=target_res,  # Forces the output cell size to 10x10
+            resampling=Resampling.bilinear,  # Smooths the 5m data into 10m cells
+            nodata=-999999,
+        )
 
-    # finally:
-    #     # Clean up everything safely
-    #     for vrt in vrt_datasets:
-    #         if isinstance(vrt, WarpedVRT):
-    #             vrt.close()
-    #     for src in opened_datasets:
-    #         src.close()
+        # 4. Define output metadata
+        out_meta = vrt_datasets[0].meta.copy()
+        out_meta.update(
+            {
+                "driver": "GTiff",
+                "height": mosaic.shape[1],
+                "width": mosaic.shape[2],
+                "transform": out_trans,
+                "crs": target_crs,
+                "nodata": -999999,
+            }
+        )
 
-    # create_vrt_file(out_dem_folder, 'hand_seamless_3dep_dems.vrt')
+        # 5. Write the final result
+        with rio.open(output_mosaic, "w", **out_meta) as dest:
+            dest.write(mosaic)
+
+        print(f"\nSuccess! Mosaic saved to {output_mosaic}")
+
+    finally:
+        # Clean up everything safely
+        for vrt in vrt_datasets:
+            if isinstance(vrt, WarpedVRT):
+                vrt.close()
+        for src in opened_datasets:
+            src.close()
+
+    create_vrt_file(out_dem_folder, 'hand_seamless_3dep_dems.vrt')
 
     # Create DEM_Domain.gpkg
     __polygonize(out_dem_folder, file_logger)
