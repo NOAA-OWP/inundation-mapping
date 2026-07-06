@@ -1,6 +1,60 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.17.3 - 2026-07-02 - [PR#1868](https://github.com/NOAA-OWP/inundation-mapping/pull/1868)
+This PR closes issues #1859,  #1860,  #1861, and fixes latent bugs related to `rasterio.open()` file handle leaks.
+
+
+### Problem
+`rasterio.open()` returns a persistent file handle for lazy, windowed reading (unlike `geopandas.read_file()`, which loads all data into memory and closes the file before returning). Bare calls to `rasterio.open()` without a `with` block leave that handle open until the garbage collector decides to close it.
+
+Using `del variable` is not preferable for two reasons: first, if an exception occurs before `del` is reached, the file stays open; second, even when `del` is reached, it only tells Python "I'm done with this variable" — it does not deterministically close the file handle.
+
+The fix throughout is to replace bare `rasterio.open()` calls with `with` blocks, which guarantee cleanup on all exit paths including exceptions.
+
+### Changes
+**`src/split_flows.py`**
+- Wrapped bare `rasterio.open(dem_filename)` in a `with` block covering the entire loop body. Removed `del dem` — the `with` block handles cleanup.
+
+**`src/make_rem.py`**
+- Replaced two groups of bare `rasterio.open()` calls with `with` blocks. Also, removed the redundant explicit `.close()` calls that followed.
+
+**`src/mitigate_branch_outlet_backpool.py`**
+- Changed `calculate_length_and_slope()` to accept `dem_filename: str` instead of an already-opened `DatasetReader`. Also, moved `rasterio.open()` inside the function into a `with` block.
+
+**`src/reachID_grid_to_vector_points.py`**
+- Fixed `convert_grid_cells_to_points()`, which accepts either a file path (`str`) or a caller-owned `DatasetReader`.
+- Used `nullcontext` from `contextlib` to unify both paths into a single `with` block: for the `str` case, `rasterio.open()` is used directly as the context manager and `with` closes it; for the `DatasetReader` case, `nullcontext` wraps the caller-owned handle in a do-nothing context manager that disables the exit (cleanup) effect of `with`, so the caller's handle is left open.
+
+**`src/stream_branches.py`**
+- Applied the same `nullcontext` pattern to `StreamBranchPolygons.clip()`. Also, removed a leftover `out.close()` call that was redundant.
+- Removed the unused `query_vectors_by_branch()` static method (dead code — no callers in the repo).
+
+**`tools/lofi/probabilistic_inundation.py`**
+- Fixed `inundate_probabilistic()` where `datasets = [rasterio.open(file) for file in percentile_files]` opened a dynamic number of handles with no cleanup path.
+- Used `ExitStack` from `contextlib` to register each handle via `stack.enter_context()`; all handles are closed automatically when the block exits, including on exception.
+
+
+### Removals
+- `src/query_vectors_by_branch_polygons.py`  ... This file is not used anywhere in the codebase.
+<br/>
+
+## v4.9.17.2 - 2026-07-01 - [PR#1873](https://github.com/NOAA-OWP/inundation-mapping/pull/1873)
+
+Fixes an error in the usgs_gage_unit_setup.py file for an error while casting to int on a column.
+
+Previously the 'feature_id' column could be Null, but a recent change when creating the usgs_gage file accidently changed that column default value from Null to "None" (str).  Compensated for it here.
+
+During a full UAT test with this fix, it bubbled up another problem of alpha scores for usgs and nws dropping significantly.  I reverted the three lines in bash_variables to the earlier usgs gage files to the previous Sept 2025 set, then re-ran UAT. Results are now good. That suggests that there is data problems with the new usgs gage data. 
+
+bash_variables file reverted to the Sept 2025 set of usgs files.
+
+### Changes
+- `src'
+    - `usgs_gage_unit_setup.py`: as described above.
+    - `bash_variables.env`: as described above.
+<br/>
+
 ## v4.9.17.1 - 2026-06-26 - [PR#1843](https://github.com/NOAA-OWP/inundation-mapping/pull/1843)
 
 Adds improved logging, datum correction, and error handling to the USGS curves retrieval script (and supporting functions). Fixed and updated the NWS LID Geopackage script. Resolved the Pandas FutureWarnings (previously present in USGS rating curve retrieval and CatFIM processing) that were caused by joining tables with missing column data types (caused by NA values in the input metadata).

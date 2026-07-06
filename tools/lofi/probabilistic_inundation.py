@@ -4,6 +4,7 @@ import os
 import shutil
 import warnings
 from concurrent.futures import as_completed
+from contextlib import ExitStack
 from typing import Dict, Optional, Tuple, Union
 
 import fsspec
@@ -576,27 +577,28 @@ def inundate_probabilistic(
     ]
 
     # For every percentile inundation map convert values to percentile
-    datasets = [rasterio.open(file) for file in percentile_files]
-    windows = [windows for _, windows in datasets[0].block_windows()]
-    profile = datasets[0].profile
-    raster_crs = datasets[0].crs
-    nodata = profile['nodata']
-    profile.update(dtype=np.int8, nodata=127, tiled=True, compress=profile.get('compress', 'DEFLATE'))
+    with ExitStack() as stack:
+        datasets = [stack.enter_context(rasterio.open(file)) for file in percentile_files]
+        windows = [windows for _, windows in datasets[0].block_windows()]
+        profile = datasets[0].profile
+        raster_crs = datasets[0].crs
+        nodata = profile['nodata']
+        profile.update(dtype=np.int8, nodata=127, tiled=True, compress=profile.get('compress', 'DEFLATE'))
 
-    out_rast = os.path.join(base_output_path, output_file_name.replace(".gpkg", ".tif"))
-    with rasterio.open(out_rast, "w+", **profile) as write_rst:
-        for window in windows:
-            arrays = []
-            for d, p in zip(datasets, percentiles):
-                data = d.read(1, window=window)
-                nodata_mask = data == nodata
-                data = np.where(data > 0, int(p), 0)
-                data[nodata_mask] = -10000
-                arrays.append(data)
+        out_rast = os.path.join(base_output_path, output_file_name.replace(".gpkg", ".tif"))
+        with rasterio.open(out_rast, "w+", **profile) as write_rst:
+            for window in windows:
+                arrays = []
+                for d, p in zip(datasets, percentiles):
+                    data = d.read(1, window=window)
+                    nodata_mask = data == nodata
+                    data = np.where(data > 0, int(p), 0)
+                    data[nodata_mask] = -10000
+                    arrays.append(data)
 
-            merged = np.max(arrays, axis=0)
-            merged[merged == -10000] = 127
-            write_rst.write(merged, window=window, indexes=1)
+                merged = np.max(arrays, axis=0)
+                merged[merged == -10000] = 127
+                write_rst.write(merged, window=window, indexes=1)
 
     if output_vector is True:
 
