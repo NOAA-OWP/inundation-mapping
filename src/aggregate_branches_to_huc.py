@@ -21,6 +21,38 @@ DEFAULT_FIM_PROJECTION_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
 ALASKA_CRS = os.getenv('ALASKA_CRS')
 
 
+def safe_concat(frames, **kwargs):
+    """Concatenate a list of DataFrame-like objects while excluding entries
+    that are None, empty (0 rows) or entirely NA. Returns an empty DataFrame
+    when no frames remain after filtering.
+    """
+    filtered = []
+    for f in frames:
+        if f is None:
+            continue
+        # Keep objects that don't expose .empty (duck-typing)
+        try:
+            if getattr(f, "empty", False):
+                # exclude empty objects
+                continue
+        except Exception:
+            pass
+
+        try:
+            # Exclude DataFrames that are entirely NA
+            if isinstance(f, pd.DataFrame) and f.isna().all().all():
+                continue
+        except Exception:
+            pass
+
+        filtered.append(f)
+
+    if not filtered:
+        return pd.DataFrame()
+
+    return pd.concat(filtered, **kwargs)
+
+
 class HucDirectory(object):
     def __init__(self, huc_dir, limit_branches=[]):
         # self.fim_directory = fim_directory
@@ -311,7 +343,9 @@ class HucDirectory(object):
             fimpact_df['threshold_hand_ft'] = fimpact_df['threshold_hand'] * 3.28084
             fimpact_df['threshold_discharge_cfs'] = fimpact_df['threshold_discharge'] * 35.3147
 
-            self.agg_building_fimpact = pd.concat([self.agg_building_fimpact, fimpact_df])
+            self.agg_building_fimpact = safe_concat(
+                [self.agg_building_fimpact, fimpact_df], ignore_index=True
+            )
 
     def agg_function(
         self,
@@ -351,7 +385,7 @@ class HucDirectory(object):
                     os.remove(usgs_elev_table_file)
 
                 if self.agg_usgs_elev_table:
-                    agg_usgs = pd.concat(self.agg_usgs_elev_table, ignore_index=True)
+                    agg_usgs = safe_concat(self.agg_usgs_elev_table, ignore_index=True)
                     agg_usgs.to_csv(usgs_elev_table_file, index=False)
 
             if hydro_table_flag:
@@ -361,7 +395,7 @@ class HucDirectory(object):
                     os.remove(hydrotable_file)
 
                 if self.agg_hydrotable:
-                    agg_hydrotable = pd.concat(self.agg_hydrotable, ignore_index=True)
+                    agg_hydrotable = safe_concat(self.agg_hydrotable, ignore_index=True)
 
                     # TODO: Jun 2025: Rename poorly named columns like SurfaceArea (m2)
                     # and go though all tools removing csv orfeather in favour of parquet
@@ -421,7 +455,7 @@ class HucDirectory(object):
                     os.remove(src_crosswalk_file)
 
                 if self.agg_src_cross:
-                    agg_src_cross = pd.concat(self.agg_src_cross, ignore_index=True)
+                    agg_src_cross = safe_concat(self.agg_src_cross, ignore_index=True)
                     agg_src_cross.to_csv(src_crosswalk_file, index=False)
 
             if ras_elev_flag:
@@ -430,7 +464,7 @@ class HucDirectory(object):
                     os.remove(ras_elev_table_file)
 
                 if self.agg_ras_elev_table:
-                    agg_ras_elev = pd.concat(self.agg_ras_elev_table, ignore_index=True)
+                    agg_ras_elev = safe_concat(self.agg_ras_elev_table, ignore_index=True)
                     agg_ras_elev.to_csv(ras_elev_table_file, index=False)
 
             if bridge_flag:
@@ -440,7 +474,7 @@ class HucDirectory(object):
 
                 if self.agg_bridge_pnts:
                     # Just making things shorter so they are easier to read
-                    bridge_pnts = pd.concat(self.agg_bridge_pnts, ignore_index=True)
+                    bridge_pnts = safe_concat(self.agg_bridge_pnts, ignore_index=True)
                     # Use branch 0 to get the feature_id each bridge crosses
                     b0 = bridge_pnts.loc[bridge_pnts.branch == '0', ['osmid', 'feature_id']]
                     b0 = b0.rename(columns={'feature_id': 'crossing_feature_id'})
@@ -473,7 +507,7 @@ class HucDirectory(object):
                     os.remove(roads_fimpact_file)
 
                 if self.agg_road_fimpact:
-                    agg_road_fimpact = pd.concat(self.agg_road_fimpact, ignore_index=True)
+                    agg_road_fimpact = safe_concat(self.agg_road_fimpact, ignore_index=True)
                     agg_road_fimpact = agg_road_fimpact.astype(self.road_dtypes, errors='raise')
 
                     agg_road_fimpact.to_csv(roads_fimpact_file, index=False)
