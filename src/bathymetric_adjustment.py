@@ -6,18 +6,17 @@ import re
 import sys
 import traceback
 from argparse import ArgumentParser
-from concurrent.futures import ProcessPoolExecutor, as_completed
+# from concurrent.futures import ProcessPoolExecutor, as_completed
 from os.path import join
 
 import geopandas as gpd
 import pandas as pd
 
 #################################
-# CRITICAL TODO: July 4, 2026:  In the event of an exception, the log file will not exist
-# and its details as well. Besides, we really do not want to leave a file writer
-# open. Can leave memory leaks.
+# TODO: July 4, 2026:  In the event of an exception, the log file will not exist
+# and its details as well. 
 # This needs a try/except with printing to log and at least a one liner
-# saying including the word "exception", which can be picked up automatically
+# saying including the word "exception or error", which can be picked up automatically
 # by the rollup to fim_process_huc.sh or process_rerun_calibration_huc.sh
 ################################
 
@@ -198,7 +197,7 @@ def correct_rating_for_ai_bathymetry(huc_dir, huc, strm_order, bathy_file_aibase
 
     """
     log_text = f'Calculating AI-based bathymetry adjustment: {huc}\n'
-    print(f'Calculating AI-based bathymetry adjustment: {huc}\n')
+    print(f'Calculating AI-based bathymetry adjustment: {huc}')
 
     # Load AI-based bathymetry data
     ml_bathy_data = pd.read_parquet(bathy_file_aibased, engine='pyarrow')
@@ -250,7 +249,7 @@ def correct_rating_for_ai_bathymetry(huc_dir, huc, strm_order, bathy_file_aibase
     # test = aib_df[aib_df.duplicated(subset='feature_id', keep=False)]
     aib_df = aib_df0.drop_duplicates(subset=['feature_id'], keep='first')
     aib_df.index = range(len(aib_df))
-    print(f'Adjusting SRCs with EHydro and OHRFC Bathymetry Data: {huc}\n')
+    print(f'Adjusting SRCs with EHydro and OHRFC Bathymetry Data: {huc}')
 
     # Get src_full from each branch
     src_all_branches_path = []
@@ -436,8 +435,17 @@ def apply_src_adjustment_for_bathymetry(
 
     # except Exception as ex:
     except Exception:
-        log_text += f"An error has occurred while processing ehydro bathy for huc {huc}"
+        # this goes back to calibrate_rating_curve.sh which rolls up to its parent "tee"
+        # Then it can be scanned in the error system based on solely the "tee" file
+        err_msg = f"An error has occurred while processing ehydro bathy for huc {huc}"
+        log_text += f"{err_msg} \n"
         log_text += traceback.format_exc()
+
+        # this goes back to calibrate_rating_curve.sh which rolls up to its parent "tee"
+        # Then it can be scanned in the error system based on solely the "tee" file
+        print(err_msg)
+        print(f"Details: {traceback.format_exc()}")
+
         # re raise ex ? # TODO: Do we want to stop processing the huc if we get an error here?
         # If yes, we need to raise ex, make sure to write your log_text if you need to.
 
@@ -453,7 +461,7 @@ def apply_src_adjustment_for_bathymetry(
             if os.path.exists(bathy_file_aibased):
                 msg = f"Correcting rating curve for AI-based bathy for huc : {huc}"
                 log_text += msg + '\n'
-                print(msg + '\n')
+                print(msg)
 
                 log_text += correct_rating_for_ai_bathymetry(
                     huc_dir, huc, strm_order, bathy_file_aibased
@@ -463,8 +471,18 @@ def apply_src_adjustment_for_bathymetry(
 
         # except Exception as ex:
         except Exception:
-            log_text += f"An error has occurred while processing AI-based bathy for huc {huc}"
+            # this goes back to calibrate_rating_curve.sh which rolls up to its parent "tee"
+            # Then it can be scanned in the error system based on solely the "tee" file
+            err_msg = f"An error has occurred while processing AI-based bathy for huc {huc}"
+            log_text += f"{err_msg} \n"
             log_text += traceback.format_exc()
+
+            # this goes back to calibrate_rating_curve.sh which rolls up to its parent "tee"
+            # Then it can be scanned in the error system based on solely the "tee" file
+            print(err_msg)
+            print(traceback.format_exc())
+
+
             # re raise ex  ? # TODO: Do we want to stop processing the huc if we get an error here?
             # If yes, we need to raise ex, make sure to write your log_text if you need to.
 

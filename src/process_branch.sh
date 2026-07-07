@@ -53,16 +53,16 @@ do
         # do nothing
     elif [ $code -eq 61 ]; then
         echo
-        echo "***** ERROR (well.. warning): Branch has no valid flowlines *****"
+        echo "***** ERROR (well.. warning) status: Branch has no valid flowlines *****"
         # rm -rf $tempHucDataDir/branches/$branchId/  # keep for debugging
     elif [ $code -eq 64 ]; then
         echo
-        echo "***** ERROR (well.. warning): Branch has no crosswalks *****"
+        echo "***** ERROR (well.. warning) status: Branch has no crosswalks *****"
         # rm -rf $tempHucDataDir/branches/$branchId/  # keep for debugging
     elif [ $code -eq 65 ]; then
         echo
         err_exists=1
-        echo "***** ERROR (well.. warning): Too many HydroIDs or a HydroID with more" \
+        echo "***** ERROR (well.. warning) status: Too many HydroIDs or a HydroID with more" \
         " than 8 digits in gw catchments to convert to Int16 *****"
         # rm -rf $tempHucDataDir/branches/$branchId/   # keep for debugging
     elif [ $code -ne 0 ]; then

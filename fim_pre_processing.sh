@@ -192,11 +192,7 @@ source $srcDir/bash_variables.env
 # these export are for fim_pipeline only.
 export runName=$runName
 export jobHucLimit=$jobHucLimit
-
-# Yes.. if this fails in AWS, we don't see it easily but can see it in its CloudWatch
-num_hucs=$(python3 $srcDir/check_huc_inputs.py -u ${hucList} -i ${full_huc_list_file})
-echo
-echo "--- Number of HUCs to process is $num_hucs"
+huc_list_output_file="${outputDestDir}/huc_list.txt"
 
 # TODO: July 2026: using setfacl is a power tool to help manage perms settings
 # but it is not yet in our Docker build. See notes in Dockerfile.dev
@@ -239,10 +235,18 @@ else
     rm -f $outputDestDir/crosswalk_table.csv
     rm -f $outputDestDir/fim_inputs*
     rm -f $outputDestDir/*.env
+    rm -f $huc_list_output_file
 fi
 
 mkdir -p $outputDestDir/logs
 chmod 777 $outputDestDir/logs
+
+# Yes.. if this fails in AWS, we don't see it easily but can see it in its CloudWatch
+# This is a parsed, cleaned up line by line huc list, regardless if it is a file, single huc, multiple hucs, etc
+num_hucs=$(python3 $srcDir/check_huc_inputs.py -u ${hucList} -i ${full_huc_list_file} -o ${huc_list_output_file} )
+echo
+echo "--- Number of HUCs to process is $num_hucs"
+
 
 # copy over config file and rename it (note.. yes, the envFile file can still be
 # loaded from command line and have its own values, it simply gets renamed and saved)

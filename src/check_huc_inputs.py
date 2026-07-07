@@ -37,6 +37,8 @@ def __read_input_hucs(hucs):
         else:
             huc_list.add(__clean_huc_value(hucs[0]))
 
+    huc_list = sorted(huc_list)
+
     return huc_list
 
 
@@ -62,10 +64,14 @@ def __check_for_membership(hucs, accepted_hucs_set, full_huc_list):
             raise KeyError(msg)
 
 # Might be a file path (full_huc_list) or a list of hucs (ie 12090301 05030104)
-def check_hucs(hucs, full_huc_list):
+def check_hucs(hucs, full_huc_list, huc_list_output_file):
     accepted_hucs = __read_acceptable_file_list(full_huc_list)
     list_hucs = __read_input_hucs(hucs)
     __check_for_membership(list_hucs, accepted_hucs, full_huc_list)
+
+    with open(huc_list_output_file, "w") as f:
+        for item in list_hucs:
+            f.write(f"{item}\n")
 
     # we need to return the number of hucs being used.
     # it is not easy to return a value to bash, except with standard out.
@@ -96,6 +102,7 @@ if __name__ == '__main__':
         nargs='+',
     )
     parser.add_argument('-i', '--full-huc-list', help='Full HUC list file', required=True)
+    parser.add_argument('-o', '--huc-list-output-file', help='The parsed and validated HUC list', required=True)
 
     # extract to dictionary
     args = vars(parser.parse_args())

@@ -53,7 +53,8 @@ def process_branch(sub_branch_path, branch, huc_id):
 
     # If the merge failed, Exit gracefully.
     if recalc_df.empty:
-        print(f"Warning: Merge failed for branch {branch}. No matching CatchId/HydroID found. Skipping.")
+        print(f"Warning: Merge failed for branch {branch} for huc_id {huc_id}."
+              " No matching CatchId/HydroID found. Skipping.")
         return
 
     recalc_df.rename(columns={'default_SLOPE': 'SLOPE', 'default_ManningN': 'ManningN'}, inplace=True)

@@ -9,11 +9,10 @@ import numpy as np
 import pandas as pd
 
 #################################
-# CRITICAL TODO: July 4, 2026:  In the event of an exception, the log file will not exist
-# and its details as well. Besides, we really do not want to leave a file writer
-# open. Can leave memory leaks.
+# TODO: July 4, 2026:  In the event of an exception, the log file will not exist
+# and its details as well. 
 # This needs a try/except with printing to log and at least a one liner
-# saying including the word "exception", which can be picked up automatically
+# saying including the word "exception or error", which can be picked up automatically
 # by the rollup to fim_process_huc.sh or process_rerun_calibration_huc.sh
 ################################
 
@@ -164,12 +163,12 @@ def manual_calibration(huc_dir: str, calibration_file: str):
         else:
             raise ValueError(
                 'Manual calibration coefficients must be greater than 0. Minimum value found: '
-                f'{manual_calib_df["calb_coef_manual"].min()}'
+                f'{manual_calib_df["calb_coef_manual"].min()} for {huc_dir}'
             )
 
     else:
         raise FileNotFoundError(
-            f'No calibration file found at {calibration_file}. Skipping manual calibration.'
+            f'No calibration file found at {calibration_file}. Skipping manual calibration for {huc_dir}.'
         )
 
 

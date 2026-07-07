@@ -1,7 +1,6 @@
 #!/bin/bash
 # set -e         # Critical: Can not have a -e inplace in order for the error handline
 set -o pipefail  # Crucial: Forces the pipe to fail if the subscript fails but only when a pipe is used.
-set -o errtrace  # Inherit trap inside functions/subshells
 # For this one, we do want to stop, but the error script will always be caught
 # by the trap, then always hit the exit_and_copy if the error happens after the
 # code is executed. We want this script to ALWAYS return a 0
@@ -66,12 +65,23 @@ if ! [[ $hucNumber =~ $re ]] ; then
    exit 22
 fi
 
+## huc data
+
 export tempRunDir=$workDir/$runName
 export outputDestDir=$outputsDir/$runName
 export tempHucDataDir=$tempRunDir/$hucNumber
 export outputHucDataDir=$outputDestDir/$hucNumber
 export tempBranchDataDir=$tempHucDataDir/branches
 export current_branch_id=0
+
+if [ -d "$outputHucDataDir" ]; then
+    rm -rf $outputHucDataDir
+fi
+
+# In case of aborted attempts earlier
+if [ -d "$tempHucDataDir" ]; then
+    rm -rdf $tempHucDataDir
+fi
 
 hucLogFile="$tempHucDataDir/logs/huc_${hucNumber}_unit.log"
 warningLogFile="$tempHucDataDir/logs/huc_${hucNumber}_warnings.log"
@@ -81,16 +91,13 @@ error_log_filename="$tempHucDataDir/logs/huc_${hucNumber}_errors.log"
 # starting from the trap 'exit_and_copy' EXIT and down, ie) the arg tests above
 exit_and_copy() {
 
-    # Shut off the trap
-    trap - ERR
-
     # Ensure all child folders and files are set to the perms we want
-    #chmod -R 774 $tempHucDataDir
+    chmod -R 774 $tempHucDataDir
     echo "============================================================================================="
     echo
     echo "Starting coping folder from temp directory to output directory"
     date -u +"%Y-%m-%d %H:%M:%S"  # to screen
-    date -u +"%Y-%m-%d %H:%M:%S" >> $outputHucDataDir  # to file
+    date -u +"%Y-%m-%d %H:%M:%S" >> $hucLogFile  # to file
     cp -r --no-preserve=ownership "${tempHucDataDir}/" "${outputHucDataDir}/"
     rm -rdf $tempHucDataDir
     echo "***** Moved temp directory: $tempHucDataDir to output directory: $outputHucDataDir  *****"
@@ -112,26 +119,13 @@ source $srcDir/bash_variables.env
 # setfacl -d -m o::rx $tempHucDataDir
 # In the meantime, we have a weird combination of inefficient chmod everywhere.
 
-# In case of aborted attempts earlier
-if [ -d "$tempHucDataDir" ]; then
-    rm -rdf $tempHucDataDir
-fi
 mkdir -p $tempHucDataDir
 mkdir -p $tempBranchDataDir
 mkdir -p $tempHucDataDir/logs
 mkdir -p $tempHucDataDir/logs/branch
-chmod 777 -R $tempHucDataDir
-chmod 777 -R $tempBranchDataDir
-chmod 777 -R $tempHucDataDir/logs
-
-# make outputs directory
-## huc data
-if [ -d "$outputHucDataDir" ]; then
-    chmod 777 -R $outputHucDataDir  # in case something was aborted earlier
-    rm -rdf $outputHucDataDir
-fi
-mkdir -p $outputHucDataDir
-chmod 777 $outputHucDataDir
+chmod 777 $tempHucDataDir
+chmod 777 $tempBranchDataDir
+chmod 777 $tempHucDataDir/logs
 
 # This absolute safety net catches the exit command and runs your final lines
 # but only from this point down.
@@ -140,7 +134,7 @@ trap 'exit_and_copy' EXIT
 # Note: While the error log file will capture errors from this page or its "tee" returns,
 # it does not include some errors and exceptions recorded inside the child .sh files. 
 # We will catch those via error search tools.
-trap 'handle_error "${PIPESTATUS[*]}" $LINENO $error_log_filename "huc"' ERR
+trap 'handle_error "${PIPESTATUS[*]}" $LINENO $hucLogFile "huc"' ERR
 
 echo "=========================================================================="
 l_echo "---- Start of huc processing for $hucNumber" $hucLogFile
@@ -223,6 +217,6 @@ l_echo "---- Started: `date -u`" $hucLogFile
 # TODO... THIS does not scan src log folders yet
 
 # TODO: This only gets called if the pages has completed successfully.
-grep -Hin "warning" "${hucLogFileName}" > "${warningLogFile}"
+grep -Hin "warning" "${hucLogFile}" > "${warningLogFile}"
 
 # exit_and_copy will be copied here if not earlier, depending on exceptions or errors from the TRAP ... ERR and down.

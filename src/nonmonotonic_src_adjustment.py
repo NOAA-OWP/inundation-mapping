@@ -9,18 +9,18 @@ import os
 import re
 import traceback
 from argparse import ArgumentParser
-from concurrent.futures import ProcessPoolExecutor, as_completed
+# from concurrent.futures import ProcessPoolExecutor, as_completed
 from os.path import join
 
 import numpy as np
 import pandas as pd
 
 #################################
-# CRITICAL TODO: July 4, 2026:  In the event of an exception, the log file will not exist
+# TODO: July 4, 2026:  In the event of an exception, the log file will not exist
 # and its details as well. Besides, we really do not want to leave a file writer
 # open. Can leave memory leaks.
 # This needs a try/except with printing to log and at least a one liner
-# saying including the word "exception", which can be picked up automatically
+# saying including the word "exception or error", which can be picked up automatically
 # by the rollup to fim_process_huc.sh or process_rerun_calibration_huc.sh
 ################################
 
@@ -285,8 +285,15 @@ def apply_nonmonotonic_src_adjustment(huc_dir, huc, strm_order, log_file_path): 
         log_text += correct_nonmonotonic_src(huc_dir, huc, strm_order)  # bankfull_flows_file
 
     except Exception:
-        log_text += f"An error has occurred while processing nonmonotonic SRC for huc {huc}\n"
+        msg = f"An error has occurred while processing nonmonotonic SRC for huc {huc}"
+        log_text += f"{msg} \n"
         log_text += traceback.format_exc()
+
+        # this goes back to calibrate_rating_curve.sh which rolls up to its parent "tee"
+        # Then it can be scanned in the error system based on solely the "tee" file
+        print(msg)
+        print(traceback.format_exc())
+
         # re raise ex ? # TODO: Do we want to stop processing the huc if we get an error here?
         # If yes, we need to raise ex, make sure to write your log_text if you need to.
 

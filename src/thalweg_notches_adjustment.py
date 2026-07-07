@@ -16,10 +16,9 @@ import pandas as pd
 
 #################################
 # CRITICAL TODO: July 4, 2026:  In the event of an exception, the log file will not exist
-# and its details as well. Besides, we really do not want to leave a file writer
-# open. Can leave memory leaks.
+# and its details as well.
 # This needs a try/except with printing to log and at least a one liner
-# saying including the word "exception", which can be picked up automatically
+# saying including the word "exception or error", which can be picked up automatically
 # by the rollup to fim_process_huc.sh or process_rerun_calibration_huc.sh
 ################################
 
@@ -284,23 +283,32 @@ def apply_thalweg_notches_adjustment(huc_dir, huc, stage_interval, log_file_path
 
     # except Exception as ex:
     except Exception:
-        log_text += f"An error has occurred while processing thalweg notches for huc {huc}\n"
+        err_msg = f"An error has occurred while processing thalweg notches for huc {huc}\n"
+        log_text += err_msg
         log_text += traceback.format_exc()
+
+        # this goes back to calibrate_rating_curve.sh which rolls up to its parent "tee"
+        # Then it can be scanned in the error system based on solely the "tee" file
+        print(err_msg)
+        print(traceback.format_exc())
+
         # re raise ex ?  # TODO: Do we want to stop processing the huc if we get an error here?
         # If yes, we need to raise ex, make sure to write your log_text if you need to.
         # raise Exception("Rob is tesing an exception reraise (sort of ) in thalweg")
 
         # for now.. lets just print the exception so it can be auto picked up the .sh
         # chain.
-        print(traceback.format_exc())
 
     try:
         with open(log_file_path, "a") as log_file:
             log_file.write(log_text + '\n')
     except Exception:
-        print(f"Error trying to write to the log file of {log_file_path}\n")
+        # this goes back to calibrate_rating_curve.sh which rolls up to its parent "tee"
+        # Then it can be scanned in the error system based on solely the "tee" file
+        print(f"Error trying to write to the log file of {log_file_path}")
         print(traceback.format_exc())
-        # ok. maybe not here.
+
+        # ok. maybe not here for a rethrow
 
 
 # -------------------------------------------------------
@@ -354,11 +362,12 @@ def process_thalweg_notches_adjustment(huc_dir):  # stage_interval,
         log_file.close()
 
     except Exception as ex:
-        print(f"An exception occurred. Details: {traceback.format_exc()}")
-        print(f"See {log_file_path} for context info.")
+        # this goes back to calibrate_rating_curve.sh which rolls up to its parent "tee"
+        # Then it can be scanned in the error system based on solely the "tee" file
+        print(f"An exception occurred while processing thalweg notch adjustments for {huc_dir}.")
+        print(f"Details: {traceback.format_exc()}")
 
-        # TODO: catch the details and log as well as print.
-
+        # TODO: catch the details and log as well as print. ??
         raise ex
 
 

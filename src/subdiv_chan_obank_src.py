@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import datetime as dt
-import multiprocessing
+# import multiprocessing
 import os
 import re
 import shutil
@@ -24,13 +24,13 @@ sns.set_theme(style="whitegrid")
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 #################################
-# CRITICAL TODO: July 4, 2026:  In the event of an exception, the log file will not exist
-# and its details as well. Besides, we really do not want to leave a file writer
-# open. Can leave memory leaks.
+# TODO: July 4, 2026:  In the event of an exception, the log file will not exist
+# and its details as well. 
 # This needs a try/except with printing to log and at least a one liner
-# saying including the word "exception", which can be picked up automatically
+# saying including the word "exception or error", which can be picked up automatically
 # by the rollup to fim_process_huc.sh or process_rerun_calibration_huc.sh
 ################################
+
 
 """
     Compute channel geomety and Manning's equation using subdivision method (separate in-channel vs. overbank)
@@ -119,7 +119,7 @@ def variable_mannings_calc(args):
             df_src = df_src.merge(df_mann, how='left', on='feature_id')
             check_null = df_src['channel_n'].isnull().sum() + df_src['overbank_n'].isnull().sum()
             if check_null > 0:
-                log_text += (
+                msg = (
                     "WARNING:"
                     + str(huc)
                     + '  branch id: '
@@ -128,8 +128,9 @@ def variable_mannings_calc(args):
                     + 'Null feature_ids found in crosswalk btw roughness dataframe and src dataframe (these will be set to default n values)'
                     + ' --> missing entries= '
                     + str(check_null / 84)
-                    + '\n'
                 )
+                print(msg)
+                log_text += f"{msg} \n"
 
             ## Set default channel and overbank n values
             default_channel_n = 0.06
@@ -210,22 +211,38 @@ def variable_mannings_calc(args):
                     os.mkdir(huc_output_dir)
                 generate_src_plot(df_src, huc_output_dir)
     except Exception as ex:
-        summary = traceback.StackSummary.extract(traceback.walk_stack(None))
-        print(
-            'WARNING: ' + str(huc) + '  branch id: ' + str(branch_id) + " subdivision failed for some reason"
-        )
+        # summary = traceback.StackSummary.extract(traceback.walk_stack(None))
+        # print(
+        #     'WARNING: ' + str(huc) + '  branch id: ' + str(branch_id) + " subdivision failed for some reason"
+        # )
         # print(f"*** {ex}")
         # print(''.join(summary.format()))
-        log_text += (
+        # log_text += (
+        #     'ERROR --> '
+        #     + str(huc)
+        #     + '  branch id: '
+        #     + str(branch_id)
+        #     + " subdivision failed (details: "
+        #     + (f"*** {ex}")
+        #     + (''.join(summary.format()))
+        #     + '\n'
+        # )
+        msg = (
             'ERROR --> '
             + str(huc)
             + '  branch id: '
             + str(branch_id)
             + " subdivision failed (details: "
             + (f"*** {ex}")
-            + (''.join(summary.format()))
-            + '\n'
         )
+        log_text += f"{msg} \n"
+        log_text += traceback.format_exc()
+
+        # this goes back to calibrate_rating_curve.sh which rolls up to its parent "tee"
+        # Then it can be scanned in the error system based on solely the "tee" file
+        print(msg)
+        print(traceback.format_exc())
+
         # re raise ex  ? # TODO: Do we want to stop processing the huc if we get an error here?
         # If yes, we need to raise ex, make sure to write your log_text if you need to.
 
@@ -373,6 +390,7 @@ def multi_process(variable_mannings_calc, procs_list, log_file, branch_jobs, ver
         "Computing subdivided SRC and applying variable Manning's n to channel/overbank for "
         f"{len(procs_list)} branches using {branch_jobs} jobs"
     )
+
     with Pool(processes=branch_jobs) as pool:
         if verbose:
             map_output = tqdm(pool.imap(variable_mannings_calc, procs_list), total=len(procs_list))
@@ -461,6 +479,11 @@ def run_prep(huc_dir, mann_n_table, output_suffix, branch_jobs, verbose, src_plo
                     + str(branch_dir)
                     + ' - skipping this branch!!!\n'
                 )
+
+        # ++++++++++++++++++++
+        # TODO: July 2026: We really do not want mp inside this file as it is already part of a multi-layer parallel
+        # chain via fim_pipeline, fim_process_huc.sh and process_branch. This can easily trigger overloads
+        # ++++++++++++++++++++
 
         ## Pass huc procs_list to multiprocessing function
         multi_process(variable_mannings_calc, procs_list, log_file, branch_jobs, verbose)

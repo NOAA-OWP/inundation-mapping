@@ -13,13 +13,11 @@ from tools.tools_shared_functions import filter_usgs_by_acceptance_criteria
 from utils.shared_functions import check_file_age, concat_huc_csv
 from utils.shared_variables import USGS_CALB_TRACE_DIST
 
-
 #################################
-# CRITICAL TODO: July 4, 2026:  In the event of an exception, the log file will not exist
-# and its details as well. Besides, we really do not want to leave a file writer
-# open. Can leave memory leaks.
+# TODO: July 4, 2026:  In the event of an exception, the log file will not exist
+# and its details as well. 
 # This needs a try/except with printing to log and at least a one liner
-# saying including the word "exception", which can be picked up automatically
+# saying including the word "exception or error", which can be picked up automatically
 # by the rollup to fim_process_huc.sh or process_rerun_calibration_huc.sh
 ################################
 
@@ -105,10 +103,16 @@ def create_usgs_rating_database(
 
     # If all records filtered out, write log and return empty dataframe
     if len(usgs_rc_df) == 0:
-        log_text += '\n[WARNING] All gages were removed after filtering criteria.\n'
+        msg = "[WARNING] All gages were removed after filtering criteria."
+        log_text += f'\n {msg} \n'
         log_usgs_db = open(os.path.join(log_dir, 'log_usgs_rc_database.log'), "w")
         log_usgs_db.write(log_text)
         log_usgs_db.close()
+
+        # this goes back to calibrate_rating_curve.sh which rolls up to its parent "tee"
+        # Then it can be scanned in the error system based on solely the "tee" file
+        print(msg)
+
         return pd.DataFrame()
     # calculate hand elevation
     usgs_rc_df['hand'] = usgs_rc_df['elevation_navd88_m'] - usgs_rc_df['hand_datum']

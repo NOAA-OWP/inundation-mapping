@@ -5,7 +5,7 @@ import glob
 import os
 import re
 import traceback
-from concurrent.futures import ProcessPoolExecutor
+# from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime
 from os.path import join
 
@@ -16,29 +16,16 @@ from dotenv import load_dotenv
 from heal_bridges_osm import flow_lookup, flows_from_hydrotable
 
 #################################
-# CRITICAL TODO: July 4, 2026:  In the event of an exception, the log file will not exist
-# and its details as well. Besides, we really do not want to leave a file writer
-# open. Can leave memory leaks.
+# TODO: July 4, 2026:  In the event of an exception, the log file will not exist
+# and its details as well. 
 # This needs a try/except with printing to log and at least a one liner
-# saying including the word "exception", which can be picked up automatically
+# saying including the word "exception or error", which can be picked up automatically
 # by the rollup to fim_process_huc.sh or process_rerun_calibration_huc.sh
 ################################
-
 
 load_dotenv('/foss_fim/src/bash_variables.env')
 DEFAULT_FIM_PROJECTION_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
 ALASKA_CRS = os.getenv('ALASKA_CRS')
-
-
-# TODO: Jan 26, 2026. The log_error in here likely does not work
-# when in pipeline mode. Not sure about rerun mode.
-# Now that we have the new process_rerun_calibration, we likely
-# do not even need it. Need to look more at rerun_calibration
-# to see what it needs to pick up the errors.
-# Maybe we just pass back any exit and error message from process_rerun_calibraion.sh
-# and it the .py file work and log it.
-# Need to double check it.
-
 
 class HucDirectory(object):
     def __init__(self, huc_dir, limit_branches=[]):
@@ -568,6 +555,10 @@ def log_error(
         os.makedirs(log_dir)
 
     file_path = os.path.join(log_dir, file_name)
+
+    # this goes back to calibrate_rating_curve.sh which rolls up to its parent "tee"
+    # Then it can be scanned in the error system based on solely the "tee" file
+    print(errMsg)
 
     f = open(file_path, "a")
     f.write(errMsg)
