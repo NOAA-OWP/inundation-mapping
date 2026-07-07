@@ -90,7 +90,6 @@ class Gage2Branch(object):
 
         # Create gages attribute
         self.gages.location_id.fillna(self.gages.nws_lid, inplace=True)
-        self.gages.loc[self.gages['nws_lid'] == 'Bogus_ID', 'nws_lid'] = None  # Jul 2026: Added back in
 
     def sort_into_branch(self, nwm_subset_streams_levelPaths):
         nwm_reaches = gpd.read_file(nwm_subset_streams_levelPaths)
