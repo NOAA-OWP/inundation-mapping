@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-# Before using this file, ifsar DTM file needs to be downloaded from AK DGGS at https://elevation.alaska.gov.
-# This file will be named custom_download.zip
+# Before using this file, ifsar DTM file needs to be downloaded from AK DGGS
+# at https://elevation.alaska.gov. This file will be named custom_download.zip
 
 import argparse
 import glob
@@ -9,15 +9,13 @@ import os
 import shutil
 import subprocess
 import sys
+import zipfile
 from datetime import datetime, timezone
 
 import geopandas as gpd
 import pandas as pd
-import rasterio as rio
+from osgeo import gdal
 from rasterio.crs import CRS
-from rasterio.enums import Resampling
-from rasterio.merge import merge
-from rasterio.vrt import WarpedVRT
 
 import src.utils.shared_functions as sf
 from data.create_vrt_file import create_vrt_file
@@ -28,14 +26,12 @@ from src.utils.shared_functions import FIM_Helpers as fh
 
 
 def __polygonize(target_output_folder_path, file_logger):
-
     # TODO: Jun 2025: Find a way to speed this up  (add MP or MT???)
     # Can likely just send the mp/mt send back the gpkg, add it to an array, then concat, and dissolve
     """
     Create a polygon of 3DEP domain from individual HUC DEMS which are then dissolved into a single polygon
 
     Note: If you have to re-run this tool to repair some DEMs, this section must be re-run and is by default.
-
     """
     dem_domain_file = os.path.join(target_output_folder_path, 'DEM_Domain.parquet')
 
@@ -52,14 +48,14 @@ def __polygonize(target_output_folder_path, file_logger):
 
     dem_files.sort()
 
-    dem_parquets = gpd.GeoDataFrame()
+    # 1. Initialize an empty list instead of an empty GeoDataFrame
+    gdfs = []
 
     for n, dem_file in enumerate(dem_files):
         sf.l_print(f"Polygonizing: {dem_file}", file_logger, "info")
         edge_tif = f'{os.path.splitext(dem_file)[0]}_edge.tif'
         edge_parquet = f'{os.path.splitext(edge_tif)[0]}.parquet'
 
-        # Calculate a constant valued raster from valid DEM cells
         if not os.path.exists(edge_tif):
             subprocess.run(
                 [
@@ -83,22 +79,25 @@ def __polygonize(target_output_folder_path, file_logger):
                 ]
             )
 
-        # Polygonize constant valued raster
-        # subprocess.run(['gdal_polygonize.py', '-8', edge_tif, '-q', '-f', 'GPKG', edge_parquet])
         polygonize(edge_tif, edge_parquet, connectivity=8, quiet=True)
 
         gdf = gpd.read_parquet(edge_parquet)
 
-        if n == 0:
-            dem_parquets = gdf
-        else:
-            dem_parquets = pd.concat([dem_parquets, gdf])
+        # 2. Simply append to the list
+        gdfs.append(gdf)
 
         os.remove(edge_tif)
         os.remove(edge_parquet)
 
+    # 3. Concatenate once and explicitly wrap in a GeoDataFrame to satisfy Pylance
+    if gdfs:
+        dem_parquets = gpd.GeoDataFrame(pd.concat(gdfs, ignore_index=True), crs=gdfs[0].crs)
+    else:
+        dem_parquets = gpd.GeoDataFrame()
+
     dem_parquets['DN'] = 1
     dem_dissolved = dem_parquets.dissolve(by='DN')
+
     dem_dissolved.to_parquet(dem_domain_file)
 
     if not os.path.exists(dem_domain_file):
@@ -115,48 +114,30 @@ def unzip(zip_path, extract_to="."):
     """
     Extracts a large or stubborn ZIP file using native system tools via subprocess.
     """
-    # 1. Check if '7z' is available (preferred for large files)
     if shutil.which("7z"):
         print("Using native 7z for extraction...")
         cmd = ["7z", "x", zip_path, f"-o{extract_to}", "-y"]
-        # -y automatically answers 'yes' to any overwrite prompts
-
-    # 2. Fallback to standard 'unzip'
     elif shutil.which("unzip"):
         print("7z not found. Falling back to native unzip...")
         cmd = ["unzip", "-o", zip_path, "-d", extract_to]
-        # -o overwrites existing files without prompting
-
     else:
         print("Error: Neither '7z' nor 'unzip' utilities are installed on this system.", file=sys.stderr)
         print("Please run: sudo apt install p7zip-full unzip", file=sys.stderr)
         return False
 
     try:
-        # Run the command and capture errors if it fails
-        # result = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         print("Extraction completed successfully!")
         return True
-
     except subprocess.CalledProcessError as e:
         print(f"Extraction failed with exit code {e.returncode}", file=sys.stderr)
-        print(f"STDOUT:\n{e.stdout}", file=sys.stderr)
-        print(f"STDERR:\n{e.stderr}", file=sys.stderr)
         return False
-
-
-# Example usage:
-# extract_large_zip("my_massive_file.zip", "/path/to/output_folder")
 
 
 def preprocess_dem(input_dem_zip_file, out_dem_folder, region, target_crs_number='3338'):
     """
     Preprocess ifsar DTM 5 meter to 10 meter DEM
     """
-
-    # -------------------
-    # setup logs
     overall_start_time = datetime.now(timezone.utc)
     file_dt_string = overall_start_time.strftime("%Y_%m_%d-%H_%M_%S")
     log_file_name = f"ifsar_downloaded-{file_dt_string}.log"
@@ -168,40 +149,29 @@ def preprocess_dem(input_dem_zip_file, out_dem_folder, region, target_crs_number
     ### UNZIP AND MOSAIC TILES
     os.makedirs(out_dem_folder, exist_ok=True)
 
-    # 0. MANUALLY Download ifsar DTM 5 meter from AK DGGS [https://elevation.alaska.gov] to input_dem_zip_file
     if not os.path.exists(input_dem_zip_file):
         print(
             f'ERROR: {input_dem_zip_file} does not exist. It needs to be downloaded from AK DGGS (https://elevation.alaska.gov)'
         )
         sys.exit(1)
+    else:
+        unzip(input_dem_zip_file, out_dem_folder)
 
-    # Unzip the parent zip file into out_dem_folder
-    unzip(input_dem_zip_file, out_dem_folder)
-
-    # 1. Configuration
     output_mosaic = os.path.join(out_dem_folder, f'{region}_ifsar_DTM_{target_crs_number}.tif')
-    target_crs = CRS.from_epsg(target_crs_number)
     target_res = 10
-
-    # 2. Track down the EXTRACTED sub-zips inside out_dem_folder
-    import zipfile
 
     absolute_out_folder = os.path.abspath(out_dem_folder)
 
-    # Locate the nested directory structure on disk
     extracted_zip_dir = os.path.join(absolute_out_folder, "dds4", "ifsar", "dtm")
     zip_pattern = os.path.join(extracted_zip_dir, "*.zip")
     zip_files = glob.glob(zip_pattern)
 
     src_files_to_mosaic = []
-
     print(f"Scanning {len(zip_files)} extracted sub-archives for TIFFs...")
 
-    # Step B: Peek inside each sub-zip on disk to find its inner .tif
     for sub_zip_path in zip_files:
         try:
             with zipfile.ZipFile(sub_zip_path, 'r') as sub_zip:
-                # Find the .tif file inside (case-insensitive)
                 tif_names = [
                     name
                     for name in sub_zip.namelist()
@@ -209,14 +179,11 @@ def preprocess_dem(input_dem_zip_file, out_dem_folder, region, target_crs_number
                 ]
 
                 for tif_name in tif_names:
-                    # Construct the single virtual path targeting the extracted sub-zip on disk
-                    # Syntax: /vsizip/{absolute_path_to_sub_zip}/{tif_name}
                     vsi_path = f"/vsizip/{sub_zip_path}/{tif_name}"
                     src_files_to_mosaic.append(vsi_path)
         except Exception as e:
             print(f"Warning: Could not read sub-archive {sub_zip_path}: {e}")
 
-    # --- DIAGNOSTIC CHECK ---
     if not src_files_to_mosaic:
         raise FileNotFoundError(
             f"\n[ERROR] No .tif files could be mapped inside the extracted sub-zips in: {extracted_zip_dir}\n"
@@ -224,102 +191,35 @@ def preprocess_dem(input_dem_zip_file, out_dem_folder, region, target_crs_number
 
     print(f"Successfully mapped {len(src_files_to_mosaic)} sub-zip TIFF datasets for mosaicing.")
 
-    opened_datasets = []
-    vrt_datasets = []
+    # FIX: Eliminated the broken/orphaned try statement block here
+    print(f"\nMosaicing, reprojecting, and resampling {len(src_files_to_mosaic)} files to 10m...")
 
     try:
-        # 2. Open files and handle CRS check/reprojection dynamically
-        for path in src_files_to_mosaic:
-            try:
-                src = rio.open(path)
-                opened_datasets.append(src)
-            except Exception as e:
-                print(f"Skipping {path} because it couldn't be opened. Error: {e}")
-                continue
-
-            if src.crs != target_crs:
-                print(f"Reprojecting on-the-fly: {os.path.basename(path)}")
-                # Provide explicit src_nodata and nodata to the VRT so it never passes None to merge()
-
-                # Check if the source file has a nodata value, default to -999999 if it doesn't
-                file_nodata = src.nodata if src.nodata is not None else -999999
-
-                vrt = WarpedVRT(src, crs=target_crs, src_nodata=file_nodata, nodata=-999999)
-                vrt_datasets.append(vrt)
-            else:
-                print(f"Already EPSG:3338: {os.path.basename(path)}")
-                # If it doesn't need reprojection but is missing a nodata value,
-                # we wrap it in a clean VRT anyway just to safely force the nodata property
-                if src.nodata is None:
-                    vrt = WarpedVRT(src, src_nodata=-999999, nodata=-999999)
-                    vrt_datasets.append(vrt)
-                else:
-                    vrt_datasets.append(src)
-
-        # Double check we have valid opened datasets before merging
-        if not vrt_datasets:
-            raise ValueError("No valid TIFF datasets were successfully opened.")
-
-        # 3. Merge
-        print(f"\nMosaicing and resampling {len(vrt_datasets)} files to {target_res}m...")
-        mosaic, out_trans = merge(
-            vrt_datasets,
-            res=target_res,  # Forces the output cell size to 10x10
-            resampling=Resampling.bilinear,  # Smooths the 5m data into 10m cells
-            nodata=-999999,
+        warp_options = gdal.WarpOptions(
+            format="GTiff",
+            dstSRS=f"EPSG:{target_crs_number}",
+            xRes=target_res,
+            yRes=target_res,
+            resampleAlg="bilinear",
+            srcNodata=None,  # Handled dynamically by GDAL per input tile
+            dstNodata=-999999,  # Set your customized fallback nodata value
+            outputType=gdal.GDT_Float32,  # Ensures valid elevation value precision alongside -999999
         )
 
-        # 4. Define output metadata
-        out_meta = vrt_datasets[0].meta.copy()
-        out_meta.update(
-            {
-                "driver": "GTiff",
-                "height": mosaic.shape[1],
-                "width": mosaic.shape[2],
-                "transform": out_trans,
-                "crs": target_crs,
-                "nodata": -999999,
-            }
-        )
-
-        # 5. Write the final result
-        with rio.open(output_mosaic, "w", **out_meta) as dest:
-            dest.write(mosaic)
-
+        gdal.Warp(output_mosaic, src_files_to_mosaic, options=warp_options)
         print(f"\nSuccess! Mosaic saved to {output_mosaic}")
 
-    finally:
-        # Clean up everything safely
-        for vrt in vrt_datasets:
-            if isinstance(vrt, WarpedVRT):
-                vrt.close()
-        for src in opened_datasets:
-            src.close()
+    except Exception as e:
+        raise RuntimeError(f"GDAL Warp processing failed: {e}")
 
     create_vrt_file(out_dem_folder, 'hand_seamless_3dep_dems.vrt')
-
-    # Create DEM_Domain.gpkg
     __polygonize(out_dem_folder, file_logger)
 
 
 def preprocess_streams(region, hucs, target_crs_number, inputs_dir, reference_fabric_file):
     """
     Preprocess Alaska streams for a specific region.
-
-    Parameters:
-        region : str
-            The region to preprocess. Options are: 'Fairbanks', 'Juneau'
-        huc : str
-            The HUC identifier.
-        target_crs_number : str
-            The target CRS number.
-        inputs_dir : str
-            The directory containing input data files.
-        reference_fabric_file : str
-            The name of the streams data.
     """
-
-    # Convert input flowpathss to necessary format
     if not os.path.exists(reference_fabric_file):
         sys.exit(f"reference fabric file {reference_fabric_file} does not exist. Exiting...")
     reference_fabric_folder = os.path.dirname(reference_fabric_file)
@@ -332,13 +232,11 @@ def preprocess_streams(region, hucs, target_crs_number, inputs_dir, reference_fa
         columns={'flowpath_id': 'ID', 'flowpath_toid': 'to', 'streamorder': 'order_'}
     )
 
-    # Derive headwater points
     headwater_points = findHeadWaterPoints(flowpaths)
     headwater_points.to_file(
         os.path.join(reference_fabric_folder, 'flowpaths_headwaters_Alaska.gpkg'), driver='GPKG'
     )
 
-    # Extract and reproject Alaska waterbodies
     lakes = gpd.read_file(reference_fabric_file, layer='lakes')
     lakes = lakes.rename(columns={'Hylak_id': 'LakeID'})
     if lakes.crs != target_crs:
@@ -352,14 +250,12 @@ def preprocess_streams(region, hucs, target_crs_number, inputs_dir, reference_fa
 
     flowpaths.to_file(os.path.join(reference_fabric_folder, 'flowpaths_Alaska.gpkg'), driver='GPKG')
 
-    # Extract and reproject Alaska catchments
     catchments = gpd.read_file(reference_fabric_file, layer='divides')
     catchments = catchments.rename(columns={'divide_id': 'ID'})
     if catchments.crs != target_crs:
         catchments = catchments.to_crs(epsg=target_crs_number)
     catchments.to_file(os.path.join(reference_fabric_folder, 'catchments_Alaska.gpkg'), driver='GPKG')
 
-    # Extract and reproject WBD
     wbd_dir = os.path.join(inputs_dir, 'wbd')
     wbd = os.path.join(wbd_dir, 'WBD_Alaska_3338.gpkg')
     if not os.path.exists(wbd_dir):
@@ -377,29 +273,13 @@ def preprocess_streams(region, hucs, target_crs_number, inputs_dir, reference_fa
 
 
 if __name__ == "__main__":
-    """
-    preprocess_Alaska.py
-        --region 'Fairbanks'
-        --inputs_dir '/data/inputs'
-        --reference_fabric_folder os.path.join(inputs_dir, 'GEOGLOWS')
-        --reference_fabric_filename 'ak_tests_BETA_AK_reference_fabric_fairbanks_juneau.gpkg'
-        --target_crs_number 3338
-    """
     parser = argparse.ArgumentParser(description="Preprocess Alaska data for a specified region.")
+    parser.add_argument("-r", "--region", type=str, required=True, help="Options: 'Fairbanks', 'Juneau'")
+    parser.add_argument("-i", "--inputs_dir", type=str, required=True, help="Input files folder directory")
     parser.add_argument(
-        "-r",
-        "--region",
-        type=str,
-        required=True,
-        help="The region to preprocess. Options are: 'Fairbanks', 'Juneau'",
+        '-c', '--target_crs_number', type=int, required=False, default='3338', help='EPSG code'
     )
-    parser.add_argument(
-        "-i", "--inputs_dir", type=str, required=True, help="The directory containing input data files."
-    )
-    parser.add_argument(
-        '-c', '--target_crs_number', type=int, required=False, default='3338', help='EPSG CRS number'
-    )
-    parser.add_argument('-s', '--reference_fabric_file', type=str, help='Name of streams file')
+    parser.add_argument('-s', '--reference_fabric_file', type=str, help='Streams file path')
     parser.add_argument('-d', '--input_dem_zip_file', type=str, required=True, help='Input DEM ZIP file')
     parser.add_argument('-e', '--out_dem_folder', type=str, required=True, help='Out DEM folder')
 
@@ -415,7 +295,6 @@ if __name__ == "__main__":
     input_dem_zip_file = args['input_dem_zip_file']
     out_dem_folder = args['out_dem_folder']
 
-    # ### Unzip, merge tiles, and reproject/rescale DEMs
     preprocess_dem(input_dem_zip_file, out_dem_folder, region, target_crs_number)
 
     if region == 'Fairbanks':
