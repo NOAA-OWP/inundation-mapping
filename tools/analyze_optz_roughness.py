@@ -2,6 +2,7 @@ import argparse
 import datetime
 import glob
 import os
+from concurrent.futures import ProcessPoolExecutor
 from os.path import join
 
 import geopandas as gpd
@@ -24,6 +25,26 @@ OVERBANK_N_NAN_FILL = 0.12
 LOSS_DEVIATION_THRESHOLD = 15
 CH_N_VALID_THRESHOLD = (0.011, 0.09)
 OB_N_VALID_THRESHOLD = (0.040, 0.17)
+DUPLICATE_FEATURE_OVERLAP_CRS = 'EPSG:5070'
+
+
+# *****************************************************************************
+def _format_huc_value(huc):
+    if pd.isna(huc):
+        return pd.NA
+
+    huc = str(huc).strip()
+    if not huc or huc.lower() in {'nan', 'none', '<na>'}:
+        return pd.NA
+    if huc.endswith('.0'):
+        huc = huc[:-2]
+
+    return huc.zfill(8)
+
+
+# *****************************************************************************
+def _format_huc_series(huc_series):
+    return huc_series.map(_format_huc_value).astype('string')
 
 
 # *****************************************************************************
@@ -43,7 +64,7 @@ def get_optimized_hucs(optz_metrics_dir):
         for path in optz_csv_paths
     }
 
-    return sorted(hucs)
+    return sorted(huc for huc in (_format_huc_value(huc) for huc in hucs) if not pd.isna(huc))
 
 
 # *****************************************************************************
@@ -67,16 +88,17 @@ def _read_stream_feature_ids(stream_path):
 def _read_recurrence_flow_clusters(cluster_csv_path, feature_ids=None):
     """reads every chunksize=500000 rows of feature-ids and process them to save time"""
 
-    required_cols = ['feature_id', 'runoff_cluster_idx', 'latitude', 'longitude']
+    required_cols = ['feature_id', 'runoff_cluster_idx']
     feature_id_set = None
     if feature_ids is not None:
         feature_id_set = set(pd.Series(feature_ids).dropna().astype('int64'))
 
     cluster_chunks = []
+    # TODO optimize the chunksize
     for chunk in pd.read_csv(
         cluster_csv_path,
         usecols=required_cols,
-        dtype={'feature_id': 'int64', 'runoff_cluster_idx': 'Int64', 'latitude': float, 'longitude': float},
+        dtype={'feature_id': 'int64', 'runoff_cluster_idx': 'Int64'},
         chunksize=500000,
     ):
         if feature_id_set is not None:
@@ -86,12 +108,7 @@ def _read_recurrence_flow_clusters(cluster_csv_path, feature_ids=None):
 
     if not cluster_chunks:
         return pd.DataFrame(
-            {
-                'feature_id': pd.Series(dtype='int64'),
-                'runoff_cluster_idx': pd.Series(dtype='Int64'),
-                'latitude': pd.Series(dtype=float),
-                'longitude': pd.Series(dtype=float),
-            }
+            {'feature_id': pd.Series(dtype='int64'), 'runoff_cluster_idx': pd.Series(dtype='Int64')}
         )
 
     cluster_df = pd.concat(cluster_chunks, ignore_index=True).drop_duplicates(subset=['feature_id'])
@@ -105,7 +122,7 @@ def _get_pre_clip_hucs(pre_clip_huc8_dir):
     if not hucs:
         raise FileNotFoundError(f"No HUC directories found in {pre_clip_huc8_dir}")
 
-    return sorted(hucs)
+    return sorted(huc for huc in (_format_huc_value(huc) for huc in hucs) if not pd.isna(huc))
 
 
 # *****************************************************************************
@@ -119,6 +136,10 @@ def _read_huc_feature_df(hucs, pre_clip_huc8_dir, feature_ids=None):
         feature_id_set = set(pd.Series(feature_ids).dropna().astype('int64'))
 
     for huc in hucs:
+        huc = _format_huc_value(huc)
+        if pd.isna(huc):
+            continue
+
         stream_path = join(pre_clip_huc8_dir, huc, 'nwm_subset_streams.gpkg')
 
         if not os.path.exists(stream_path):
@@ -153,7 +174,7 @@ def _read_huc_feature_df(hucs, pre_clip_huc8_dir, feature_ids=None):
         )
 
     huc_feature_df = pd.concat(huc_feature_rows, ignore_index=True)
-    huc_feature_df['huc'] = huc_feature_df['huc'].astype(str)
+    huc_feature_df['huc'] = _format_huc_series(huc_feature_df['huc'])
     huc_feature_df['feature_id'] = huc_feature_df['feature_id'].astype('int64')
     huc_feature_df = huc_feature_df.drop_duplicates(subset=['huc', 'feature_id'])
     huc_feature_df['order_'] = pd.to_numeric(huc_feature_df['order_'], errors='raise').astype('int64')
@@ -162,7 +183,96 @@ def _read_huc_feature_df(hucs, pre_clip_huc8_dir, feature_ids=None):
 
 
 # *****************************************************************************
-def _resolve_duplicate_feature_hucs(huc_feature_cluster_df, pre_clip_huc8_dir):
+def _union_geometries(geometry):
+    return geometry.union_all() if hasattr(geometry, 'union_all') else geometry.unary_union
+
+
+# *****************************************************************************
+def _read_filtered_stream_geometries(stream_path, feature_ids):
+    feature_id_set = set(pd.Series(feature_ids).dropna().astype('int64'))
+    if not feature_id_set:
+        return gpd.GeoDataFrame({'feature_id': pd.Series(dtype='int64')}, geometry=[], crs=None)
+
+    where_clause = f"ID IN ({', '.join(str(feature_id) for feature_id in sorted(feature_id_set))})"
+
+    try:
+        stream_gdf = gpd.read_file(stream_path, where=where_clause)
+    except (TypeError, ValueError):
+        stream_gdf = gpd.read_file(stream_path)
+
+    if 'ID' not in stream_gdf.columns:
+        raise ValueError(f"{stream_path} is missing required column: ID")
+
+    stream_gdf = stream_gdf.rename(columns={'ID': 'feature_id'})
+    stream_gdf['feature_id'] = pd.to_numeric(stream_gdf['feature_id'], errors='raise').astype('int64')
+    stream_gdf = stream_gdf.loc[stream_gdf['feature_id'].isin(feature_id_set), ['feature_id', 'geometry']]
+    stream_gdf = stream_gdf.dropna(subset=['geometry'])
+
+    if stream_gdf.empty:
+        return stream_gdf
+
+    stream_gdf = gpd.GeoDataFrame(stream_gdf, geometry='geometry', crs=stream_gdf.crs)
+    if stream_gdf.duplicated('feature_id').any():
+        stream_gdf = stream_gdf.dissolve(by='feature_id', as_index=False)
+
+    return stream_gdf
+
+
+# *****************************************************************************
+def _score_duplicate_feature_huc(args):
+    huc, feature_ids, pre_clip_huc8_dir = args
+    huc = _format_huc_value(huc)
+    if pd.isna(huc):
+        return []
+
+    stream_path = join(pre_clip_huc8_dir, huc, 'nwm_subset_streams.gpkg')
+    wbd_path = join(pre_clip_huc8_dir, huc, 'wbd.gpkg')
+
+    if not os.path.exists(stream_path) or not os.path.exists(wbd_path):
+        return []
+
+    stream_gdf = _read_filtered_stream_geometries(stream_path, feature_ids)
+    if stream_gdf.empty:
+        return []
+
+    wbd = gpd.read_file(wbd_path)
+    wbd = wbd.dropna(subset=['geometry'])
+    if wbd.empty:
+        return []
+
+    if stream_gdf.crs is not None and wbd.crs is not None:
+        stream_score_gdf = stream_gdf.to_crs(DUPLICATE_FEATURE_OVERLAP_CRS)
+        wbd_score_geom = gpd.GeoSeries([_union_geometries(wbd.geometry)], crs=wbd.crs).to_crs(
+            DUPLICATE_FEATURE_OVERLAP_CRS
+        )[0]
+    else:
+        stream_score_gdf = stream_gdf
+        wbd_score_geom = _union_geometries(wbd.geometry)
+
+    wbd_check_rows = []
+    for feature_id, feature_geometry in zip(stream_score_gdf['feature_id'], stream_score_gdf.geometry):
+        if feature_geometry is None or feature_geometry.is_empty:
+            continue
+
+        intersection = feature_geometry.intersection(wbd_score_geom)
+        intersection_length = 0.0 if intersection.is_empty else intersection.length
+        wbd_check_rows.append(
+            {
+                'huc': huc,
+                'feature_id': int(feature_id),
+                'wbd_intersection_length': intersection_length,
+                'feature_intersects_wbd': bool(feature_geometry.intersects(wbd_score_geom)),
+            }
+        )
+
+    return wbd_check_rows
+
+
+# *****************************************************************************
+def _resolve_duplicate_feature_hucs(huc_feature_cluster_df, pre_clip_huc8_dir, max_workers=None):
+
+    huc_feature_cluster_df = huc_feature_cluster_df.copy()
+    huc_feature_cluster_df['huc'] = _format_huc_series(huc_feature_cluster_df['huc'])
 
     duplicate_feature_ids = huc_feature_cluster_df.loc[
         huc_feature_cluster_df.duplicated('feature_id', keep=False), 'feature_id'
@@ -175,40 +285,43 @@ def _resolve_duplicate_feature_hucs(huc_feature_cluster_df, pre_clip_huc8_dir):
     duplicate_candidates = huc_feature_cluster_df.loc[
         huc_feature_cluster_df['feature_id'].isin(duplicate_feature_id_set)
     ].copy()
+    huc_feature_ids = (
+        duplicate_candidates.dropna(subset=['huc'])
+        .groupby('huc')['feature_id']
+        .agg(lambda feature_ids: sorted(set(pd.Series(feature_ids).dropna().astype('int64'))))
+    )
+    huc_tasks = [
+        (huc, feature_ids, pre_clip_huc8_dir) for huc, feature_ids in huc_feature_ids.items() if feature_ids
+    ]
+
+    if max_workers is None:
+        max_workers = min(len(huc_tasks), os.cpu_count() or 1)
+    max_workers = max(1, max_workers)
+
     wbd_check_rows = []
-
-    for huc, huc_duplicates in duplicate_candidates.groupby('huc'):
-        wbd_path = join(pre_clip_huc8_dir, huc, 'wbd.gpkg')
-
-        if not os.path.exists(wbd_path):
-            continue
-
-        huc_duplicates = huc_duplicates.dropna(subset=['longitude', 'latitude']).copy()
-        if huc_duplicates.empty:
-            continue
-
-        wbd = gpd.read_file(wbd_path)
-        if wbd.crs is not None and str(wbd.crs).upper() != 'EPSG:4326':
-            wbd = wbd.to_crs('EPSG:4326')
-
-        wbd_geom = (
-            wbd.geometry.union_all() if hasattr(wbd.geometry, 'union_all') else wbd.geometry.unary_union
-        )
-        points = gpd.GeoSeries(
-            gpd.points_from_xy(huc_duplicates['longitude'], huc_duplicates['latitude']), crs='EPSG:4326'
-        )
-        huc_duplicates['point_in_wbd'] = points.intersects(wbd_geom).to_numpy()
-        wbd_check_rows.append(huc_duplicates[['huc', 'feature_id', 'point_in_wbd']])
+    if max_workers == 1 or len(huc_tasks) <= 1:
+        for task in huc_tasks:
+            wbd_check_rows.extend(_score_duplicate_feature_huc(task))
+    else:
+        with ProcessPoolExecutor(max_workers=max_workers) as executor:
+            for huc_wbd_check_rows in executor.map(_score_duplicate_feature_huc, huc_tasks):
+                wbd_check_rows.extend(huc_wbd_check_rows)
 
     if not wbd_check_rows:
         huc_feature_cluster_df = huc_feature_cluster_df.sort_values(['feature_id', 'huc'])
         return huc_feature_cluster_df.drop_duplicates(subset=['feature_id'], keep='first')
 
-    wbd_checks = pd.concat(wbd_check_rows, ignore_index=True)
+    wbd_checks = pd.DataFrame(wbd_check_rows)
     duplicate_candidates = duplicate_candidates.merge(wbd_checks, on=['huc', 'feature_id'], how='left')
-    duplicate_candidates['point_in_wbd'] = duplicate_candidates['point_in_wbd'].fillna(False)
+    duplicate_candidates['wbd_intersection_length'] = duplicate_candidates['wbd_intersection_length'].fillna(
+        0.0
+    )
+    duplicate_candidates['feature_intersects_wbd'] = duplicate_candidates['feature_intersects_wbd'].fillna(
+        False
+    )
     duplicate_candidates = duplicate_candidates.sort_values(
-        ['feature_id', 'point_in_wbd', 'huc'], ascending=[True, False, True]
+        ['feature_id', 'wbd_intersection_length', 'feature_intersects_wbd', 'huc'],
+        ascending=[True, False, False, True],
     )
     resolved_duplicates = duplicate_candidates.drop_duplicates(subset=['feature_id'], keep='first')
 
@@ -217,16 +330,21 @@ def _resolve_duplicate_feature_hucs(huc_feature_cluster_df, pre_clip_huc8_dir):
     ]
 
     return pd.concat([non_duplicates, resolved_duplicates], ignore_index=True).drop(
-        columns=['point_in_wbd'], errors='ignore'
+        columns=['wbd_intersection_length', 'feature_intersects_wbd'], errors='ignore'
     )
 
 
 # *****************************************************************************
-def _add_clusters_to_huc_features(huc_feature_df, cluster_df, pre_clip_huc8_dir, merge_how='left'):
+def _add_clusters_to_huc_features(
+    huc_feature_df, cluster_df, pre_clip_huc8_dir, merge_how='left', max_workers=None
+):
 
     huc_feature_cluster_df = huc_feature_df.merge(cluster_df, on='feature_id', how=merge_how)
-    huc_feature_cluster_df = _resolve_duplicate_feature_hucs(huc_feature_cluster_df, pre_clip_huc8_dir)
+    huc_feature_cluster_df = _resolve_duplicate_feature_hucs(
+        huc_feature_cluster_df, pre_clip_huc8_dir, max_workers=max_workers
+    )
     huc_feature_cluster_df = huc_feature_cluster_df.rename(columns={'runoff_cluster_idx': 'cluster'})
+    huc_feature_cluster_df['huc'] = _format_huc_series(huc_feature_cluster_df['huc'])
 
     return huc_feature_cluster_df[['huc', 'feature_id', 'order_', 'cluster']].sort_values(
         ['huc', 'feature_id']
@@ -234,7 +352,7 @@ def _add_clusters_to_huc_features(huc_feature_df, cluster_df, pre_clip_huc8_dir,
 
 
 # *****************************************************************************
-def create_huc_feature_cluster_df(optz_metrics_dir, pre_clip_huc8_dir):
+def create_huc_feature_cluster_df(optz_metrics_dir, pre_clip_huc8_dir, max_workers=None):
 
     hucs = get_optimized_hucs(optz_metrics_dir)
     huc_feature_df = _read_huc_feature_df(hucs, pre_clip_huc8_dir)
@@ -244,14 +362,16 @@ def create_huc_feature_cluster_df(optz_metrics_dir, pre_clip_huc8_dir):
         raise FileNotFoundError(f"{RECURRENCE_CLUSTER_FILENAME} not found in {optz_metrics_dir}")
 
     cluster_df = _read_recurrence_flow_clusters(cluster_csv_path, huc_feature_df['feature_id'])
-    huc_feature_cluster_df = _add_clusters_to_huc_features(huc_feature_df, cluster_df, pre_clip_huc8_dir)
+    huc_feature_cluster_df = _add_clusters_to_huc_features(
+        huc_feature_df, cluster_df, pre_clip_huc8_dir, max_workers=max_workers
+    )
 
     all_cluster_df = _read_recurrence_flow_clusters(cluster_csv_path)
     all_huc_feature_df = _read_huc_feature_df(
         _get_pre_clip_hucs(pre_clip_huc8_dir), pre_clip_huc8_dir, all_cluster_df['feature_id']
     )
     all_huc_feature_cluster_df = _add_clusters_to_huc_features(
-        all_huc_feature_df, all_cluster_df, pre_clip_huc8_dir, merge_how='right'
+        all_huc_feature_df, all_cluster_df, pre_clip_huc8_dir, merge_how='right', max_workers=max_workers
     )
 
     today = datetime.date.today().strftime('%Y%m%d')
@@ -317,7 +437,9 @@ def create_optz_roughness_df(
         for col in required_cols:
             optz_res_huc[col] = pd.to_numeric(optz_res_huc[col], errors='raise')
 
-        huc = os.path.basename(optz_csv_path).replace("optz_iteration_metrics_", "").replace(".csv", "")
+        huc = _format_huc_value(
+            os.path.basename(optz_csv_path).replace("optz_iteration_metrics_", "").replace(".csv", "")
+        )
         optz_data_source = os.path.basename(os.path.dirname(optz_csv_path)).replace("optz_final_", "")
         best_row = optz_res_huc.loc[optz_res_huc['total_loss'].idxmin()]
         ch_n_valid = ch_n_low_threshold < best_row['mannN_ch'] < ch_n_up_threshold
@@ -367,7 +489,7 @@ def create_optz_roughness_df(
         )
 
     optz_roughness_df = pd.DataFrame(optz_rows, columns=output_cols)
-    optz_roughness_df['huc'] = optz_roughness_df['huc'].astype(str)
+    optz_roughness_df['huc'] = _format_huc_series(optz_roughness_df['huc'])
     rounding_cols = [
         'optz_mannN_ch_coef',
         'optz_mannN_ob_coef',
@@ -421,8 +543,8 @@ def add_optz_roughness_to_huc_features(
 
     huc_feature_cluster_df = huc_feature_cluster_df.copy()
     optz_roughness_df = optz_roughness_df.copy()
-    huc_feature_cluster_df['huc'] = huc_feature_cluster_df['huc'].astype(str)
-    optz_roughness_df['huc'] = optz_roughness_df['huc'].astype(str)
+    huc_feature_cluster_df['huc'] = _format_huc_series(huc_feature_cluster_df['huc'])
+    optz_roughness_df['huc'] = _format_huc_series(optz_roughness_df['huc'])
 
     optz_roughness_df['loss_deviation_percentage'] = pd.to_numeric(
         optz_roughness_df['loss_deviation_percentage'], errors='raise'
@@ -674,9 +796,9 @@ def update_mannings_with_cluster_order_optz_roughness(
         3
     )
     cluster_lookup_df.loc[
-        cluster_lookup_df["cluster"].between(1, 4),
+        cluster_lookup_df["cluster"].between(1, 5),
         ["optz_mannN_ch_>3", "optz_mannN_ch_<=3", "optz_mannN_ob_>3", "optz_mannN_ob_<=3"],
-    ] = [0.033, 0.036, 0.103, 0.095]
+    ] = [0.051, 0.053, 0.109, 0.087]
 
     feature_roughness_df = feature_lookup_df.merge(cluster_lookup_df, on='cluster', how='left')
     order_gt_3 = feature_roughness_df['order_'] > 3
