@@ -1,7 +1,7 @@
 #!/bin/bash
 # set -e         # Critical: Can not have a -e inplace in order for the error handline
 set -o pipefail  # Crucial: Forces the pipe to fail if the subscript fails but only when a pipe is used.
-# set -o errtrace  # Inherit trap inside functions/subshells
+set -o errtrace  # Inherit trap inside functions/subshells
 # For this one, we do want to stop, but the error script will always be caught
 # by the trap, then always hit the exit_and_copy if the error happens after the
 # code is executed. We want this script to ALWAYS return a 0
@@ -11,7 +11,7 @@ set -o pipefail  # Crucial: Forces the pipe to fail if the subscript fails but o
 usage()
 {
     echo "
-    Post processing for creating FIM hydrofabric.
+    Post processing for creating HAND datasets
 
     Usage : fim_post_processing.sh [REQ: -n <run name> ] [OPT: -h -j <job limit>]
 
@@ -41,224 +41,9 @@ in
     shift
 done
 
-########################
-# Setup all key variables needed by any functioning code
-# Do not call any commands here until after the error trapping has started
-# We need this setup so the two error handling functions have variables to work with.
-# Note: If the lines below fail before we turn on the "trap" below, it will not be
-# caught correctly. Fix anoter day, but super rare. We need the functions and
-# args in the error handler.
-source $srcDir/bash_functions.env
-source $srcDir/bash_variables.env
 outputDestDir=$outputsDir/$runName
 pp_log_file_name=$outputDestDir/logs/post_processing.log
 pp_error_log_file_name=$outputDestDir/logs/post_processing_errors.log
-
-
-########################
-# Add error handling for any script call or even page leve
-# No matter what happens, this will execute and copy the folder from temp to outputs
-# starting from the trap 'exit_and_copy' EXIT and down, ie) the arg tests above
-exit_and_copy() {
-    echo
-    l_echo "---- End of fim_post_processing" $pp_log_file_name
-    l_echo "---- Ended: `date -u`" $pp_log_file_name
-    Calc_Duration "Post Processing Duration:" $post_proc_start_time $pp_log_file_name
-    echo
-    exit 0  # yes, return sucess
-}
-
-# handle_error() {
-#     # ${PIPESTATUS[0]} can return more than one status, often we using pip command as each part
-#     # of the command gets it's own code. ie:
-#     # 
-#     # and it is in the PIPESTATUS array. The first code will always be the single
-#     # code returned by run_sh.sh, the second is if it successfuly was able to pipe 
-#     # it to the tee command. So, we check them both incase either has an error
-#     # and yes.. we can not use the $? which is the LAST exit code (which is like success for the pipe to tee)
-#     # When it is not used with "tee" it will have the only one status code in the array
-
-#     # echo "we are in bash functions handle_error"
-
-#     # local calling_name="$0"
-
-#     # local exit_code="$?"
-#     # # local exit_code="$0"
-#     # echo "exit code returned is $exit_code"
-#     # local line_number="$1"
-#     # echo "On line number $line_number"
-#     # local failed_command="$BASH_COMMAND"
-
-#     # exit 1
-
-#     # local line_number="$1"
-
-#     # # 3. Fix the subshell/pipe limitation
-#     # if [[ "$failed_command" == *"tee"* ]]; then
-#     #     failed_command="python3 -u my_script.py (failed inside the pipe to tee)"
-#     # fi
-
-#     local pipeline_errors=("${PIPESTATUS[@]}")  # Has to be exactly the very first line inside the function, has to.
-#     local line_number="$1"
-#     local page_source="${BASH_SOURCE[1]}"
-
-#     local err_code=0
-#     # 2. Check if the error happened inside a pipeline
-#     if [ "${#pipeline_errors[@]}" -gt 1 ]; then
-#         echo "what is here"
-#         # Loop through the array to find which index has a non-zero exit code
-#         for i in "${!pipeline_errors[@]}"; do
-#             echo "how about here"
-#             echo "${pipeline_errors[$i]}" 
-#             if [ "${pipeline_errors[$i]}" -ne 0 ]; then
-#                 # failed_command="Command index $i inside the pipeline (Exit Code: ${pipeline_errors[$i]})"
-#                 err_code=${pipeline_errors[$i]}
-#                 break
-#             fi
-#         done
-#     fi
-
-#     if [[ $err_code -ne 0 ]]; then
-#         echo "----------------------------------------"
-#         echo "ERROR DETECTED!"
-#         echo "${page_source} : Line Number = $line_number"
-#         echo "----------------------------------------"
-#         exit 1
-#     fi
-
-    # local err_code=
-
-
-
-    # local python_status=${pipe_codes[0]}
-    # local tee_status=${pipe_codes[1]}
-
-    # echo "--- CRITICAL ERROR DETECTED ---"
-    # echo "Python exited with: $python_status"
-    # echo "Tee exited with:    $tee_status"
-
-    # exit_codes=( "${PIPESTATUS[@]}" )
-    # page_source="${BASH_SOURCE[1]}"
-
-    # l_echo "++++++++++++++++++++++++++++" $error_log_filename
-    # msg="Critical error detected in ${BASH_SOURCE[1]}, line number: ${BASH_LINENO}"
-    # l_echo "$msg" $error_log_filename
-    # l_echo "Error Command Submitted: ${BASH_COMMAND}" $pp_error_log_file_name
-    # l_echo "Exit Code: $exit_code" $pp_error_log_file_name
-    # echo "++++++++++++++++++++++++++++"
-    # echo
-    # exit 1
-
-
-    # #for i in "${!exit_codes[@]}";
-    # for exit_code in "${exit_codes[@]}" ;
-    # do
-    #     # Note: It was tricky to load in the fim_enum into bash, so we will just
-    #     # go with the exit code for now
-    #     if [ $exit_code -eq 0 ]; then
-    #         echo 
-    #         # do nothing
-    #         echo "we are good"
-    #     else 
-    #         # local cmd_num=$((i + 1))
-    #         # echo "Error: Command #${cmd_num} in the pipeline failed with exit code ${code}."
-
-    #         l_echo "++++++++++++++++++++++++++++" $pp_error_log_file_name
-    #         msg="Critical error caught on {$page_source}, line number: ${BASH_LINENO}"
-    #         l_echo "${msg}" $pp_error_log_file_name
-    #         # l_echo "Error Command Submitted: #${cmd_num}" $pp_error_log_file_name
-    #         # l_echo "Error Command Submitted: $cmd_text" $pp_error_log_file_name            
-    #         l_echo "Exit Code: $exit_code" $pp_error_log_file_name
-
-    #      # could be an exit status of 1 but can be other codes as well.
-    #         # It is possible that some errors may not show up huc log file depending
-    #         # how catastrophic the error was. It is possible that an exception
-    #         # could show up in our error log file twice and that is ok.
-    #         # It may or may not already have been see by "tee" and is in the std log file.
-    #         # err_msg="***** ERROR- Unknown Exit status: $code detected *****"
-    #         # l_echo "$err_msg" $hucLogFileName
-    #         # list_error_msg+="${err_msg}\n"
-    #         exit  $exit_code
-    #     fi
-    # done
-# }
-
-
-# handle_error() {
-#     # ${PIPESTATUS[0]} can return more than one status, often we using pip command as each part
-#     # of the command gets it's own code. ie:
-#     # 
-#     # and it is in the PIPESTATUS array. The first code will always be the single
-#     # code returned by run_sh.sh, the second is if it successfuly was able to pipe 
-#     # it to the tee command. So, we check them both incase either has an error
-#     # and yes.. we can not use the $? which is the LAST exit code (which is like success for the pipe to tee)
-#     # When it is not used with "tee" it will have the only one status code in the array
-#     exit_codes=( "${PIPESTATUS[@]}" )
-
-#     #for exit_code in "${return_codes[@]}"
-#     for i in "${!exit_codes[@]}";
-#     do
-#         # Note: It was tricky to load in the fim_enum into bash, so we will just
-#         # go with the exit code for now
-#         if [ $exit_code -eq 0 ]; then
-#             echo 
-#             # do nothing
-#             echo "we are good"
-#         else 
-#             # local cmd_num=$((i + 1))
-#             # echo "Error: Command #${cmd_num} in the pipeline failed with exit code ${code}."
-
-#             l_echo "++++++++++++++++++++++++++++" $pp_error_log_file_name
-#             msg="Critical error caught, line number: ${BASH_LINENO}"
-#             l_echo "${msg}" $pp_error_log_file_name
-#             # l_echo "Error Command Submitted: #${cmd_num}" $pp_error_log_file_name
-#             # l_echo "Error Command Submitted: $cmd_text" $pp_error_log_file_name            
-#             l_echo "Exit Code: $exit_code" $pp_error_log_file_name
-
-#          # could be an exit status of 1 but can be other codes as well.
-#             # It is possible that some errors may not show up huc log file depending
-#             # how catastrophic the error was. It is possible that an exception
-#             # could show up in our error log file twice and that is ok.
-#             # It may or may not already have been see by "tee" and is in the std log file.
-#             # err_msg="***** ERROR- Unknown Exit status: $code detected *****"
-#             # l_echo "$err_msg" $hucLogFileName
-#             # list_error_msg+="${err_msg}\n"
-#             exit  $exit_code
-#         fi
-#     done
-
-
-
-    # l_echo "++++++++++++++++++++++++++++" $pp_error_log_file_name
-    # msg="Critical error in fim_post_processing.sh itself, line number: ${BASH_LINENO}"
-    # l_echo "${msg}" $pp_error_log_file_name
-    # l_echo "Error Command Submitted: ${BASH_COMMAND}" $pp_error_log_file_name
-    # l_echo "Exit Code: $exit_code" $pp_error_log_file_name
-
-#     echo "++++++++++++++++++++++++++++"
-#     echo
-# }
-
-
-rm -f $pp_log_file_name  # If it already exists
-rm -f $pp_error_log_file_name  # If it already exists
-
-# More notes about error handling.
-# The "trapping starts with the word "trap" and "ERR" on the end.
-# above this line, will not be trapped by design.
-
-# If a command line is pumped to another command like tee, this trap will not be
-# triggered and we have to test it by hand
-## trap 'bash_error_handler "${BASH_SOURCE[1]}" "$BASH_COMMAND" "$pp_error_log_file_name" "${PIPESTATUS[@]}"' ERR
-# trap 'handle_error "$?"' ERR
-# trap 'handle_error ${PIPESTATUS[0]}' ERR
-# trap 'handle_error ( "${PIPESTATUS[@]}" ) ERR
-
-# Note: Many files such as run_huc.sh, run_branch.sh and calibrate_rating_curves do not have
-# there own error handling logic and don't want them. Their handling is done by parent scripts
-# such as fim_process_huc.sh, process_branch.sh, etc
-
-# for xx False
 
 if [ "$runName" = "" ]
 then
@@ -279,12 +64,39 @@ if [ ! -d "$outputDestDir" ]; then
     exit 22
 fi
 
+########################
+# Setup all key variables needed by any functioning code
+# Do not call any commands here until after the error trapping has started
+# We need this setup so the two error handling functions have variables to work with.
+# Note: If the lines below fail before we add the "trap" command below, it will not be
+# caught correctly and that is ok, as most of it is setting very simple variables or are part of input handling
+source $srcDir/bash_functions.env
+source $srcDir/bash_variables.env
+
+########################
+# Add error handling for any script call or even page leve
+# No matter what happens, this will execute and copy the folder from temp to outputs
+# starting from the trap 'exit_and_copy' EXIT and down, ie) the arg tests above
+exit_and_copy() {
+    echo
+    l_echo "---- End of fim_post_processing" $pp_log_file_name
+    l_echo "---- Ended: `date -u`" $pp_log_file_name
+    Calc_Duration "Post Processing Duration:" $post_proc_start_time $pp_log_file_name
+    echo
+    exit 0  # yes, return sucess
+}
+
+rm -f $pp_log_file_name  # If it already exists
+rm -f $pp_error_log_file_name  # If it already exists
+
+
 # =====================
 # This safety net catches from here down always calls this block, even if an exit code or exception has been called
 trap 'exit_and_copy' EXIT
 
-trap 'handle_error $LINENO $pp_error_log_file_name' ERR
+trap 'handle_error "${PIPESTATUS[*]}" $LINENO $pp_error_log_file_name "post"' ERR
 
+# ls /nonexistent_directory_to_force_a_fail
 
 # load up enviromental information
 args_file=$outputDestDir/runtime_args.env
@@ -292,6 +104,8 @@ fim_inputs=$outputDestDir/fim_inputs.csv
 
 source $args_file
 source $outputDestDir/params.env
+
+
 
 echo
 echo "++++++++++++++++++++++++++++++++++++++++++++++++++++"

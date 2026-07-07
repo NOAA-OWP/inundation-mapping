@@ -1,11 +1,10 @@
 #!/bin/bash
-#set -o errtrace
-### set -e
 # set -e         # Critical: Can not have a -e inplace in order for the error handline
 set -o pipefail  # Crucial: Forces the pipe to fail if the subscript fails but only when a pipe is used.
-
-### ---- This page can not be allowed to exit with anything other than an exit code of 0 (success).
-### But, we have an error trapping, so we CAN NOT use set -e. We log anything that goes wrong.
+set -o errtrace  # Inherit trap inside functions/subshells
+# For this one, we do want to stop, but the error script will always be caught
+# by the trap, then always hit the exit_and_copy if the error happens after the
+# code is executed. We want this script to ALWAYS return a 0
 ### Yes.. not all of our .sh files are the same with the -e flag, by design.
 
 :
@@ -67,58 +66,6 @@ if ! [[ $hucNumber =~ $re ]] ; then
    exit 22
 fi
 
-# No matter what happens, this will execute and copy the folder from temp to outputs
-# starting from the trap 'exit_and_copy' EXIT and down, ie) the arg tests above
-exit_and_copy() {
-
-    echo "---- HUC processing for $hucNumber is complete"
-    date -u
-    Calc_Duration "Duration for huc processing: " $huc_start_time $hucLogFile
-    echo
-    echo "=========================================================================="
-
-    # Ensure all child folders and files are set to the perms we want
-    #chmod -R 774 $tempHucDataDir
-    echo "Copying folder from temp directory to output directory"
-    cp -r --no-preserve=ownership $tempHucDataDir $outputHucDataDir
-    rm -rdf $tempHucDataDir
-    echo
-    exit 0  # for fim_process_huc only, we do want to always return a 0.
-}
-
-# Some simple error handling for most of this script itself.
-# Most errors are trapped via the "tee" command, then error scanning.
-# We add it to the log file then scan for the word "error" later down.
-# This is mostly valuable for AWS
-# handle_error() {
-
-#     local exit_code=$?
-
-#     l_echo "++++++++++++++++++++++++++++" $error_log_filename
-#     msg="Critical error in fim_process_huc.sh itself, line number: ${BASH_LINENO}"
-#     l_echo "$msg" $error_log_filename
-#     l_echo "Error Command Submitted: ${BASH_COMMAND}" $pp_error_log_file_name
-#     l_echo "Exit Code: $exit_code" $pp_error_log_file_name
-#     echo "++++++++++++++++++++++++++++"
-#     echo
-# }
-
-source $srcDir/bash_functions.env
-source $srcDir/bash_variables.env
-
-# This absolute safety net catches the exit command and runs your final lines
-trap 'exit_and_copy' EXIT
-
-# In case there is a critical error with logic on this page.
-# Most errors are caught via Time and Tee, then the return status codes
-# but errors can occur on this page itself. This helps trap those types of errors
-
-
-
-
-huc_start_time=`date +%s`
-
-# outputsDir, srcDir, workDir and others come from the Dockerfile
 export tempRunDir=$workDir/$runName
 export outputDestDir=$outputsDir/$runName
 export tempHucDataDir=$tempRunDir/$hucNumber
@@ -130,21 +77,31 @@ hucLogFile="$tempHucDataDir/logs/huc_${hucNumber}_unit.log"
 warningLogFile="$tempHucDataDir/logs/huc_${hucNumber}_warnings.log"
 error_log_filename="$tempHucDataDir/logs/huc_${hucNumber}_errors.log"
 
-# trap 'handle_error $LINENO' ERR INT
-trap 'handle_error $LINENO $error_log_filename' ERR
+# No matter what happens, this will execute and copy the folder from temp to outputs
+# starting from the trap 'exit_and_copy' EXIT and down, ie) the arg tests above
+exit_and_copy() {
 
-## huc data
-if [ -d "$outputHucDataDir" ]; then
-    rm -rdf $outputHucDataDir
-fi
+    # Shut off the trap
+    trap - ERR
 
-# In case of aborted attempts earlier
-if [ -d "$tempHucDataDir" ]; then
+    # Ensure all child folders and files are set to the perms we want
+    #chmod -R 774 $tempHucDataDir
+    echo "============================================================================================="
+    echo
+    echo "Starting coping folder from temp directory to output directory"
+    date -u +"%Y-%m-%d %H:%M:%S"  # to screen
+    date -u +"%Y-%m-%d %H:%M:%S" >> $outputHucDataDir  # to file
+    cp -r --no-preserve=ownership "${tempHucDataDir}/" "${outputHucDataDir}/"
     rm -rdf $tempHucDataDir
-fi
+    echo "***** Moved temp directory: $tempHucDataDir to output directory: $outputHucDataDir  *****"
+    echo
+    echo "============================================================================================="    
+    echo
+    exit 0  # for fim_process_huc only, we do want to always return a 0.
+}
 
-# make outputs directory
-mkdir -p $tempHucDataDir
+source $srcDir/bash_functions.env
+source $srcDir/bash_variables.env
 
 # TODO: July 2026: using setfacl is a power tool to help manage perms settings
 # but it is not yet in our Docker build. See notes in Dockerfile.dev
@@ -155,10 +112,35 @@ mkdir -p $tempHucDataDir
 # setfacl -d -m o::rx $tempHucDataDir
 # In the meantime, we have a weird combination of inefficient chmod everywhere.
 
+# In case of aborted attempts earlier
+if [ -d "$tempHucDataDir" ]; then
+    rm -rdf $tempHucDataDir
+fi
+mkdir -p $tempHucDataDir
 mkdir -p $tempBranchDataDir
-mkdir -p  $tempHucDataDir/logs
-mkdir -p  $tempHucDataDir/logs/branch
+mkdir -p $tempHucDataDir/logs
+mkdir -p $tempHucDataDir/logs/branch
 chmod 777 -R $tempHucDataDir
+chmod 777 -R $tempBranchDataDir
+chmod 777 -R $tempHucDataDir/logs
+
+# make outputs directory
+## huc data
+if [ -d "$outputHucDataDir" ]; then
+    chmod 777 -R $outputHucDataDir  # in case something was aborted earlier
+    rm -rdf $outputHucDataDir
+fi
+mkdir -p $outputHucDataDir
+chmod 777 $outputHucDataDir
+
+# This absolute safety net catches the exit command and runs your final lines
+# but only from this point down.
+trap 'exit_and_copy' EXIT
+# Error handling starts from here down.
+# Note: While the error log file will capture errors from this page or its "tee" returns,
+# it does not include some errors and exceptions recorded inside the child .sh files. 
+# We will catch those via error search tools.
+trap 'handle_error "${PIPESTATUS[*]}" $LINENO $error_log_filename "huc"' ERR
 
 echo "=========================================================================="
 l_echo "---- Start of huc processing for $hucNumber" $hucLogFile
@@ -174,8 +156,6 @@ l_echo "---- Started: `date -u`" $hucLogFile
 /usr/bin/time -v $srcDir/run_huc.sh 2>&1 | tee -a $hucLogFile
 # TODO (very low priority): fix this to the formatted version for the time command
 # /usr/bin/time -f "$time_cmd_format" $srcDir/run_huc.sh 2>&1 | tee $hucLogFile
-
-echo "Yes. I am back"
 
 # ${PIPESTATUS[0]} will always return two exit codes from our tee line above.
 # and it is in the PIPESTATUS array. The first code will always be the single
@@ -241,7 +221,8 @@ echo "Yes. I am back"
 
 # Search the huc log file for warnings.
 # TODO... THIS does not scan src log folders yet
+
+# TODO: This only gets called if the pages has completed successfully.
 grep -Hin "warning" "${hucLogFileName}" > "${warningLogFile}"
 
-# The line above of trap 'execute_final_lines' EXIT, means the function will
-# ALWAYS execute and the files / folder. You do not need to specifically call it.
+# exit_and_copy will be copied here if not earlier, depending on exceptions or errors from the TRAP ... ERR and down.

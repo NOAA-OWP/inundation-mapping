@@ -49,6 +49,8 @@ usage()
     "
 }
 
+set -e
+
 while [ "$1" != "" ]; do
 case $1
 in
@@ -191,6 +193,7 @@ source $srcDir/bash_variables.env
 export runName=$runName
 export jobHucLimit=$jobHucLimit
 
+# Yes.. if this fails in AWS, we don't see it easily but can see it in its CloudWatch
 num_hucs=$(python3 $srcDir/check_huc_inputs.py -u ${hucList} -i ${full_huc_list_file})
 echo
 echo "--- Number of HUCs to process is $num_hucs"
@@ -209,6 +212,7 @@ if [ -d $tempRunDir ]; then
     rm -rdf $tempRunDir
     mkdir -p $tempRunDir
     chmod 777 $tempRunDir
+    # TODO: Hold until a new docker image is created    
     # Set default permissions for the owner, group, and others
     # This forces 775 (rwxrwxr-x) on all newly created files and folders
     # setfacl -d -m u::rwx $tempRunDir
@@ -219,12 +223,14 @@ fi
 # make dirs
 if [ ! -d $outputDestDir ]; then
     mkdir -p $outputDestDir
-    chmod 777 $outputDestDir
+    chmod 777 -R $outputDestDir
+    # TODO: Hold until a new docker image is created
     # Set default permissions for the owner, group, and others
     # This forces 775 (rwxrwxr-x) on all newly created files and folders
-    # setfacl -d -m u::rwx $outputDestDir
-    # setfacl -d -m g::rwx $outputDestDir
-    # setfacl -d -m o::rx $outputDestDir
+    # setfacl -d -m u::rwx $tempRunDir
+    # setfacl -d -m g::rwx $tempRunDir
+    # setfacl -d -m o::rx $tempRunDir
+
 else
     # remove these directories and files on a new or overwrite run
     rm -rdf $outputDestDir/logs
@@ -248,6 +254,9 @@ cp $envFile $outputDestDir/params.env
 
 args_file=$outputDestDir/runtime_args.env
 
+# reset it again (this time recursive for the new incoming folders
+chmod 777 -R $outputDestDir
+
 # the jobHucLimit is not from the args files, only jobBranchLimit
 echo "export runName=$runName" >> $args_file
 echo "export jobHucLimit=$jobHucLimit" >> $args_file
@@ -257,6 +266,8 @@ echo "export deny_branches_list=$deny_branches_list" >> $args_file
 echo "export deny_branch_zero_list=$deny_branch_zero_list" >> $args_file
 echo "export has_deny_branch_zero_override=$has_deny_branch_zero_override" >> $args_file
 echo "export evaluateCrosswalk=$evaluateCrosswalk" >> $args_file
+
+chmod 777 $args_file
 
 echo "--- Pre-processing is complete"
 echo

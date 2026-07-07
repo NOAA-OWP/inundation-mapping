@@ -7,8 +7,9 @@
 
 ## SOURCE FILE AND FUNCTIONS ##
 # load the various enviro files
-args_file=$outputDestDir/runtime_args.env
+source $srcDir/bash_functions.env
 
+args_file=$outputDestDir/runtime_args.env
 source $args_file
 source $outputDestDir/params.env
 source $srcDir/bash_functions.env
@@ -27,14 +28,12 @@ branchSummaryLogFile=$tempHucDataDir/logs/branch/"$hucNumber"_summary_branch.log
 
 huc2Identifier=${hucNumber:0:2}
 
-
 ## SET CRS and input DEM domain
 if [ $huc2Identifier -eq 19 ]; then
     huc_CRS=$ALASKA_CRS
     huc_input_DEM_domain=$input_DEM_domain_Alaska
     input_DEM=$input_DEM_Alaska
     input_pit_fill=$input_DEM_pit_fills_Alaska
-    # dem_domain_filename=DEM_Domain.parquet
     input_bridge_elev_diff=$input_bridge_elev_diff_alaska
 
 elif [ $hucNumber -eq 22010000 ]; then
@@ -42,7 +41,6 @@ elif [ $hucNumber -eq 22010000 ]; then
     huc_input_DEM_domain=$input_DEM_domain_Guam
     input_DEM=$input_DEM_Guam
     input_pit_fill=$input_DEM_pit_fills_Guam
-    # dem_domain_filename=DEM_Domain.parquet
     input_bridge_elev_diff=$input_bridge_elev_diff_guam
 
 elif [ $hucNumber -eq 22030001 ]; then
@@ -50,7 +48,6 @@ elif [ $hucNumber -eq 22030001 ]; then
     huc_input_DEM_domain=$input_DEM_domain_AmericanSamoa
     input_DEM=$input_DEM_AmericanSamoa
     input_pit_fill=$input_DEM_pit_fills_AmericanSamoa
-    # dem_domain_filename=DEM_Domain.parquet
     input_bridge_elev_diff=$input_bridge_elev_diff_americansamoa
 
 else
@@ -58,7 +55,6 @@ else
     huc_input_DEM_domain=$input_DEM_domain
     input_DEM=$input_DEM
     input_pit_fill=$input_DEM_pit_fills
-    # dem_domain_filename=HUC6_dem_domain.parquet
     input_bridge_elev_diff=$input_bridge_elev_diff
 
 fi
@@ -348,7 +344,7 @@ if [ -f $branch_list_lst_file ]; then
     # but there will still be a branch zero
     parallel --timeout $branch_timeout -j $jobBranchLimit --joblog $branchSummaryLogFile --colsep ',' \
     -- $srcDir/process_branch.sh $runName $hucNumber :::: $branch_list_lst_file
-    Calc_Duration
+    Tcount
 else
     echo "No level paths exist with this HUC. Processing branch zero only."
 fi
@@ -369,23 +365,23 @@ fi
 ## call src adjustments..Pass False as an argument to flag it is not a rerun of calibration. 
 $srcDir/calibrate_rating_curves.sh "False" $jobBranchLimit $hucNumber
 
+## Start the local csv branch list
+echo -e $startDiv"Generating Branch List that have successfully completed"
+$srcDir/generate_branch_list_csv.py -o $branch_list_csv_file -u $hucNumber
 
 echo "---- HUC $hucNumber - branches have now been processed"
 Calc_Duration "Duration for processing branches : " $branch_processing_start_time
 echo
 total_branches=$(wc -l < $branch_list_csv_file)
 
-
-## Start the local csv branch list
-echo
-echo -e $startDiv"Generating Branch List that have successfully completed"
-$srcDir/generate_branch_list_csv.py -o $branch_list_csv_file -u $hucNumber
-
-
-
 # WRITE TO LOG FILE CONTAINING ALL HUC PROCESSING TIMES
 total_duration_display="$hucNumber,$(Calc_Time $huc_start_time),$(Calc_Time_Minutes_in_Percent $huc_start_time),$total_branches,$branch0,$branch0_percent,$branches,$branches_percent"
 echo "$total_duration_display" >> "$tempHucDataDir/processing_time_$hucNumber.txt"
 
+# Yes.. we let this log to the hucLogFile so error seach tools can look only in this huc file.
+date -u
+echo "---- HUC processing for $hucNumber is complete"
+Calc_Duration "Duration for huc processing : " $huc_start_time
+echo
 
 # let the script return whatever code it wants unless controlled exit like calibrate_rating_curves.sh

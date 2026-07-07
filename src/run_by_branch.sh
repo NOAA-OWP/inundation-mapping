@@ -1,13 +1,16 @@
 #!/bin/bash -e
+# We DO WANT the -e here which means stop execution immediately on fail.
+# We want this to auto fail as it is logging and error handling are done by its parent
+# of process_huc.sh
 ### Yes.. not all of our .sh files are the same with the -e flag, be design.
+
+## SOURCE BASH FUNCTIONS
+source $srcDir/bash_functions.env
 
 ## INITIALIZE TOTAL TIME TIMER ##
 ## Used by timers in sections below
 ## Overall page timer in process_branch.sh in case of errors
 T_total_start
-
-## SOURCE BASH FUNCTIONS
-source $srcDir/bash_functions.env
 
 ## SET VARIABLES AND FILE INPUTS ##
 hucNumber="$1"

@@ -58,31 +58,29 @@ class HandDir(object):
         # included in the unit.log. Based on our arch, this is the right answer
         # and we do not want to scan various logs ad I would create a ton of duplication
 
+        print(".......................................................")
+        print("    Searching for the words or phrases of (non case-sensitive):")
+        print("       command exited with non-zero status")
+        print("       exit status: (with one to 3 numbers, not counting 0. The colon may or may not exist)")
+        print("       error")
+        print("       exception")
+        print("       parallel: warning")
+        print(".......................................................")
+        print("")
+
         # These are the columns that will be in the DataFrame and report CSV
         columns = ['level', 'exit_code', 'huc', 'path', 'line', 'text']
         all_lines_founds = []
 
         do_huc_folders_exist=False
         for huc_dir in self.iter_hucs():
-            print(f"hucdir is {huc_dir}")            
             # Search huc logs
-            print(f"and the name is {huc_dir.name}")
             huc_logs = Path(huc_dir, 'logs', f"huc_{huc_dir.name}_unit.log")
             # huc_lines, huc_text, exit_code = self.log_kw_search(huc_logs)
             lines_found = self.log_kw_search(huc_logs, huc_dir.name)
             if len(lines_found) > 0:
                 all_lines_founds.extend(lines_found)
                 do_huc_folders_exist=True
-
-            # Add the lines to the report for any exits codes other than zero
-            # if exit_code:
-            #     print("we are here")
-            #     outputs.append(
-            #         pd.DataFrame(
-            #             columns=columns,
-            #             data=[['huc', exit_code, huc_dir.name, huc_logs, huc_lines, huc_text]],
-            #         )
-            #     )
 
             # Note: No need to searh branch logs as they are reduntant.
             # All branch errors are already rolled up in to its parent huc log file
@@ -141,6 +139,7 @@ class HandDir(object):
         current_line_num = 1
         # final_exit_code = None
         # print(f"Log file is {logfile}")        
+        status_code_pattern = r"(?i)status(?::\s*|\s+)([1-9]\d{0,2})(.*)"
         with open(logfile, "r") as log:
             # Search for a match to any of the keywords in each line
             #for line_num, line in enumerate(log, start=1):
@@ -155,7 +154,7 @@ class HandDir(object):
                     # as the search is for far more than just "status"
                     #status_code = re.match(r"([status:?\w]).*?(\d+)$", line.strip(), flags=re.IGNORECASE)
                     # status_code_pattern = r"\bstatus\s\d{1,3}\b"
-                    status_code_pattern = r"(status)(:?)\s(\d{1,3})\s"
+                    # status_code_pattern = r"(status)(:?)\s(\d{1,3})\s"
                     status_code_match = re.search(status_code_pattern, line, re.IGNORECASE)
 
                     exit_code = ""
@@ -163,7 +162,20 @@ class HandDir(object):
                         # status_code = re.findall(status_code_pattern, line, re.IGNORECASE )
                         # print(f"did we find an status code? and its value is ({status_code})")
                         # print(f"what did we find for the match group: {status_code_match.group()}")
-                        exit_code = status_code_match.group(2)
+                        match_result = status_code_match.group()
+                        # print(f"status_code_match value is ..{match_result}..")
+
+                        exit_code = match_result.replace("status", "").replace(":", "").strip()
+
+                        # Had trouble using the match group values. Just used the entire thing
+                        # and used replaces.
+                        # exit_code = status_code_match.group(1)
+                        # group 1 might return the : and space as well, so lets drop the :
+                        # then trim it.
+                        # print(f"exit code is {exit_code} for line {current_line_num}")
+                        # exit_code = exit_code.replace(":", "").strip()
+                        if exit_code == "0":  # then skip 
+                            continue
                         #xit_codes.append(exit_code)
                         # print(f"and the status code if we found one is {exit_code}")
                         # exit_codes.append("")
@@ -190,6 +202,37 @@ class HandDir(object):
         #     exit_code = final_exit_code
 
         return found_lines
+
+        '''
+        testing patterns:
+        here is a line with no status
+        here is a line with just a 0
+        and one with status 0
+        and one with status 1   (good)
+        and one with status 12   (good)
+        and one with status 123   (good)
+        and one with status 0 with somethign behind it
+        and one with status: 0 with somethign behind it
+        and one with status: 123 with somethign behind it   (good)
+        and one with status: 0
+        and one with status: 1   (good)
+        and one with status: 12   (good)
+        and one with status: 123   (good)
+        and just the word status with nothing else
+        status
+        status 0
+        status 1   (good)
+        status 12   (good)
+        status 134   (good)
+        status:0
+        status:1   (good)
+        status: 0
+        status: 1   (good)
+        status: 12   (good)
+        status: 345   (good)
+        status: 3456   (good)
+        status: 12 3456  (good)
+        '''
 
     # @staticmethod
     ### HUC list check

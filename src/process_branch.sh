@@ -10,7 +10,7 @@
 # This is a key part to handling .sh exceptions.
 
 # This script does not need its own trap if there are errors on this page
-# becuase, as mentioned, it auto goes to screen, then log rollups and usign l_echo has no value.
+# because, as mentioned, it auto goes to screen, then log rollups and usign l_echo has no value.
 
 runName=$1
 hucNumber=$2
@@ -37,7 +37,6 @@ date -u
 
 /usr/bin/time -v $srcDir/run_by_branch.sh $hucNumber $branchId 2>&1 | tee -a $branch_log_file_name
 # /usr/bin/time -f "$time_cmd_format" $srcDir/run_by_branch.sh $hucNumber $branchId 2>&1 | tee $branch_log_file_name
-echo
 
 # See note in fim_process_huc.sh talking about PIPESTATUS info
 return_codes=( "${PIPESTATUS[@]}" )
@@ -75,5 +74,5 @@ done
 
 echo -e $startDiv"End Branch Processing $hucNumber $branchId ..."
 date -u
-Calc_Duration "Duration : " $branch_start_time
+Calc_Duration "Duration : " $branch_start_time ""
 echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
