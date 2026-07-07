@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# import csv
+import csv
 import datetime as dt
 import gc
 import json
@@ -1060,19 +1060,21 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
                 crs=src_crs,
             )
 
-            # Add data type to columns, if needed (usually the ones that are sometimes/always NA)
-            for colname, new_dtype in WRDS_METADATA_COL_TYPES.items():
-                if colname in site_gdf.columns:
-                    site_gdf[colname] = site_gdf[colname].astype(new_dtype)
+            ## TEMP DEBUG: Temporarily removing this section which deals with columns types etc,
+            ## becuase I'm worried it might've introduced errors in the USGS calibration TODO: reimplement if needed
+            # # Add data type to columns, if needed (usually the ones that are sometimes/always NA)
+            # for colname, new_dtype in WRDS_METADATA_COL_TYPES.items():
+            #     if colname in site_gdf.columns:
+            #         site_gdf[colname] = site_gdf[colname].astype(new_dtype)
 
-            # # Replace 'None' and 'nan' with None
-            # site_gdf = site_gdf.replace(['None', 'nan', np.nan], None)
+            # # # Replace 'None' and 'nan' with None
+            # # site_gdf = site_gdf.replace(['None', 'nan', np.nan], None)
 
-            # Record colnames of cols with NA vals and a vague col type (object)
-            # because these columns could cause future warnings and errors
-            for colname in site_gdf.columns:  # TEMP DEBUG
-                if site_gdf[colname].isna().any() and site_gdf[colname].dtype == object:
-                    columns_with_NA_missing_dtype.append(colname)
+            # # Record colnames of cols with NA vals and a vague col type (object)
+            # # because these columns could cause future warnings and errors
+            # for colname in site_gdf.columns:  # TEMP DEBUG
+            #     if site_gdf[colname].isna().any() and site_gdf[colname].dtype == object:
+            #         columns_with_NA_missing_dtype.append(colname)
 
             # Field to indicate if a latlon datum was assumed
             site_gdf['assigned_crs'] = src_crs + ''.join(message)

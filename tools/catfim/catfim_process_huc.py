@@ -1073,8 +1073,11 @@ def __adjust_datum_ft(lid_sites_gdf, lid_library_df, lid, datum_adj_nodata_value
     # Get the datum adjustment to convert NGVD to NAVD
     if vcs == 'NGVD29':
         try:
-            datum_adj_ft = ngvd_to_navd_ft(datum_info=datum_data)
+            datum_adj_ft, err_msg = ngvd_to_navd_ft(datum_info=datum_data)
             logging.info(f"{lid}: Datum adjustment from NGVD29 to NAVD88 is {datum_adj_ft} ft:")
+
+            if err_msg != "":
+                logging.error(err_msg)
 
             if datum_adj_ft is None:
                 err_msg = f"{lid}: NOAA VDatum failed but no error message returned from VDatum API"
@@ -1108,7 +1111,11 @@ def __adjust_datum_ft(lid_sites_gdf, lid_library_df, lid, datum_adj_nodata_value
                 if 'HTTPSConnectionPool' in ex:
                     time.sleep(10)  # Maybe the API needs a break, so wait 10 seconds
                     try:
-                        datum_adj_ft = ngvd_to_navd_ft(datum_info=datum_data)
+                        datum_adj_ft, err_msg = ngvd_to_navd_ft(datum_info=datum_data)
+
+                        if err_msg != "":
+                            logging.error(err_msg)
+
                     except Exception:
                         err_msg = 'NOAA VDatum adjustment error, possible API issue'
                         logging.error(f"{lid}: {err_msg}")

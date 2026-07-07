@@ -40,7 +40,7 @@ nwm_subset_streams_levelPaths_dissolved_headwaters.gpkg
 # wbd8_clp.gpkg
 wbd_buffered.gpkg
 wbd_buffered_streams.gpkg
-DEM_Domain.gpkg
+DEM_Domain.parquet
 usgs_gages.gpkg
 reformat_ras_rating_curve_points_rel_101.gpkg
 nws_lid.gpkg
