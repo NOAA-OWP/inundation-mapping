@@ -335,7 +335,9 @@ def subset_vector_layers(
         logging.info(f"Clipping nwm_catchments for {huc}.")
         if os.path.exists(nwm_catchments):
             logging.info(f"Using nwm_catchments source for {huc}: {nwm_catchments}")
-            nwm_catchments = gpd.read_file(nwm_catchments, mask=wbd_buffer, engine="fiona")
+            nwm_catchments = gpd.read_file(nwm_catchments, engine="fiona")
+
+            nwm_catchments = nwm_catchments.clip(wbd_buffer)
 
             if len(nwm_catchments) > 0:
                 nwm_catchments.to_file(
