@@ -1,6 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.18.0 - 2026-07-08 - [PR#1881](https://github.com/NOAA-OWP/inundation-mapping/pull/1881)
+
+Mitigates errors introduced into USGS data download script by removing the section of `get_metadata()` that assigns column types based on a preexisting dictionary. Reverts a few of the changes in [PR 1873](https://github.com/NOAA-OWP/inundation-mapping/pull/1873) because those were temporary workarounds to handle the column type quirks that this PR mitigates.
+
+### Changes
+- `src/bash_variables.env`: Update USGS data input paths.
+- `data/usgs/get_usgs_rating_curves.py`: Adds blank index col back into acceptable sites CSV save code.
+- `src/usgs_gage_unit_setup.py`: Removed code that processes 'None' values in USGS gages.
+- `tools/tools_shared_functions.py`: Commented out section of `aggregate_wbd_hucs()` that assigns column types.
+<br/>
+
 ## v4.9.17.4 - 2026-07-08 - [PR#1870](https://github.com/NOAA-OWP/inundation-mapping/pull/1870)
 Updated the taudem shell execution to instead use python subprocess calls. This change allows for better error/warning handling. Resolves #1827 
 
