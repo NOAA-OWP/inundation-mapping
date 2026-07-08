@@ -118,7 +118,7 @@ echo "---------------------------------------------------"
 rm -df $workDir/$runName
 
 # Pipe into post processing
-. $projectDir/fim_post_processing.sh -n $runName 
+${projectDir}/fim_post_processing.sh -n $runName
 
 echo
 

@@ -24,7 +24,13 @@ def merge_huc_error_reports(hand_dir, output_csv_path):
     pattern = "huc_*_error_report.csv"
     num_recs_merged = search_concat_huc_csvs(hand_dir, pattern, output_csv_path, is_recursive=True)
 
-    print(f"{num_recs_merged} found and merged")
+    print(f"-- {num_recs_merged} found and merged")
+
+    if num_recs_merged == 0:
+        print("++++++++++++++++++++++++++++++++++++++")
+        print("ERROR ?? : if no records were found to merge, check the huc logs files as an critical error"
+              " in each of the huc error scan tools have failed.")
+        print("++++++++++++++++++++++++++++++++++++++")
 
 
 if __name__ == "__main__":

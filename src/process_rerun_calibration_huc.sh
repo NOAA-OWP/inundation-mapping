@@ -1,6 +1,17 @@
-#!/bin/bash -e
-### We must have the -e above which is exit on error
-### Yes.. not all of our .sh files are the same with the -e flag, be design.
+#!/bin/bash
+# set -e         # Critical: Can not have a -e inplace in order for the error handline
+set -o pipefail  # Crucial: Forces the pipe to fail if the subscript fails but only when a pipe is used.
+# For this one, we do want to stop, but the error script will always be caught
+# by the trap, then always hit the exit_and_copy if the error happens after the
+# code is executed. We want this script to ALWAYS return a 0
+### Yes.. not all of our .sh files are the same with the -e flag, by design.
+
+# ++++++++++++++++++++++++++++
+# TODO: We should be able to adjust the rerun_calibration.py script to handle stdErr and StdOut a bit better,
+# make it fully responsible for its own logging and error handle. Once we get that running, we can drop the need
+# for this script.
+# ++++++++++++++++++++++++++++
+
 
 #####################################
 ## Note:
@@ -32,6 +43,7 @@
 # ability for the wrapper script to manage most of its own bash command error without compromising
 # log. This is a critical feature needed especially for AWS. Not so for rerun_calibration.py when it
 # is run on an EC2 but ....
+
 
 ## otherwise we have two full seperate logging techniques and error trapping. Moreso, without this file, it would force
 # rerun_calibration.py to have so sort out exit codes, StdErr and StdOut BEFORE it reviews and builds
@@ -73,59 +85,28 @@ if [ "$tempHucDataDir" = "" ] ; then
     echo "Error: tempHucDataDir is an empty" >&2; exit 1
 fi
 
-# ROB.... We can likely drop in Carsons scan, with an args saying look
-# for recal records and not the reg log file
+# we have no need for an exit and copy as we are still in the original outputs dir, not the true fim_temp dir
 
-
-scan_logs_for_errors(){
-
-    echo "++++++++++++++++++++++++++"
-    l_echo "Scanning for issues in the logs" $rerunErrorLogFilename
-    # No.. the line above is not a mistype.
-    # Can't put the word "error" as as a header in the log file as it finds itself in the log files
-
-    # Scan for the word error in the log file. Exit codes were already managed above.
-    # We may end up with dup entries but that is ok.
-    # Everything else including errors in calibrate_rating_curves.sh and its children
-    # are already rolled up in the calib log file and calib error file.
-
-    grep -Hine "Command exited with non-zero status" $rerunlogFilename >> $rerunErrorLogFilename
-    grep -Hine "error" $rerunlogFilename >> $rerunErrorLogFilename
-    grep -Hine "parallel" $rerunlogFilename >> $rerunErrorLogFilename
-    grep -Hine "Exception" {} + >> $all_errors_log
-
-    # we need to also check the files in the src_calibration files for errors and exceptions values
-    # Some of the py files using src_calibration log folder may have incomplete logs and not
-    # re-raising exception if applicable and most won't actualy complete the write of an error to
-    # a log file so it never really gets logged. Look at some of the src...py files, then look for
-    # the word "except", the watch what is happening on logs or log variables. 
-    # Let's scan that dir to see if we cand find anythign but could be lots missing.
-    echo "Scanning issues in the src_calibration folder."
-
-    # Yes... there will be some duplication of errors in logs but good enough for now until we can make it smarter
-    find $tempHucDataDir -path "*/*/logs/src_calibrations/*.log" -type f -exec grep -Hni "error" {} + >> $rerunErrorLogFilename  || true
-    find $tempHucDataDir -path "*/*/logs/src_calibrations/*.log" -type f -exec grep -Hni "exception" {} + >> $rerunErrorLogFilename  || true
-    find $tempHucDataDir -path "*/*/logs/src_calibrations/*.log" -type f -exec grep -Hni "parallel" {} + >> $rerunErrorLogFilename  || true
-    find $tempHucDataDir -path "*/*/logs/src_calibrations/*.log" -type f -exec grep -Hni "Command exited with non-zero status" {} + >> $rerunErrorLogFilename  || true
-
-
-    # Look for warnings in the calibration folder
-    find $tempHucDataDir -path "*/*/logs/src_calibrations/*.log" -type f -exec grep -Hni "warning" {} + >> $rerunErrorLogFilename  || true    
-
-    wait # wait for all background grep jobs to complete
-    
-    echo "++++++++++++++++++++++++++"
-}
+# TODO: July 2026: using setfacl is a power tool to help manage perms settings
+# but it is not yet in our Docker build. See notes in Dockerfile.dev
+# Set default permissions for the owner, group, and others
+# This forces 775 (rwxrwxr-x) on all newly created files and folders
+# setfacl -d -m u::rwx $tempHucDataDir
+# setfacl -d -m g::rwx $tempHucDataDir
+# setfacl -d -m o::rx $tempHucDataDir
+# In the meantime, we have a weird combination of inefficient chmod everywhere.
 
 # As originally designed, it seems much better to keep its own logging seperate from the
 # original logs.
 rerunlogFilename=$tempHucDataDir/logs/huc_${hucNumber}_calib_rerun.log
-rerunErrorLogFilename=$tempHucDataDir/logs/huc_${hucNumber}_calib_rerun_errors.log
+rerunErrorLogFilename=$tempHucDataDir/logs/huc_${hucNumber}_calib_rerun_errors.log  # do we need this anymore?
 rerunWarningLogFilename=$tempHucDataDir/logs/huc_${hucNumber}_calib_rerun_warnings.log
+rerunErrorLogCSVReport=$tempHucDataDir/logs/huc_${hucNumber}_calib_rerun_error_report.csv
 
 # We need remove earlier versions from previous recalibration runs.
 rm -f $rerunlogFilename
 rm -f $rerunErrorLogFilename
+rm -f $rerunWarningLogFilename  # do we want a warning system here?
 rm -f $rerunWarningLogFilename  # do we want a warning system here?
 rm -rdf $tempHucDataDir/logs/src_calibrations
 
@@ -138,51 +119,29 @@ source $srcDir/bash_variables.env
 # Echos and prints are caught here via the "tee" command
 # Set_log_file_path $rerunlogFilename
 
+# Error handling starts from here down.
+# Note: While the error log file will capture errors from this page or its "tee" returns,
+# it does not include some errors and exceptions recorded inside the child .sh files. 
+# We will catch those via error search tools.
+trap 'handle_error "${PIPESTATUS[*]}" $LINENO $rerunlogFilename "huc"' ERR
 
 echo "=========================================================================="
 l_echo "---- Start of recalibration for $hucNumber" $rerunlogFilename
 
-# Clean out previous src_calibration logs.
 
 # run the actual calibration script (passing arguments explicitly since source commands may overwrite them)
 /usr/bin/time -v $srcDir/calibrate_rating_curves.sh "$calibration_rerun" "$jobBranchLimit" "$hucNumber" 2>&1 | tee $rerunlogFilename
 
-# We will check the actual exit status codes. If we find a non-zero, we will
-# log it in the error file, then reraise the exit code and let rerun_calibration.py
-# figure out what it wants to do with it (log it or abort it's full huc iterator)
-return_codes=( "${PIPESTATUS[@]}" )
+# TODO: This only gets called if the pages has completed successfully.
+grep -Hin "warning" "${rerunlogFilename}" > "${rerunWarningLogFilename}"
 
-# turn trapping on for just here down. We can not use a trap above the "tee"
-# line unless we detected and build variables for logging files / folders.
-# Maybe for another day. Yes.. for now this has to be an acceptable hole.
-# trap 'handle_error $LINENO' ERR
+## ===============================
+l_echo $startDiv"Compiling rerun calibration err..or report" $rerunlogFilename
+# Tstart
 
-# Yes... we can get more than one returned code, it is possible but very rare
-for code in "${return_codes[@]}"
-do
-    if [ $code -eq 0 ]; then
-        echo
-        # do nothing
-    else
-        err_msg="***** An error has occurred - Code (${code}) *****"
-        l_echo "$err_msg" $rerunlogFilename
+# Note: For this file only, and seeing as it has the rerun_calibration.py file, it is ok to let
+# the error go back if the script itself fails.
+python3 $srcDir/utils/huc_process_error_report.py \
+   -u $hucNumber -s $rerunlogFilename -o $rerunErrorLogCSVReport 2>&1 | tee -a -i $rerunlogFilename 
 
-        # We are re-raising the error and let rerun_calibration.py manage.
-        # in the process_huc mode for both standard pipeline and AWS mode, we must
-        # have process_huc alwasy return a zero, as if it was alway successfull
-
-        # Scan logs before exiting so errors are captured
-        scan_logs_for_errors
-
-        exit $code
-        fi
-done
-
-scan_logs_for_errors
 l_echo "---- End of recalibration for $hucNumber" $rerunlogFilename
-
-# Rob.... add scan for warnings as well
-
-
-# TODO... ROB:  can we add Carson scan tool with an arg switch?
-

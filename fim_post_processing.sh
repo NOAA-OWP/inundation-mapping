@@ -1,5 +1,8 @@
 #!/bin/bash
-# set -e         # Critical: Can not have a -e inplace in order for the error handline
+set -e          # Critical: We need the -e in place which means file in place if an error occurs.
+#                 HOWEVER.. as soon as we turn on the error TRAP, we need to have it turned back off again
+#                 otherwise the trap will not fire. Just above the TRAP, I add set +e to let trapping handling it.
+
 set -o pipefail  # Crucial: Forces the pipe to fail if the subscript fails but only when a pipe is used.
 # set -o errtrace  # Inherit trap inside functions/subshells
 # For this one, we do want to stop, but the error script will always be caught
@@ -44,6 +47,7 @@ done
 outputDestDir=$outputsDir/$runName
 pp_log_file_name=$outputDestDir/logs/post_processing.log
 pp_error_log_file_name=$outputDestDir/logs/post_processing_errors.log
+all_errors_csv=$outputDestDir/logs/all_error_report.csv
 
 if [ "$runName" = "" ]
 then
@@ -83,7 +87,6 @@ exit_and_copy() {
     l_echo "---- Ended: `date -u`" $pp_log_file_name
     Calc_Duration "Post Processing Duration:" $post_proc_start_time $pp_log_file_name
     echo
-    exit 0  # yes, return sucess
 }
 
 rm -f $pp_log_file_name  # If it already exists
@@ -93,7 +96,7 @@ rm -f $pp_error_log_file_name  # If it already exists
 # =====================
 # This safety net catches from here down always calls this block, even if an exit code or exception has been called
 trap 'exit_and_copy' EXIT
-
+set +e  # turns off, yes off, the system no longer auto aborts, as trapping will handle it from from here down.
 trap 'handle_error "${PIPESTATUS[*]}" $LINENO $pp_error_log_file_name "post"' ERR
 
 # load up enviromental information
@@ -113,10 +116,16 @@ post_proc_start_time=`date +%s`
 ## ===============================
 l_echo $startDiv"Compiling all HUC error reports" $pp_log_file_name
 # Tstart
-all_errors_csv=$outputDestDir/logs/all_error_report.csv
+# Note: This is a special log file system.
+# If it runs succesfully, it will add message to the standard huc log file.
+# But if this script itself fails, it gets a specical log file.
 python3 $srcDir/utils/post_process_error_report.py \
-   -n $outputDestDir -o $all_errors_csv 2>&1 | tee -a -i $pp_log_file_name 
+   -n $outputDestDir -o $all_errors_csv >> $pp_log_file_name 2>> $pp_error_log_file_name 
 
+# TODO: July 2026: low importances.
+# look for any of the huc error report .py file errors themselves which create a special log file
+# per huc, named $tempHucDataDir/logs/log_scan_tool_failed_(huc).log. 
+# But generally, if one fails, all will fail and get an warning.
 
 ## ===============================
 l_echo $startDiv"Concatenate all processing time files into a CSV file" $pp_log_file_name
@@ -140,4 +149,4 @@ python3 $toolsDir/combine_crosswalk_tables.py \
     -o $outputDestDir/crosswalk_table.csv 2>&1 | tee -a $pp_log_file_name
 Tcount
 
-echo
+# it will auto run the exit_and_copy function

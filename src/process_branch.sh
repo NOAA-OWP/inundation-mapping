@@ -1,5 +1,6 @@
 #!/bin/bash
 ### We DO NOT want -e (exit on fail)
+
 ### All output and errors going to screen and will be caught and rolled up via the "tee"
 ### command in fim_process_huc.sh (through run_huc.sh -> fim_process_huc.sh)
 ### Yes.. not all of our .sh files are the same with the -e flag, be design.
@@ -53,22 +54,22 @@ do
         # do nothing
     elif [ $code -eq 61 ]; then
         echo
-        echo "***** ERROR (well.. warning) status: Branch has no valid flowlines *****"
+        echo "***** ERROR Exit status: $code -- Branch has no valid flowlines *****"
         # rm -rf $tempHucDataDir/branches/$branchId/  # keep for debugging
     elif [ $code -eq 64 ]; then
         echo
-        echo "***** ERROR (well.. warning) status: Branch has no crosswalks *****"
+        echo "***** ERROR Exit status: $code -- Branch has no crosswalks *****"
         # rm -rf $tempHucDataDir/branches/$branchId/  # keep for debugging
     elif [ $code -eq 65 ]; then
         echo
         err_exists=1
-        echo "***** ERROR (well.. warning) status: Too many HydroIDs or a HydroID with more" \
+        echo "***** ERRORE xit status: $code -- Too many HydroIDs or a HydroID with more" \
         " than 8 digits in gw catchments to convert to Int16 *****"
         # rm -rf $tempHucDataDir/branches/$branchId/   # keep for debugging
     elif [ $code -ne 0 ]; then
         echo
         err_exists=1
-        echo "***** ERROR - Unknown Exit status of $code detected for branch $branchId *****"
+        echo "***** ERROR - Unknown Exit status: $code detected for branch $branchId *****"
     fi
 done
 

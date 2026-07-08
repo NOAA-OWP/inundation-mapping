@@ -22,9 +22,9 @@ combined_pattern = "(?:{})".format("|".join(ERROR_KW))
 # Compile the regexes
 error_re = re.compile(combined_pattern, re.IGNORECASE)
 
-def scan_error_log(hand_dir, huc_number, output_csv_path):
+def scan_error_log(huc_number, source_log_file, output_csv_path):
 
-    """Main function to check the logs of the huc unit log file"""
+    """Main function to check the logs of the huc unit or rerun unit log file"""
     # Note: This scans only huc_{huc name}_unit.log and assumes comforably
     # that other scripts have ensure all of the outputs and errors are already
     # included in the unit.log. Based on our arch, this is the right answer
@@ -40,15 +40,14 @@ def scan_error_log(hand_dir, huc_number, output_csv_path):
     # print(".......................................................")
     # print("")
 
-    # Search huc logs
-    log_file_name = f"huc_{huc_number}_unit.log"
-    huc_log_file = os.path.join(hand_dir, 'logs', log_file_name)
-
-    if not os.path.exists(huc_log_file):
-        raise FileNotFoundError(f"The huc log file of {huc_log_file} does not seem to exist"
+    if not os.path.exists(source_log_file):
+        raise FileNotFoundError(f"The huc log file of {source_log_file} does not seem to exist"
                                 " which is possible but highly unlikely")
-    lines_found = log_kw_search(huc_log_file, huc_number)
+    lines_found = log_kw_search(source_log_file, huc_number)
 
+    # Note: might be an empty file and that is ok.
+    if lines_found == 0:
+        print("GREAT JOB... no errors found.")
     output_df = pd.DataFrame(lines_found).astype(str)
     # print(output_df)
     output_df.to_csv(output_csv_path, index=False)
@@ -94,7 +93,9 @@ def log_kw_search(logfile, huc_number):
                     match_result = status_code_match.group()
                     # print(f"status_code_match value is ..{match_result}..")
 
-                    exit_code = match_result.replace("status", "").replace(":", "").strip()
+                    # pattern could be "status 123" or "status: 123"
+                    num_match = re.search(r'\d+', match_result)
+                    exit_code = num_match.group()
 
                     # Had trouble using the match group values. Just used the entire thing
                     # and used replaces.
@@ -166,9 +167,9 @@ def log_kw_search(logfile, huc_number):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Look for all errors in HUC folders')
-    parser.add_argument('-n', '--hand_dir', help='REQUIRED: folder path where the HUC folder exists.', required=True)
-    parser.add_argument('-u', '--huc_number', help='REQUIRED: The HUC number.', required=True)
-    parser.add_argument('-o', '--output_csv_path', help='REQUIRED: path of the csv report to be saved', required=True)
+    parser.add_argument('-u', '--huc-number', help='REQUIRED: The HUC number.', required=True)
+    parser.add_argument('-s', '--source-log-file', help='REQUIRED: Path for the log file to be scanned.', required=True)
+    parser.add_argument('-o', '--output-csv-path', help='REQUIRED: path of the csv report to be saved', required=True)
     args = vars(parser.parse_args())
 
     scan_error_log(**args)

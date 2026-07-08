@@ -1,9 +1,14 @@
 #!/bin/bash
-# set -e         # Critical: Can not have a -e inplace in order for the error handline
+set -e          # Critical: We need the -e in place which means file in place if an error occurs.
+#                 HOWEVER.. as soon as we turn on the error TRAP, we need to have it turned back off again
+#                 otherwise the trap will not fire. Just above the TRAP, I add set +e to let trapping handling it.
 set -o pipefail  # Crucial: Forces the pipe to fail if the subscript fails but only when a pipe is used.
-# For this one, we do want to stop, but the error script will always be caught
-# by the trap, then always hit the exit_and_copy if the error happens after the
-# code is executed. We want this script to ALWAYS return a 0
+
+# There are some places in this script we do not not want trapping turn on, such as making folders
+# validating and setting variables, but as soon as we do that, we turn on error handling, so we
+# can handle most logic and ensure it gets trapped, then always copied from the temp dir.
+# It is not a perfect solution, but still a very good one and better than we had.
+
 ### Yes.. not all of our .sh files are the same with the -e flag, by design.
 
 :
@@ -85,6 +90,7 @@ fi
 
 hucLogFile="$tempHucDataDir/logs/huc_${hucNumber}_unit.log"
 warningLogFile="$tempHucDataDir/logs/huc_${hucNumber}_warnings.log"
+log_scan_tool_failed_file="$tempHucDataDir/logs/log_scan_tool_failed_${hucNumber}.log"
 errorLogFile="$tempHucDataDir/logs/huc_${hucNumber}_error_report.csv"
 
 # No matter what happens, this will execute and copy the folder from temp to outputs
@@ -127,13 +133,17 @@ chmod 777 $tempHucDataDir
 chmod 777 $tempBranchDataDir
 chmod 777 $tempHucDataDir/logs
 
-# This absolute safety net catches the exit command and runs your final lines
-# but only from this point down.
+
+# This safety net catches the exit command and runs your final lines
+# but only from this point down. This helps ensure outputs data is copied from temp to outputs
+# from here down. Not perfect, but pretty good.
 trap 'exit_and_copy' EXIT
 # Error handling starts from here down.
 # Note: While the error log file will capture errors from this page or its "tee" returns,
 # it does not include some errors and exceptions recorded inside the child .sh files. 
 # We will catch those via error search tools.
+
+set +e  # turns off, yes off, the system no longer auto aborts, as trapping will handle it from from here down.
 trap 'handle_error "${PIPESTATUS[*]}" $LINENO $hucLogFile "huc"' ERR
 
 echo "=========================================================================="
@@ -151,15 +161,16 @@ l_echo "---- Started: `date -u`" $hucLogFile
 # TODO (very low priority): fix this to the formatted version for the time command
 # /usr/bin/time -f "$time_cmd_format" $srcDir/run_huc.sh 2>&1 | tee $hucLogFile
 
+# TODO: This only gets called if the pages has completed successfully.
+grep -Hin "warning" "${hucLogFile}" > "${warningLogFile}"
+
 ## ===============================
 l_echo $startDiv"Compiling err..or report" $hucLogFile
 # Tstart
-huc_errors_csv_log=$tempHucDataDir/logs/huc_${hucNumber}_error_report.csv
+# Note: This is a special log file system.
+# If it runs succesfully, it will add message to the standard huc log file.
+# But if this script itself fails, it gets a specical log file.
 python3 $srcDir/utils/huc_process_error_report.py \
-   -n $tempHucDataDir -u $hucNumber -o $errorLogFile 2>&1 | tee -a -i $hucLogFile 
-
-
-# TODO: This only gets called if the pages has completed successfully.
-grep -Hin "warning" "${hucLogFile}" > "${warningLogFile}"
+   -u $hucNumber -s $hucLogFile -o $errorLogFile >> $hucLogFile 2>> $log_scan_tool_failed_file 
 
 # exit_and_copy will be copied here if not earlier, depending on exceptions or errors from the TRAP ... ERR and down.
