@@ -35,7 +35,8 @@ usage ()
         1) run name
         2) HUC number
             Example:
-                ./fim_process_huc.sh test_name 05030104
+
+                ./fim_process_huc.sh hand_test 05030104
     "
 }
 
