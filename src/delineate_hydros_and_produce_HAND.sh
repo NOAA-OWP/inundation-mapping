@@ -269,7 +269,8 @@ python3 $srcDir/add_crosswalk.py \
     -k $tempCurrentBranchDataDir/small_segments_$current_branch_id.csv \
     -e $min_catchment_area \
     -g $min_stream_length \
-    -i $iris_sword_slope
+    -i $iris_sword_slope \
+    -p $hfab_ransac_slope
 
 ## HEAL HAND -- REMOVES HYDROCONDITIONING ARTIFACTS ##
 if [ "$healed_hand_hydrocondition" = true ] && [ "$current_branch_id" = "$branch_zero_id" ] ; then
@@ -285,6 +286,8 @@ fi
 ## HEAL HAND BRIDGES ##
 if  [ -f $tempHucDataDir/osm_bridges_subset.gpkg ]; then
     echo -e $startDiv"Burn in bridges $hucNumber $current_branch_id"
+    date -u
+    Tstart
     python3 $srcDir/heal_bridges_osm.py \
         -g $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
         -d $tempCurrentBranchDataDir/bridge_elev_diff_meters_$current_branch_id.tif \
@@ -293,7 +296,7 @@ if  [ -f $tempHucDataDir/osm_bridges_subset.gpkg ]; then
         -b2 1.5 \
         -p $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked_$current_branch_id.gpkg \
         -c $tempCurrentBranchDataDir/osm_bridge_centroids_$current_branch_id.gpkg
-
+    Tcount
 
 else
     echo -e $startDiv"No applicable bridge data for $hucNumber"
@@ -302,11 +305,14 @@ fi
 ## Process roads FIMpact ##
 if  [ -f $tempHucDataDir/osm_roads_subset.gpkg ]; then
     echo -e $startDiv"Process roads FIMpact $hucNumber $current_branch_id"
+    date -u
+    Tstart
     python3 $srcDir/process_roads_fimpact.py \
         -g $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
         -r $tempHucDataDir/osm_roads_subset.gpkg \
         -c $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked_$current_branch_id.gpkg \
         -o $tempCurrentBranchDataDir/osm_roads_fimpact_$current_branch_id.csv
+    Tcount
 else
     echo -e $startDiv"No osm roads data for $hucNumber"
 fi
@@ -314,11 +320,14 @@ fi
 ## Process buildings FIMpact ##
 if  [ -f $tempHucDataDir/buildings_subset.gpkg ]; then
     echo -e $startDiv"Process buildings FIMpact $hucNumber $current_branch_id"
+    date -u
+    Tstart
     python3 $srcDir/process_buildings_fimpact.py \
         -g $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
         -r $tempHucDataDir/buildings_subset.gpkg \
         -c $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked_$current_branch_id.gpkg \
         -o $tempCurrentBranchDataDir/buildings_fimpact_$current_branch_id.csv
+    Tcount
 else
     echo -e $startDiv"No buildings data for $hucNumber"
 fi

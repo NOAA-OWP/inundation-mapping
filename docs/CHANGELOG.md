@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v4.9.19.0 - 2026-07-08 - [PR#1867](https://github.com/NOAA-OWP/inundation-mapping/pull/1867)
+This pull request updates the source of the slope data to use the values provided by the hydrofabric dev team using the RANSAC (Random Sample Consensus) method. This effectively replaces the existing slope data values for use in the SRC calculations.
+
+### Changes
+ `src/add_crosswalk.py`: changes to ingest the new slope data from input parquet file and assign the values to the corresponding hydroids
+ `src/bash_variables.env`: define path to input parquet file containing slope values per featureid
+`src/delineate_hydros_and_produce_HAND.sh`: new input variable passed to `add_crosswalk.py`
+<br/>
+
 ## v4.9.18.0 - 2026-07-08 - [PR#1881](https://github.com/NOAA-OWP/inundation-mapping/pull/1881)
 
 Mitigates errors introduced into USGS data download script by removing the section of `get_metadata()` that assigns column types based on a preexisting dictionary. Reverts a few of the changes in [PR 1873](https://github.com/NOAA-OWP/inundation-mapping/pull/1873) because those were temporary workarounds to handle the column type quirks that this PR mitigates.
