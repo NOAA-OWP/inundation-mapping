@@ -1,6 +1,19 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.17.4 - 2026-07-08 - [PR#1870](https://github.com/NOAA-OWP/inundation-mapping/pull/1870)
+Updated the taudem shell execution to instead use python subprocess calls. This change allows for better error/warning handling. Resolves #1827 
+
+### Additions
+- `src/run_taudem_subprocess.py`: new python script dedicated to running all taudem tool executions 
+
+### Changes
+- `src/delineate_hydros_and_produce_HAND.sh`: updated taudem call to use new python subprocess script; retained all input variables
+- `src/run_by_branch.sh`: updated taudem call to use new python subprocess script; retained all input variables
+- `src/run_huc.sh`: updated taudem call to use new python subprocess script; retained all input variables; retained all input variables
+- `fim_process_huc.sh`: Fixed discovered error handling error
+<br/>
+
 ## v4.9.17.3 - 2026-07-02 - [PR#1868](https://github.com/NOAA-OWP/inundation-mapping/pull/1868)
 This PR closes issues #1859,  #1860,  #1861, and fixes latent bugs related to `rasterio.open()` file handle leaks.
 
