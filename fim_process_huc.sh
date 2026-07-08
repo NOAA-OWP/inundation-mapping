@@ -1,5 +1,6 @@
-#!/bin/bash -e
-
+#!/bin/bash
+#### Note: You can not have --pipefile, e,  or any other header. We have to get to the bottom to allow to copy the
+#### folder from temp to outputs, no matter what.
 :
 usage ()
 {
@@ -25,7 +26,7 @@ usage ()
         2) HUC number
             Example:
 
-                ./fim_process_huc.sh test_name 05030104
+                ./fim_process_huc.sh hand_test 05030104
     "
     exit
 }
@@ -37,7 +38,6 @@ fi
 
 export runName=$1
 export hucNumber=$2
-
 
 # print usage if arguments empty
 if [ "$runName" = "" ]
@@ -95,6 +95,9 @@ hucLogFileName=$tempHucDataDir/logs/"$hucNumber"_unit.log
 # Process the actual huc
 /usr/bin/time -v $srcDir/run_huc.sh 2>&1 | tee $hucLogFileName
 
+# 'tee' catches all screen outputs from all pages and scripts all the way back, including
+# all branch responses. Errors and output, even if an error occurs.
+
 #exit ${PIPESTATUS[0]} (and yes.. there can be more than one)
 # and yes.. we can not use the $? as we are messing with exit codes
 return_codes=( "${PIPESTATUS[@]}" )
@@ -104,9 +107,6 @@ return_codes=( "${PIPESTATUS[@]}" )
 err_exists=0
 for code in "${return_codes[@]}"
 do
-    # Make an extra copy of the unit log into a new folder.
-
-    # Note: It was tricky to load in the fim_enum into bash, so we will just
     # go with the exit code for now
     if [ $code -eq 0 ]; then
         echo
@@ -126,7 +126,7 @@ do
     fi
 done
 
-if [ "$err_exists" = "1" ]; then
+if [ "$err_exists" -ne 0 ]; then
     error_log_filename=$tempHucDataDir/logs/huc_"$hucNumber"_errors.log
     err_msg="Error: "$hucNumber". Invalid return status code. Exit status: $return_codes"
     echo $err_msg >> $error_log_filename
