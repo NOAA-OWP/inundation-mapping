@@ -1,7 +1,7 @@
 #!/bin/bash
 # set -e         # Critical: Can not have a -e inplace in order for the error handline
 set -o pipefail  # Crucial: Forces the pipe to fail if the subscript fails but only when a pipe is used.
-set -o errtrace  # Inherit trap inside functions/subshells
+# set -o errtrace  # Inherit trap inside functions/subshells
 # For this one, we do want to stop, but the error script will always be caught
 # by the trap, then always hit the exit_and_copy if the error happens after the
 # code is executed. We want this script to ALWAYS return a 0
@@ -96,16 +96,12 @@ trap 'exit_and_copy' EXIT
 
 trap 'handle_error "${PIPESTATUS[*]}" $LINENO $pp_error_log_file_name "post"' ERR
 
-# ls /nonexistent_directory_to_force_a_fail
-
 # load up enviromental information
 args_file=$outputDestDir/runtime_args.env
 fim_inputs=$outputDestDir/fim_inputs.csv
 
 source $args_file
 source $outputDestDir/params.env
-
-
 
 echo
 echo "++++++++++++++++++++++++++++++++++++++++++++++++++++"
@@ -115,47 +111,11 @@ post_proc_start_time=`date +%s`
 
 
 ## ===============================
-l_echo $startDiv"Compiling error report" $pp_log_file_name
+l_echo $startDiv"Compiling all HUC error reports" $pp_log_file_name
 # Tstart
-all_errors_csv_log=$outputDestDir/logs/error_report.csv
+all_errors_csv=$outputDestDir/logs/all_error_report.csv
 python3 $srcDir/utils/post_process_error_report.py \
-   -n $outputDestDir -o $all_errors_csv_log 2>&1 | tee -a -i $pp_log_file_name 
-# ; pipe_codes=("${PIPESTATUS[@]}")
-
-# python_exit_status=${PIPESTATUS[0]}
-
-# echo "Python failed with exit code $python_exit_status"
-
-# if [ $python_exit_status -ne 0 ]; then
-#     echo "Python failed with exit code $python_exit_status"
-#     echo "Check output.log for the full traceback."
-# fi
-
-# exit 1
-
-# return_codes=( "${PIPESTATUS[@]}" )
-
-# for code in "${return_codes[@]}"
-# do
-#     echo "return code is $code"
-#     handle_error $code
-# done
-
-# return_code=( "${PIPESTATUS[@]}" )
-# exit_code="${return_codes[0]}"
-# # exit_code 0 will always be tghe first call (ie. the py file)
-# if [ $exit_code -ne 0 ]; then 
-#     echo "The code from pp  is $exit_code"
-#      # l_echo "Aborting Script (Compiling error report)" $pp_error_log_file_name 
-#      handle_error "$exit_code"
-# #     # exit 1
-# fi
-# Call the error handler by hand to see if there are errors becuase we used a piped "|" command
-# bash_error_handler "${BASH_SOURCE[1]}" \
-#                    "Compiling error report" \
-#                    "$pp_error_log_file_name" \
-#                    "${PIPESTATUS[@]}"
-# Tcount
+   -n $outputDestDir -o $all_errors_csv 2>&1 | tee -a -i $pp_log_file_name 
 
 
 ## ===============================
@@ -179,26 +139,5 @@ python3 $toolsDir/combine_crosswalk_tables.py \
     -d $outputDestDir \
     -o $outputDestDir/crosswalk_table.csv 2>&1 | tee -a $pp_log_file_name
 Tcount
-# bash_error_handler "${PIPESTATUS[@]}" $LINENO "post_process_error_report.py" "$pp_error_log_file_name"
 
-## ===============================
-# l_echo $startDiv"Resetting Permissions"
-# Tstart
-#     find $outputDestDir -maxdepth 1 -type f -exec chmod 776 {} +  # just root level files
-# Tcount
-
-# Grep Tech Tip.. use the -e flag when you are not useing any wildcards or patterns
-# just a word in a line. If you need a regex type patter, use -E instead.
-# l_echo $startDiv"Searching for error and invalid exit codes from the post processing script" $pp_log_file_name
-# grep -Hnie "Error" $pp_log_file_name >> $pp_error_log_file_name || true
-# grep -Hnie "Exception" $pp_log_file_name >> $pp_error_log_file_name || true
-# grep -HniE "Exit status: ([1-9][0-9]{0,2})" $pp_log_file_name >> $pp_error_log_file_name &
 echo
-
-# TODO:
-# Add a tool that can check if any HUCs completely disappeared. ie) failed to move from temp to 
-# outputs. It is possible so we need a double check tool some how.  Low priority
-# If we can find an easy way to do it as is a very low possibility but moreso in AWS where
-# it does have a shared "fim-temp" that would leave a HUC folder in it if something catestrophically happens
-
-

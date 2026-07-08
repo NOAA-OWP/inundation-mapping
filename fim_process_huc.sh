@@ -85,7 +85,7 @@ fi
 
 hucLogFile="$tempHucDataDir/logs/huc_${hucNumber}_unit.log"
 warningLogFile="$tempHucDataDir/logs/huc_${hucNumber}_warnings.log"
-error_log_filename="$tempHucDataDir/logs/huc_${hucNumber}_errors.log"
+errorLogFile="$tempHucDataDir/logs/huc_${hucNumber}_error_report.csv"
 
 # No matter what happens, this will execute and copy the folder from temp to outputs
 # starting from the trap 'exit_and_copy' EXIT and down, ie) the arg tests above
@@ -151,70 +151,13 @@ l_echo "---- Started: `date -u`" $hucLogFile
 # TODO (very low priority): fix this to the formatted version for the time command
 # /usr/bin/time -f "$time_cmd_format" $srcDir/run_huc.sh 2>&1 | tee $hucLogFile
 
-# ${PIPESTATUS[0]} will always return two exit codes from our tee line above.
-# and it is in the PIPESTATUS array. The first code will always be the single
-# code returned by run_sh.sh, the second is if it successfuly was able to pipe 
-# it to the tee command. So, we check them both incase either has an error
-# and yes.. we can not use the $? which is the LAST exit code (which is like success for the pipe to tee)
-# When it is not used with "tee" it will have the only one status code in the array
-# return_codes=( "${PIPESTATUS[@]}" )
+## ===============================
+l_echo $startDiv"Compiling err..or report" $hucLogFile
+# Tstart
+huc_errors_csv_log=$tempHucDataDir/logs/huc_${hucNumber}_error_report.csv
+python3 $srcDir/utils/huc_process_error_report.py \
+   -n $tempHucDataDir -u $hucNumber -o $errorLogFile 2>&1 | tee -a -i $hucLogFile 
 
-# echo "and here are my return_codes"
-
-# # In case there is a critical error with logic on this page.
-# # now that have passed catching run_huc errors and Pipestatus from it,
-# # we can turn the trap back on to handle page errors itself, lower on this page
-# trap 'handle_error $LINENO' ERR INT
-
-# echo "now turn the trap is back on"
-
-# # This list helps identify that errors did exist and encourage reviewing the other log files
-# # even though the errors are likely already in the standard log file.
-# # Just helps it to stand out.
-# list_error_msg="" 
-# for code in "${return_codes[@]}"
-# do
-#     # Note: It was tricky to load in the fim_enum into bash, so we will just
-#     # go with the exit code for now
-#     if [ $code -eq 0 ]; then
-#         echo 
-#         # do nothing
-
-#     elif [ $code -eq 60 ]; then
-#         # Concat to the standard log file, but also make a seperate list to help it bubble up
-#         # even though it might already be there
-#         err_msg="***** Exit status: $code - Unit has no valid branches *****"
-#         l_echo "$err_msg" $hucLogFileName
-#         list_error_msg+="${err_msg}\n"
-
-#     elif [ $code -eq 61 ]; then
-#         # Concat to the standard log file, but also make a seperate list to help it bubble up
-#         # even though it might already be there
-#         err_msg="***** Exit status: $code - Unit has no remaining valid flowlines *****"
-#         l_echo "$err_msg" $hucLogFileName
-#         list_error_msg+="${err_msg}\n"
-
-#     else  # could be an exit status of 1 but can be other codes as well.
-#         # It is possible that some errors may not show up huc log file depending
-#         # how catastrophic the error was. It is possible that an exception
-#         # could show up in our error log file twice and that is ok.
-#         # It may or may not already have been see by "tee" and is in the std log file.
-#         err_msg="***** ERROR- Unknown Exit status: $code detected *****"
-#         l_echo "$err_msg" $hucLogFileName
-#         list_error_msg+="${err_msg}\n"
-#     fi
-# done
-
-# # Note: This error log will not be part of the post processing error log rollup scan
-# # We can get dupulication of an error msg
-# if [[ -n "$list_error_msg" ]]; then
-#     echo -e "Invalid status codes returned list:" >> $error_log_filename
-#     echo -e $list_error_msg >> $error_log_filename
-#     echo -e "\n\nReview unit log file for more details" >> $error_log_filename
-# fi
-
-# Search the huc log file for warnings.
-# TODO... THIS does not scan src log folders yet
 
 # TODO: This only gets called if the pages has completed successfully.
 grep -Hin "warning" "${hucLogFile}" > "${warningLogFile}"

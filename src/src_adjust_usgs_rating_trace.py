@@ -10,7 +10,7 @@ import pandas as pd
 
 from src_roughness_optimization import update_rating_curve
 from tools.tools_shared_functions import filter_usgs_by_acceptance_criteria
-from utils.shared_functions import check_file_age, concat_huc_csv
+from utils.shared_functions import check_file_age
 from utils.shared_variables import USGS_CALB_TRACE_DIST
 
 #################################
