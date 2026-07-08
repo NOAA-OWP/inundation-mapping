@@ -154,8 +154,8 @@ def preprocess_dem(input_dem_zip_file, out_dem_folder, region, target_crs_number
             f'ERROR: {input_dem_zip_file} does not exist. It needs to be downloaded from AK DGGS (https://elevation.alaska.gov)'
         )
         sys.exit(1)
-    else:
-        unzip(input_dem_zip_file, out_dem_folder)
+
+    unzip(input_dem_zip_file, out_dem_folder)
 
     output_mosaic = os.path.join(out_dem_folder, f'{region}_ifsar_DTM_{target_crs_number}.tif')
     target_res = 10
@@ -191,21 +191,28 @@ def preprocess_dem(input_dem_zip_file, out_dem_folder, region, target_crs_number
 
     print(f"Successfully mapped {len(src_files_to_mosaic)} sub-zip TIFF datasets for mosaicing.")
 
-    # FIX: Eliminated the broken/orphaned try statement block here
+    # CRITICAL FIX: Every rasterio loop has been deleted from here to release file locks!
     print(f"\nMosaicing, reprojecting, and resampling {len(src_files_to_mosaic)} files to 10m...")
 
     try:
+        # Convert all config constraints into clean options parameters
         warp_options = gdal.WarpOptions(
             format="GTiff",
             dstSRS=f"EPSG:{target_crs_number}",
             xRes=target_res,
             yRes=target_res,
             resampleAlg="bilinear",
-            srcNodata=None,  # Handled dynamically by GDAL per input tile
-            dstNodata=-999999,  # Set your customized fallback nodata value
-            outputType=gdal.GDT_Float32,  # Ensures valid elevation value precision alongside -999999
+            outputType=gdal.GDT_Float32,
+            options=[
+                '-overwrite',
+                '-srcnodata',
+                '-10000',  # Targets any explicit -10000 values
+                '-dstnodata',
+                '-999999',  # Forces unassigned space and empty borders to -999999
+            ],
         )
 
+        # Warp crunches straight from the unlocked virtual paths
         gdal.Warp(output_mosaic, src_files_to_mosaic, options=warp_options)
         print(f"\nSuccess! Mosaic saved to {output_mosaic}")
 
@@ -234,7 +241,7 @@ def preprocess_streams(region, hucs, target_crs_number, inputs_dir, reference_fa
 
     headwater_points = findHeadWaterPoints(flowpaths)
     headwater_points.to_file(
-        os.path.join(reference_fabric_folder, 'flowpaths_headwaters_Alaska.gpkg'), driver='GPKG'
+        os.path.join(reference_fabric_folder, f'flowpaths_headwaters_{region}.gpkg'), driver='GPKG'
     )
 
     lakes = gpd.read_file(reference_fabric_file, layer='lakes')
@@ -242,19 +249,19 @@ def preprocess_streams(region, hucs, target_crs_number, inputs_dir, reference_fa
     if lakes.crs != target_crs:
         lakes = lakes.to_crs(epsg=target_crs_number)
     lakes = lakes[['LakeID', 'geometry']]
-    lakes.to_file(os.path.join(reference_fabric_folder, 'lakes_Alaska.gpkg'), driver='GPKG')
+    lakes.to_file(os.path.join(reference_fabric_folder, f'lakes_{region}.gpkg'), driver='GPKG')
 
     flowpaths = flowpaths.sjoin(lakes, how='left', predicate='intersects')
     flowpaths = flowpaths.rename(columns={'LakeID': 'Lake'})
     flowpaths['Lake'] = flowpaths['Lake'].fillna(-9999).astype(int)
 
-    flowpaths.to_file(os.path.join(reference_fabric_folder, 'flowpaths_Alaska.gpkg'), driver='GPKG')
+    flowpaths.to_file(os.path.join(reference_fabric_folder, f'flowpaths_{region}.gpkg'), driver='GPKG')
 
     catchments = gpd.read_file(reference_fabric_file, layer='divides')
     catchments = catchments.rename(columns={'divide_id': 'ID'})
     if catchments.crs != target_crs:
         catchments = catchments.to_crs(epsg=target_crs_number)
-    catchments.to_file(os.path.join(reference_fabric_folder, 'catchments_Alaska.gpkg'), driver='GPKG')
+    catchments.to_file(os.path.join(reference_fabric_folder, f'catchments_{region}.gpkg'), driver='GPKG')
 
     wbd_dir = os.path.join(inputs_dir, 'wbd')
     wbd = os.path.join(wbd_dir, 'WBD_Alaska_3338.gpkg')
@@ -295,7 +302,7 @@ if __name__ == "__main__":
     input_dem_zip_file = args['input_dem_zip_file']
     out_dem_folder = args['out_dem_folder']
 
-    preprocess_dem(input_dem_zip_file, out_dem_folder, region, target_crs_number)
+    # preprocess_dem(input_dem_zip_file, out_dem_folder, region, target_crs_number)
 
     if region == 'Fairbanks':
         hucs = ['19080306', '19080307']

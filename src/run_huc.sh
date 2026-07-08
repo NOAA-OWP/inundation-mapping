@@ -32,6 +32,11 @@ if [ $huc2Identifier -eq 19 ]; then
         input_DEM=$input_DEM_Fairbanks
         input_pit_fill=$input_DEM_pit_fills_Fairbanks
         input_bridge_elev_diff=$input_bridge_elev_diff_Fairbanks
+    elif [[ "$hucNumber" -eq 19010301 ]]; then
+        huc_input_DEM_domain=$input_DEM_domain_Juneau
+        input_DEM=$input_DEM_Juneau
+        input_pit_fill=$input_DEM_pit_fills_Juneau
+        input_bridge_elev_diff=$input_bridge_elev_diff_Juneau
     else
         huc_input_DEM_domain=$input_DEM_domain_Alaska
         input_DEM=$input_DEM_Alaska

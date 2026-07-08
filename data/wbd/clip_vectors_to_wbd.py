@@ -131,6 +131,9 @@ def extend_outlet_streams(streams, wbd_buffered, wbd, landsea=None):
     levelpath_outlets = levelpath_outlets.drop(columns=['last', 'nearest_point', 'nearest_point_wbd'])
 
     # Replace the streams in the original file with the extended streams
+    if levelpath_outlets.empty:
+        return streams, errors
+
     streams = streams[~streams['ID'].isin(levelpath_outlets['ID'])]
     streams = pd.concat([streams, levelpath_outlets], ignore_index=True)
 
@@ -173,6 +176,11 @@ def subset_vector_layers(
             nwm_catchments = os.getenv('input_nwm_catchments_Fairbanks')
             nwm_streams = os.getenv('input_nwm_flows_Fairbanks')
             nwm_headwaters = os.getenv('input_nwm_headwaters_Fairbanks')
+        elif huc == '19010301':
+            nwm_lakes = os.getenv('input_nwm_lakes_Juneau')
+            nwm_catchments = os.getenv('input_nwm_catchments_Juneau')
+            nwm_streams = os.getenv('input_nwm_flows_Juneau')
+            nwm_headwaters = os.getenv('input_nwm_headwaters_Juneau')
         else:
             nwm_lakes = os.getenv('input_nwm_lakes_Alaska')
             nwm_catchments = os.getenv('input_nwm_catchments_Alaska')
@@ -467,6 +475,8 @@ def subset_vector_layers(
                 logging.info(f"Landsea file provided but no landsea area found within wbd_buffer for {huc}")
                 landsea = None
             else:
+                # Dissolve landsea
+                landsea = landsea.dissolve()
                 logging.info(f"Clipping NWM Streams for {huc} to land areas")
         else:
             logging.info(f"No landsea file provided, using all NWM streams for {huc}")
