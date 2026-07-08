@@ -17,9 +17,9 @@ PRE_CLIP_HUC8_DIR = pre_clip_huc8_dir
 RECURRENCE_CLUSTER_FILENAME = 'recurrence_flows_nwm_v3_CONUS_100_interval_added_clusters.csv'
 OPTZ_MANNINGS_FILENAME = 'optz_mannings_v6_1_1.csv'
 OPTZ_MANNINGS_OUTPUT_FILENAME = 'optz_mannings_v6_2.csv'
-OHIO_ALLEGENY_MONONGAHELA_RIVERS_FILENAME = 'ohio_allegeny_monongahela_rivers_fids_mannings_n.csv'
-CHANNEL_N_OHIO_ALLEGENY_MONONGAHELA = 0.012
-OVERBANK_N_OHIO_ALLEGENY_MONONGAHELA = 0.0482
+OHIO_ALLEGENY_MONONGAHELA_RIVERS_FILENAME = 'ohio_allegeny_monongahela_chicago_more_fids_mannings_n.csv'
+# CHANNEL_N_OHIO_ALLEGENY_MONONGAHELA = 0.012
+# OVERBANK_N_OHIO_ALLEGENY_MONONGAHELA = 0.0482
 CHANNEL_N_NAN_FILL = 0.06
 OVERBANK_N_NAN_FILL = 0.12
 LOSS_DEVIATION_THRESHOLD = 15
@@ -718,8 +718,8 @@ def update_mannings_with_cluster_order_optz_roughness(
     optz_mannings_path=join(OPTZ_METRICS_DIR, OPTZ_MANNINGS_FILENAME),
     output_csv_path=None,
     ohio_allegeny_monongahela_mannings_path=join(OPTZ_METRICS_DIR, OHIO_ALLEGENY_MONONGAHELA_RIVERS_FILENAME),
-    channel_n_ohio_allegeny_monongahela=CHANNEL_N_OHIO_ALLEGENY_MONONGAHELA,
-    overbank_n_ohio_allegeny_monongahela=OVERBANK_N_OHIO_ALLEGENY_MONONGAHELA,
+    # channel_n_ohio_allegeny_monongahela=CHANNEL_N_OHIO_ALLEGENY_MONONGAHELA,
+    # overbank_n_ohio_allegeny_monongahela=OVERBANK_N_OHIO_ALLEGENY_MONONGAHELA,
 ):
 
     required_mannings_cols = ['feature_id', 'channel_n', 'overbank_n']
@@ -740,8 +740,24 @@ def update_mannings_with_cluster_order_optz_roughness(
     if missing_mannings_cols:
         raise ValueError(f"{optz_mannings_path} is missing required columns: {missing_mannings_cols}")
 
-    # all_huc_feature_cluster_path = join(optz_metrics_dir, 'all_huc_feature_clusters_20260626.csv')
-    # all_huc_feature_cluster_df = pd.read_csv(all_huc_feature_cluster_path)
+    # # TODO Manually adjust some huc/features roughness values
+    # all_huc_feature_cluster_path = join(optz_metrics_dir, 'all_huc_feature_clusters_20260630.csv')
+    # all_huc_feature_cluster_df = pd.read_csv(
+    #     all_huc_feature_cluster_path,
+    #     dtype={'huc': 'str', 'feature_id': 'int64', 'order': 'int64', 'cluster': 'Int64'}
+    #     )
+    # cluster_order_optz_roughness_path = join(optz_metrics_dir, 'cluster_order_optz_roughness_20260630_manual.csv')
+    # cluster_order_optz_roughness_df = pd.read_csv(cluster_order_optz_roughness_path, dtype={'cluster': 'Int64'})
+
+    # custom_huc = '02040201'
+    # custom_order = 6
+    # custom_mask = (all_huc_feature_cluster_df['huc']==custom_huc)
+    #   & (all_huc_feature_cluster_df['order_'] >= custom_order)
+    # custom_feature_roughness = all_huc_feature_cluster_df[custom_mask]
+    # print(custom_feature_roughness)
+    # custom_csv_path = join(optz_metrics_dir, f'feature_huc_cluster_order_custom_{custom_huc}_{custom_order}.csv')
+    # custom_feature_roughness.to_csv(custom_csv_path, index=False)
+
     missing_feature_cols = [
         col for col in required_feature_cols if col not in all_huc_feature_cluster_df.columns
     ]
@@ -795,10 +811,10 @@ def update_mannings_with_cluster_order_optz_roughness(
     cluster_lookup_df[cluster_lookup_df.columns[1:]] = cluster_lookup_df[cluster_lookup_df.columns[1:]].round(
         3
     )
-    cluster_lookup_df.loc[
-        cluster_lookup_df["cluster"].between(1, 5),
-        ["optz_mannN_ch_>3", "optz_mannN_ch_<=3", "optz_mannN_ob_>3", "optz_mannN_ob_<=3"],
-    ] = [0.051, 0.053, 0.109, 0.087]
+    # cluster_lookup_df.loc[
+    #     cluster_lookup_df["cluster"].between(1, 5),
+    #     ["optz_mannN_ch_>3", "optz_mannN_ch_<=3", "optz_mannN_ob_>3", "optz_mannN_ob_<=3"],
+    # ] = [0.051, 0.053, 0.109, 0.087]
 
     feature_roughness_df = feature_lookup_df.merge(cluster_lookup_df, on='cluster', how='left')
     order_gt_3 = feature_roughness_df['order_'] > 3
@@ -825,21 +841,40 @@ def update_mannings_with_cluster_order_optz_roughness(
         raise FileNotFoundError(f"{ohio_allegeny_monongahela_mannings_path} not found")
 
     ohio_allegeny_monongahela_df = pd.read_csv(
-        ohio_allegeny_monongahela_mannings_path, usecols=['feature_id']
+        ohio_allegeny_monongahela_mannings_path  # , usecols=['feature_id']
     )
     ohio_allegeny_monongahela_df['feature_id'] = pd.to_numeric(
         ohio_allegeny_monongahela_df['feature_id'], errors='raise'
     ).astype('int64')
-    ohio_allegeny_monongahela_feature_ids = set(ohio_allegeny_monongahela_df['feature_id'].drop_duplicates())
-    ohio_allegeny_monongahela_update_mask = updated_mannings_df['feature_id'].isin(
-        ohio_allegeny_monongahela_feature_ids
+    ohio_allegeny_monongahela_df['channel_n'] = pd.to_numeric(
+        ohio_allegeny_monongahela_df['channel_n'], errors='raise'
     )
-    updated_mannings_df.loc[ohio_allegeny_monongahela_update_mask, 'channel_n'] = (
-        channel_n_ohio_allegeny_monongahela
+    ohio_allegeny_monongahela_df['overbank_n'] = pd.to_numeric(
+        ohio_allegeny_monongahela_df['overbank_n'], errors='raise'
     )
-    updated_mannings_df.loc[ohio_allegeny_monongahela_update_mask, 'overbank_n'] = (
-        overbank_n_ohio_allegeny_monongahela
+
+    # ohio_allegeny_monongahela_feature_ids = set(ohio_allegeny_monongahela_df['feature_id'].drop_duplicates())
+    # ohio_allegeny_monongahela_update_mask = updated_mannings_df['feature_id'].isin(
+    #     ohio_allegeny_monongahela_feature_ids
+    # )
+
+    channel_map = ohio_allegeny_monongahela_df.set_index('feature_id')['channel_n']
+    overbank_map = ohio_allegeny_monongahela_df.set_index('feature_id')['overbank_n']
+
+    mask = updated_mannings_df['feature_id'].isin(channel_map.index)
+
+    updated_mannings_df.loc[mask, 'channel_n'] = updated_mannings_df.loc[mask, 'feature_id'].map(channel_map)
+
+    updated_mannings_df.loc[mask, 'overbank_n'] = updated_mannings_df.loc[mask, 'feature_id'].map(
+        overbank_map
     )
+
+    # updated_mannings_df.loc[ohio_allegeny_monongahela_update_mask, 'channel_n'] = (
+    #     ohio_allegeny_monongahela_df['channel_n']
+    # )
+    # updated_mannings_df.loc[ohio_allegeny_monongahela_update_mask, 'overbank_n'] = (
+    #     ohio_allegeny_monongahela_df['overbank_n']
+    # )
 
     updated_mannings_df['channel_n'] = updated_mannings_df['channel_n'].fillna(CHANNEL_N_NAN_FILL)
     updated_mannings_df['overbank_n'] = updated_mannings_df['overbank_n'].fillna(OVERBANK_N_NAN_FILL)
