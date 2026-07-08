@@ -101,12 +101,12 @@ exit_and_copy() {
     chmod -R 774 $tempHucDataDir
     echo "============================================================================================="
     echo
-    echo "Starting coping folder from temp directory to output directory"
+    echo "***** Starting copying folder temp directory: $tempHucDataDir to output directory: $outputHucDataDir"
     date -u +"%Y-%m-%d %H:%M:%S"  # to screen
     date -u +"%Y-%m-%d %H:%M:%S" >> $hucLogFile  # to file
     cp -r --no-preserve=ownership "${tempHucDataDir}/" "${outputHucDataDir}/"
     rm -rdf $tempHucDataDir
-    echo "***** Moved temp directory: $tempHucDataDir to output directory: $outputHucDataDir  *****"
+    echo "***** Copy complete, removed old temp directory"
     echo
     echo "============================================================================================="    
     echo
@@ -169,8 +169,14 @@ l_echo $startDiv"Compiling err..or report" $hucLogFile
 # Tstart
 # Note: This is a special log file system.
 # If it runs succesfully, it will add message to the standard huc log file.
-# But if this script itself fails, it gets a specical log file.
+# But if this script itself fails, it gets a special log file.
 python3 $srcDir/utils/huc_process_error_report.py \
-   -u $hucNumber -s $hucLogFile -o $errorLogFile >> $hucLogFile 2>> $log_scan_tool_failed_file 
+   -u $hucNumber -s $hucLogFile -o $errorLogFile >> $hucLogFile 2> $log_scan_tool_failed_file
+
+# Delete the file if it is empty. The line above will create an empty file if there is no error
+# and in this case, I do not want an empty file
+if [ ! -s $log_scan_tool_failed_file ]; then
+    rm $log_scan_tool_failed_file
+fi
 
 # exit_and_copy will be copied here if not earlier, depending on exceptions or errors from the TRAP ... ERR and down.

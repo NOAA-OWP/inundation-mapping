@@ -1,5 +1,5 @@
 #!/bin/bash -e
-# We DO WANT the -e here which means stop execution immediately on fail.
+# We ... DO ....  the -e here which means stop execution immediately on fail.
 # We want this to auto fail as it is logging and error handling are done by its parent
 # of process_huc.sh
 ### Yes.. not all of our .sh files are the same with the -e flag, be design.

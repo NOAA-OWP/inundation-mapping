@@ -122,12 +122,14 @@ l_echo $startDiv"Compiling all HUC error reports" $pp_log_file_name
 python3 $srcDir/utils/post_process_error_report.py \
    -n $outputDestDir -o $all_errors_csv >> $pp_log_file_name 2>> $pp_error_log_file_name 
 
+
 # TODO: July 2026: low importances.
 # look for any of the huc error report .py file errors themselves which create a special log file
 # per huc, named $tempHucDataDir/logs/log_scan_tool_failed_(huc).log. 
 # But generally, if one fails, all will fail and get an warning.
 
 ## ===============================
+## if fails, it might be due to all hucs failing, check post_processing.log
 l_echo $startDiv"Concatenate all processing time files into a CSV file" $pp_log_file_name
 csvFile=$outputDestDir/logs/total_duration_run_by_unit_all_HUCs.csv
 python3 $srcDir/duration_system.py -fim $outputDestDir -o $csvFile 2>&1 | tee -a -i $pp_log_file_name
@@ -135,6 +137,7 @@ python3 $srcDir/duration_system.py -fim $outputDestDir -o $csvFile 2>&1 | tee -a
 
 
 ## ===============================
+## if fails, it might be due to all hucs failing, check post_processing.log
 l_echo $startDiv"Start branch aggregation" $pp_log_file_name
 python3 $srcDir/aggregate_branch_lists.py -d $outputDestDir \
     -f 'branch_ids.csv' -o $fim_inputs 2>&1 | tee -a $pp_log_file_name
@@ -142,6 +145,7 @@ python3 $srcDir/aggregate_branch_lists.py -d $outputDestDir \
 
 
 ## ===============================
+## if fails, it might be due to all hucs failing, check post_processing.log
 l_echo $startDiv"Combining crosswalk tables" $pp_log_file_name
 Tstart
 python3 $toolsDir/combine_crosswalk_tables.py \

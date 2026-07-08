@@ -1,5 +1,5 @@
 #!/bin/bash
-### We DO NOT want -e (exit on fail)
+### We ... DO NOT  ... want -e (exit on fail). If we do have it, fail one, fail all branches.
 
 ### All output and errors going to screen and will be caught and rolled up via the "tee"
 ### command in fim_process_huc.sh (through run_huc.sh -> fim_process_huc.sh)
@@ -18,7 +18,6 @@ hucNumber=$2
 branchId=$3
 
 source $srcDir/bash_functions.env
-
 
 #########################
 # We really do not use the branch log file as it is all auto rolled up in the huc level log.
@@ -63,7 +62,7 @@ do
     elif [ $code -eq 65 ]; then
         echo
         err_exists=1
-        echo "***** ERRORE xit status: $code -- Too many HydroIDs or a HydroID with more" \
+        echo "***** ERROR Exit status: $code -- Too many HydroIDs or a HydroID with more" \
         " than 8 digits in gw catchments to convert to Int16 *****"
         # rm -rf $tempHucDataDir/branches/$branchId/   # keep for debugging
     elif [ $code -ne 0 ]; then

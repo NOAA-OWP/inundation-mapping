@@ -1,17 +1,11 @@
 #!/usr/bin/env python3
 
 import argparse
-import re
-import sys
-import traceback
-from pathlib import Path
 
 from src.utils.shared_functions import search_concat_huc_csvs
 
-import pandas as pd
 
 # Most if not all HUCs will have an error log in the file name pattern of huc_{huc num}_errors.csv
-
 def merge_huc_error_reports(hand_dir, output_csv_path):
     """
     Scans a directory and subdirectories for CSV files matching a pattern.

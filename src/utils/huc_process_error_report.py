@@ -61,57 +61,25 @@ def log_kw_search(logfile, huc_number):
 
     found_lines = []
 
-    # found_lines = []
-    # found_text = []
-    # exit_codes = []
     current_line_num = 1
-    # final_exit_code = None
-    # print(f"Log file is {logfile}")        
     status_code_pattern = r"(?i)status(?::\s*|\s+)([1-9]\d{0,2})(.*)"
     with open(logfile, "r") as log:
         # Search for a match to any of the keywords in each line
         #for line_num, line in enumerate(log, start=1):
         for line in log:
-            # print(f"current line number is {current_line_num}")
             match = error_re.search(line)
             if match:
-                # Append the line number and text
-                # found_lines.append(str(current_line_num))
-                # found_text.append(line.strip())
-                # If we can find an exit status code, extract it. Many lines will not have it
-                # as the search is for far more than just "status"
-                #status_code = re.match(r"([status:?\w]).*?(\d+)$", line.strip(), flags=re.IGNORECASE)
-                # status_code_pattern = r"\bstatus\s\d{1,3}\b"
-                # status_code_pattern = r"(status)(:?)\s(\d{1,3})\s"
                 status_code_match = re.search(status_code_pattern, line, re.IGNORECASE)
-
                 exit_code = ""
                 if status_code_match:  # then look to see if it has a code in it
-                    # status_code = re.findall(status_code_pattern, line, re.IGNORECASE )
-                    # print(f"did we find an status code? and its value is ({status_code})")
-                    # print(f"what did we find for the match group: {status_code_match.group()}")
                     match_result = status_code_match.group()
-                    # print(f"status_code_match value is ..{match_result}..")
 
                     # pattern could be "status 123" or "status: 123"
                     num_match = re.search(r'\d+', match_result)
                     exit_code = num_match.group()
 
-                    # Had trouble using the match group values. Just used the entire thing
-                    # and used replaces.
-                    # exit_code = status_code_match.group(1)
-                    # group 1 might return the : and space as well, so lets drop the :
-                    # then trim it.
-                    # print(f"exit code is {exit_code} for line {current_line_num}")
-                    # exit_code = exit_code.replace(":", "").strip()
                     if exit_code == "0":  # then skip 
                         continue
-                    #xit_codes.append(exit_code)
-                    # print(f"and the status code if we found one is {exit_code}")
-                    # exit_codes.append("")
-                    # Scan for last exit code in the file
-                    # if final_exit_re.search(line):
-                    #     final_exit_code = int(final_exit_re.search(line).group(1))
                 line_data = {
                     'huc_num': str(huc_number),                    
                     'exit_code': str(exit_code),

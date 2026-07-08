@@ -352,6 +352,10 @@ fi
 branches=$(Calc_Time $branch_processing_start_time)
 branches_percent=$(Calc_Time_Minutes_in_Percent $branch_processing_start_time)
 
+# TODO: Jul 2026: Add a test to see if we have any valid completed branches so we can issues a special
+# new status code of 6x (need a new one), that we can catch better. Low priority
+# It is continuing on to the calibrate tools even though it does not need too.
+
 ## REMOVE FILES FROM DENY LIST ##
 if [ -f $deny_unit_list ]; then
     echo -e $startDiv"Remove files $hucNumber"
