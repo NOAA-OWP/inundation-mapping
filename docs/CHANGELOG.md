@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.9.x.x - 2026-06-26 - [PR#1870](https://github.com/NOAA-OWP/inundation-mapping/pull/1870)
+## v4.9.17.4 - 2026-07-08 - [PR#1870](https://github.com/NOAA-OWP/inundation-mapping/pull/1870)
 Updated the taudem shell execution to instead use python subprocess calls. This change allows for better error/warning handling. Resolves #1827 
 
 ### Additions
