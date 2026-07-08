@@ -11,6 +11,17 @@ Mitigates errors introduced into USGS data download script by removing the secti
 - `src/usgs_gage_unit_setup.py`: Removed code that processes 'None' values in USGS gages.
 - `tools/tools_shared_functions.py`: Commented out section of `aggregate_wbd_hucs()` that assigns column types.
 
+## v4.9.17.4 - 2026-07-08 - [PR#1870](https://github.com/NOAA-OWP/inundation-mapping/pull/1870)
+Updated the taudem shell execution to instead use python subprocess calls. This change allows for better error/warning handling. Resolves #1827 
+
+### Additions
+- `src/run_taudem_subprocess.py`: new python script dedicated to running all taudem tool executions 
+
+### Changes
+- `src/delineate_hydros_and_produce_HAND.sh`: updated taudem call to use new python subprocess script; retained all input variables
+- `src/run_by_branch.sh`: updated taudem call to use new python subprocess script; retained all input variables
+- `src/run_huc.sh`: updated taudem call to use new python subprocess script; retained all input variables; retained all input variables
+- `fim_process_huc.sh`: Fixed discovered error handling error
 <br/>
 
 ## v4.9.17.3 - 2026-07-02 - [PR#1868](https://github.com/NOAA-OWP/inundation-mapping/pull/1868)
