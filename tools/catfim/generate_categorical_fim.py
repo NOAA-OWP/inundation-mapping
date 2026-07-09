@@ -524,7 +524,7 @@ def process_generate_categorical_fim(
                 f"{len(unfinished_huc_list)}/{len(valid_fim_hucs)} HUC(s) did not complete processing, possibly due to multiproc collision"
             )
             logging.info("Re-running CatFIM HUC processing for the following unfinished HUC(s):")
-            logging.info(*unfinished_huc_list, sep=", ")
+            logging.info(", ".join(unfinished_huc_list))
 
             # Remove all finished (failed or sucessful) HUCs from the task arg list
             # Filtered list

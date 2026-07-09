@@ -63,6 +63,9 @@ class Gage2Branch(object):
 
         # Filter USGS gages and RAS locations to huc
         self.gages = gages_locs[(gages_locs.HUC8 == self.huc8)]
+        # # Jun 2026: Use to have Null in that column, now it has the string of "None"
+        # July 262: Reverted change that necessitated this workaround
+        # self.gages["feature_id"].replace("None", np.nan, inplace=True)
 
         # Get AHPS sites within the HUC and add them to the USGS dataset
         if self.ahps_filename:

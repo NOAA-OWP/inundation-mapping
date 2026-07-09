@@ -510,9 +510,9 @@ def finalize_sites_mapping_status(
 
     # Once sites_gdf has been created, check that it has stuff in it
     if len(sites_gdf) == 0:
-        msg = f"{huc_function_tag} Unable to finalize HUC, sites_gdf is empty."
-        logging.error(msg)
-        raise Exception(msg)
+        msg = f"{huc_function_tag} Unable to finalize sites mapping status, sites_gdf is empty."
+        logging.warning(msg)
+        return
 
     # ------------------------------------
     # Update mapping status in sites_gdf (the only sites that should be updated here are the unmapped sites,

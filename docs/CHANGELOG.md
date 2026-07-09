@@ -12,6 +12,7 @@ This pull request updates the source of the slope data to use the values provide
 <br/>
 
 ## v4.9.18.0 - 2026-07-08 - [PR#1881](https://github.com/NOAA-OWP/inundation-mapping/pull/1881)
+## v4.9.____ - 2026-07-__ - [PR#1881](https://github.com/NOAA-OWP/inundation-mapping/pull/1881)
 
 Mitigates errors introduced into USGS data download script by removing the section of `get_metadata()` that assigns column types based on a preexisting dictionary. Reverts a few of the changes in [PR 1873](https://github.com/NOAA-OWP/inundation-mapping/pull/1873) because those were temporary workarounds to handle the column type quirks that this PR mitigates.
 
@@ -33,6 +34,7 @@ Updated the taudem shell execution to instead use python subprocess calls. This 
 - `src/run_by_branch.sh`: updated taudem call to use new python subprocess script; retained all input variables
 - `src/run_huc.sh`: updated taudem call to use new python subprocess script; retained all input variables; retained all input variables
 - `fim_process_huc.sh`: Fixed discovered error handling error
+
 <br/>
 
 ## v4.9.17.3 - 2026-07-02 - [PR#1868](https://github.com/NOAA-OWP/inundation-mapping/pull/1868)
