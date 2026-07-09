@@ -291,12 +291,14 @@ def process_generate_categorical_fim(
         # Create HUC dictionary and NWM sites GeoDataFrame
 
         wbd_file = os.getenv("input_wbd_layer")
+        # TODO: AK CATFIM - currently reads in WBD_National_HUC8.gpkg, need to make a new version of WBD_National_HUC8_HAND_domain_20251209.gpkg and have bash_vaeiables.env read that in instead
 
         huc_dictionary, nwm_sites_all_gdf = aggregate_wbd_hucs(
             metadata_json_list, wbd_file, retain_attributes=True
         )
         if len(huc_dictionary) == 0:
             raise Exception("The metadata pickle file does not have any applicable HUCs")
+            # TODO: Currently this check doesn't work because we are not feeding a HUC list into aggregate_wbd_hucs.
 
         # Dictionary of {col_name: col_type}
         colname_dict = {

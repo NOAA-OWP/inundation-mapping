@@ -1009,6 +1009,7 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
 
     # Import huc8 layer as geodataframe and retain necessary columns
     print("Reading WBD...")
+    print(f"WBD path: {wbd_huc8_path}")  # TEMP DEBUG
     huc8_all = gpd.read_file(wbd_huc8_path, layer='WBDHU8')
     # print("WBD read.")
 
@@ -1018,6 +1019,17 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
     if len(huc_list) > 0:
         huc8 = huc8[huc8['HUC8'].isin(huc_list)]
     huc8 = huc8.sort_values(by='HUC8', ascending=True)
+
+    ## TEMP DEBUG:
+    # Print whether the HUCs in TEMP huc list are in huc8
+    TEMP_huc_list = ['19010301', '19080307', '19080306']
+
+    for huc in TEMP_huc_list:
+        if huc in huc8['HUC8'].values:
+            print(f"HUC {huc} is in huc8 list from WBD")
+        else:
+            print(f"HUC {huc} is not in huc8 list from WBD")
+    ## END TEMP DEBUG
 
     # Create empty geodataframe and define CRS for potential horizontal datums (default of NAD83 if unassigned)
     metadata_gdf = gpd.GeoDataFrame()
