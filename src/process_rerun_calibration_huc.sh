@@ -85,6 +85,10 @@ if [ "$tempHucDataDir" = "" ] ; then
     echo "Error: tempHucDataDir is an empty" >&2; exit 1
 fi
 
+source $outputDestDir/params_rerun.env  # copied in from rerun_calibration.py
+source $srcDir/bash_functions.env
+source $srcDir/bash_variables.env
+
 # we have no need for an exit and copy as we are still in the original outputs dir, not the true fim_temp dir
 
 # TODO: July 2026: using setfacl is a power tool to help manage perms settings
@@ -98,10 +102,33 @@ fi
 
 # As originally designed, it seems much better to keep its own logging seperate from the
 # original logs.
-rerunlogFilename=$tempHucDataDir/logs/huc_${hucNumber}_calib_rerun.log
-rerunErrorLogFilename=$tempHucDataDir/logs/huc_${hucNumber}_calib_rerun_errors.log  # do we need this anymore?
-rerunWarningLogFilename=$tempHucDataDir/logs/huc_${hucNumber}_calib_rerun_warnings.log
-rerunErrorLogCSVReport=$tempHucDataDir/logs/huc_${hucNumber}_calib_rerun_error_report.csv
+export rerunlogFilename=$tempHucDataDir/logs/huc_${hucNumber}_calib_rerun.log
+export rerunErrorLogFilename=$tempHucDataDir/logs/huc_${hucNumber}_calib_rerun_errors.log  # do we need this anymore?
+export rerunWarningLogFilename=$tempHucDataDir/logs/huc_${hucNumber}_calib_rerun_warnings.log
+export rerunErrorLogCSVReport=$tempHucDataDir/logs/huc_${hucNumber}_calib_rerun_error_report.csv
+
+# No matter what happens, this will execute and copy the folder from temp to outputs
+# starting from the trap 'exit_and_copy' EXIT and down, ie) the arg tests above
+exit_and_copy() {
+
+    set +e  # shut off auto exit on error
+    ## ===============================
+    l_echo $startDiv"Compiling rerun calibration err..or report" $rerunlogFilename
+    # Tstart
+
+    # Note: For this file only, and seeing as it has the rerun_calibration.py file, it is ok to let
+    # the error go back if the script itself fails.
+    python3 $srcDir/utils/huc_process_error_report.py \
+    -u $hucNumber -s $rerunlogFilename -o $rerunErrorLogCSVReport 2>&1 | tee -a -i $rerunlogFilename 
+
+    l_echo "---- End of recalibration for $hucNumber" $rerunlogFilename
+}
+
+
+# This safety net catches the exit command and runs your final lines
+# but only from this point down. This helps ensure outputs data is copied from temp to outputs
+# from here down. Not perfect, but pretty good.
+trap 'exit_and_copy' EXIT
 
 # We need remove earlier versions from previous recalibration runs.
 rm -f $rerunlogFilename
@@ -109,10 +136,6 @@ rm -f $rerunErrorLogFilename
 rm -f $rerunWarningLogFilename  # do we want a warning system here?
 rm -f $rerunWarningLogFilename  # do we want a warning system here?
 rm -rdf $tempHucDataDir/logs/src_calibrations
-
-source $outputDestDir/params_rerun.env  # copied in from rerun_calibration.py
-source $srcDir/bash_functions.env
-source $srcDir/bash_variables.env
 
 # Tell the system the name and location of the log file
 # But don't allow calibrate_rating_curves.sh to do l_echos, only echos and prints.
@@ -122,12 +145,13 @@ source $srcDir/bash_variables.env
 # Error handling starts from here down.
 # Note: While the error log file will capture errors from this page or its "tee" returns,
 # it does not include some errors and exceptions recorded inside the child .sh files. 
+
 # We will catch those via error search tools.
-trap 'handle_error "${PIPESTATUS[*]}" $LINENO $rerunlogFilename "huc"' ERR
+set +e  # turns off, yes off, the system no longer auto aborts, as trapping will handle it from from here down.
+trap 'handle_error $LINENO $rerunlogFilename' ERR
 
 echo "=========================================================================="
 l_echo "---- Start of recalibration for $hucNumber" $rerunlogFilename
-
 
 # run the actual calibration script (passing arguments explicitly since source commands may overwrite them)
 /usr/bin/time -v $srcDir/calibrate_rating_curves.sh "$calibration_rerun" "$jobBranchLimit" "$hucNumber" 2>&1 | tee $rerunlogFilename
@@ -135,13 +159,6 @@ l_echo "---- Start of recalibration for $hucNumber" $rerunlogFilename
 # TODO: This only gets called if the pages has completed successfully.
 grep -Hin "warning" "${rerunlogFilename}" > "${rerunWarningLogFilename}"
 
-## ===============================
-l_echo $startDiv"Compiling rerun calibration err..or report" $rerunlogFilename
-# Tstart
-
-# Note: For this file only, and seeing as it has the rerun_calibration.py file, it is ok to let
-# the error go back if the script itself fails.
-python3 $srcDir/utils/huc_process_error_report.py \
-   -u $hucNumber -s $rerunlogFilename -o $rerunErrorLogCSVReport 2>&1 | tee -a -i $rerunlogFilename 
-
-l_echo "---- End of recalibration for $hucNumber" $rerunlogFilename
+# exit_and_copy will be copied here if not earlier,
+# depending on exceptions or errors from the TRAP ... ERR and down.
+# in 'exit_and_copy', will also do the error log scanning

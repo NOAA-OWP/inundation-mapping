@@ -2,6 +2,8 @@
 #### always leave the -e above as it means exit on fail (critical to our system)
 ### set -eo pipefail  (debugging)
 
+source $srcDir/bash_functions.env
+
 ## Level is equal to the parent script: 'unit' or 'branch'
 level=$1
 huc2Identifier=${hucNumber:0:2}
@@ -14,8 +16,6 @@ elif [ "$level" = "unit" ]; then
     b_arg=$tempHucDataDir/nwm_subset_streams.gpkg
     z_arg=$tempHucDataDir/nwm_catchments_proj_subset.gpkg
 fi
-
-# invalid command Rob testing invalid bash line that should abort becuase of the -e flag
 
 
 ## MASK LEVEE-PROTECTED AREAS FROM DEM ##

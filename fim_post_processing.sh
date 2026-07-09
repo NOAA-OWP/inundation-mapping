@@ -5,7 +5,8 @@ set -e          # Critical: We need the -e in place which means file in place if
 
 set -o pipefail  # Crucial: Forces the pipe to fail if the subscript fails but only when a pipe is used.
 # set -o errtrace  # Inherit trap inside functions/subshells
-# For this one, we do want to stop, but the error script will always be caught
+
+# For this script, we do want to stop, but the error script will always be caught
 # by the trap, then always hit the exit_and_copy if the error happens after the
 # code is executed. We want this script to ALWAYS return a 0
 ### Yes.. not all of our .sh files are the same with the -e flag, by design.
@@ -44,10 +45,10 @@ in
     shift
 done
 
-outputDestDir=$outputsDir/$runName
-pp_log_file_name=$outputDestDir/logs/post_processing.log
-pp_error_log_file_name=$outputDestDir/logs/post_processing_errors.log
-all_errors_csv=$outputDestDir/logs/all_error_report.csv
+export outputDestDir=$outputsDir/$runName
+export pp_log_file_name=$outputDestDir/logs/post_processing.log
+export pp_error_log_file_name=$outputDestDir/logs/post_processing_errors.log
+export all_errors_csv=$outputDestDir/logs/all_error_report.csv
 
 if [ "$runName" = "" ]
 then
@@ -82,6 +83,7 @@ source $srcDir/bash_variables.env
 # No matter what happens, this will execute and copy the folder from temp to outputs
 # starting from the trap 'exit_and_copy' EXIT and down, ie) the arg tests above
 exit_and_copy() {
+
     echo
     l_echo "---- End of fim_post_processing" $pp_log_file_name
     l_echo "---- Ended: `date -u`" $pp_log_file_name
@@ -89,15 +91,14 @@ exit_and_copy() {
     echo
 }
 
-rm -f $pp_log_file_name  # If it already exists
-rm -f $pp_error_log_file_name  # If it already exists
-
-
 # =====================
 # This safety net catches from here down always calls this block, even if an exit code or exception has been called
 trap 'exit_and_copy' EXIT
 set +e  # turns off, yes off, the system no longer auto aborts, as trapping will handle it from from here down.
-trap 'handle_error "${PIPESTATUS[*]}" $LINENO $pp_error_log_file_name "post"' ERR
+trap 'handle_error $LINENO $pp_error_log_file_name' ERR
+
+rm -f $pp_log_file_name  # If it already exists
+rm -f $pp_error_log_file_name  # If it already exists
 
 # load up enviromental information
 args_file=$outputDestDir/runtime_args.env
@@ -112,16 +113,14 @@ l_echo "---- Start of fim_post_processing" $pp_log_file_name
 l_echo "---- Started: `date -u`" $pp_log_file_name
 post_proc_start_time=`date +%s`
 
-
 ## ===============================
 l_echo $startDiv"Compiling all HUC error reports" $pp_log_file_name
-# Tstart
+
 # Note: This is a special log file system.
 # If it runs succesfully, it will add message to the standard huc log file.
 # But if this script itself fails, it gets a specical log file.
 python3 $srcDir/utils/post_process_error_report.py \
-   -n $outputDestDir -o $all_errors_csv >> $pp_log_file_name 2>> $pp_error_log_file_name 
-
+    -n $outputDestDir -o $all_errors_csv >> $pp_log_file_name 2>> $pp_error_log_file_name 
 
 # TODO: July 2026: low importances.
 # look for any of the huc error report .py file errors themselves which create a special log file
@@ -133,7 +132,6 @@ python3 $srcDir/utils/post_process_error_report.py \
 l_echo $startDiv"Concatenate all processing time files into a CSV file" $pp_log_file_name
 csvFile=$outputDestDir/logs/total_duration_run_by_unit_all_HUCs.csv
 python3 $srcDir/duration_system.py -fim $outputDestDir -o $csvFile 2>&1 | tee -a -i $pp_log_file_name
-# bash_error_handler "${PIPESTATUS[@]}" $LINENO "post_process_error_report.py" "$pp_error_log_file_name"
 
 
 ## ===============================
@@ -141,7 +139,6 @@ python3 $srcDir/duration_system.py -fim $outputDestDir -o $csvFile 2>&1 | tee -a
 l_echo $startDiv"Start branch aggregation" $pp_log_file_name
 python3 $srcDir/aggregate_branch_lists.py -d $outputDestDir \
     -f 'branch_ids.csv' -o $fim_inputs 2>&1 | tee -a $pp_log_file_name
-# bash_error_handler "${PIPESTATUS[@]}" $LINENO "post_process_error_report.py" "$pp_error_log_file_name"
 
 
 ## ===============================

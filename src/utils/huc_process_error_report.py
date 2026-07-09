@@ -14,6 +14,7 @@ ERROR_KW = [
     r"exit status: (?!0$|0\b)\d+",  # any exit status except 0
     r"(?<!no )error",  # the word "error" not preceded by "no"
     r"exception",
+    r"command not found",
     r"parallel: warning:",
 ]
 
@@ -36,6 +37,7 @@ def scan_error_log(huc_number, source_log_file, output_csv_path):
     # print("       exit status: (with one to 3 numbers, not counting 0. The colon may or may not exist)")
     # print("       error")
     # print("       exception")
+    # command not found
     # print("       parallel: warning")
     # print(".......................................................")
     # print("")
