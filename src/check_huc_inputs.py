@@ -54,6 +54,10 @@ def __clean_huc_value(huc):
 def __check_for_membership(hucs, accepted_hucs_set, full_huc_list):
     for huc in hucs:
         if (type(huc) is str) and (not huc.isnumeric()):
+            huc = str(huc)
+            if "." in huc:
+                raise ValueError("The huc(s) or huc list you provided appears invalid and contains a dot."
+                                f" Is this a bad path to a file? arg supplied is {huc}")
             msg = f"Huc value of {huc} does not appear to be a number. "
             msg += "It could be an incorrect value but also could be that the huc list "
             msg += "(if you used one) is incorrect or is not unix encoded."

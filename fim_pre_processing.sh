@@ -243,7 +243,7 @@ chmod 777 $outputDestDir/logs
 
 # Yes.. if this fails in AWS, we don't see it easily but can see it in its CloudWatch
 # This is a parsed, cleaned up line by line huc list, regardless if it is a file, single huc, multiple hucs, etc
-num_hucs=$(python3 $srcDir/check_huc_inputs.py -u ${hucList} -i ${full_huc_list_file} -o ${huc_list_output_file} )
+num_hucs=$(python3 $srcDir/check_huc_inputs.py -u ${hucList} -i ${FULL_HUC_LIST_PATH} -o ${huc_list_output_file} )
 echo
 echo "--- Number of HUCs to process is $num_hucs"
 
