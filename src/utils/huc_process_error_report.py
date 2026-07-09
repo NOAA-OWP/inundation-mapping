@@ -50,7 +50,7 @@ def scan_error_log(huc_number, source_log_file, output_csv_path):
     lines_found = log_kw_search(source_log_file, huc_number)
 
     # Note: might be an empty file and that is ok.
-    if len(lines_found == 0):
+    if len(lines_found) == 0:
         print("GREAT JOB... no errors found.")
     else:
         output_df = pd.DataFrame(lines_found).astype(str)
