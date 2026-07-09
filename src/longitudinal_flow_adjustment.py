@@ -6,6 +6,7 @@ import os
 import re
 import traceback
 from argparse import ArgumentParser
+
 # from concurrent.futures import ProcessPoolExecutor, as_completed
 from os.path import join
 
@@ -16,7 +17,7 @@ import pandas as pd
 
 #################################
 # TODO: July 4, 2026:  In the event of an exception, the log file will not exist
-# and its details as well. 
+# and its details as well.
 # This needs a try/except with printing to log and at least a one liner
 # saying including the word "exception or error", which can be picked up automatically
 # by the rollup to fim_process_huc.sh or process_rerun_calibration_huc.sh
@@ -450,7 +451,7 @@ def filter_longitudinal_discharge_jitters(huc_dir, huc, stage_interval):
                 else:
                     voi2smooth_mhws.append(voi2smooth_df)
                     filtered_voi_mhws.append(voi2smooth_df)
-                    # TODO: Jul 2026: Should this have the word "warning" so it is picked up by the 
+                    # TODO: Jul 2026: Should this have the word "warning" so it is picked up by the
                     # warning logs.
                     print(f'No longitudinal filtering applied for branch {branch}, headwater {hydroid_chain}')
 
@@ -607,7 +608,9 @@ def filter_longitudinal_discharge_jitters(huc_dir, huc, stage_interval):
                 cond_thalweg_rows = long_col > 0
                 src_df.loc[cond_thalweg_rows, 'Longitudinal_adjustment_applied'] = True
             else:
-                print(f'Warning: thalweg_noches_adjustment routine has not been completed for HUC {huc} Branch: {branch}')
+                print(
+                    f'Warning: thalweg_noches_adjustment routine has not been completed for HUC {huc} Branch: {branch}'
+                )
                 log_text += f'Thalweg_noches_adjustment routine has not been completed for HUC {huc} Branch: {branch}\n'
 
             # Drop intermediate columns

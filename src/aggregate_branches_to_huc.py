@@ -5,6 +5,7 @@ import glob
 import os
 import re
 import traceback
+
 # from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime
 from os.path import join
@@ -15,9 +16,10 @@ from dotenv import load_dotenv
 
 from heal_bridges_osm import flow_lookup, flows_from_hydrotable
 
+
 #################################
 # TODO: July 4, 2026:  In the event of an exception, the log file will not exist
-# and its details as well. 
+# and its details as well.
 # This needs a try/except with printing to log and at least a one liner
 # saying including the word "exception or error", which can be picked up automatically
 # by the rollup to fim_process_huc.sh or process_rerun_calibration_huc.sh
@@ -26,6 +28,7 @@ from heal_bridges_osm import flow_lookup, flows_from_hydrotable
 load_dotenv('/foss_fim/src/bash_variables.env')
 DEFAULT_FIM_PROJECTION_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
 ALASKA_CRS = os.getenv('ALASKA_CRS')
+
 
 class HucDirectory(object):
     def __init__(self, huc_dir, limit_branches=[]):

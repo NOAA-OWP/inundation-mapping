@@ -6,19 +6,22 @@ import re
 import sys
 import traceback
 from argparse import ArgumentParser
+
 # from concurrent.futures import ProcessPoolExecutor, as_completed
 from os.path import join
 
 import geopandas as gpd
 import pandas as pd
 
+
 #################################
 # TODO: July 4, 2026:  In the event of an exception, the log file will not exist
-# and its details as well. 
+# and its details as well.
 # This needs a try/except with printing to log and at least a one liner
 # saying including the word "exception or error", which can be picked up automatically
 # by the rollup to fim_process_huc.sh or process_rerun_calibration_huc.sh
 ################################
+
 
 # -------------------------------------------------------
 # Function to use RFC Bathymetry where available over eHydro Data
@@ -481,7 +484,6 @@ def apply_src_adjustment_for_bathymetry(
             # Then it can be scanned in the error system based on solely the "tee" file
             print(err_msg)
             print(traceback.format_exc())
-
 
             # re raise ex  ? # TODO: Do we want to stop processing the huc if we get an error here?
             # If yes, we need to raise ex, make sure to write your log_text if you need to.

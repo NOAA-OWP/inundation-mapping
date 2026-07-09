@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import datetime as dt
+
 # import multiprocessing
 import os
 import re
@@ -25,7 +26,7 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 
 #################################
 # TODO: July 4, 2026:  In the event of an exception, the log file will not exist
-# and its details as well. 
+# and its details as well.
 # This needs a try/except with printing to log and at least a one liner
 # saying including the word "exception or error", which can be picked up automatically
 # by the rollup to fim_process_huc.sh or process_rerun_calibration_huc.sh

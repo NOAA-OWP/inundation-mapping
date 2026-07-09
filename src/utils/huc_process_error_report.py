@@ -22,8 +22,8 @@ combined_pattern = "(?:{})".format("|".join(ERROR_KW))
 # Compile the regexes
 error_re = re.compile(combined_pattern, re.IGNORECASE)
 
-def scan_error_log(huc_number, source_log_file, output_csv_path):
 
+def scan_error_log(huc_number, source_log_file, output_csv_path):
     """Main function to check the logs of the huc unit or rerun unit log file"""
     # Note: This scans only huc_{huc name}_unit.log and assumes comforably
     # that other scripts have ensure all of the outputs and errors are already
@@ -41,8 +41,10 @@ def scan_error_log(huc_number, source_log_file, output_csv_path):
     # print("")
 
     if not os.path.exists(source_log_file):
-        raise FileNotFoundError(f"The huc log file of {source_log_file} does not seem to exist"
-                                " which is possible but highly unlikely")
+        raise FileNotFoundError(
+            f"The huc log file of {source_log_file} does not seem to exist"
+            " which is possible but highly unlikely"
+        )
     lines_found = log_kw_search(source_log_file, huc_number)
 
     # Note: might be an empty file and that is ok.
@@ -65,7 +67,7 @@ def log_kw_search(logfile, huc_number):
     status_code_pattern = r"(?i)status(?::\s*|\s+)([1-9]\d{0,2})(.*)"
     with open(logfile, "r") as log:
         # Search for a match to any of the keywords in each line
-        #for line_num, line in enumerate(log, start=1):
+        # for line_num, line in enumerate(log, start=1):
         for line in log:
             match = error_re.search(line)
             if match:
@@ -78,14 +80,14 @@ def log_kw_search(logfile, huc_number):
                     num_match = re.search(r'\d+', match_result)
                     exit_code = num_match.group()
 
-                    if exit_code == "0":  # then skip 
+                    if exit_code == "0":  # then skip
                         continue
                 line_data = {
-                    'huc_num': str(huc_number),                    
+                    'huc_num': str(huc_number),
                     'exit_code': str(exit_code),
                     'line_num': str(current_line_num),
                     'text': line.strip(),
-                    'log_path': logfile,                    
+                    'log_path': logfile,
                 }
                 found_lines.append(line_data)
             current_line_num += 1
@@ -136,11 +138,12 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Look for all errors in HUC folders')
     parser.add_argument('-u', '--huc-number', help='REQUIRED: The HUC number.', required=True)
-    parser.add_argument('-s', '--source-log-file', help='REQUIRED: Path for the log file to be scanned.', required=True)
-    parser.add_argument('-o', '--output-csv-path', help='REQUIRED: path of the csv report to be saved', required=True)
+    parser.add_argument(
+        '-s', '--source-log-file', help='REQUIRED: Path for the log file to be scanned.', required=True
+    )
+    parser.add_argument(
+        '-o', '--output-csv-path', help='REQUIRED: path of the csv report to be saved', required=True
+    )
     args = vars(parser.parse_args())
 
     scan_error_log(**args)
-
-       
-

@@ -6,7 +6,7 @@ import logging
 import os
 
 # import pathlib
-import re
+# import re
 import shutil
 
 # import sys
@@ -732,7 +732,7 @@ def find_matching_subdirectories(parent_folder1, parent_folder2):
 def search_concat_huc_csvs(directory_path, pattern, output_file_path, is_recursive=True):
     """
     Scans a directory and subdirectories for files files matching a pattern.
-    
+
     Args:
         directory_path (str): The root folder to start scanning.
         pattern (str): The search pattern (e.g., 'huc_*' or '*branch_ids.csv').
@@ -749,14 +749,15 @@ def search_concat_huc_csvs(directory_path, pattern, output_file_path, is_recursi
     ___, extention = os.path.splitext(output_file_path)
     if extention != ".csv":
         raise Exception(f"output file name and path {output_file_path} does not end in .csv")
-    
+
     if os.path.dirname(output_file_path) == "":
-        raise Exception(f"The directory path of {output_file_path} has no pathing and is just a file name."
-                        " Please add full path of where you want to save the output file.")
+        raise Exception(
+            f"The directory path of {output_file_path} has no pathing and is just a file name."
+            " Please add full path of where you want to save the output file."
+        )
 
     if pattern == "":
         raise Exception("file search pattern has not been supplied")
-
 
     file_list = []
     if is_recursive is True:
@@ -765,7 +766,7 @@ def search_concat_huc_csvs(directory_path, pattern, output_file_path, is_recursi
         file_list = list(search_path.rglob(pattern))
     else:
         file_list = list(search_path.glob(pattern))
-    
+
     num_files_found = len(file_list)
     if num_files_found == 0:
         return num_files_found
@@ -775,7 +776,7 @@ def search_concat_huc_csvs(directory_path, pattern, output_file_path, is_recursi
         try:
             df = pd.read_csv(file, dtype=str)
             # Optional: Add a column tracking which file the data came from
-            # df['source_file'] = file.name 
+            # df['source_file'] = file.name
             dataframes.append(df)
         except Exception as e:
             raise Exception(f"Error reading {file.name}: {e}")
@@ -784,8 +785,8 @@ def search_concat_huc_csvs(directory_path, pattern, output_file_path, is_recursi
         # ignore_index=True re-indexes the rows from 0 to N
         combined_df = pd.concat(dataframes, ignore_index=True)
         if "huc_num" in combined_df:
-            huc_num = combined_df.sort_values(by="huc_num")
-        
+            combined_df = combined_df.sort_values(by="huc_num")
+
         # Save to a new CSV file without writing row numbers
         combined_df.to_csv(output_file_path, index=False)
 

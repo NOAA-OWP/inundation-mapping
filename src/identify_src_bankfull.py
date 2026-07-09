@@ -2,12 +2,11 @@
 
 import argparse
 import datetime as dt
-
-import multiprocessing
+# import multiprocessing
 import os
-import re
-import shutil
-import sys
+# import re
+# import shutil
+# import sys
 import traceback
 import warnings
 from functools import reduce
@@ -26,7 +25,7 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 
 #################################
 # TODO: July 4, 2026:  In the event of an exception, the log file will not exist
-# and its details as well. 
+# and its details as well.
 # This needs a try/except with printing to log and at least a one liner
 # saying including the word "exception or error", which can be picked up automatically
 # by the rollup to fim_process_huc.sh or process_rerun_calibration_huc.sh
@@ -71,7 +70,7 @@ def src_bankfull_lookup(args):
                 'Please be sure to run the "update_htable_src.py to clean up the src_full_crosswalked.csv\n'
             )
             print(
-                f'WARNING bankfull_flow column already exists in the src_full_crosswalked.csv file for {huc}.' \
+                f'WARNING bankfull_flow column already exists in the src_full_crosswalked.csv file for {huc}.'
                 ' Please be sure to run the "update_htable_src.py to clean up the src_full_crosswalked.csv'
             )
 
@@ -86,7 +85,8 @@ def src_bankfull_lookup(args):
 
         if check_null > 0:
 
-            err_msg= (f'WARNING: Missing feature_id in crosswalk for huc: '
+            err_msg = (
+                'WARNING: Missing feature_id in crosswalk for huc: '
                 + str(huc)
                 + '  branch id: '
                 + str(branch_id)
@@ -95,7 +95,7 @@ def src_bankfull_lookup(args):
                 + ' features)'
             )
             print(err_msg)
-            log_test+=f"{err_msg} \n"
+            log_text += f"{err_msg} \n"
             ## Fill missing/nan nwm bankfull_flow values with -999 to handle later
             df_src['bankfull_flow'] = df_src['bankfull_flow'].fillna(-999)
 
@@ -123,26 +123,28 @@ def src_bankfull_lookup(args):
         # There may be null values for lake or coastal flow lines
         # (need to set a value to do groupby idxmin below)
         if df_src['Q_bfull_find'].isnull().values.any():
-            err_msg = (f'WARNING: HUC: '
+            err_msg = (
+                'WARNING: HUC: '
                 + str(huc)
                 + '  branch id: '
                 + str(branch_id)
                 + ' --> Null values found in "Q_bfull_find" calc. These will be filled with 999999 ()'
             )
             print(err_msg)
-            log_text+=f"{err_msg} \n"
+            log_text += f"{err_msg} \n"
 
             ## Fill missing/nan nwm 'Discharge (m3s-1)' values with 999999 to handle later
             df_src['Q_bfull_find'] = df_src['Q_bfull_find'].fillna(999999)
         if df_src['HydroID'].isnull().values.any():
-            err_msg = ('WARNING: HUC: '
+            err_msg = (
+                'WARNING: HUC: '
                 + str(huc)
                 + '  branch id: '
                 + str(branch_id)
                 + ' --> Null values found in "HydroID"...'
             )
             print(err_msg)
-            log_text+=f"{err_msg} \n"
+            log_text += f"{err_msg} \n"
 
         df_bankfull_calc = df_src[
             ['Stage', 'HydroID', bedarea_var, volume_var, hradius_var, surface_area_var, 'Q_bfull_find']
@@ -237,16 +239,16 @@ def src_bankfull_lookup(args):
                 os.mkdir(huc_output_dir)
             generate_src_plot(df_src, huc_output_dir)
 
-    except Exception as ex:
+    except Exception:
         # summary = traceback.StackSummary.extract(traceback.walk_stack(None))
         # print(str(huc) + '  branch id: ' + str(branch_id) + " failed for some reason")
         # print(f"*** {ex}")
         # print(''.join(summary.format()))
-        err_msg = (f'ERROR --> HUC: {str(huc)} - branch id: {str(branch_id)}')
+        err_msg = f'ERROR --> HUC: {str(huc)} - branch id: {str(branch_id)}'
         log_text += f"{err_msg} \n"
         log_text += traceback.format_exc()
 
-       # this goes back to calibrate_rating_curve.sh which rolls up to its parent "tee"
+        # this goes back to calibrate_rating_curve.sh which rolls up to its parent "tee"
         # Then it can be scanned in the error system based on solely the "tee" file
         print(err_msg)
         print(traceback.format_exc())

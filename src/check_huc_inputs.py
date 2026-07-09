@@ -5,6 +5,7 @@ import os
 import pathlib
 from glob import glob
 
+
 def __read_acceptable_file_list(full_huc_list):
     filename_patterns = glob(full_huc_list)
 
@@ -63,6 +64,7 @@ def __check_for_membership(hucs, accepted_hucs_set, full_huc_list):
             " Edit HUC inputs or acquire datasets & try again."
             raise KeyError(msg)
 
+
 # Might be a file path (full_huc_list) or a list of hucs (ie 12090301 05030104)
 def check_hucs(hucs, full_huc_list, huc_list_output_file):
     accepted_hucs = __read_acceptable_file_list(full_huc_list)
@@ -102,7 +104,9 @@ if __name__ == '__main__':
         nargs='+',
     )
     parser.add_argument('-i', '--full-huc-list', help='Full HUC list file', required=True)
-    parser.add_argument('-o', '--huc-list-output-file', help='The parsed and validated HUC list', required=True)
+    parser.add_argument(
+        '-o', '--huc-list-output-file', help='The parsed and validated HUC list', required=True
+    )
 
     # extract to dictionary
     args = vars(parser.parse_args())

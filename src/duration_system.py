@@ -72,7 +72,7 @@ def duration_system(hydrofabric_dir, output_csv_file):
     # It is possible that all hucs failed and none have durations
     if len(hucs) == 0:
         raise Exception("There are no huc duration files. Check if all hucs failed or code error.")
-    
+
     column_names = [
         "HUC8",
         "HUC Duration",
