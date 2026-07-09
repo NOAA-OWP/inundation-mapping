@@ -30,13 +30,14 @@ dtype = {
     'obs_source': 'object',
     'submitter': 'object',
     "SLOPE": 'float32',
-    "SLOPE_RISE_RUN": 'float32'
+    "SLOPE_RISE_RUN": 'float32',
 }
 
 chunk_size = 100000
 
 # To exclude oconus hucs (19: Alaska, 20: Hawaii, 22: Guam and American Samoa)
 oconus_prefixes = ('19', '20', '22')
+
 
 def ensure_dir(directory):
     if not os.path.exists(directory):
@@ -82,8 +83,10 @@ def process_csv_to_temp(file_info):
                 for chunk in reader:
                     # drop duplicates in each chunk
                     chunk = chunk.drop_duplicates(subset=['HydroID', 'feature_id'])
-                    is_new = [(h, f) not in seen_combos for h, f in zip(chunk['HydroID'], chunk['feature_id'])]
-                    
+                    is_new = [
+                        (h, f) not in seen_combos for h, f in zip(chunk['HydroID'], chunk['feature_id'])
+                    ]
+
                     # Filter logic
                     valid_rows = chunk[is_new].copy()
 
@@ -119,7 +122,7 @@ def run_prep(root_dir, target_filename, output_file, temp_dir):
     for root, dirs, files in os.walk(root_dir):
         if target_filename in files:
             huc8 = os.path.basename(root)
-            
+
             # Skip oconus hucs
             if huc8.startswith(oconus_prefixes):
                 continue
@@ -171,14 +174,15 @@ def run_prep(root_dir, target_filename, output_file, temp_dir):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
-        description="Extract and concatenate specific columns from hydrotables."
-    )
+    parser = argparse.ArgumentParser(description="Extract and concatenate specific columns from hydrotables.")
+    parser.add_argument('-r', '--root_dir', help='Root directory to scan for files.', required=True, type=str)
     parser.add_argument(
-        '-r', '--root_dir', help='Root directory to scan for files.', required=True, type=str
-    )
-    parser.add_argument(
-        '-f', '--target_filename', help='Target filename to search for (default: hydrotable.csv).', default='hydrotable.csv', required=False, type=str
+        '-f',
+        '--target_filename',
+        help='Target filename to search for (default: hydrotable.csv).',
+        default='hydrotable.csv',
+        required=False,
+        type=str,
     )
     parser.add_argument(
         '-o', '--output_file', help='Full filepath for the master output csv.', required=True, type=str
@@ -188,10 +192,10 @@ if __name__ == '__main__':
     )
 
     args = vars(parser.parse_args())
-    
+
     run_prep(
-        root_dir=args['root_dir'], 
-        target_filename=args['target_filename'], 
-        output_file=args['output_file'], 
-        temp_dir=args['temp_dir']
+        root_dir=args['root_dir'],
+        target_filename=args['target_filename'],
+        output_file=args['output_file'],
+        temp_dir=args['temp_dir'],
     )
