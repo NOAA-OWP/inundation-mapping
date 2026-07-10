@@ -11,6 +11,7 @@ from timeit import default_timer as timer
 
 from src.utils.shared_functions import run_with_mp, setup_mp_file_logger
 
+
 #####################################
 '''
 July 2026
@@ -23,10 +24,11 @@ CRITICAL NOTE:
     Some adjustments and testing where done as part of the FIM 6.2 release and its addition of the possible
     temp file of process_rerun_calibration_hucs.sh workflow pattern. More changes and optimization in the
     rerun workflow is expected. It also may include the removal of the new process_rerun_calibratation_hucs.sh
-    workflow in favour of once again talking directly to calibrate_rating_curves.sh 
+    workflow in favour of once again talking directly to calibrate_rating_curves.sh.
     TBD
-     
+
 '''
+
 
 def compile_error_logs(fim_run_dir, hucs):
     """
