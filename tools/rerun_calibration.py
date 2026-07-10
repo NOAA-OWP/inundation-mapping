@@ -11,6 +11,22 @@ from timeit import default_timer as timer
 
 from src.utils.shared_functions import run_with_mp, setup_mp_file_logger
 
+#####################################
+'''
+July 2026
+CRITICAL NOTE:
+    Due to major time constraints getting the FIM 6.2 release out, this part of the system received minimal testing
+    in relation to the process_rerun_calibration_hucs.sh and rerun_calibration.py chain. It was heavily tested
+    as part of the fim_pipeline chain.
+    and any fixes required will come in near future PR (after FIM 6.2)
+
+    Some adjustments and testing where done as part of the FIM 6.2 release and its addition of the possible
+    temp file of process_rerun_calibration_hucs.sh workflow pattern. More changes and optimization in the
+    rerun workflow is expected. It also may include the removal of the new process_rerun_calibratation_hucs.sh
+    workflow in favour of once again talking directly to calibrate_rating_curves.sh 
+    TBD
+     
+'''
 
 def compile_error_logs(fim_run_dir, hucs):
     """
@@ -255,7 +271,7 @@ if __name__ == "__main__":
     # A new params_rerun.env will be created (from config/params_template.env) and is used for rerun.
 
     # sample usage
-    # python foss_fim/tools/rerun_calibration.py
+    # python /foss_fim/tools/rerun_calibration.py
     # -i /outputs/hand_4_9_5_8_test/ -jh 6 -jb 2
 
     # Parse arguments

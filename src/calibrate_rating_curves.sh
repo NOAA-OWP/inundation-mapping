@@ -12,13 +12,6 @@ hucNumber=$3
 # ***************
 # IMPORTANT NOTES:
 
-# l_echo: We can not use the l_echo command in this script at all. echo
-#       is designed to be log and echo and can only be used at by scripts
-#       such as fim_post_processsing.sh and fim_process_huc.sh as they are the
-#       top most shell scripts. 
-#       We need to use echo in all scenarios as this script always
-#       bubbles up to either run_huc.sh or rerun_calibration.py
-
 # This script is called in one of two ways:
 #   1)  As part of the fim_process_huc.sh -> run_huc.sh process. 
 #       When we call this as part of the run_huc.sh, it is part of either an AWS
@@ -28,11 +21,39 @@ hucNumber=$3
 #       but only when we are in that mode.
 #   2)  As part of the recalibration process: rerun-calibration.py -> process_rerun_calibration_huc.sh
 
-#       Details coming
+# ++++++++++++++++++++++++++++++++++++
+# July 2026: 
+# With the new logging system and error trapping being added, there is no longer any value
+# in this file scanning for logs in the src directory. All src files were changed to ensure anything
+# critical will go to screen so it can be picked up by the fim_process_huc.sh (tee) system, or
+# the new process_rerun_calibtration_huc.sh which has the same trapping and logging patterns.
+
+# py files in the calibation family may use their own logs to also include errors and exceptions but
+# they will go to screen at a min. They also might choose to put more advanced info loggign in their own
+# log file for debugging purposes if they need to. We are doing to update all of those files to be more
+# compatiable with both processing flow system (fim_process_huc and rerun_calibration)
+
+# Key functionaly and log scanning were remove from here in favour of "parent" code files (fim_process_huc.sh,
+# process_rerun_calibration.py and /tools/rerun_calibration.py). 
+# Note: The new process_rerun_calibration.py is a new and likely temp script that 
+# to rerun_calibration might (or already does) cover emulateing the fim_process_huc.sh workflow.
+
+# While calibrate is welcome to use l_echo has has no value as would only duplicate exactly what is already covered
+# usign the "tee" command in its parent files.
+
+# ++++++++++++++++++++++++++++++++++++
 
 # In re-run mode, we are working against the actual outputs_temp directory, but 
 # when we are not, we are working against the outputs directory. As a result,
 # we will fake out what the value of tempHucDataDir.
+
+
+#####################################
+# CRITICAL NOTE:
+#    Due to major time constraints getting the FIM 6.2 release out, this part of the system received minimal testing
+#    in relation to the process_rerun_calibration_hucs.sh and rerun_calibration.py chain. It was heavily tested
+#    as part of the fim_pipeline chain.
+#    and any fixes required will come in near future PR (after FIM 6.2)
 
 
 echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"

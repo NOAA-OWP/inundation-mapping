@@ -12,6 +12,11 @@ set -o pipefail  # Crucial: Forces the pipe to fail if the subscript fails but o
 # for this script.
 # ++++++++++++++++++++++++++++
 
+#####################################
+# CRITICAL NOTE:
+#    Due to major time constraints getting the FIM 6.2 release out, this part of the system received minimal testing
+#    and any fixes required will come in near future PR (after FIM 6.2)
+
 
 #####################################
 ## Note:
@@ -21,6 +26,10 @@ set -o pipefail  # Crucial: Forces the pipe to fail if the subscript fails but o
 
 ##    This this having a "tee" command, like fim_process_hucs.sh, the logs will
 ##    auto catch all outputs including errors and put it in the log file
+
+##    This is now compatiable with the new logging / error handling system using in the fim_pipeline.sh
+##    fim_process_huc.sh workflow systems.
+
 #####################################
 
 
@@ -32,12 +41,17 @@ set -o pipefail  # Crucial: Forces the pipe to fail if the subscript fails but o
 #    All of those scripts roll up their StnErr and StdOut to fim_process_huc.sh. This system works well
 #    for both processing in EC2 pipeline mode, and AWS Step Function mode.
 
-# 2: As part of this process_rerun_calibration_huc.sh which is never called anywhere in the fim_process_huc.sh chain
+# 2: As part of this process_rerun_calibration_huc.sh, which is new and possibly temporary, 
+#    it can call calibrate_rating_curve.sh using the exact same logging, error handling and workflow patterns.
+
+#    This new process_rerun_calibration tool, more/less emulates fim_process_huc.sh, but this goes directly to
+#    calibrate_rating_curve.sh.  In the fim_pipeline workflow, fim_process_huc.sh calls run_unit.sh which calls
+#    calibrate_rating_curve.sh.
+
 #    Instead this does the same basic job as fim_process_huc.sh but only at a smaller scale and only when it is being
 #    called as part of rerun_calibration.py. This also catches StdErr, StdOut and passes it to "tee". It also
 #    can catch exit codes and covers any catestrophic errors (such as .sh script file errors)
 
-# Either way calibrate_rating_curve.sh only uses echos, versus l_echo, which are caught in the "tee" commands.
 
 # Note: While rerun_calibration.py also can use its subprocess to catch StdErr, StdOut and exit codes, is th
 # ability for the wrapper script to manage most of its own bash command error without compromising
@@ -53,12 +67,11 @@ set -o pipefail  # Crucial: Forces the pipe to fail if the subscript fails but o
 # but by fim_process_huc.sh in the pipeline mode.
 # When in pipeline mode, 'tempHucDataDir' actually points to the 'fim-temp' directory and calibrate_rating_curve.sh.
 # When in rerun mode, it sets that same variable name in the rerun_calibration.py code but it actually points
-# to the true huc folder in the "outputs", "previous_fim" or equiv pathing. We also do not want calibrate_rating_curve.sh
-# ever talkin the docker enviro to any variables of outputDestDir because AWS works with the "outputs" directory
-# in a different way then EC2 pipeline mode.
+# to the true huc folder in the "outputs", "previous_fim" or equiv pathing. We also do not want calibrate_rating_curve.sh.
 
 # However, process_rerun_calibration_huc.sh is never called anywhere via pipeline process, EC2 or AWS Step functions.
-# This means process_rerun_calibration_huc.sh can talk to anyone it wants.
+# This means process_rerun_calibration_huc.sh can talk to anyone it wants but normal flow is that it is now only called
+# by rerun_calibration.py
 
 # As always in multi-proc, it is ok to read files from here, but do not write to files or folders to a shared file.
 # It can and already has happened in BED large scale runs. This is a rule that we have to makes sure does not happen
