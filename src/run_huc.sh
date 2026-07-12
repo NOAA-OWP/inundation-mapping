@@ -24,8 +24,9 @@ branch_list_csv_file=$tempHucDataDir/branch_ids.csv
 # Not all branches will be successful
 branch_list_lst_file=$tempHucDataDir/branch_ids_for_huc_processing.lst
 
-branchSummaryLogFile=$tempHucDataDir/logs/branch/"$hucNumber"_summary_branch.log
-
+branchSummaryLogFile=$tempHucDataDir/logs/"$hucNumber"_summary_branch.log
+# Version with cleaned up columns
+branchSummaryLog_Adj_File=$tempHucDataDir/logs/"$hucNumber"_summary_branch_adj.csv
 huc2Identifier=${hucNumber:0:2}
 
 ## SET CRS and input DEM domain
@@ -337,18 +338,28 @@ branch_processing_start_time=`date +%s`
 # We do not want a branch to shut down the huc, so process_branch.sh always sends
 # back an exit status of 0.
 # We don't have an answer for what if all branches failed at this time.
+# Each will return an independant exit code.
 if [ -f $branch_list_lst_file ]; then
     date -u
     Tstart
     # There may not be a branch_ids.lst if there were no level paths (no stream orders 3+)
     # but there will still be a branch zero
+    # By having " || true " on the end of the command, if one branch fails, the rest will continue
     parallel --timeout $branch_timeout -j $jobBranchLimit --joblog $branchSummaryLogFile --colsep ',' \
-    -- $srcDir/process_branch.sh $runName $hucNumber :::: $branch_list_lst_file
+    -- $srcDir/process_branch.sh $runName $hucNumber :::: $branch_list_lst_file || true
     Tcount
 else
     echo "No level paths exist with this HUC. Processing branch zero only."
 fi
 
+# Adjust branch summary parallel log to more readable format
+awk 'NR>1 { 
+    $3=strftime("%m/%d/%Y..%H:%M:%S", $3); 
+    min=int($4/60); sec=$4%60; $4=sprintf("%dm %ds", min, sec); 
+}1' $branchSummaryLogFile | column -t > $branchSummaryLog_Adj_File
+
+
+# -------------------
 branches=$(Calc_Time $branch_processing_start_time)
 branches_percent=$(Calc_Time_Minutes_in_Percent $branch_processing_start_time)
 

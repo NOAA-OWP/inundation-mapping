@@ -92,9 +92,10 @@ pipeline_start_time=`date +%s`
 # Why an if and else? .. watch the number of colons.
 echo "---- Unit (HUC) processing is started"
 
+# By having " || true " on the end of the command, if one branch fails, the rest will continue
 if [ -f "$hucList" ]; then
     if [ "$jobHucLimit" = "1" ]; then
-        parallel --verbose --lb -j $jobHucLimit --colsep ',' --joblog $logFile -- $process_wb_file $runName :::: $hucList
+        parallel --verbose --lb -j $jobHucLimit --colsep ',' --joblog $logFile -- $process_wb_file $runName :::: $hucList || true
     else
         parallel -j $jobHucLimit --colsep ',' --joblog $logFile -- $process_wb_file $runName :::: $hucList
     fi
