@@ -8,7 +8,6 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 
-
 gpd.options.io_engine = "pyogrio"
 
 
@@ -61,8 +60,8 @@ def associate_levelpaths_with_levees(
     # Buffer each side of levee line
     levees_buffered_left = levees.copy()
     levees_buffered_right = levees.copy()
-    levees_buffered_left.geometry = levees.buffer(levee_buffer, single_sided=True)
-    levees_buffered_right.geometry = levees.buffer(-levee_buffer, single_sided=True)
+    levees_buffered_left.geometry = levees.buffer(levee_buffer, single_sided=True, resolution=1)
+    levees_buffered_right.geometry = levees.buffer(-levee_buffer, single_sided=True, resolution=1)
 
     # Intersect leveed areas with single-sided levee buffers
     with warnings.catch_warnings():
