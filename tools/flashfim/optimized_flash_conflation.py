@@ -1,6 +1,7 @@
 import argparse
 import datetime
 import os
+import pathlib
 from timeit import default_timer as timer
 
 import numpy as np
@@ -22,7 +23,8 @@ def optimized_flash_flow_conflation(lookup_table, domain, timestep, output):
         domain (str): Domain of FLASH model, i.e. "CONUS", "CARIB", "HAWAII", or "GUAM
         timestep (str): Timestep to pull data from. Pulls either "latest" or archived data using a specific timestep
                         with the format YYYYMMDD-HHMMSS. Ex. 20250704-083000
-        output (str): Path and base name to output flow files. Ex. "/user/Documents/flow_file.csv"
+        output (str): Path and base name to output flow files. Ex. "/user/Documents/flow_file.csv" will have file name
+                        "flow_file_20250704-083000_SAC.csv"
 
 
     Example Usage:
@@ -30,15 +32,20 @@ def optimized_flash_flow_conflation(lookup_table, domain, timestep, output):
     -o /user/Documents/latest_flow.csv -t 20250704-083000
 
     """
-    if os.path.exists(os.path.dirname(output)) == False:
-        os.makedirs(os.path.dirname(output), exist_ok=True)
+    # Check for output directory
+    output = pathlib.Path(output)
+    output.parent.mkdir(parents=True, exist_ok=True)
 
-    if isinstance(lookup_table, (str, os.PathLike)):
-        lookup_table = pd.read_csv(lookup_table).dropna(subset=["coordinates"])
-    elif not isinstance(lookup_table, pd.DataFrame):
-        raise ValueError(
-            "The lookup_table must be a pandas DataFrame or the path to a CSV file that can be opened as a pandas DataFrame."
-        )
+    if not isinstance(lookup_table, pd.DataFrame):
+        if not os.path.exists(lookup_table):
+            raise ValueError(
+                "File does not exist. The lookup_table must be a pandas DataFrame or the path to a CSV file that can be opened as a pandas DataFrame."
+            )
+
+        # Read in lookup table
+        lookup_table = pd.read_csv(
+            lookup_table, dtype={'feature_id': 'Int64', 'row_idx': 'Int64', 'col_idx': 'Int64'}
+        ).dropna(subset=["coordinates"])
 
     for model in ["CREST", "SAC", "HP"]:
         if timestep == "latest":
@@ -69,19 +76,19 @@ def optimized_flash_flow_conflation(lookup_table, domain, timestep, output):
                 with rasterio.open(s3_url) as src:
                     band = src.read(1)  # Read Dataset
 
-        rows = lookup_table["row_idx"].astype(int).values
-        cols = lookup_table["col_idx"].astype(int).values
+        rows = lookup_table["row_idx"].values
+        cols = lookup_table["col_idx"].values
 
         lookup_table["discharge"] = band[rows, cols]
 
         if domain in ["GUAM", "CARIB", "HAWAII"]:
             print(" Scaling oCONUS flows")
-            # Scale Q by area factor
+            # For oCONUS domains Scale Q by area factor
             lookup_table["discharge"] = lookup_table["discharge"] * lookup_table["area_scale"]
 
-        output_path = f"{os.path.splitext(output)[0]}_{timestep}_{model}{os.path.splitext(output)[1]}"
+        output_path = output.with_stem(f"{output.stem}_{timestep}_{model}")
 
-        lookup_table["feature_id"] = lookup_table["feature_id"].astype("int64")
+        lookup_table["feature_id"] = lookup_table["feature_id"]
         lookup_table[["feature_id", "discharge"]].to_csv(output_path, index=False)
 
 
