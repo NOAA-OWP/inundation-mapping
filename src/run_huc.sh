@@ -29,7 +29,7 @@ if [ $huc2Identifier -eq 19 ]; then
     huc_input_DEM_domain=$input_DEM_domain_Alaska
     input_DEM=$input_DEM_Alaska
     input_pit_fill=$input_DEM_pit_fills_Alaska
-    dem_domain_filename=DEM_Domain.gpkg
+    # dem_domain_filename=DEM_Domain.parquet
     input_bridge_elev_diff=$input_bridge_elev_diff_alaska
 
 elif [ $hucNumber -eq 22010000 ]; then
@@ -37,7 +37,7 @@ elif [ $hucNumber -eq 22010000 ]; then
     huc_input_DEM_domain=$input_DEM_domain_Guam
     input_DEM=$input_DEM_Guam
     input_pit_fill=$input_DEM_pit_fills_Guam
-    dem_domain_filename=DEM_Domain.gpkg
+    # dem_domain_filename=DEM_Domain.parquet
     input_bridge_elev_diff=$input_bridge_elev_diff_guam
 
 elif [ $hucNumber -eq 22030001 ]; then
@@ -45,7 +45,7 @@ elif [ $hucNumber -eq 22030001 ]; then
     huc_input_DEM_domain=$input_DEM_domain_AmericanSamoa
     input_DEM=$input_DEM_AmericanSamoa
     input_pit_fill=$input_DEM_pit_fills_AmericanSamoa
-    dem_domain_filename=DEM_Domain.gpkg
+    # dem_domain_filename=DEM_Domain.parquet
     input_bridge_elev_diff=$input_bridge_elev_diff_americansamoa
 
 else
@@ -53,7 +53,7 @@ else
     huc_input_DEM_domain=$input_DEM_domain
     input_DEM=$input_DEM
     input_pit_fill=$input_DEM_pit_fills
-    dem_domain_filename=HUC6_dem_domain.gpkg
+    # dem_domain_filename=HUC6_dem_domain.parquet
     input_bridge_elev_diff=$input_bridge_elev_diff
 
 fi
@@ -73,10 +73,8 @@ cp -R $pre_clip_huc_dir/$hucNumber/. $tempHucDataDir
 # For buffer_stream_branches.py
 cp $huc_input_DEM_domain $tempHucDataDir
 
-# TODO: Jun 2025: This should use the bash_variable, but rename as it is copied. ie:
-# cp $nws_lid $tempHucDataDir/nws_lid.gpkg
 # For usgs_gage_unit_setup.py
-cp $inputsDir/ahps_sites/nws_lid.gpkg $tempHucDataDir
+cp $nws_lid $tempHucDataDir/nws_lid.gpkg
 
 # Renamed to usgs_gages.gpkg while being copied
 cp $usgs_gages_file $tempHucDataDir/usgs_gages.gpkg
@@ -265,22 +263,11 @@ rd_depression_filling $tempCurrentBranchDataDir/dem_burned_$branch_zero_id.tif \
 
 ## D8 FLOW DIR - BRANCH 0 (include all NWM streams) ##
 echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber $branch_zero_id"
-mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
+python3 $srcDir/run_taudem_subprocess.py d8flowdir \
+    -n $ncores_fd \
+    -t $taudemDir2 \
     -fel $tempCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif \
-    -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$branch_zero_id.tif \
-    2> >(while read -r line; do
-        # Check if BOTH strings are present in the error line
-        if [[ "$line" == *"ERROR 6:"* && "$line" == *"Dataset does not support the AddBand() method."* ]]; then
-            # Do nothing (ignore the error)
-            :
-        else
-            # Print the line to the standard error stream (screen)
-            echo "$line" >&2
-        fi
-    done)
-    # May 1, 2026: Merge config between Ryan and Matt gdal PR. commented out Ryans. Can we marry the two? do we want too?    
-    # 2>&1 | sed -e 's/.*no output sd8 file specified.*/INFO: TauDEM d8flowdir running without optional sd8 slope output./I' \
-    #            -e 's/.*no output p file specified.*/INFO: TauDEM d8flowdir running without optional sd8 slope output./I'
+    -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$branch_zero_id.tif
 
 ## MAKE A COPY OF THE DEM and DEM DIFF FOR BRANCH 0
 echo -e $startDiv"Copying DEM to Branch 0"

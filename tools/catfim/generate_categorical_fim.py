@@ -913,7 +913,9 @@ def __roll_up_final_logs(gen_log_file_path, huc_list_rollup, output_folder):
                 shutil.copyfile(huc_log_path, huc_log_path_new)
 
                 # Append HUC .log file to gen .log file
-                log_concat_success = sf.concat_files(huc_log_path, final_log_path, remove_old_src_file=False)
+                log_concat_success = sf.rollup_log_files(
+                    huc_log_path, final_log_path, remove_old_src_file=False
+                )
 
                 # Print warning if needed
                 if not log_concat_success:
@@ -950,7 +952,7 @@ def __roll_up_final_logs(gen_log_file_path, huc_list_rollup, output_folder):
                     continue
 
                 # Append HUC .log file to gen .log file
-                log_concat_success = sf.concat_files(
+                log_concat_success = sf.rollup_log_files(
                     post_p_log_path, final_log_path, remove_old_src_file=False
                 )
 
