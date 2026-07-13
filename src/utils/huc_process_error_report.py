@@ -51,7 +51,12 @@ def scan_error_log(huc_number, source_log_file, output_csv_path):
 
     # Note: might be an empty file and that is ok.
     if len(lines_found) == 0:
-        print("GREAT JOB... no errors found.")
+        print("GREAT JOB.. no errors found for this huc.")
+        print("")
+        # Create an empty file to help recs found
+        empty_file_name = output_csv_path.replace(".csv", "_none_found.txt")
+        with open(empty_file_name, 'w'):
+            pass
     else:
         output_df = pd.DataFrame(lines_found).astype(str)
         # print(output_df)
@@ -72,8 +77,23 @@ def log_kw_search(logfile, huc_number):
         # Search for a match to any of the keywords in each line
         # for line_num, line in enumerate(log, start=1):
         for line in log:
+
+            line = line.strip()
+
+            # ===============
+            # Drop any recs that use this phrase and have a 6x on it
+            # it will be captured via the fim_process_huc.sh with slightly different text.
+            # Stops a bunch of dups for 6x recs
+            # if re.search(r"^Exit status: 6\d", line):
+            if re.search(r".*Exit status: 6\d.*", line) and "[[BranchID" not in line:
+                continue
+            # if re.search(r"^Command exited with non-zero status 6\d", line):
+            if re.search(r".*Command exited with non-zero status 6\d.*", line) and "[[BranchID" not in line:
+                continue
+
             match = error_re.search(line)
             if match:
+
                 status_code_match = re.search(status_code_pattern, line, re.IGNORECASE)
                 exit_code = ""
                 if status_code_match:  # then look to see if it has a code in it
@@ -83,8 +103,11 @@ def log_kw_search(logfile, huc_number):
                     num_match = re.search(r'\d+', match_result)
                     exit_code = num_match.group()
 
-                    if exit_code == "0":  # then skip
+                    if exit_code == "0":  # then skip. In theory not possible with regex above.
                         continue
+
+                # TODO: Jul 12, 2026:  using the [[BranchID: $branchId]] pattern
+                # extract the branch value and add it as a column
                 line_data = {
                     'huc_num': str(huc_number),
                     'exit_code': str(exit_code),

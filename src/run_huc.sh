@@ -353,11 +353,26 @@ else
 fi
 
 # Adjust branch summary parallel log to more readable format
-awk 'NR>1 { 
-    $3=strftime("%m/%d/%Y..%H:%M:%S", $3); 
-    min=int($4/60); sec=$4%60; $4=sprintf("%dm %ds", min, sec); 
-}1' $branchSummaryLogFile | column -t > $branchSummaryLog_Adj_File
+# Changing the 3rd col (Starttime from epoch time to human readable d/t)
+# and 4th column from seconds and milliseconds to min
+# awk 'NR>1 { $3=strftime("%m/%d/%Y..%H:%M:%S", $3) ; \ 
+#    min=int($4/60); sec=$4%60; $4=sprintf("%.2fm", $4/60) ; \
+#    }1' $branchSummaryLogFile | column -t > $branchSummaryLog_Adj_File
 
+awk 'BEGIN {
+    FS="\t"
+    OFS="\t"
+} 
+NR==1 {
+    print
+    next
+} 
+{
+
+    $3=strftime("%m/%d/%Y..%H:%M:%S", $3)
+    $4=sprintf("%.2fm", $4/60)
+    print
+}' "$branchSummaryLogFile" > "$branchSummaryLog_Adj_File"
 
 # -------------------
 branches=$(Calc_Time $branch_processing_start_time)

@@ -775,9 +775,9 @@ def search_concat_huc_csvs(directory_path, pattern, output_file_path, is_recursi
     for file in file_list:
         try:
             df = pd.read_csv(file, dtype=str)
-            # Optional: Add a column tracking which file the data came from
-            # df['source_file'] = file.name
-            dataframes.append(df)
+            if len(df) != 0:
+                # It might have just a header row but no columns, basically empty
+                dataframes.append(df)
         except Exception as e:
             raise Exception(f"Error reading {file.name}: {e}")
 

@@ -158,7 +158,7 @@ trap 'exit_and_copy' EXIT
 # We will catch those via error search tools.
 
 set +e  # turns off, yes off, the system no longer auto aborts, as trapping will handle it from from here down.
-trap 'handle_error $LINENO $hucLogFile' ERR
+trap 'handle_error $LINENO $hucLogFile $?' ERR
 
 mkdir -p $tempHucDataDir
 mkdir -p $tempBranchDataDir
@@ -176,13 +176,47 @@ l_echo "---- Started: `date -u`" $hucLogFile
 # 'tee' catches all screen outputs from all pages and scripts all the way back, including
 # all branch responses. Errors and output, even if an error occurs.
 
-# ERR trap OFF as it will mess with the return Pipestatus, we turn it back on lower for page
-# level errors or additional scripts called on the page.
-# trap - ERR
+trap - ERR  # trap ERR OFF as it will mess with the return Pipestatus
 /usr/bin/time -v $srcDir/run_huc.sh 2>&1 | tee -a $hucLogFile
 # TODO (very low priority): fix this to the formatted version for the time command
 # /usr/bin/time -f "$time_cmd_format" $srcDir/run_huc.sh 2>&1 | tee $hucLogFile
 
+# 'tee' catches all screen outputs from all pages and scripts all the way back, including
+# all branch responses. Errors and output, even if an error occurs.
+
+# We are using PIPESTATUS as the almost always is more than one exit code.
+# At a min, one from the "run_huc.sh" and other on the other side of the pipe by the "tee"
+# command. ie) The run_huc.sh might return a 127, but the "tee" command was successfull
+# copy it to a file, so returns a 0.
+# and yes.. we can not use the $? as we are messing with exit codes
+
+# we do this way instead of working directly with stderr and stdout
+# as they were messing with output logs which we always want.
+
+return_codes=( "${PIPESTATUS[@]}" )  # Note: HAS to be the very next line after the time and tee line above
+
+trap 'handle_error $LINENO $hucLogFile' ERR  # Turn ERR it back on for the rest of the page
+
+for code in "${return_codes[@]}"
+do
+    # go with the exit code for now
+    if [ $code -eq 0 ]; then
+        echo
+        # do nothing
+    elif [ $code -eq 60 ]; then
+        l_echo "----------------------------------------" $hucLogFile
+        l_echo "***** Error status: $code - HUC has no valid branches [[HUC: $hucNumber]]" $hucLogFile
+        l_echo "----------------------------------------" $hucLogFile
+    elif [ $code -eq 61 ]; then
+        l_echo "----------------------------------------" $hucLogFile
+        l_echo "***** Error status: $code - HUC has no remaining valid flowlines [[HUC: $hucNumber]]" $hucLogFile
+        l_echo "----------------------------------------" $hucLogFile
+    else
+        l_echo "----------------------------------------" $hucLogFile
+        l_echo "***** Error Exit status: $return_code detected *****"  $hucLogFile
+        l_echo "----------------------------------------" $log_file
+    fi
+done
 
 # TODO: This only gets called if the pages has completed successfully.
 grep -Hin "warning" "${hucLogFile}" > "${warningLogFile}"

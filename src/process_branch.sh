@@ -1,5 +1,5 @@
 #!/bin/bash
-### We ... DO NOT  ... want -e (exit on fail). If we do have it, fail one, fail all branches.
+### We ... DO NOT  ... want -e (exit on fail) (per branch)
 
 ### All output and errors going to screen and will be caught and rolled up via the "tee"
 ### command in fim_process_huc.sh (through run_huc.sh -> fim_process_huc.sh)
@@ -53,22 +53,20 @@ do
         # do nothing
     elif [ $code -eq 61 ]; then
         echo
-        echo "***** ERROR Exit status: $code -- Branch has no valid flowlines *****"
+        echo "Exit status: $code -- Branch has no valid flowlines. [[BranchID: $branchId]]"
         # rm -rf $tempHucDataDir/branches/$branchId/  # keep for debugging
     elif [ $code -eq 64 ]; then
         echo
-        echo "***** ERROR Exit status: $code -- Branch has no crosswalks *****"
+        echo "Exit status: $code -- Branch has no crosswalks.  [[BranchID: $branchId]]"
         # rm -rf $tempHucDataDir/branches/$branchId/  # keep for debugging
     elif [ $code -eq 65 ]; then
         echo
-        err_exists=1
-        echo "***** ERROR Exit status: $code -- Too many HydroIDs or a HydroID with more" \
-        " than 8 digits in gw catchments to convert to Int16 *****"
+        echo "Exit status: $code -- Too many HydroIDs or a HydroID with more" \
+        " than 8 digits in gw catchments to convert to Int16   [[BranchID: $branchId]]"
         # rm -rf $tempHucDataDir/branches/$branchId/   # keep for debugging
     elif [ $code -ne 0 ]; then
         echo
-        err_exists=1
-        echo "***** ERROR - Unknown Exit status: $code detected for branch $branchId *****"
+        echo "***** ERROR - Unknown Exit status: $code detected for [[BranchID: $branchId]] *****"
     fi
 done
 
