@@ -1,15 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.9.10.11 - 2026-04-06 - [PR#1803](https://github.com/NOAA-OWP/inundation-mapping/pull/1803)
+## v4.9.20.0 - 2026-07-13 - [PR#1803](https://github.com/NOAA-OWP/inundation-mapping/pull/1803)
 
-This PR updates the FLASH FIM workflow to make it more efficient for development of a rapidly updating service.
+This PR updates the FLASH FIM workflow to make it more efficient for development of a rapidly updating service and expands the capabilites to oCONUS domains.
 
 ### Additions
-- `tools/flashfim/optimized_flash_conflation.py`: Added new script to look up FLASH flows via a lookup table rather than using zonal stats to optimize service efficiency.
+- `tools/flashfim/optimized_flash_conflation.py`: Added new script to look up FLASH flows via a lookup table rather than using zonal stats to optimize service efficiency. This new script can also process additional domains including Puerto Rico, Virgin Islands, Hawaii, and Guam.
 
 ### Changes
 - `tools/flashfim/conflate_flash_flows.py`: Restructured reading of FLASH grib file for efficiency.
+<br/>
+
 ## v4.9.16.0 - 2026-06-02 - [PR#1787](https://github.com/NOAA-OWP/inundation-mapping/pull/1787)
 
 This PR closes issues #1778, #1795, and  #1796 and includes the following enhancements to the OSM bridge data acquisition pipeline.
