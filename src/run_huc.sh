@@ -349,8 +349,7 @@ if [ -f $branch_list_lst_file ]; then
     -- $srcDir/process_branch.sh $runName $hucNumber :::: $branch_list_lst_file || true
     Tcount
 else
-    echo "No level paths exist with this HUC. Processing branch zero only."
-    echo "Exit Status: 63"  #  helps so the log at least know about it.
+    echo "Exit Status: 63 - No level paths exist with this HUC. Processing branch zero only."
 fi
 
 # We should have a summary file now
