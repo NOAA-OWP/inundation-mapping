@@ -107,7 +107,6 @@ else
     fi
 fi
 
-echo
 echo "---- Unit (HUC) processing is complete"
 date -u
 Calc_Duration "Duration : " $pipeline_start_time ""

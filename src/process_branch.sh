@@ -1,5 +1,7 @@
 #!/bin/bash
-### We ... DO NOT  ... want -e (exit on fail) (per branch)
+### We ... DO NOT  ... want -e (exit on fail) (per branch). We have to return
+###    0 (success) for any true branch processing in order to not have run_huc.sh block other
+###    branches from failing if one does.
 
 ### All output and errors going to screen and will be caught and rolled up via the "tee"
 ### command in fim_process_huc.sh (through run_huc.sh -> fim_process_huc.sh)
@@ -53,15 +55,15 @@ do
         # do nothing
     elif [ $code -eq 61 ]; then
         echo
-        echo "Exit status: $code -- Branch has no valid flowlines. [[BranchID: $branchId]]"
+        echo "Acceptable Exit Status: $code -- Branch has no valid flowlines. [[BranchID: $branchId]]"
         # rm -rf $tempHucDataDir/branches/$branchId/  # keep for debugging
     elif [ $code -eq 64 ]; then
         echo
-        echo "Exit status: $code -- Branch has no crosswalks.  [[BranchID: $branchId]]"
+        echo "Acceptable Exit Status: $code -- Branch has no crosswalks.  [[BranchID: $branchId]]"
         # rm -rf $tempHucDataDir/branches/$branchId/  # keep for debugging
     elif [ $code -eq 65 ]; then
         echo
-        echo "Exit status: $code -- Too many HydroIDs or a HydroID with more" \
+        echo "Acceptable Exit Status: $code -- Too many HydroIDs or a HydroID with more" \
         " than 8 digits in gw catchments to convert to Int16   [[BranchID: $branchId]]"
         # rm -rf $tempHucDataDir/branches/$branchId/   # keep for debugging
     elif [ $code -ne 0 ]; then
@@ -74,3 +76,5 @@ echo -e $startDiv"End Branch Processing $hucNumber $branchId ..."
 date -u
 Calc_Duration "Duration : " $branch_start_time ""
 echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
+
+exit 0

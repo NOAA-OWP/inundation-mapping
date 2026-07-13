@@ -114,10 +114,9 @@ exit_and_copy() {
     cp -r --no-preserve=ownership "${tempHucDataDir}/" "${outputHucDataDir}/"
     rm -rdf $tempHucDataDir
     echo "***** Copy complete, removed old temp directory"
-    echo
     echo "============================================================================================="    
     echo
-    exit 0  # for fim_process_huc only, we do want to always return a 0.
+    exit 0  # for fim_process_huc, we want to return a 0.
 }
 
 compile_error_report() {
@@ -181,8 +180,8 @@ trap - ERR  # trap ERR OFF as it will mess with the return Pipestatus
 # TODO (very low priority): fix this to the formatted version for the time command
 # /usr/bin/time -f "$time_cmd_format" $srcDir/run_huc.sh 2>&1 | tee $hucLogFile
 
-# 'tee' catches all screen outputs from all pages and scripts all the way back, including
-# all branch responses. Errors and output, even if an error occurs.
+# 'tee' catches all screen outputs from all pages and scripts including any
+#    child scripts (delin, process_branch, etc).
 
 # We are using PIPESTATUS as the almost always is more than one exit code.
 # At a min, one from the "run_huc.sh" and other on the other side of the pipe by the "tee"
@@ -197,6 +196,7 @@ return_codes=( "${PIPESTATUS[@]}" )  # Note: HAS to be the very next line after 
 
 trap 'handle_error $LINENO $hucLogFile' ERR  # Turn ERR it back on for the rest of the page
 
+error_exists="false"
 for code in "${return_codes[@]}"
 do
     # go with the exit code for now
@@ -205,21 +205,23 @@ do
         # do nothing
     elif [ $code -eq 60 ]; then
         l_echo "----------------------------------------" $hucLogFile
-        l_echo "***** Error status: $code - HUC has no valid branches [[HUC: $hucNumber]]" $hucLogFile
+        l_echo "***** Acceptable Exit status: $code - HUC has no valid branches [[HUC: $hucNumber]]" $hucLogFile
         l_echo "----------------------------------------" $hucLogFile
     elif [ $code -eq 61 ]; then
         l_echo "----------------------------------------" $hucLogFile
-        l_echo "***** Error status: $code - HUC has no remaining valid flowlines [[HUC: $hucNumber]]" $hucLogFile
+        l_echo "***** Acceptable Exit status: $code - HUC has no remaining valid flowlines [[HUC: $hucNumber]]" $hucLogFile
         l_echo "----------------------------------------" $hucLogFile
     else
+        error_exists="true"
         l_echo "----------------------------------------" $hucLogFile
         l_echo "***** Error Exit status: $return_code detected *****"  $hucLogFile
         l_echo "----------------------------------------" $log_file
     fi
 done
 
-# TODO: This only gets called if the pages has completed successfully.
-grep -Hin "warning" "${hucLogFile}" > "${warningLogFile}"
+if [ "$error_exists" == "false" ]; then
+    grep -Hin "warning" "${hucLogFile}" > "${warningLogFile}"
+fi
 
 # exit_and_copy will be copied here if not earlier,
 # depending on exceptions or errors from the TRAP ... ERR and down.

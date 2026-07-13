@@ -350,37 +350,38 @@ if [ -f $branch_list_lst_file ]; then
     Tcount
 else
     echo "No level paths exist with this HUC. Processing branch zero only."
+    echo "Exit Status: 63"  #  helps so the log at least know about it.
 fi
 
-# Adjust branch summary parallel log to more readable format
-# Changing the 3rd col (Starttime from epoch time to human readable d/t)
-# and 4th column from seconds and milliseconds to min
-# awk 'NR>1 { $3=strftime("%m/%d/%Y..%H:%M:%S", $3) ; \ 
-#    min=int($4/60); sec=$4%60; $4=sprintf("%.2fm", $4/60) ; \
-#    }1' $branchSummaryLogFile | column -t > $branchSummaryLog_Adj_File
+# We should have a summary file now
+# but it is possible we do not have one if there are no non branch 0 branches left
+if [ -f $branchSummaryLogFile ]; then
 
-awk 'BEGIN {
-    FS="\t"
-    OFS="\t"
-} 
-NR==1 {
-    print
-    next
-} 
-{
-
-    $3=strftime("%m/%d/%Y..%H:%M:%S", $3)
-    $4=sprintf("%.2fm", $4/60)
-    print
-}' "$branchSummaryLogFile" > "$branchSummaryLog_Adj_File"
-
-# -------------------
-branches=$(Calc_Time $branch_processing_start_time)
-branches_percent=$(Calc_Time_Minutes_in_Percent $branch_processing_start_time)
+    # Adjust branch summary parallel log to more readable format
+    # Changing the 3rd col (Starttime from epoch time to human readable d/t)
+    # and 4th column from seconds and milliseconds to min
+    awk 'BEGIN {
+        FS="\t"
+        OFS="\t"
+    } 
+    NR==1 {
+        print
+        next
+    } 
+    {
+        $3=strftime("%m/%d/%Y..%H:%M:%S", $3)
+        $4=sprintf("%.2fm", $4/60)
+        print
+    }' "$branchSummaryLogFile" > "$branchSummaryLog_Adj_File"
+fi
 
 # TODO: Jul 2026: Add a test to see if we have any valid completed branches so we can issues a special
 # new status code of 6x (need a new one), that we can catch better. Low priority
 # It is continuing on to the calibrate tools even though it does not need too.
+
+# -------------------
+branches=$(Calc_Time $branch_processing_start_time)
+branches_percent=$(Calc_Time_Minutes_in_Percent $branch_processing_start_time)
 
 ## REMOVE FILES FROM DENY LIST ##
 if [ -f $deny_unit_list ]; then
