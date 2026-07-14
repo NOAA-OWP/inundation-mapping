@@ -60,13 +60,13 @@ def get_fim_probability_distributions(
     if posterior_dist is None:
 
         # Default weibull likelihood for channel manning roughness
-        channel_dist = weibull_min(c=2.65981297074006, scale=0.026641903390526706, loc=-0.016344675132653606)
+        channel_dist = weibull_min(c=8.5, scale=0.07, loc=-0.07)
 
         # Default weibull likelihood for overbank manning roughness
-        obank_dist = weibull_min(c=2.65981297074006, scale=0.026641903390526706, loc=-0.016344675132653606)
+        obank_dist = weibull_min(c=8.5, scale=0.07, loc=-0.07)
 
         # Default weibull likelihood for slope adjustment
-        slope_dist = weibull_min(c=2.65981297074006, scale=0.026641903390526706, loc=-0.016344675132653606)
+        slope_dist = weibull_min(c=0.85, scale=0.005, loc=-0.0015)
 
     else:
         variables = ['channel_manning_roughness', 'overbank_manning_roughness', 'slope_adjustment']
@@ -158,64 +158,44 @@ def generate_streamflow_percentiles(
         rv['feature_id'] = str(feature)
         return rv
 
-    streamflow_values = ensemble_forecast['streamflow'].values
-    likelihoods = 1 - r.cdf(streamflow_values)
+    streamflow_values = np.squeeze(ensemble_forecast['streamflow'].values)
 
-    # Scale the likelihoods to equal 1 and then generate a dataset given their likelihood
-    scaled_likelihoods = np.squeeze(likelihoods / np.sum(likelihoods)) * np.linspace(1, 0.9, 6) * 10000
+    if not np.allclose(streamflow_values, streamflow_values[0]):
+        streamflow_values[np.isnan(streamflow_values)] = np.nanmean(streamflow_values)
+        likelihoods = 1 - r.cdf(streamflow_values)
 
-    # Create data to fit truncated exponential distribution
-    ef_values = np.where(np.isnan(streamflow_values), 0, streamflow_values)
-    sl_values = np.where(np.isnan(scaled_likelihoods), 1, scaled_likelihoods).astype(int)
-    streamflow_expon_values = np.repeat(ef_values.ravel(), sl_values.ravel())
+        # Scale the likelihoods to equal 1 and then generate a dataset given their likelihood
+        scaled_likelihoods = np.squeeze(likelihoods / np.sum(likelihoods)) * np.linspace(1, 0.9, 6) * 10000
 
-    # Check to see if all values are the same, if so grab the first, otherwise get their point percent functions
-    if not np.allclose(streamflow_expon_values, streamflow_expon_values[0]):
+        # Interpolate streamflow values so that member1 represents the 50th percentile
+        top = np.interp([10, 25, 50], [10, 50], [np.min(scaled_likelihoods), scaled_likelihoods[0]])[::-1]
 
-        streamflow_list = [(value, index) for index, value in enumerate(np.squeeze(ef_values))]
-        streamflow_list.sort()
-        x_points = np.squeeze([item[0] for item in streamflow_list])
+        top_scaled = np.interp(
+            top,
+            [np.min(scaled_likelihoods), scaled_likelihoods[0]],
+            [np.max(streamflow_values), streamflow_values[0]],
+        )
 
-        x_indices = [item[1] for item in streamflow_list]
-        cumsum = np.cumsum(scaled_likelihoods[x_indices] / 1e4)
-        cdf_points = np.interp(cumsum, [np.min(cumsum), np.max(cumsum)], [0.05, 0.95])
+        bottom = np.interp([50, 75, 90], [50, 90], [scaled_likelihoods[0], np.max(scaled_likelihoods)])[::-1]
+        bottom_scaled = np.interp(
+            bottom,
+            [scaled_likelihoods[0], np.max(scaled_likelihoods)],
+            [streamflow_values[0], np.min(streamflow_values)],
+        )
 
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            coefficientsx = np.polyfit(x_points, cdf_points, 2)
-            coefficientsy = np.polyfit(cdf_points, x_points, 2)
-
-        polynomial_functionx = np.poly1d(coefficientsx)
-        polynomial_functiony = np.poly1d(coefficientsy)
-        x_fitx = np.linspace(min(x_points), max(x_points), 100)  # Generate more points for a smooth curve
-        y_fity = polynomial_functionx(x_fitx)
-
-        y_fitx = np.linspace(min(cdf_points), max(cdf_points), 100)  # Generate more points for a smooth curve
-        x_fity = polynomial_functiony(y_fitx)
-
-        custom_cdf_func = PchipInterpolator(x_fitx, y_fity, extrapolate=True)
-        custom_ppf_func = PchipInterpolator(y_fitx, x_fity, extrapolate=True)
-
-        class CustomInterpDist(rv_continuous):
-            def _cdf(self, x):
-                return custom_cdf_func(x)
-
-            def _ppf(self, q):
-                return custom_ppf_func(q)
-
-        custom_dist = CustomInterpDist(a=min(x_points), b=max(x_points), name="CustomInterpDist")
+        percentile_values = np.hstack([bottom_scaled, top_scaled[1:]])
 
         return {
-            '90': max(0, custom_dist.ppf(0.1)),
-            '75': max(0, custom_dist.ppf(0.25)),
-            '50': max(0, custom_dist.ppf(0.5)),
-            '25': max(0, custom_dist.ppf(0.75)),
-            '10': max(0, custom_dist.ppf(0.9)),
+            '90': max(0, percentile_values[0]),
+            '75': max(0, percentile_values[1]),
+            '50': max(0, streamflow_values[0]),
+            '25': max(0, percentile_values[3]),
+            '10': max(0, percentile_values[4]),
             'feature_id': str(feature),
         }
 
     else:
-        rv = dict.fromkeys(dkeys, max(0, streamflow_expon_values[0]))
+        rv = dict.fromkeys(dkeys, max(0, streamflow_values[0]))
         rv['feature_id'] = str(feature)
         return rv
 
@@ -268,14 +248,15 @@ def analyze_nonmonotonic_src(srcs_df, channel_manning, slope_adj):
             * pow(
                 np.max(
                     [
-                        srcs_df.loc[row_slice, 'SLOPE_RISE_RUN'] + slope_adj,
+                        srcs_df.loc[row_slice, 'SLOPE'] + slope_adj,
                         np.repeat(1e-5, srcs_df.loc[row_slice].shape[0]),
                     ],
                     axis=0,
                 ),
                 0.5,
             )
-            / channel_manning
+            / srcs_df['channel_n']
+            + channel_manning
         )
 
     return srcs_df
@@ -309,21 +290,6 @@ def get_subdivided_src(hydrofabric_dir, huc, branch, channel_manning, overbank_m
     ) as f:  # Use 'rt' for text mode, and specify encoding
         df_src = pd.read_csv(f)
 
-    df_src = df_src.drop(
-        [
-            'subdiv_applied',
-            'Discharge (m3s-1)_subdiv',
-            'Volume_chan (m3)',
-            'Volume_obank (m3)',
-            'BedArea_chan (m2)',
-            'BedArea_obank (m2)',
-            'WettedPerimeter_chan (m)',
-            'WettedPerimeter_obank (m)',
-        ],
-        axis=1,
-        errors='ignore',
-    )
-
     with fsspec.open(
         os.path.join(hydrofabric_dir, huc, "hydrotable.parquet"), mode='rb'
     ) as f:  # Use 'rt' for text mode, and specify encoding
@@ -332,83 +298,25 @@ def get_subdivided_src(hydrofabric_dir, huc, branch, channel_manning, overbank_m
     df_htable = df_htable.astype({'HUC': str, 'HydroID': int})
 
     # Subdivide Geometry ----------------------------------------------------------------------------------
-    df_src['Volume_chan (m3)'] = np.where(
-        df_src['Stage'] <= df_src['Stage_bankfull'],
-        df_src['Volume (m3)'],
-        (
-            df_src['Volume_bankfull']
-            + ((df_src['Stage'] - df_src['Stage_bankfull']) * df_src['SurfArea_bankfull'])
-        ),
-    )
-    df_src['BedArea_chan (m2)'] = np.where(
-        df_src['Stage'] <= df_src['Stage_bankfull'], df_src['BedArea (m2)'], df_src['BedArea_bankfull']
-    )
-    df_src['WettedPerimeter_chan (m)'] = np.where(
-        df_src['Stage'] <= df_src['Stage_bankfull'],
-        (df_src['BedArea_chan (m2)'] / df_src['LENGTHKM'] / 1000),
-        (df_src['BedArea_chan (m2)'] / df_src['LENGTHKM'] / 1000)
-        + ((df_src['Stage'] - df_src['Stage_bankfull']) * 2),
-    )
-
-    # Calculate overbank volume & bed area
-    df_src['Volume_obank (m3)'] = np.where(
-        df_src['Stage'] > df_src['Stage_bankfull'], (df_src['Volume (m3)'] - df_src['Volume_chan (m3)']), 0.0
-    )
-    df_src['BedArea_obank (m2)'] = np.where(
-        df_src['Stage'] > df_src['Stage_bankfull'],
-        (df_src['BedArea (m2)'] - df_src['BedArea_chan (m2)']),
-        0.0,
-    )
-    df_src['WettedPerimeter_obank (m)'] = df_src['BedArea_obank (m2)'] / df_src['LENGTHKM'] / 1000
-
-    # Subdivide Geometry ----------------------------------------------------------------------------------
     df_src['channel_n'] = df_src['channel_n'] + channel_manning
     df_src['overbank_n'] = df_src['overbank_n'] + overbank_manning
     df_src['subdiv_applied'] = ~df_src['Stage_bankfull'].isnull()  # creat
 
-    # Subdivide Manning Eq --------------------------------------------------------------------------------
-    df_src = df_src.drop(
-        ['WetArea_chan (m2)', 'HydraulicRadius_chan (m)', 'Discharge_chan (m3s-1)', 'Velocity_chan (m/s)'],
-        axis=1,
-        errors='ignore',
-    )  # drop these cols (in case subdiv was previously performed)
-    df_src['WetArea_chan (m2)'] = df_src['Volume_chan (m3)'] / df_src['LENGTHKM'] / 1000
-    df_src['HydraulicRadius_chan (m)'] = df_src['WetArea_chan (m2)'] / df_src['WettedPerimeter_chan (m)']
-    df_src['HydraulicRadius_chan (m)'] = df_src['HydraulicRadius_chan (m)'].fillna(0)
     df_src['Discharge_chan (m3s-1)'] = (
         df_src['WetArea_chan (m2)']
         * pow(df_src['HydraulicRadius_chan (m)'], 2.0 / 3)
         * pow(np.max([df_src['SLOPE'] + slope_adj, np.repeat(1e-5, df_src.shape[0])], axis=0), 0.5)
         / df_src['channel_n']
     )
-    df_src['Velocity_chan (m/s)'] = df_src['Discharge_chan (m3s-1)'] / df_src['WetArea_chan (m2)']
-    df_src['Velocity_chan (m/s)'] = df_src['Velocity_chan (m/s)'].fillna(0)
 
-    # Calculate discharge (overbank) using Manning's equation
-    df_src = df_src.drop(
-        [
-            'WetArea_obank (m2)',
-            'HydraulicRadius_obank (m)',
-            'Discharge_obank (m3s-1)',
-            'Velocity_obank (m/s)',
-        ],
-        axis=1,
-        errors='ignore',
-    )  # drop these cols (in case subdiv was previously performed)
-    df_src['WetArea_obank (m2)'] = df_src['Volume_obank (m3)'] / df_src['LENGTHKM'] / 1000
-    df_src['HydraulicRadius_obank (m)'] = df_src['WetArea_obank (m2)'] / df_src['WettedPerimeter_obank (m)']
-    df_src = df_src.replace([np.inf, -np.inf], np.nan)  # need to replace inf instances (divide by 0)
-    df_src['HydraulicRadius_obank (m)'] = df_src['HydraulicRadius_obank (m)'].fillna(0)
     df_src['Discharge_obank (m3s-1)'] = (
         df_src['WetArea_obank (m2)']
         * pow(df_src['HydraulicRadius_obank (m)'], 2.0 / 3)
         * pow(np.max([df_src['SLOPE'] + slope_adj, np.repeat(1e-5, df_src.shape[0])], axis=0), 0.5)
         / df_src['overbank_n']
     )
-    df_src['Velocity_obank (m/s)'] = df_src['Discharge_obank (m3s-1)'] / df_src['WetArea_obank (m2)']
-    df_src['Velocity_obank (m/s)'] = df_src['Velocity_obank (m/s)'].fillna(0)
 
-    # Calcuate the total of the subdivided discharge (channel + overbank)
+    # Calculate the total of the subdivided discharge (channel + overbank)
     df_src = df_src.drop(
         ['Discharge (m3s-1)_subdiv'], axis=1, errors='ignore'
     )  # drop these cols (in case subdiv was previously performed)
@@ -419,7 +327,7 @@ def get_subdivided_src(hydrofabric_dir, huc, branch, channel_manning, overbank_m
 
     # Use the default discharge column when vmann is not being applied
     df_src['Discharge (m3s-1)_subdiv'] = np.where(
-        df_src['subdiv_applied'] is False, df_src['Discharge (m3s-1)'], df_src['Discharge (m3s-1)_subdiv']
+        ~df_src['subdiv_applied'], df_src['Discharge (m3s-1)'], df_src['Discharge (m3s-1)_subdiv']
     )  # reset the discharge value back to the original if vmann=false
 
     nonmonotonic_partial = partial(
@@ -606,6 +514,9 @@ def inundate_probabilistic(
         overbank_n = obank_dist.ppf(1 - int(percentile) / 100)
         slope_adj = slope_dist.ppf(int(percentile) / 100)
 
+        if percentile == '50':
+            channel_n, overbank_n, slope_adj = 0, 0, 0
+
         # Establish directory to save the final mosaiced inundation
         final_inundation_path = os.path.join(
             base_output_path, f'extent_{percentile}_v10_day{day}_hour{hour}.tif'
@@ -615,8 +526,12 @@ def inundate_probabilistic(
         if os.path.exists(final_inundation_path) and not overwrite:
             continue
 
+        h_tables = []
         for branch in all_branches:
             h_table = get_subdivided_src(hydrofabric_dir, huc, branch, channel_n, overbank_n, slope_adj)
+            h_tables.append(h_table)
+
+        final_src = pd.concat(h_tables).reset_index(drop=True)
 
         flow_df = pd.DataFrame(
             {"feature_id": percentile_values['feature_id'], "discharge": percentile_values[percentile]}
@@ -628,7 +543,7 @@ def inundate_probabilistic(
             hydrofabric_dir,
             huc,
             flow_df,
-            hydro_table_df=h_table,
+            hydro_table_df=final_src,
             inundation_raster=final_inundation_path,
             mask=mask_path,
             verbose=not quiet,
