@@ -345,8 +345,9 @@ if [ -f $branch_list_lst_file ]; then
     # There may not be a branch_ids.lst if there were no level paths (no stream orders 3+)
     # but there will still be a branch zero
     # By having " || true " on the end of the command, if one branch fails, the rest will continue
-    parallel --timeout $branch_timeout -j $jobBranchLimit --joblog $branchSummaryLogFile --colsep ',' \
-    -- $srcDir/process_branch.sh $runName $hucNumber :::: $branch_list_lst_file || true
+    parallel --timeout $branch_timeout -j $jobBranchLimit --joblog $branchSummaryLogFile \
+     --colsep ',' --line-buffer \
+     -- $srcDir/process_branch.sh $runName $hucNumber :::: $branch_list_lst_file || true
     Tcount
 else
     echo "Exit Status: 63 - No level paths exist with this HUC. Processing branch zero only."

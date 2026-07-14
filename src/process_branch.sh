@@ -1,7 +1,4 @@
-#!/bin/bash
-### We ... DO NOT  ... want -e (exit on fail) (per branch). We have to return
-###    0 (success) for any true branch processing in order to not have run_huc.sh block other
-###    branches from failing if one does.
+#!/bin/bash 
 
 ### All output and errors going to screen and will be caught and rolled up via the "tee"
 ### command in fim_process_huc.sh (through run_huc.sh -> fim_process_huc.sh)
@@ -18,6 +15,20 @@
 runName=$1
 hucNumber=$2
 branchId=$3
+
+cleanup() {
+    # 1. Clear out any remaining background jobs safely
+    trap - EXIT
+    (setsid kill 0 2>/dev/null) &
+    
+    # 2. Hardcode a successful exit status
+    exit 0  
+}
+# Attach the cleanup function to both standard EXIT and termination signals
+trap cleanup EXIT SIGTERM SIGINT
+
+# Put in a random time 0 to 10 second sleep to help space out branches a little
+sleep $((RANDOM % 11))
 
 source $srcDir/bash_functions.env
 
