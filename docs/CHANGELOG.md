@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.9.20.0 - 2026-07-13 - [PR#1803](https://github.com/NOAA-OWP/inundation-mapping/pull/1803)
+## v4.9.x.x - 2026-07-13 - [PR#1803](https://github.com/NOAA-OWP/inundation-mapping/pull/1803)
 
 This PR updates the FLASH FIM workflow to make it more efficient for development of a rapidly updating service and expands the capabilites to oCONUS domains.
 
