@@ -1,10 +1,16 @@
 #!/bin/bash -e
-
-## INITIALIZE TOTAL TIME TIMER ##
-T_total_start
+# We ... DO ....  the -e here which means stop execution immediately on fail.
+# We want this to auto fail as it is logging and error handling are done by its parent
+# of process_huc.sh
+### Yes.. not all of our .sh files are the same with the -e flag, be design.
 
 ## SOURCE BASH FUNCTIONS
 source $srcDir/bash_functions.env
+
+## INITIALIZE TOTAL TIME TIMER ##
+## Used by timers in sections below
+## Overall page timer in process_branch.sh in case of errors
+T_total_start
 
 ## SET VARIABLES AND FILE INPUTS ##
 hucNumber="$1"
@@ -38,14 +44,6 @@ fi
 
 ## MAKE OUTPUT BRANCH DIRECTORY
 mkdir -p $tempCurrentBranchDataDir
-
-## START MESSAGE ##
-echo -e $startDiv"Processing HUC: $hucNumber - branch_id: $current_branch_id"
-
-## INITIALIZE TOTAL BRANCH TIMER ##
-T_total_start
-branch_start_time=`date +%s`
-date -u
 
 ## SUBSET VECTORS
 echo -e $startDiv"Subsetting vectors to branches $hucNumber $current_branch_id"
@@ -127,22 +125,11 @@ fi
 
 ## D8 FLOW DIR - BRANCHES (NOT 0) (NWM levelpath streams) ##
 echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber $current_branch_id"
-mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
+python3 $srcDir/run_taudem_subprocess.py d8flowdir \
+    -n $ncores_fd \
+    -t $taudemDir2 \
     -fel $tempCurrentBranchDataDir/dem_burned_filled_$current_branch_id.tif \
-    -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$current_branch_id.tif \
-    2> >(while read -r line; do
-        # Check if BOTH strings are present in the error line
-        if [[ "$line" == *"ERROR 6:"* && "$line" == *"Dataset does not support the AddBand() method."* ]]; then
-            # Do nothing (ignore the error)
-            :
-        else
-            # Print the line to the standard error stream (screen)
-            echo "$line" >&2
-        fi
-    done)
-    # May 1, 2026: Merge config between Ryan and Matt gdal PR. commented out Ryans. Can we marry the two? do we want too?    
-    # 2>&1 | sed -e 's/.*no output sd8 file specified.*/INFO: TauDEM d8flowdir running without optional sd8 slope output./I' \
-    #            -e 's/.*no output p file specified.*/INFO: TauDEM d8flowdir running without optional sd8 slope output./I'
+    -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$current_branch_id.tif
 
 ## RASTERIZE NWM Levelpath HEADWATERS (1 & 0) ##
 echo -e $startDiv"Rasterize NWM Headwaters $hucNumber $current_branch_id"
@@ -187,7 +174,4 @@ if [ -f $deny_branches_list ]; then
     $srcDir/outputs_cleanup.py -d $tempCurrentBranchDataDir -l $deny_branches_list -b $current_branch_id
 fi
 
-echo -e $startDiv"End Branch Processing $hucNumber $current_branch_id ..."
-date -u
-Calc_Duration "Duration : " $branch_start_time
 echo

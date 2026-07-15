@@ -1,4 +1,15 @@
-#!/bin/bash -e
+#!/bin/bash
+set -e          # Critical: We need the -e in place which means file in place if an error occurs.
+#                 HOWEVER.. as soon as we turn on the error TRAP, we need to have it turned back off again
+#                 otherwise the trap will not fire. Just above the TRAP, I add set +e to let trapping handling it.
+set -o pipefail  # Crucial: Forces the pipe to fail if the subscript fails but only when a pipe is used.
+
+# There are some places in this script we do not not want trapping turn on, such as making folders
+# validating and setting variables, but as soon as we do that, we turn on error handling, so we
+# can handle most logic and ensure it gets trapped, then always copied from the temp dir.
+# It is not a perfect solution, but still a very good one and better than we had.
+
+### Yes.. not all of our .sh files are the same with the -e flag, by design.
 
 :
 usage ()
@@ -25,44 +36,43 @@ usage ()
         2) HUC number
             Example:
 
-                ./fim_process_huc.sh test_name 05030104
+                ./fim_process_huc.sh hand_test 05030104
     "
-    exit
 }
 
 # print usage if agrument is '-h' or '--help'
 if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
     usage
+    exit 22
 fi
 
 export runName=$1
 export hucNumber=$2
-
 
 # print usage if arguments empty
 if [ "$runName" = "" ]
 then
     echo "ERROR: Missing run time name argument (1st argument)"
     usage
+    exit 22
 fi
 
 if [ "$hucNumber" = "" ]
 then
     echo "ERROR: Missing hucNumber argument (2nd argument)"
     usage
+    exit 22
 fi
 
 re='^[0-9]+$'
 if ! [[ $hucNumber =~ $re ]] ; then
-   echo "Error: hucNumber is not a number" >&2; exit 1
+   echo "Error: hucNumber is not a number" >&2 
    usage
+   exit 22
 fi
 
-echo "=========================================================================="
-echo "---- Start of huc processing for $hucNumber"
+## huc data
 
-
-# outputsDir, srcDir, workDir and others come from the Dockerfile
 export tempRunDir=$workDir/$runName
 export outputDestDir=$outputsDir/$runName
 export tempHucDataDir=$tempRunDir/$hucNumber
@@ -70,81 +80,149 @@ export outputHucDataDir=$outputDestDir/$hucNumber
 export tempBranchDataDir=$tempHucDataDir/branches
 export current_branch_id=0
 
-## huc data
 if [ -d "$outputHucDataDir" ]; then
     rm -rf $outputHucDataDir
 fi
 
-# make outputs directory
+# In case of aborted attempts earlier
+if [ -d "$tempHucDataDir" ]; then
+    rm -rdf $tempHucDataDir
+fi
+
+source $srcDir/bash_functions.env
+source $srcDir/bash_variables.env
+
+export hucLogFile="$tempHucDataDir/logs/huc_${hucNumber}_unit.log"
+export warningLogFile="$tempHucDataDir/logs/huc_${hucNumber}_warnings.log"
+export log_scan_tool_failed_file="$tempHucDataDir/logs/log_scan_tool_failed_${hucNumber}.log"
+export errorLogFile="$tempHucDataDir/logs/huc_${hucNumber}_error_report.csv"
+
+# No matter what happens, this will execute and copy the folder from temp to outputs
+# starting from the trap 'exit_and_copy' EXIT and down, ie) the arg tests above
+exit_and_copy() {
+
+    set +e  # shut off auto exit on error
+    compile_error_report
+
+    # Ensure all child folders and files are set to the perms we want
+    chmod -R 774 $tempHucDataDir
+    echo "============================================================================================="
+    echo
+    echo "***** Starting copying folder temp directory: $tempHucDataDir to output directory: $outputHucDataDir"
+    date -u +"%Y-%m-%d %H:%M:%S"  # to screen
+    date -u +"%Y-%m-%d %H:%M:%S" >> $hucLogFile  # to file
+    cp -r --no-preserve=ownership "${tempHucDataDir}/" "${outputHucDataDir}/"
+    rm -rdf $tempHucDataDir
+    echo "***** Copy complete, removed old temp directory"
+    echo "============================================================================================="    
+    echo
+    exit 0  # for fim_process_huc, we want to return a 0.
+}
+
+compile_error_report() {
+
+    l_echo $startDiv"Compiling err..or report" $hucLogFile
+
+    # Note: This is a special log file system.
+    # If it runs succesfully, it will add message to the standard huc log file.
+    # But if this script itself fails, it gets a special log file.
+    python3 $srcDir/utils/huc_process_error_report.py \
+    -u $hucNumber -s $hucLogFile -o $errorLogFile >> $hucLogFile 2> $log_scan_tool_failed_file
+
+    # Delete the file if it is empty. The line above will create an empty file if there is no error
+    # and in this case, I do not want an empty file
+    if [ ! -s $log_scan_tool_failed_file ]; then
+        rm $log_scan_tool_failed_file
+    fi
+}
+
+
+# TODO: July 2026: using setfacl is a power tool to help manage perms settings
+# but it is not yet in our Docker build. See notes in Dockerfile.dev
+# Set default permissions for the owner, group, and others
+# This forces 775 (rwxrwxr-x) on all newly created files and folders
+# setfacl -d -m u::rwx $tempHucDataDir
+# setfacl -d -m g::rwx $tempHucDataDir
+# setfacl -d -m o::rx $tempHucDataDir
+# In the meantime, we have a weird combination of inefficient chmod everywhere.
+
+# This safety net catches the exit command and runs your final lines
+# but only from this point down. This helps ensure outputs data is copied from temp to outputs
+# from here down. Not perfect, but pretty good.
+trap 'exit_and_copy' EXIT
+# Error handling starts from here down.
+
+# Note: While the error log file will capture errors from this page or its "tee" returns,
+# it does not include some errors and exceptions recorded inside the child .sh files. 
+# We will catch those via error search tools.
+
+set +e  # turns off, yes off, the system no longer auto aborts, as trapping will handle it from from here down.
+trap 'handle_error $LINENO $hucLogFile $?' ERR
+
 mkdir -p $tempHucDataDir
 mkdir -p $tempBranchDataDir
 mkdir -p $tempHucDataDir/logs
 mkdir -p $tempHucDataDir/logs/branch
-chmod 777 -R $tempHucDataDir
-chmod 777 -R $tempBranchDataDir
-chmod 777 -R $tempHucDataDir/logs
+chmod 777 $tempHucDataDir
+chmod 777 $tempBranchDataDir
+chmod 777 $tempHucDataDir/logs
 
-# Clean out previous unit logs and branch logs starting with this huc
-rm -f $tempHucDataDir/logs/"$hucNumber"_unit.log
-rm -f $tempHucDataDir/logs/branch/"$hucNumber"_summary_branch.log
-rm -f $tempHucDataDir/logs/branch/"$hucNumber"*.log
-rm -f $outputDestDir/branch_errors/"$hucNumber"*.log
-
-hucLogFileName=$tempHucDataDir/logs/"$hucNumber"_unit.log
+echo "=========================================================================="
+l_echo "---- Start of huc processing for $hucNumber" $hucLogFile
+l_echo "---- Started: `date -u`" $hucLogFile
 
 # Process the actual huc
-/usr/bin/time -v $srcDir/run_huc.sh 2>&1 | tee $hucLogFileName
+# 'tee' catches all screen outputs from all pages and scripts all the way back, including
+# all branch responses. Errors and output, even if an error occurs.
 
-#exit ${PIPESTATUS[0]} (and yes.. there can be more than one)
+trap - ERR  # trap ERR OFF as it will mess with the return Pipestatus
+/usr/bin/time -v $srcDir/run_huc.sh 2>&1 | tee -a $hucLogFile
+# TODO (very low priority): fix this to the formatted version for the time command
+# /usr/bin/time -f "$time_cmd_format" $srcDir/run_huc.sh 2>&1 | tee $hucLogFile
+
+# 'tee' catches all screen outputs from all pages and scripts including any
+#    child scripts (delin, process_branch, etc).
+
+# We are using PIPESTATUS as the almost always is more than one exit code.
+# At a min, one from the "run_huc.sh" and other on the other side of the pipe by the "tee"
+# command. ie) The run_huc.sh might return a 127, but the "tee" command was successfull
+# copy it to a file, so returns a 0.
 # and yes.. we can not use the $? as we are messing with exit codes
-return_codes=( "${PIPESTATUS[@]}" )
 
 # we do this way instead of working directly with stderr and stdout
 # as they were messing with output logs which we always want.
-err_exists=0
+
+return_codes=( "${PIPESTATUS[@]}" )  # Note: HAS to be the very next line after the time and tee line above
+
+trap 'handle_error $LINENO $hucLogFile' ERR  # Turn ERR it back on for the rest of the page
+
+error_exists="false"
 for code in "${return_codes[@]}"
 do
-    # Make an extra copy of the unit log into a new folder.
-
-    # Note: It was tricky to load in the fim_enum into bash, so we will just
     # go with the exit code for now
     if [ $code -eq 0 ]; then
         echo
         # do nothing
     elif [ $code -eq 60 ]; then
-        echo
-        echo "***** Unit has no valid branches *****"
-        err_exists=1
+        l_echo "----------------------------------------" $hucLogFile
+        l_echo "***** Acceptable Exit status: $code - HUC has no valid branches [[HUC: $hucNumber]]" $hucLogFile
+        l_echo "----------------------------------------" $hucLogFile
     elif [ $code -eq 61 ]; then
-        echo
-        echo "***** Unit has no remaining valid flowlines *****"
-        err_exists=1
+        l_echo "----------------------------------------" $hucLogFile
+        l_echo "***** Acceptable Exit status: $code - HUC has no remaining valid flowlines [[HUC: $hucNumber]]" $hucLogFile
+        l_echo "----------------------------------------" $hucLogFile
     else
-        echo
-        echo "***** An error has occurred  *****"
-        err_exists=1
+        error_exists="true"
+        l_echo "----------------------------------------" $hucLogFile
+        l_echo "***** Error Exit status: $return_code detected *****"  $hucLogFile
+        l_echo "----------------------------------------" $log_file
     fi
 done
 
-if [ "$err_exists" = "1" ]; then
-    error_log_filename=$tempHucDataDir/logs/huc_"$hucNumber"_errors.log
-    err_msg="Error: "$hucNumber". Invalid return status code. Exit status: $return_codes"
-    echo $err_msg >> $error_log_filename
+if [ "$error_exists" == "false" ]; then
+    grep -Hin "warning" "${hucLogFile}" > "${warningLogFile}"
 fi
 
-# Move the contents of the temp directory into the outputs directory and update file permissions
-# find $tempHucDataDir -type d -exec chmod -R 777 {} +
-# In the OWP enviros, the perms are different, we have to copy them using a special copy
-# flag which is not available in mv. We have to copy, then remove the temp version
-# mv -f $tempHucDataDir $outputHucDataDir
-cp -r --no-preserve=ownership $tempHucDataDir $outputHucDataDir
-rm -rdf $tempHucDataDir
-
-echo "============================================================================================="
-echo
-echo "***** Moved temp directory: $tempHucDataDir to output directory: $outputHucDataDir  *****"
-echo
-echo "============================================================================================="
-
-# we always return a success at this point (so we don't stop the loops / iterator)
-exit 0
+# exit_and_copy will be copied here if not earlier,
+# depending on exceptions or errors from the TRAP ... ERR and down.
+# in 'exit_and_copy', will also do the error log scanning

@@ -1,12 +1,15 @@
 #!/bin/bash -e
+# The additon of the -e tells it to stop on fail and is critical
+### Yes.. not all of our .sh files are the same with the -e flag, be design.
 
 # Do not call this file directly. Call fim_process_unit_wb.sh which calls
 # this file.
 
 ## SOURCE FILE AND FUNCTIONS ##
 # load the various enviro files
-args_file=$outputDestDir/runtime_args.env
+source $srcDir/bash_functions.env
 
+args_file=$outputDestDir/runtime_args.env
 source $args_file
 source $outputDestDir/params.env
 source $srcDir/bash_functions.env
@@ -16,12 +19,15 @@ export HYDRA_LAUNCHER=fork
 export DISPLAY=:0
 
 branch_list_csv_file=$tempHucDataDir/branch_ids.csv
-branch_list_lst_file=$tempHucDataDir/branch_ids.lst
 
-branchSummaryLogFile=$tempHucDataDir/logs/branch/"$hucNumber"_summary_branch.log
+# This file is used only to help run_huc know what branches to process
+# Not all branches will be successful
+branch_list_lst_file=$tempHucDataDir/branch_ids_for_huc_processing.lst
 
+branchSummaryLogFile=$tempHucDataDir/logs/"$hucNumber"_summary_branch.log
+# Version with cleaned up columns
+branchSummaryLog_Adj_File=$tempHucDataDir/logs/"$hucNumber"_summary_branch_adj.csv
 huc2Identifier=${hucNumber:0:2}
-
 
 ## SET CRS and input DEM domain
 if [ $huc2Identifier -eq 19 ]; then
@@ -29,7 +35,6 @@ if [ $huc2Identifier -eq 19 ]; then
     huc_input_DEM_domain=$input_DEM_domain_Alaska
     input_DEM=$input_DEM_Alaska
     input_pit_fill=$input_DEM_pit_fills_Alaska
-    # dem_domain_filename=DEM_Domain.parquet
     input_bridge_elev_diff=$input_bridge_elev_diff_alaska
 
 elif [ $hucNumber -eq 22010000 ]; then
@@ -37,7 +42,6 @@ elif [ $hucNumber -eq 22010000 ]; then
     huc_input_DEM_domain=$input_DEM_domain_Guam
     input_DEM=$input_DEM_Guam
     input_pit_fill=$input_DEM_pit_fills_Guam
-    # dem_domain_filename=DEM_Domain.parquet
     input_bridge_elev_diff=$input_bridge_elev_diff_guam
 
 elif [ $hucNumber -eq 22030001 ]; then
@@ -45,7 +49,6 @@ elif [ $hucNumber -eq 22030001 ]; then
     huc_input_DEM_domain=$input_DEM_domain_AmericanSamoa
     input_DEM=$input_DEM_AmericanSamoa
     input_pit_fill=$input_DEM_pit_fills_AmericanSamoa
-    # dem_domain_filename=DEM_Domain.parquet
     input_bridge_elev_diff=$input_bridge_elev_diff_americansamoa
 
 else
@@ -53,7 +56,6 @@ else
     huc_input_DEM_domain=$input_DEM_domain
     input_DEM=$input_DEM
     input_pit_fill=$input_DEM_pit_fills
-    # dem_domain_filename=HUC6_dem_domain.parquet
     input_bridge_elev_diff=$input_bridge_elev_diff
 
 fi
@@ -149,7 +151,7 @@ $srcDir/buffer_stream_branches.py \
     -w $tempHucDataDir/wbd_buffered.gpkg
 
 ## CREATE BRANCHID LIST FILE
-echo -e $startDiv"Create list file of branch ids for $hucNumber"
+echo -e $startDiv"Create list file of branch ids for processing for $hucNumber"
 $srcDir/generate_branch_list.py -d $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg \
     -b $branch_id_attribute \
     -o $branch_list_lst_file
@@ -263,22 +265,11 @@ rd_depression_filling $tempCurrentBranchDataDir/dem_burned_$branch_zero_id.tif \
 
 ## D8 FLOW DIR - BRANCH 0 (include all NWM streams) ##
 echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber $branch_zero_id"
-mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
+python3 $srcDir/run_taudem_subprocess.py d8flowdir \
+    -n $ncores_fd \
+    -t $taudemDir2 \
     -fel $tempCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif \
-    -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$branch_zero_id.tif \
-    2> >(while read -r line; do
-        # Check if BOTH strings are present in the error line
-        if [[ "$line" == *"ERROR 6:"* && "$line" == *"Dataset does not support the AddBand() method."* ]]; then
-            # Do nothing (ignore the error)
-            :
-        else
-            # Print the line to the standard error stream (screen)
-            echo "$line" >&2
-        fi
-    done)
-    # May 1, 2026: Merge config between Ryan and Matt gdal PR. commented out Ryans. Can we marry the two? do we want too?    
-    # 2>&1 | sed -e 's/.*no output sd8 file specified.*/INFO: TauDEM d8flowdir running without optional sd8 slope output./I' \
-    #            -e 's/.*no output p file specified.*/INFO: TauDEM d8flowdir running without optional sd8 slope output./I'
+    -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$branch_zero_id.tif
 
 ## MAKE A COPY OF THE DEM and DEM DIFF FOR BRANCH 0
 echo -e $startDiv"Copying DEM to Branch 0"
@@ -335,32 +326,60 @@ fi
 echo -e $startDiv"Cleaning up outputs in branch zero $hucNumber"
 $srcDir/outputs_cleanup.py -d $tempCurrentBranchDataDir -l $deny_branch_zero_list -b $branch_zero_id
 
-
-# -------------------
-## Start the local csv branch list
-$srcDir/generate_branch_list_csv.py -o $branch_list_csv_file -u $hucNumber -b $branch_zero_id
-
 branch0=$(Calc_Time $branch0_start_time)
 branch0_percent=$(Calc_Time_Minutes_in_Percent $branch0_start_time)
 
 # -------------------
 ## Processing Branches ##
-echo
+echo "+++++++++++++++++++++++++++++++++++++++++++++++++"
 echo "---- Start of branch processing for $hucNumber using $jobBranchLimit workers for branch processing"
 branch_processing_start_time=`date +%s`
 
+# We do not want a branch to shut down the huc, so process_branch.sh always sends
+# back an exit status of 0.
+# We don't have an answer for what if all branches failed at this time.
+# Each will return an independant exit code.
 if [ -f $branch_list_lst_file ]; then
     date -u
     Tstart
     # There may not be a branch_ids.lst if there were no level paths (no stream orders 3+)
     # but there will still be a branch zero
-    parallel --timeout $branch_timeout -j $jobBranchLimit --joblog $branchSummaryLogFile --colsep ',' \
-    -- $srcDir/process_branch.sh $runName $hucNumber :::: $branch_list_lst_file
+    # By having " || true " on the end of the command, if one branch fails, the rest will continue
+    parallel --timeout $branch_timeout -j $jobBranchLimit --joblog $branchSummaryLogFile \
+     --colsep ',' --line-buffer \
+     -- $srcDir/process_branch.sh $runName $hucNumber :::: $branch_list_lst_file || true
     Tcount
 else
-    echo "No level paths exist with this HUC. Processing branch zero only."
+    echo "Exit Status: 63 - No level paths exist with this HUC. Processing branch zero only."
 fi
 
+# We should have a summary file now
+# but it is possible we do not have one if there are no non branch 0 branches left
+if [ -f $branchSummaryLogFile ]; then
+
+    # Adjust branch summary parallel log to more readable format
+    # Changing the 3rd col (Starttime from epoch time to human readable d/t)
+    # and 4th column from seconds and milliseconds to min
+    awk 'BEGIN {
+        FS="\t"
+        OFS="\t"
+    } 
+    NR==1 {
+        print
+        next
+    } 
+    {
+        $3=strftime("%m/%d/%Y..%H:%M:%S", $3)
+        $4=sprintf("%.2fm", $4/60)
+        print
+    }' "$branchSummaryLogFile" > "$branchSummaryLog_Adj_File"
+fi
+
+# TODO: Jul 2026: Add a test to see if we have any valid completed branches so we can issues a special
+# new status code of 6x (need a new one), that we can catch better. Low priority
+# It is continuing on to the calibrate tools even though it does not need too.
+
+# -------------------
 branches=$(Calc_Time $branch_processing_start_time)
 branches_percent=$(Calc_Time_Minutes_in_Percent $branch_processing_start_time)
 
@@ -368,24 +387,32 @@ branches_percent=$(Calc_Time_Minutes_in_Percent $branch_processing_start_time)
 if [ -f $deny_unit_list ]; then
     echo -e $startDiv"Remove files $hucNumber"
     date -u
-    Tstart
+    Tstart  # TODO: Do we need a tstart and count on this
     $srcDir/outputs_cleanup.py -d $tempHucDataDir -l $deny_unit_list -b $hucNumber
     Tcount
 fi
 
+## ADJUST CALIBRATION
+## call src adjustments..Pass False as an argument to flag it is not a rerun of calibration. 
+$srcDir/calibrate_rating_curves.sh "False" $jobBranchLimit $hucNumber
+
+## Start the local csv branch list
+echo -e $startDiv"Generating Branch List that have successfully completed"
+$srcDir/generate_branch_list_csv.py -o $branch_list_csv_file -u $hucNumber
+
 echo "---- HUC $hucNumber - branches have now been processed"
 Calc_Duration "Duration for processing branches : " $branch_processing_start_time
-#echo
+echo
 total_branches=$(wc -l < $branch_list_csv_file)
-
-## call src adjustments..Pass False as an argument to flag it is not a rerun of calibration. 
-$srcDir/calibrate_rating_curves.sh "False" $jobBranchLimit
 
 # WRITE TO LOG FILE CONTAINING ALL HUC PROCESSING TIMES
 total_duration_display="$hucNumber,$(Calc_Time $huc_start_time),$(Calc_Time_Minutes_in_Percent $huc_start_time),$total_branches,$branch0,$branch0_percent,$branches,$branches_percent"
 echo "$total_duration_display" >> "$tempHucDataDir/processing_time_$hucNumber.txt"
 
+# Yes.. we let this log to the hucLogFile so error seach tools can look only in this huc file.
 date -u
 echo "---- HUC processing for $hucNumber is complete"
-Calc_Duration "Duration for huc processing: " $huc_start_time
+Calc_Duration "Duration for huc processing : " $huc_start_time
 echo
+
+# let the script return whatever code it wants unless controlled exit like calibrate_rating_curves.sh
