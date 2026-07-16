@@ -149,6 +149,8 @@ def download_all_metadata(metadata_filepath, metadata_url, search):
         with open(metadata_filepath, "wb") as p_handle:
             pickle.dump(output_meta_list, p_handle, protocol=pickle.HIGHEST_PROTOCOL)
 
+        os.chmod(metadata_filepath, 0o774)
+
         msg = f"New metadata file saved at {metadata_filepath}"
         messages.append(msg)
 
@@ -281,6 +283,7 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict, li
         with open(thresholds_filepath, 'wb') as f:
             pickle.dump(all_thresholds_df, f)
 
+        os.chmod(thresholds_filepath, 0o774)
         msg = f"Thresholds file saved at {thresholds_filepath}"
         messages.append(msg)
 
@@ -661,7 +664,7 @@ def main(
     # If no metafile is provided, generate filepath and filename
     if input_metadata_file == '':
         label_with_date = label_data_file(label, lst_hucs)
-        output_metadata_filename = f'NWM_Metadata{label_with_date}.pkl'
+        output_metadata_filename = f'WRDS_Metadata{label_with_date}.pkl'
         metadata_filepath = os.path.join(output_folder, output_metadata_filename)
 
     # If metadata filepath is provided, use it
@@ -716,7 +719,7 @@ def main(
         print(f'Site source table will be saved to {output_lid_source_table_filepath}')
 
         label_with_date = label_data_file(label, lst_hucs)
-        output_thresholds_filename = f'NWM_Thresholds{label_with_date}.pkl'
+        output_thresholds_filename = f'WRDS_Thresholds{label_with_date}.pkl'
         thresholds_filepath = os.path.join(output_folder, output_thresholds_filename)
 
         print(f"Thresholds will be downloaded for sites in {len(huc_lid_dict)} HUCs")
