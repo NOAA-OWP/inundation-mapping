@@ -48,7 +48,11 @@ done
 export outputDestDir=$outputsDir/$runName
 export pp_log_file_name=$outputDestDir/logs/post_processing.log
 export pp_error_log_file_name=$outputDestDir/logs/post_processing_errors.log
+
+# post_process_error_report.py splits the merged csv into two files. One that
+# has all accepted branch codes (ie 60 - 69), and the rest to the error file
 export all_errors_csv=$outputDestDir/logs/all_error_report.csv
+export branch_accepted_exit_recs_csv=$outputDestDir/logs/all_branches_with_accepted_codes.csv
 
 if [ "$runName" = "" ]
 then
@@ -120,7 +124,8 @@ l_echo $startDiv"Compiling all HUC error reports" $pp_log_file_name
 # If it runs succesfully, it will add message to the standard huc log file.
 # But if this script itself fails, it gets a specical log file.
 python3 $srcDir/utils/post_process_error_report.py \
-    -n $outputDestDir -o $all_errors_csv >> $pp_log_file_name 2>> $pp_error_log_file_name 
+    -n $outputDestDir -o $all_errors_csv \
+    -b $branch_accepted_exit_recs_csv >> $pp_log_file_name 2>> $pp_error_log_file_name 
 
 # TODO: July 2026: low importances.
 # look for any of the huc error report .py file errors themselves which create a special log file
