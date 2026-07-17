@@ -75,9 +75,8 @@ input_WBD_gdb_Guam = os.getenv('input_WBD_gdb_Guam')  # Guam
 input_WBD_gdb_AmericanSamoa = os.getenv('input_WBD_gdb_AmericanSamoa')  # American Samoa
 
 input_DEM_domain = os.getenv('input_DEM_domain')
+input_DEM_domain_South_Alaska = os.getenv('input_DEM_domain_South_Alaska')  # South Alaska
 input_DEM_domain_Alaska = os.getenv('input_DEM_domain_Alaska')  # Alaska
-input_DEM_domain_Fairbanks = os.getenv('input_DEM_domain_Fairbanks')  # Fairbanks
-input_DEM_domain_Juneau = os.getenv('input_DEM_domain_Juneau')  # Juneau
 input_DEM_domain_Guam = os.getenv('input_DEM_domain_Guam')  # Guam
 input_DEM_domain_AmericanSamoa = os.getenv('input_DEM_domain_AmericanSamoa')  # American Samoa
 
@@ -390,12 +389,10 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir, copy_from_dir, preclipping_f
         if huc2Identifier == '19':
             huc_CRS = ALASKA_CRS
             input_WBD_filename = input_WBD_gdb_Alaska
-            if huc in ['19080306', '19080307']:
-                dem_domain = input_DEM_domain_Fairbanks
-            elif huc == '19010301':
-                dem_domain = input_DEM_domain_Juneau
-            else:
+            if huc in ['19010301', '19080306', '19080307']:
                 dem_domain = input_DEM_domain_Alaska
+            else:
+                dem_domain = input_DEM_domain_South_Alaska
         elif huc == '22010000':  # Guam
             huc_CRS = GUAM_CRS
             input_WBD_filename = input_WBD_gdb_Guam

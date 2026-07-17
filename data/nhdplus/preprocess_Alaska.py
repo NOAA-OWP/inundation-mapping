@@ -13,101 +13,12 @@ import zipfile
 from datetime import datetime, timezone
 
 import geopandas as gpd
-import pandas as pd
 from osgeo import gdal
 from rasterio.crs import CRS
 
 import src.utils.shared_functions as sf
-from data.create_vrt_file import create_vrt_file
 from data.nfhl.download_fema_nfhl import download_nfhl_wrapper
 from src.derive_headwaters import findHeadWaterPoints
-from src.utils.polygonize_raster import polygonize
-from src.utils.shared_functions import FIM_Helpers as fh
-
-
-def __polygonize(target_output_folder_path, file_logger):
-    # TODO: Jun 2025: Find a way to speed this up  (add MP or MT???)
-    # Can likely just send the mp/mt send back the gpkg, add it to an array, then concat, and dissolve
-    """
-    Create a polygon of 3DEP domain from individual HUC DEMS which are then dissolved into a single polygon
-
-    Note: If you have to re-run this tool to repair some DEMs, this section must be re-run and is by default.
-    """
-    dem_domain_file = os.path.join(target_output_folder_path, 'DEM_Domain.parquet')
-
-    msg = f" - Polygonizing -- {dem_domain_file} - Started (be patient, it can take a while)"
-    sf.l_print(msg, file_logger, "info")
-
-    start_time = datetime.now(timezone.utc)
-    sf.l_print(f"Polygonation start time: {start_time.strftime('%m/%d/%Y %H:%M:%S')}", file_logger, "info")
-
-    dem_files = glob.glob(os.path.join(target_output_folder_path, '*.tif'))
-
-    if len(dem_files) == 0:
-        raise Exception("There are no DEMs to polygonize")
-
-    dem_files.sort()
-
-    # 1. Initialize an empty list instead of an empty GeoDataFrame
-    gdfs = []
-
-    for n, dem_file in enumerate(dem_files):
-        sf.l_print(f"Polygonizing: {dem_file}", file_logger, "info")
-        edge_tif = f'{os.path.splitext(dem_file)[0]}_edge.tif'
-        edge_parquet = f'{os.path.splitext(edge_tif)[0]}.parquet'
-
-        if not os.path.exists(edge_tif):
-            subprocess.run(
-                [
-                    'gdal_calc.py',
-                    '-A',
-                    dem_file,
-                    f'--outfile={edge_tif}',
-                    '--calc=where(A > -900, 1, 0)',
-                    '--co',
-                    'BIGTIFF=YES',
-                    '--co',
-                    'NUM_THREADS=ALL_CPUS',
-                    '--co',
-                    'TILED=YES',
-                    '--co',
-                    'COMPRESS=LZW',
-                    '--co',
-                    'SPARSE_OK=TRUE',
-                    '--type=Byte',
-                    '--quiet',
-                ]
-            )
-
-        polygonize(edge_tif, edge_parquet, connectivity=8, quiet=True)
-
-        gdf = gpd.read_parquet(edge_parquet)
-
-        # 2. Simply append to the list
-        gdfs.append(gdf)
-
-        os.remove(edge_tif)
-        os.remove(edge_parquet)
-
-    # 3. Concatenate once and explicitly wrap in a GeoDataFrame to satisfy Pylance
-    if gdfs:
-        dem_parquets = gpd.GeoDataFrame(pd.concat(gdfs, ignore_index=True), crs=gdfs[0].crs)
-    else:
-        dem_parquets = gpd.GeoDataFrame()
-
-    dem_parquets['DN'] = 1
-    dem_dissolved = dem_parquets.dissolve(by='DN')
-
-    dem_dissolved.to_parquet(dem_domain_file)
-
-    if not os.path.exists(dem_domain_file):
-        sf.l_print(f" - Polygonizing -- {dem_domain_file} - Failed", file_logger, "error")
-    else:
-        sf.l_print(f" - Polygonizing -- {dem_domain_file} - Complete", file_logger, "info")
-
-    end_time = datetime.now(timezone.utc)
-    sf.l_print(f"Polygonization end time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}", file_logger, "info")
-    sf.l_print(fh.print_date_time_duration(start_time, end_time, print_dur_msg=False), file_logger, "info")
 
 
 def unzip(zip_path, extract_to="."):
@@ -216,11 +127,56 @@ def preprocess_dem(input_dem_zip_file, out_dem_folder, region, target_crs_number
         gdal.Warp(output_mosaic, src_files_to_mosaic, options=warp_options)
         print(f"\nSuccess! Mosaic saved to {output_mosaic}")
 
+        # Clip mosaic to HUC(s), e.g.:
+        # huc=19010301; region=Juneau;
+        # gdalwarp /data/inputs/dems/ifsar_dtm/${region}/20260708/${region}_ifsar_DTM_3338.tif
+        # /data/inputs/dems/ifsar_dtm/${region}/20260708/HUC8_${huc}_dem.tif
+        # -cutline /data/inputs/wbd/HUC8_Alaska/HUC8_${huc}.gpkg
+        # -crop_to_cutline -ot Float32 -r bilinear -of "GTiff" -overwrite
+        # -co "BLOCKXSIZE=256" -co "BLOCKYSIZE=256" -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES"
+        # -tr 10 10 -tap -t_srs EPSG:3338 -cblend 6
+
+        # Define variables
+        if region == 'Juneau':
+            hucs = ['19010301']
+        elif region == 'Fairbanks':
+            hucs = ['19080306', '19080307']
+
+        for huc in hucs:
+            # Define paths
+            dest_ds = f"/data/inputs/dems/ifsar_dtm/{region}/20260708/HUC8_{huc}_dem.tif"
+            cutline_path = f"/data/inputs/wbd/HUC8_Alaska/HUC8_{huc}.gpkg"
+
+            # Define warp options
+            warp_options = gdal.WarpOptions(
+                format="GTiff",
+                outputType=gdal.GDT_Float32,
+                resampleAlg=gdal.GRA_Bilinear,
+                cutlineDSName=cutline_path,
+                cropToCutline=True,
+                cutlineBlend=6,
+                dstSRS="EPSG:3338",
+                xRes=10,
+                yRes=10,
+                targetAlignedPixels=True,
+                creationOptions=[
+                    "BLOCKXSIZE=256",
+                    "BLOCKYSIZE=256",
+                    "TILED=YES",
+                    "COMPRESS=LZW",
+                    "BIGTIFF=YES",
+                ],
+            )
+
+            # Execute the warp operation
+            # (Note: overwrite=True is handled by default in Python if the file exists,
+            # but you can also explicitly pass overwrite=True to the Warp function)
+            gdal.Warp(dest_ds, output_mosaic, options=warp_options, overwrite=True)
+
+        os.remove(output_mosaic)
+
     except Exception as e:
         raise RuntimeError(f"GDAL Warp processing failed: {e}")
-
-    create_vrt_file(out_dem_folder, 'hand_seamless_3dep_dems.vrt')
-    __polygonize(out_dem_folder, file_logger)
 
 
 def preprocess_streams(region, hucs, target_crs_number, inputs_dir, reference_fabric_file):
