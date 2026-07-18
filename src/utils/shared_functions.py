@@ -733,7 +733,7 @@ def search_concat_huc_csvs(directory_path, pattern, is_recursive=True):
     """
     Scans a directory and subdirectories for files files matching a pattern.
 
-    Taking in the directory path and scanning for all files: 
+    Taking in the directory path and scanning for all files:
 
     Args:
         directory_path (str): The root folder to start scanning.

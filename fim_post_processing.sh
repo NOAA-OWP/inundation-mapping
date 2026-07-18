@@ -88,6 +88,12 @@ source $srcDir/bash_variables.env
 # starting from the trap 'exit_and_copy' EXIT and down, ie) the arg tests above
 exit_and_copy() {
 
+    # If the post processing error file exists and is not empty, lets tell the user onscreen.
+    if [ ! -e "$pp_error_log_file_name" ] || [ -s "$pp_error_log_file_name" ]; then
+        echo ""
+        echo "**** Errors were found while processing post processing"
+    fi
+
     echo
     l_echo "---- End of fim_post_processing" $pp_log_file_name
     l_echo "---- Ended: `date -u`" $pp_log_file_name
