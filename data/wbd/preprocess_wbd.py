@@ -57,7 +57,7 @@ if __name__ == '__main__':
     #  -l 8
 
     # WATCH FOR Alaska as well.  During the 3dep download of 20240916, it did not include
-    # Alaska. That one is in data/inputs/3dep_dems/10m_South_Alaska/20240912/
+    # Alaska. That one is in data/inputs/3dep_dems/10m_SouthAlaska/20240912/
 
     parser = argparse.ArgumentParser(description='Clip WBD to DEM domain')
     parser.add_argument('-d', '--dem', help='Path to DEM', type=str, required=True)

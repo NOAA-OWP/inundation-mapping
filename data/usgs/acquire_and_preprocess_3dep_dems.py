@@ -16,8 +16,6 @@ import pandas as pd
 
 import src.utils.shared_functions as sf
 import src.utils.shared_validators as val
-from data.create_vrt_file import create_vrt_file
-from src.utils.polygonize_raster import polygonize
 from src.utils.shared_functions import FIM_Helpers as fh
 
 
@@ -28,11 +26,7 @@ gpd.options.io_engine = "pyogrio"
 TODO:
     - Add input args for resolution size, which means URL and block size also have to be parameterized.
 
-    - Add an arg to skip straight to polygonize as we had a conus run that failed after dems but in polygonize.
-
     - the -lf system needs testing.
-
-    - Add MP or MT to polygonize
 
 '''
 
@@ -51,7 +45,6 @@ def acquire_and_preprocess_3dep_dems(
     target_output_folder_path='',
     number_of_jobs=1,
     repair=False,
-    skip_polygons=False,
     target_projection='EPSG:5070',
     lst_file_names='all',
 ):
@@ -216,19 +209,11 @@ def acquire_and_preprocess_3dep_dems(
         extent_file_names, target_output_folder_path, number_of_jobs, repair, target_projection, file_logger
     )
 
-    # TODO: Jan 28, 2026: Something failed in a conus run of polygonize, but all of the dems
-    # above were just fine.
-    # Manually hacked code to skip to polygonize. Put in an argument later to do this, polygonize only.
-    if skip_polygons is False:
-        if len(failed_file_names) > 0:
-            msg = "Errors have occurred while downloading. Polygonizating can not be completed."
-            " Program aborted."
-            file_logger.critical(msg)
-            sf.l_print(msg, file_logger, "critical")
-        else:
-            __polygonize(target_output_folder_path, file_logger)
-    else:
-        file_logger.info("polygonize skipped")
+    if len(failed_file_names) > 0:
+        msg = "Errors have occurred while downloading."
+        " Program aborted."
+        file_logger.critical(msg)
+        sf.l_print(msg, file_logger, "critical")
 
     sf.l_print("==========================================================", file_logger, "info")
     end_time = datetime.now(timezone.utc)
@@ -454,103 +439,19 @@ def __download_usgs_dem_file(
     return processed_successfully, rtn_dic
 
 
-def __polygonize(target_output_folder_path, file_logger):
-
-    # TODO: Jun 2025: Find a way to speed this up  (add MP or MT???)
-    # Can likely just send the mp/mt send back the gpkg, add it to an array, then concat, and dissolve
-    """
-    Create a polygon of 3DEP domain from individual HUC DEMS which are then dissolved into a single polygon
-
-    Note: If you have to re-run this tool to repair some DEMs, this section must be re-run and is by default.
-
-    """
-    dem_domain_file = os.path.join(target_output_folder_path, 'DEM_Domain.parquet')
-
-    msg = f" - Polygonizing -- {dem_domain_file} - Started (be patient, it can take a while)"
-    sf.l_print(msg, file_logger, "info")
-
-    start_time = datetime.now(timezone.utc)
-    sf.l_print(f"Polygonation start time: {start_time.strftime('%m/%d/%Y %H:%M:%S')}", file_logger, "info")
-
-    dem_files = glob.glob(os.path.join(target_output_folder_path, '*_dem.tif'))
-
-    if len(dem_files) == 0:
-        raise Exception("There are no DEMs to polygonize")
-
-    dem_files.sort()
-
-    dem_parquets = gpd.GeoDataFrame()
-
-    for n, dem_file in enumerate(dem_files):
-        sf.l_print(f"Polygonizing: {dem_file}", file_logger, "info")
-        edge_tif = f'{os.path.splitext(dem_file)[0]}_edge.tif'
-        edge_parquet = f'{os.path.splitext(edge_tif)[0]}.parquet'
-
-        # Calculate a constant valued raster from valid DEM cells
-        if not os.path.exists(edge_tif):
-            subprocess.run(
-                [
-                    'gdal_calc.py',
-                    '-A',
-                    dem_file,
-                    f'--outfile={edge_tif}',
-                    '--calc=where(A > -900, 1, 0)',
-                    '--co',
-                    'BIGTIFF=YES',
-                    '--co',
-                    'NUM_THREADS=ALL_CPUS',
-                    '--co',
-                    'TILED=YES',
-                    '--co',
-                    'COMPRESS=LZW',
-                    '--co',
-                    'SPARSE_OK=TRUE',
-                    '--type=Byte',
-                    '--quiet',
-                ]
-            )
-
-        # Polygonize constant valued raster
-        # subprocess.run(['gdal_polygonize.py', '-8', edge_tif, '-q', '-f', 'GPKG', edge_parquet])
-        polygonize(edge_tif, edge_parquet, connectivity=8, quiet=True)
-
-        gdf = gpd.read_parquet(edge_parquet)
-
-        if n == 0:
-            dem_parquets = gdf
-        else:
-            dem_parquets = pd.concat([dem_parquets, gdf])
-
-        os.remove(edge_tif)
-        os.remove(edge_parquet)
-
-    dem_parquets['DN'] = 1
-    dem_dissolved = dem_parquets.dissolve(by='DN')
-    dem_dissolved.to_parquet(dem_domain_file)
-
-    if not os.path.exists(dem_domain_file):
-        sf.l_print(f" - Polygonizing -- {dem_domain_file} - Failed", file_logger, "error")
-    else:
-        sf.l_print(f" - Polygonizing -- {dem_domain_file} - Complete", file_logger, "info")
-
-    end_time = datetime.now(timezone.utc)
-    sf.l_print(f"Polygonization end time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}", file_logger, "info")
-    sf.l_print(fh.print_date_time_duration(start_time, end_time, print_dur_msg=False), file_logger, "info")
-
-
 if __name__ == '__main__':
     '''
     sample usage (min params): (AK)
         python3 /foss_fim/data/usgs/acquire_and_preprocess_3dep_dems.py
-            -e /data/inputs/wbd/WBDs_for_DEM_downloading/HUC8_South_Alaska/ -proj "EPSG:3338"
-            -t /data/inputs/dems/3dep_dems/10m_South_Alaska/20250301
+            -e /data/inputs/wbd/WBDs_for_DEM_downloading/HUC8_SouthAlaska/ -proj "EPSG:3338"
+            -t /data/inputs/dems/3dep_dems/10m_SouthAlaska/20250301
             -j 6
 
     Pathing and epsg for the regions are:
 
     -e /data/inputs/wbd/WBDs_for_DEM_downloading/HUC8_CONUS/ -proj "EPSG:5070"
-    -e /data/inputs/wbd/WBDs_for_DEM_downloading/HUC8_South_Alaska/ -proj "EPSG:3338"
-    -e /data/inputs/wbd/WBDs_for_DEM_downloading/HUC8_American_Samoa/ -proj "EPSG:32702"
+    -e /data/inputs/wbd/WBDs_for_DEM_downloading/HUC8_SouthAlaska/ -proj "EPSG:3338"
+    -e /data/inputs/wbd/WBDs_for_DEM_downloading/HUC8_AmericanSamoa/ -proj "EPSG:32702"
     -e /data/inputs/wbd/WBDs_for_DEM_downloading/HUC8_Guam/ -proj "EPSG:6637"
 
 
@@ -638,15 +539,6 @@ if __name__ == '__main__':
         '--repair',
         help='OPTIONAL: If included, it process only file names missing output DEMs'
         ' which happen. Read all inline notes about this feature.',
-        required=False,
-        action='store_true',
-        default=False,
-    )
-
-    parser.add_argument(
-        '-sp',
-        '--skip_polygons',
-        help='OPTIONAL: If this flag is included, polygons of the dems will not be made.',
         required=False,
         action='store_true',
         default=False,

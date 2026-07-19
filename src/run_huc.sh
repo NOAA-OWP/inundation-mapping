@@ -24,14 +24,14 @@ huc2Identifier=${hucNumber:0:2}
 
 
 ## SET CRS and input DEM domain
+# Alaska EPSG:3338
 if [ $huc2Identifier -eq 19 ]; then
     huc_CRS=$ALASKA_CRS
     input_bridge_elev_diff=$input_bridge_elev_diff_alaska
     input_DEM=$input_DEM_Alaska
     input_pit_fill=$input_DEM_pit_fills_Alaska
     huc_input_DEM_domain=$input_DEM_domain_Alaska
-fi
-
+# Guam EPSG:
 elif [ $hucNumber -eq 22010000 ]; then
     huc_CRS=$GUAM_CRS
     huc_input_DEM_domain=$input_DEM_domain_Guam
@@ -39,7 +39,7 @@ elif [ $hucNumber -eq 22010000 ]; then
     input_pit_fill=$input_DEM_pit_fills_Guam
     # dem_domain_filename=DEM_Domain.parquet
     input_bridge_elev_diff=$input_bridge_elev_diff_guam
-
+# American Samoa
 elif [ $hucNumber -eq 22030001 ]; then
     huc_CRS=$AMERICAN_SAMOA_CRS
     huc_input_DEM_domain=$input_DEM_domain_AmericanSamoa

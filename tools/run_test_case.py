@@ -130,18 +130,18 @@ class Test_Case(Benchmark):
         self.benchmark_dir = os.path.join(self.validation_data, self.huc)
 
         if self.huc[:2] == '19':
+            if self.huc in ['19010301', '19080306', '19080307']:
+                lakes = 'input_lakes_NorthAlaska'
+            else:
+                lakes = 'input_nwm_lakes_SouthAlaska'
+
             self.mask_dict = {
                 'levees': {
                     'path': os.getenv('input_nld_levee_protected_areas_Alaska'),
                     'buffer': None,
                     'operation': 'exclude',
                 },
-                'waterbodies': {
-                    # 'path': '/data/inputs/nwm_hydrofabric/nwm_lakes.gpkg',
-                    'path': os.getenv('input_nwm_lakes_Alaska'),
-                    'buffer': None,
-                    'operation': 'exclude',
-                },
+                'waterbodies': {'path': os.getenv(lakes), 'buffer': None, 'operation': 'exclude'},
             }
 
         else:

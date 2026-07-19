@@ -171,21 +171,16 @@ def subset_vector_layers(
         nld_lines_preprocessed = os.getenv('input_levees_preprocessed_Alaska')
         levee_protected_areas = os.getenv('input_nld_levee_protected_areas_Alaska')
 
-        if huc in ['19080306', '19080307']:
-            nwm_lakes = os.getenv('input_nwm_lakes_Fairbanks')
-            nwm_catchments = os.getenv('input_nwm_catchments_Fairbanks')
-            nwm_streams = os.getenv('input_nwm_flows_Fairbanks')
-            nwm_headwaters = os.getenv('input_nwm_headwaters_Fairbanks')
-        elif huc == '19010301':
-            nwm_lakes = os.getenv('input_nwm_lakes_Juneau')
-            nwm_catchments = os.getenv('input_nwm_catchments_Juneau')
-            nwm_streams = os.getenv('input_nwm_flows_Juneau')
-            nwm_headwaters = os.getenv('input_nwm_headwaters_Juneau')
+        if huc in ['19010301', '19080306', '19080307']:
+            nwm_lakes = os.getenv('input_lakes_NorthAlaska')
+            nwm_catchments = os.getenv('input_nwm_catchments_NorthAlaska')
+            nwm_streams = os.getenv('input_flows_NorthAlaska')
+            nwm_headwaters = os.getenv('input_headwaters_NorthAlaska')
         else:
-            nwm_lakes = os.getenv('input_nwm_lakes_Alaska')
-            nwm_catchments = os.getenv('input_nwm_catchments_Alaska')
-            nwm_streams = os.getenv('input_nwm_flows_Alaska')
-            nwm_headwaters = os.getenv('input_nwm_headwaters_Alaska')
+            nwm_lakes = os.getenv('input_nwm_lakes_SouthAlaska')
+            nwm_catchments = os.getenv('input_nwm_catchments_SouthAlaska')
+            nwm_streams = os.getenv('input_nwm_flows_SouthAlaska')
+            nwm_headwaters = os.getenv('input_nwm_headwaters_SouthAlaska')
 
     elif huc == '22010000':  # Guam
         nwm_lakes = os.getenv('input_nhd_lakes_Guam')

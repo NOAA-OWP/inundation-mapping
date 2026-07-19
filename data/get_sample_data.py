@@ -226,12 +226,10 @@ def get_sample_data(
 
     INPUT_DEM_DOMAIN = os.environ["input_DEM_domain"]
     INPUT_DEM_DOMAIN_ALASKA = os.environ["input_DEM_domain_Alaska"]
-    INPUT_DEM_DOMAIN_SOUTH_ALASKA = os.environ["input_DEM_domain_South_Alaska"]
     INPUT_DEM_DOMAIN_GUAM = os.environ["input_DEM_domain_Guam"]
     INPUT_DEM_DOMAIN_AMERICAN_SAMOA = os.environ["input_DEM_domain_AmericanSamoa"]
     INPUT_DEM = os.environ['input_DEM']
     INPUT_DEM_ALASKA = os.environ['input_DEM_Alaska']
-    INPUT_DEM_SOUTH_ALASKA = os.environ['input_DEM_South_Alaska']
     INPUT_DEM_GUAM = os.environ['input_DEM_Guam']
     INPUT_DEM_AMERICAN_SAMOA = os.environ['input_DEM_AmericanSamoa']
     INPUT_LANDSEA = os.environ['input_landsea']
@@ -242,7 +240,7 @@ def get_sample_data(
     INPUT_NLD_LEVEE_PROTECTED_AREAS_ALASKA = os.environ["input_nld_levee_protected_areas_Alaska"]
     INPUT_NLD_LEVEE_PROTECTED_AREAS_GUAM = os.environ["input_nld_levee_protected_areas_Guam"]
     INPUT_NWM_LAKES = os.environ['input_nwm_lakes']
-    INPUT_NWM_LAKES_ALASKA = os.environ['input_nwm_lakes_Alaska']
+    INPUT_NWM_LAKES_SOUTH_ALASKA = os.environ['input_nwm_lakes_South_Alaska']
     INPUT_NWM_LAKES_GUAM = os.environ['input_nwm_lakes_Guam']
     INPUT_NWM_LAKES_AMERICAN_SAMOA = os.environ['input_nwm_lakes_AmericanSamoa']
     INPUT_GL_BOUNDARIES = os.environ["input_GL_boundaries"]
@@ -314,14 +312,10 @@ def get_sample_data(
         # Check whether the HUC is in Alaska or not and assign the CRS and filenames accordingly
         if huc2Identifier == '19':
             input_LANDSEA = INPUT_LANDSEA_ALASKA
-            input_NWM_lakes = INPUT_NWM_LAKES_ALASKA
+            input_NWM_lakes = INPUT_NWM_LAKES_SOUTH_ALASKA
             input_NLD_levee_protected_areas = INPUT_NLD_LEVEE_PROTECTED_AREAS_ALASKA
-            if huc in ['19010301', '19080306', '19080307']:
-                input_DEM = INPUT_DEM_ALASKA
-                input_DEM_domain = INPUT_DEM_DOMAIN_ALASKA
-            else:
-                input_DEM = INPUT_DEM_SOUTH_ALASKA
-                input_DEM_domain = INPUT_DEM_DOMAIN_SOUTH_ALASKA
+            input_DEM = INPUT_DEM_ALASKA
+            input_DEM_domain = INPUT_DEM_DOMAIN_ALASKA
 
             input_DEM_file = os.path.join(os.path.split(input_DEM_domain)[0], f'HUC8_{huc}_dem.tif')
 
