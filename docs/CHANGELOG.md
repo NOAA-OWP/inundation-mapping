@@ -29,7 +29,7 @@ Fixes a topology error in `associate_levelpaths_with_levees.py` where the negati
 
 <br/>
 
-## v4.9.20.0 - 2026-07-11 - [PR#1731](https://github.com/NOAA-OWP/inundation-mapping/pull/731)
+## v4.9.20.0 - 2026-07-11 - [PR#1731](https://github.com/NOAA-OWP/inundation-mapping/pull/1731)
 
 A very wide array of fixes relating to logging and error handing have been added as well as quite a few new "TODO" lines requiring deeper investigation later.
 
