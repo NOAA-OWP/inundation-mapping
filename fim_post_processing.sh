@@ -51,7 +51,7 @@ export pp_error_log_file_name=$outputDestDir/logs/post_processing_errors.log
 
 # post_process_error_report.py splits the merged csv into two files. One that
 # has all accepted branch codes (ie 60 - 69), and the rest to the error file
-export all_errors_csv=$outputDestDir/logs/all_error_report.csv
+export all_errors_csv=$outputDestDir/logs/all_errors_report.csv
 export branch_accepted_exit_recs_csv=$outputDestDir/logs/all_branches_with_accepted_codes.csv
 
 if [ "$runName" = "" ]

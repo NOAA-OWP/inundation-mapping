@@ -177,6 +177,9 @@ if __name__ == '__main__':
                 /efs-drives/fim-dev-efs/fim-data/outputs/dev-format-and-style-no-post
                 -gpkg
                 -l log.txt
+            python3 /foss_fim/tools/hash_compare.py
+                /outputs/Rob_adj_1_orig/05030104/hydrotable.csv 
+                /outputs/Rob_adj_1/05030104/hydrotable.csv
         ''',
     )
     parser.add_argument(
