@@ -31,31 +31,30 @@ if [ $huc2Identifier -eq 19 ]; then
     input_DEM=$input_DEM_Alaska
     input_pit_fill=$input_DEM_pit_fills_Alaska
     huc_input_DEM_domain=$input_DEM_domain_Alaska
-# Guam EPSG:
+    
+# Guam EPSG:6637
 elif [ $hucNumber -eq 22010000 ]; then
     huc_CRS=$GUAM_CRS
     huc_input_DEM_domain=$input_DEM_domain_Guam
     input_DEM=$input_DEM_Guam
     input_pit_fill=$input_DEM_pit_fills_Guam
-    # dem_domain_filename=DEM_Domain.parquet
     input_bridge_elev_diff=$input_bridge_elev_diff_guam
-# American Samoa
+
+# American Samoa EPSG:32702
 elif [ $hucNumber -eq 22030001 ]; then
     huc_CRS=$AMERICAN_SAMOA_CRS
     huc_input_DEM_domain=$input_DEM_domain_AmericanSamoa
     input_DEM=$input_DEM_AmericanSamoa
     input_pit_fill=$input_DEM_pit_fills_AmericanSamoa
-    # dem_domain_filename=DEM_Domain.parquet
     input_bridge_elev_diff=$input_bridge_elev_diff_americansamoa
 
+# CONUS EPSG:5070
 else
     huc_CRS=$DEFAULT_FIM_PROJECTION_CRS
     huc_input_DEM_domain=$input_DEM_domain
     input_DEM=$input_DEM
     input_pit_fill=$input_DEM_pit_fills
-    # dem_domain_filename=HUC6_dem_domain.parquet
     input_bridge_elev_diff=$input_bridge_elev_diff
-
 fi
 
 echo -e $startDiv"Using CRS: $huc_CRS" ## debug

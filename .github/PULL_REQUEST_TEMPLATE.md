@@ -66,7 +66,7 @@ You may update this checklist before and/or after creating the PR. If you're uns
 - [ ] Where applicable, has fim_pipeline been tested with muliple HUCs, including some other unaffected HUCs?
 
 ### Reviewer / Approver Checklist
-- [ ] Where applicable, has fim_pipeline been tested with muliple HUCs, including some other unaffected HUCs?
+- [ ] Where applicable, has fim_pipeline been tested with multiple HUCs, including some other unaffected HUCs?
 - [ ] If there are new inputs, have you confirmed that they have been copied to all enviroments?
 
 ---------------------------------------------------------------
