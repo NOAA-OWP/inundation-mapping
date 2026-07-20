@@ -4,9 +4,11 @@
 ### command in fim_process_huc.sh (through run_huc.sh -> fim_process_huc.sh)
 ### Yes.. not all of our .sh files are the same with the -e flag, be design.
 
+
 # It is strongly recommended that you do not call src/run_by_branch.sh directly.
-# Call this file instead, and let it call run_by_branch.sh.
-# This file will trap any exceptions from run_by_branch.sh.
+# Call this file instead, and let it call run_by_branch.sh as it will trap all 
+# and any exceptions from run_by_branch.sh.
+# This is a key part to handling .sh exceptions.
 
 # Also.. remember.. that this file can be called explicitly, but will rarely need to be,
 # as it is usually called through a parallelizing iterator in run_unit_wb.sh
