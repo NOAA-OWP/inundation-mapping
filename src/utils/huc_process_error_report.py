@@ -23,6 +23,7 @@ combined_pattern = "(?:{})".format("|".join(ERROR_KW))
 # Compile the regexes
 error_re = re.compile(combined_pattern, re.IGNORECASE)
 
+
 def scan_error_log(huc_number, source_log_file, output_csv_path):
     """Main function to check the logs of the huc unit or rerun unit log file"""
     # Note: This scans only huc_{huc name}_unit.log and assumes comforably
