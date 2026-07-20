@@ -1,5 +1,5 @@
 #!/bin/bash -e
-# The additon of the -e tells it to stop on fail and is critical
+# The addition of the -e tells it to stop on fail and is critical
 ### Yes.. not all of our .sh files are the same with the -e flag, be design.
 
 # Do not call this file directly. Call fim_process_unit_wb.sh which calls
