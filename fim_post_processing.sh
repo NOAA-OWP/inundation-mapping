@@ -142,14 +142,14 @@ python3 $srcDir/utils/post_process_error_report.py \
 ## if fails, it might be due to all hucs failing, check post_processing.log
 l_echo $startDiv"Concatenate all processing time files into a CSV file" $pp_log_file_name
 csvFile=$outputDestDir/logs/total_duration_run_by_unit_all_HUCs.csv
-python3 $srcDir/duration_system.py -fim $outputDestDir -o $csvFile 2>&1 | tee -a -i $pp_log_file_name
+python3 $srcDir/duration_system.py -fim $outputDestDir -o $csvFile > >(tee $pp_log_file_name) 2> >(tee $pp_error_log_file_name  >&2)
 
 
 ## ===============================
 ## if fails, it might be due to all hucs failing, check post_processing.log
 l_echo $startDiv"Start branch aggregation" $pp_log_file_name
 python3 $srcDir/aggregate_branch_lists.py -d $outputDestDir \
-    -f 'branch_ids.csv' -o $fim_inputs 2>&1 | tee -a $pp_log_file_name
+    -f 'branch_ids.csv' -o $fim_inputs > >(tee $pp_log_file_name) 2> >(tee $pp_error_log_file_name  >&2)
 
 
 ## ===============================
@@ -158,7 +158,7 @@ l_echo $startDiv"Combining crosswalk tables" $pp_log_file_name
 Tstart
 python3 $toolsDir/combine_crosswalk_tables.py \
     -d $outputDestDir \
-    -o $outputDestDir/crosswalk_table.csv 2>&1 | tee -a $pp_log_file_name
+    -o $outputDestDir/crosswalk_table.csv > >(tee $pp_log_file_name) 2> >(tee $pp_error_log_file_name  >&2)
 Tcount
 
 # it will auto run the exit_and_copy function

@@ -23,7 +23,6 @@ combined_pattern = "(?:{})".format("|".join(ERROR_KW))
 # Compile the regexes
 error_re = re.compile(combined_pattern, re.IGNORECASE)
 
-
 def scan_error_log(huc_number, source_log_file, output_csv_path):
     """Main function to check the logs of the huc unit or rerun unit log file"""
     # Note: This scans only huc_{huc name}_unit.log and assumes comforably
@@ -147,9 +146,9 @@ def log_kw_search(logfile, huc_number):
     and one with status 1   (good)
     and one with status 12   (good)
     and one with status 123   (good)
-    and one with status 0 with somethign behind it
-    and one with status: 0 with somethign behind it
-    and one with status: 123 with somethign behind it   (good)
+    and one with status 0 with something behind it
+    and one with status: 0 with something behind it
+    and one with status: 123 with something behind it   (good)
     and one with status: 0
     and one with status: 1   (good)
     and one with status: 12   (good)
@@ -157,9 +156,9 @@ def log_kw_search(logfile, huc_number):
     and just the word status with nothing else
     status
     status 0
-    status 1   (good)
-    status 12   (good)
-    status 134   (good)
+    status 1   (no semi-colon - good)
+    status 12   (no semi-colon - good)
+    status 134   (no semi-colon - good)
     status:0
     status:1   (good)
     status: 0
