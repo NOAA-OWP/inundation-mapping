@@ -1,9 +1,35 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.9.20.0 - 2026-07-11 - [PR#1731](https://github.com/NOAA-OWP/inundation-mapping/pull/731)
+## v4.9.20.1 - 2026-07-13 - [PR#1892](https://github.com/NOAA-OWP/inundation-mapping/pull/1892)
 
+Fixes a topology error in `associate_levelpaths_with_levees.py` where the negative buffer causes a `non-noded intersection`. 
+This branch merged in the dev-logging branch, [PR 1731](https://github.com/NOAA-OWP/inundation-mapping/pull/1731): Logging and Error handling upgrades. PR 1731 will be merged to dev first, then this one.
 
+After merging dev-logging and while testing this PR, a few more minor corrects for logging and error handling were made to this branch.
+
+This branch was used for the BED run of hand_4_9_20_1.
+
+Resolves #1890.
+
+### Changes
+
+- `src`
+    - `associate_levelpaths_with_levees.py`: Adds `resolution` parameter for buffer creation.
+    - `run_huc.sh`: Some minor text updates and the phrase `--line-buffer` was added to the code that processes branches in parallel. This help with memory queues and reduces memory in storage with no loss to the script. It is sort of like a print flush.
+    - `process_branch.sh`: Two things were added here.
+        - A random 10 second sleep timer to slow down branches from all hitting the exact same files at the exact same time. Helps with memory management and file collisions. It is more of a safety addition.
+        - Addition of a bash trap, to help ensure that the script always returns a exit code of 0 back to run_huc.sh. This helps ensure that other branches will continue to run even if this branch fails. It was not a problem in the past, but it is a safety addition in case there are errors on the `process_branch.sh` page itself, which was previously unmanaged.
+ - `config\params_template.env`: Increased the branch  timeout from 1 hour to 2 hours. This is a temp stop gap while memory and parallel issues are fixed in future releases.
+Fixes a topology error in `associate_levelpaths_with_levees.py` where the negative buffer causes a `non-noded intersection`. The base branch for this PR is `dev-logging`.
+
+### Changes
+
+`src/associate_levelpaths_with_levees.py`: Adds `resolution` parameter for buffer creation.
+
+<br/>
+
+## v4.9.20.0 - 2026-07-11 - [PR#1731](https://github.com/NOAA-OWP/inundation-mapping/pull/1731)
 
 A very wide array of fixes relating to logging and error handing have been added as well as quite a few new "TODO" lines requiring deeper investigation later.
 

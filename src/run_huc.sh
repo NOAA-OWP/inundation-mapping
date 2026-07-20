@@ -1,5 +1,5 @@
 #!/bin/bash -e
-# The additon of the -e tells it to stop on fail and is critical
+# The addition of the -e tells it to stop on fail and is critical
 ### Yes.. not all of our .sh files are the same with the -e flag, be design.
 
 # Do not call this file directly. Call fim_process_unit_wb.sh which calls
@@ -345,12 +345,12 @@ if [ -f $branch_list_lst_file ]; then
     # There may not be a branch_ids.lst if there were no level paths (no stream orders 3+)
     # but there will still be a branch zero
     # By having " || true " on the end of the command, if one branch fails, the rest will continue
-    parallel --timeout $branch_timeout -j $jobBranchLimit --joblog $branchSummaryLogFile --colsep ',' \
-    -- $srcDir/process_branch.sh $runName $hucNumber :::: $branch_list_lst_file || true
+    parallel --timeout $branch_timeout -j $jobBranchLimit --joblog $branchSummaryLogFile \
+     --colsep ',' --line-buffer \
+     -- $srcDir/process_branch.sh $runName $hucNumber :::: $branch_list_lst_file || true
     Tcount
 else
-    echo "No level paths exist with this HUC. Processing branch zero only."
-    echo "Exit Status: 63"  #  helps so the log at least know about it.
+    echo "Exit Status: 63 - No level paths exist with this HUC. Processing branch zero only."
 fi
 
 # We should have a summary file now
