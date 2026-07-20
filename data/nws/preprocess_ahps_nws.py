@@ -91,7 +91,7 @@ def preprocess_nws(source_dir, destination, reference_raster):
         # Get metadata of site and search for NWM segments x miles upstream/x miles downstream
         select_by = 'nws_lid'
         selector = [code]
-        metadata_list, metadata_df = get_metadata(
+        metadata_list, metadata_df, err_msg = get_metadata(
             metadata_url,
             select_by,
             selector,
@@ -110,7 +110,9 @@ def preprocess_nws(source_dir, destination, reference_raster):
         # In multiple instances a USGS ID is given but then no USGS rating curve or in some cases no USGS datum is supplied.
         select_by = 'nws_lid'
         selector = code
-        stages, flows, ___ = get_thresholds(threshold_url, select_by, selector, threshold='all')
+        stages, flows, ___ = get_thresholds(
+            threshold_url, select_by, selector, threshold='all', source_crs_availability=None
+        )
 
         # Make sure at least one valid threshold is supplied from WRDS.
         threshold_categories = ['action', 'minor', 'moderate', 'major']
@@ -180,7 +182,7 @@ def preprocess_nws(source_dir, destination, reference_raster):
         # Adjust datum to NAVD88 if needed
         if datum_data.get('vcs') in ['NGVD29', 'NGVD 1929', 'NGVD,1929']:
             # Get the datum adjustment to convert NGVD to NAVD. Sites not in contiguous US are previously removed otherwise the region needs changed.
-            datum_adj_ft = ngvd_to_navd_ft(datum_info=datum_data)
+            datum_adj_ft, __ = ngvd_to_navd_ft(datum_info=datum_data)
             datum88 = round(datum + datum_adj_ft, 2)
         else:
             datum88 = datum
