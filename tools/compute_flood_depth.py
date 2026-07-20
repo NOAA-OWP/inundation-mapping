@@ -48,7 +48,6 @@ import rasterio
 from rasterstats import zonal_stats
 
 from src.heal_bridges_osm import flow_lookup
-from src.process_roads_fimpact import min_hand_excluding_zero
 from src.utils.shared_functions import run_with_mp, setup_mp_file_logger
 from tools.road_inundation import stage_lookup
 
@@ -216,18 +215,24 @@ def get_threshold_hand(fim_path, huc, branch, huc_geometries_gdf, file_logger, s
 
     huc_geometries_split['branch'] = branch
 
-    # Calculate minimum HAND value for each geometry segment
-    stats = zonal_stats(
-        huc_geometries_split['geometry'],
-        hand_grid_array,
-        affine=hand_grid_profile['transform'],
-        nodata=hand_grid_profile["nodata"],
-        all_touched=True,
-        stats=[],
-        add_stats={"min_ex0": min_hand_excluding_zero},
-    )
+    # HAND uses 0 to mark channel cells, which we need to exclude from the min threshold.
+    # remap 0 -> nodata once here (single vectorized pass over the raster) so the built-in
+    # `min` stat below can exclude it natively, instead of a per-feature python callback.
+    nodata = hand_grid_profile['nodata']
+    hand_grid_array = np.where(hand_grid_array == 0, nodata, hand_grid_array)
 
-    huc_geometries_split.loc[:, 'threshold_hand'] = [x.get('min_ex0') for x in stats]
+    # Calculate minimum HAND value for each geometry segment
+    with rasterio.Env():
+        stats = zonal_stats(
+            huc_geometries_split['geometry'],
+            hand_grid_array,
+            affine=hand_grid_profile['transform'],
+            nodata=nodata,
+            all_touched=True,
+            stats=['min'],
+        )
+
+    huc_geometries_split.loc[:, 'threshold_hand'] = [x.get('min') for x in stats]
 
     # Convert from mm to meters (REM units changed in FIM pipeline)
     huc_geometries_split['threshold_hand'] = huc_geometries_split['threshold_hand'] / MM_TO_METERS

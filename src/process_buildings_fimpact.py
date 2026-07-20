@@ -14,14 +14,6 @@ from rasterio.warp import Resampling, reproject
 from rasterstats import zonal_stats
 
 
-def min_hand_excluding_zero(values):
-    # Convert to unmasked array and drop 0 and masked/nodata
-    # return np.nan if on NoData Hand to be able to filter them later
-    data = np.ma.filled(values.astype(float), np.nan)  # Convert masked to nan
-    valid = data[(data != 0) & (~np.isnan(data))]
-    return float(np.min(valid)) if valid.size > 0 else np.nan
-
-
 def process_buildings_fimpact(
     hand_grid_raster: str, buildings_polygons: str, catchments_path: str, output_path: str
 ) -> None:
@@ -37,11 +29,6 @@ def process_buildings_fimpact(
     """
     # get branch id from output file passed from fim pipeline
     branch_id = Path(output_path).parent.name
-
-    # read hand grid
-    with rasterio.open(hand_grid_raster, 'r') as hand_grid:
-        hand_grid_profile = hand_grid.profile
-        hand_grid_array = hand_grid.read(1)
 
     # read buildings data
     buildings_gdf = gpd.read_file(buildings_polygons)
@@ -60,18 +47,28 @@ def process_buildings_fimpact(
     if not buildings_gdf.empty:
         buildings_gdf['branch'] = branch_id
 
-        # Call zonal_stats with the custom stat
-        stats = zonal_stats(
-            buildings_gdf['geometry'],
-            hand_grid_array,
-            affine=hand_grid_profile['transform'],
-            nodata=hand_grid_profile["nodata"],
-            all_touched=True,
-            stats=[],  # No built-in stats needed
-            add_stats={"min_ex0": min_hand_excluding_zero},
-        )
+        with rasterio.open(hand_grid_raster, 'r') as hand_grid:
+            hand_grid_profile = hand_grid.profile
+            hand_grid_array = hand_grid.read(1)
 
-        buildings_gdf.loc[:, 'threshold_hand'] = [x.get('min_ex0') for x in stats]
+        # HAND uses 0 to mark channel cells, which we need to exclude from the min threshold.
+        # remap 0 -> nodata once here (single vectorized pass over the raster) so the built-in
+        # `min` stat below can exclude it natively, instead of a per-feature python callback.
+        nodata = hand_grid_profile['nodata']
+        hand_grid_array = np.where(hand_grid_array == 0, nodata, hand_grid_array)
+
+        # Call zonal_stats with the built-in min stat
+        with rasterio.Env():
+            stats = zonal_stats(
+                buildings_gdf['geometry'],
+                hand_grid_array,
+                affine=hand_grid_profile['transform'],
+                nodata=nodata,
+                all_touched=True,
+                stats=['min'],
+            )
+
+        buildings_gdf.loc[:, 'threshold_hand'] = [x.get('min') for x in stats]
 
         # it is possible that buildings cross areas of a HAND with nan data (levee), so make sure to remove those Nan threshold hands
         buildings_gdf = buildings_gdf.dropna(subset=['threshold_hand'])
