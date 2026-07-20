@@ -31,6 +31,10 @@ Fixes a topology error in `associate_levelpaths_with_levees.py` where the negati
 
 ## v4.9.20.0 - 2026-07-11 - [PR#1731](https://github.com/NOAA-OWP/inundation-mapping/pull/731)
 
+## v4.9.20.0 - 2026-07-11 - [PR#1731](https://github.com/NOAA-OWP/inundation-mapping/pull/731)
+
+
+
 A very wide array of fixes relating to logging and error handing have been added as well as quite a few new "TODO" lines requiring deeper investigation later.
 
 There is a number of inconsistencies of how the .sh and .py files interact and how the overall chain works.  Many were fixed here, especially ones that did leave possible holes for errors and exceptions to fall through the cracks with no errors or exceptions record and could be buried.  Most of them were tiny holes or non optimum but there were a few critical fixes needed such as parallelization issues with branches. 
