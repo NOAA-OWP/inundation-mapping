@@ -106,6 +106,7 @@ def merge_huc_error_reports(hand_dir, error_output_csv_path, branch_accepted_exi
     # drop the test column
     # acceptable_branches = acceptable_branches.drop(columns=['branch_is_acceptable_code'])
     error_df = error_df.drop(columns=['branch_is_acceptable_code'])
+    acceptable_branches = acceptable_branches.drop(columns=['branch_is_acceptable_code'])
 
     print(f"-- {len(error_df)} error records were found")
     print(f"-- {len(acceptable_branches)} acceptable branch exit code records were found")

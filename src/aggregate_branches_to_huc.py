@@ -5,6 +5,7 @@ import glob
 import os
 import re
 import traceback
+import warnings
 
 # from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime
@@ -15,6 +16,9 @@ import pandas as pd
 from dotenv import load_dotenv
 
 from heal_bridges_osm import flow_lookup, flows_from_hydrotable
+
+
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
 #################################

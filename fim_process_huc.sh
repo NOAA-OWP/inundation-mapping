@@ -157,7 +157,7 @@ trap 'exit_and_copy' EXIT
 # We will catch those via error search tools.
 
 set +e  # turns off, yes off, the system no longer auto aborts, as trapping will handle it from from here down.
-trap 'handle_error $LINENO $hucLogFile $?' ERR
+trap 'handle_error $LINENO $hucLogFile' ERR
 
 mkdir -p $tempHucDataDir
 mkdir -p $tempBranchDataDir
@@ -191,37 +191,32 @@ trap - ERR  # trap ERR OFF as it will mess with the return Pipestatus
 
 # we do this way instead of working directly with stderr and stdout
 # as they were messing with output logs which we always want.
+# Note: branches will always return a zero as they are trapped, but they are logged correctly.
 
 return_codes=( "${PIPESTATUS[@]}" )  # Note: HAS to be the very next line after the time and tee line above
-
-trap 'handle_error $LINENO $hucLogFile' ERR  # Turn ERR it back on for the rest of the page
-
-error_exists="false"
-for code in "${return_codes[@]}"
-do
+for code in "${return_codes[@]}"; do
     # go with the exit code for now
-    if [ $code -eq 0 ]; then
-        echo
+    if [ "$code" -eq 0 ]; then
+        echo > /dev/null # do nothing clean
         # do nothing
-    elif [ $code -eq 60 ]; then
+    elif [ "$code" -eq 60 ]; then
+        l_echo "----------------------------------------" "$hucLogFile"
+        l_echo "***** Acceptable Exit status: $code - HUC has no valid branches [[HUC: $hucNumber]]" "$hucLogFile"
         l_echo "----------------------------------------" $hucLogFile
-        l_echo "***** Acceptable Exit status: $code - HUC has no valid branches [[HUC: $hucNumber]]" $hucLogFile
-        l_echo "----------------------------------------" $hucLogFile
-    elif [ $code -eq 61 ]; then
-        l_echo "----------------------------------------" $hucLogFile
-        l_echo "***** Acceptable Exit status: $code - HUC has no remaining valid flowlines [[HUC: $hucNumber]]" $hucLogFile
-        l_echo "----------------------------------------" $hucLogFile
+    elif [ "$code" -eq 61 ]; then
+        l_echo "----------------------------------------" "$hucLogFile"
+        l_echo "***** Acceptable Exit status: $code - HUC has no remaining valid flowlines [[HUC: $hucNumber]]" "$hucLogFile"
+        l_echo "----------------------------------------" "$hucLogFile"
     else
-        error_exists="true"
-        l_echo "----------------------------------------" $hucLogFile
-        l_echo "***** Error Exit status: $return_code detected *****"  $hucLogFile
-        l_echo "----------------------------------------" $log_file
+        l_echo "----------------------------------------" "$hucLogFile"
+        l_echo "***** Error Exit status: $code detected *****"  "$hucLogFile"
+        l_echo "----------------------------------------" "$hucLogFile"
     fi
 done
 
-if [ "$error_exists" == "false" ]; then
-    grep -Hin "warning" "${hucLogFile}" > "${warningLogFile}"
-fi
+# Turn ERR it back on for the rest of the page
+# trap 'handle_error $LINENO $hucLogFile' ERR
+grep -i -n "warning" "$hucLogFile" > "$warningLogFile" || true
 
 # exit_and_copy will be copied here if not earlier,
 # depending on exceptions or errors from the TRAP ... ERR and down.
