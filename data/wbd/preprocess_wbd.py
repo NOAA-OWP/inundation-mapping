@@ -37,7 +37,10 @@ def clip_wbd_to_dem_domain(dem: str, wbd_in: str, wbd_out: str, huc_level: int):
 
         # Read input files
         wbd = gpd.read_file(wbd_in, layer=layer)
-        dem_domain = gpd.read_file(dem)
+        if os.path.splitext(dem)[-1] == '.parquet':
+            dem_domain = gpd.read_parquet(dem)
+        else:
+            dem_domain = gpd.read_file(dem)
 
         wbd = gpd.clip(wbd, dem_domain)
 
@@ -48,7 +51,7 @@ def clip_wbd_to_dem_domain(dem: str, wbd_in: str, wbd_out: str, huc_level: int):
 if __name__ == '__main__':
 
     # Example:
-    # preprocess_wbd.py -d /data/inputs/3dep_dems/10m_5070/20240916//HUC6_dem_domain.gpkg
+    # preprocess_wbd.py -d /data/inputs/3dep_dems/10m_5070/20240916/HUC6_dem_domain.parquet
     #  -w /data/inputs/wbd/WBD_National_EPSG_5070.gpkg
     #  -o /data/inputs/wbd/WBD_National_EPSG_5070_WBDHU8_clip_dem_domain.gpkg
     #  -l 8

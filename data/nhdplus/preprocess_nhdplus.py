@@ -190,7 +190,7 @@ def preprocess_region(
 
     create_vrt_file(target_dem_folder, 'hand_seamless_3dep_dems.vrt')
 
-    # Create DEM_Domain.gpkg
+    # Create DEM_Domain.parquet
     __polygonize(target_dem_folder)
 
     # Extract and reproject NHDPlus streams

@@ -206,7 +206,7 @@ def mitigate_branch_outlet_backpool(
 
         return flows, initial_length_km
 
-    def calculate_length_and_slope(flows, dem, slope_min):
+    def calculate_length_and_slope(flows, dem_filename, slope_min):
         print('Recalculating length and slope of outlet segment...')
 
         # Select the last flowline segment (if there are multiple segments)
@@ -220,7 +220,8 @@ def mitigate_branch_outlet_backpool(
         end_point = flow.geometry.iloc[0].coords[-1]
 
         # Get start and end elevation
-        start_elev, end_elev = [i[0] for i in rasterio.sample.sample_gen(dem, [start_point, end_point])]
+        with rasterio.open(dem_filename, 'r') as dem:
+            start_elev, end_elev = [i[0] for i in rasterio.sample.sample_gen(dem, [start_point, end_point])]
 
         # Calculate the slope by differencing the elevations and dividing it by the length
         slope = float(abs(start_elev - end_elev) / flow.length)
@@ -407,8 +408,9 @@ def mitigate_branch_outlet_backpool(
 
                     # --------------------------------------------------------------
                     # Calculate the slope and length of the newly trimmed flows
-                    dem = rasterio.open(dem_filename, 'r')
-                    output_flows, new_length_km = calculate_length_and_slope(trimmed_flows, dem, slope_min)
+                    output_flows, new_length_km = calculate_length_and_slope(
+                        trimmed_flows, dem_filename, slope_min
+                    )
 
                     # --------------------------------------------------------------
                     # Polygonize pixel catchments using subprocess

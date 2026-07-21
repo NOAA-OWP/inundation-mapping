@@ -51,12 +51,6 @@ def write_aggregate(frame, output_file):
     frame.to_csv(output_file, index=False)
 
 
-def concat_files(files_to_merge):
-    # joining files with concat and read_csv
-    print('Concatenating all matching csv files...')
-    pd.concat(map(pd.read_csv, files_to_merge), ignore_index=True)
-
-
 def run_prep(fim_dir, file_search_str, head_row, output_file):
     assert os.path.isdir(fim_dir), 'ERROR: could not find the input fim_dir location: ' + str(fim_dir)
 

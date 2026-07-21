@@ -72,10 +72,8 @@ cp -R "${pre_clip_huc_dir}/${hucNumber}/." "${tempHucDataDir}"
 # For buffer_stream_branches.py
 cp "${huc_input_DEM_domain}" "${tempHucDataDir}"
 
-# TODO: Jun 2025: This should use the bash_variable, but rename as it is copied. ie:
-# cp $nws_lid ${tempHucDataDir}/nws_lid.gpkg
 # For usgs_gage_unit_setup.py
-cp "$inputsDir/ahps_sites/nws_lid.gpkg" "${tempHucDataDir}"
+cp "${nws_lid}" "${tempHucDataDir}/nws_lid.gpkg"
 
 # Renamed to usgs_gages.gpkg while being copied
 cp "${usgs_gages_file}" "${tempHucDataDir}/usgs_gages.gpkg"
