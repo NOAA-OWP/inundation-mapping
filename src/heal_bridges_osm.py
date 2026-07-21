@@ -17,7 +17,7 @@ threatened_percent = 0.75
 
 
 def process_non_lidar_osm(osm_gdf, hand_grid_array, hand_grid_profile, non_lidar_buffer):
-    non_lidar_osm_gdf = osm_gdf[(osm_gdf['has_lidar_tif'] == 'N') & (osm_gdf['has_ml_tif'] == 'N')].copy()
+    non_lidar_osm_gdf = osm_gdf[osm_gdf['has_lidar_tif'] == 'N'].copy()
 
     if non_lidar_osm_gdf.empty:
         return None, hand_grid_array
@@ -52,7 +52,7 @@ def process_non_lidar_osm(osm_gdf, hand_grid_array, hand_grid_profile, non_lidar
 
 
 def process_lidar_osm(osm_gdf, hand_grid_array, hand_grid_profile, lidar_buffer, bridge_elev_diff_raster):
-    lidar_osm_gdf = osm_gdf[(osm_gdf['has_lidar_tif'] == 'Y') | (osm_gdf['has_ml_tif'] == 'Y')].copy()
+    lidar_osm_gdf = osm_gdf[osm_gdf['has_lidar_tif'] == 'Y'].copy()
 
     if lidar_osm_gdf.empty:
         return None, hand_grid_array
@@ -89,7 +89,7 @@ def process_lidar_osm(osm_gdf, hand_grid_array, hand_grid_profile, lidar_buffer,
     )
 
     # Get median hand values for each lidar-informed bridge
-    lidar_osm_gdf = osm_gdf[(osm_gdf['has_lidar_tif'] == 'Y') | (osm_gdf['has_ml_tif'] == 'Y')].copy()
+    lidar_osm_gdf = osm_gdf[osm_gdf['has_lidar_tif'] == 'Y'].copy()
     lidar_osm_gdf['geometry'] = lidar_osm_gdf.geometry.buffer(lidar_buffer, resolution=lidar_buffer)
     stats = zonal_stats(
         lidar_osm_gdf['geometry'],
@@ -218,15 +218,12 @@ if __name__ == "__main__":
         python3 src/heal_bridges_osm.py
             -g /outputs/fim_4_4_15_0/1209301/branches/3763000013/rem_zeroed_masked_3763000013.tif
             -d /outputs/fim_4_4_15_0/1209301/branches/3763000013/bridge_elev_diff_meters_3763000013.tif
-            -s data/inputs/osm/bridges/modified_osm_bridges/20260315/huc_12090301_osm_bridges_modified.gpkg
+            -s /outputs/fim_4_4_15_0/1209301/osm_bridges_subset.gpkg
             -b1 10
             -b2 1.5
             -p /outputs/fim_4_4_15_0/1209301/branches/3763000013/gw_catchments_reaches_filtered_addedAttributes_crosswalked_3763000013.gpkg
             -c /outputs/fim_4_4_15_0/1209301/1209301/branches/3763000013/osm_bridge_centroids_3763000013.tif
 
-    The bridge vector file (-s) must be a huc_*_osm_bridges_modified.gpkg produced by
-    make_dem_dif_for_bridges.py. It must contain has_lidar_tif and has_ml_tif columns.
-    Bridges with either flag = Y are healed using the diff raster; all others use the HAND buffer fallback.
     '''
 
     parser = argparse.ArgumentParser(description='Heals HAND for osm bridges')
