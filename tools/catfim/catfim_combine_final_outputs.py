@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 
 import os
+import argparse
+
 import geopandas as gpd
 import pandas as pd
-import tools.catfim.catfim_shared_functions as csf
+
 import tools.catfim.catfim_post_processing as cpp
-import argparse
+import tools.catfim.catfim_shared_functions as csf
 
 
 '''
@@ -27,18 +29,19 @@ def merge_gpkgs(gdf1_path, gdf2_path, output_gpkg_path):
     # Read the GeoPackages into GeoDataFrames
     gdf1 = gpd.read_file(gdf1_path)
     gdf2 = gpd.read_file(gdf2_path)
-    
+
     # Ensure both GeoDataFrames have the same Coordinate Reference System (CRS)
     if gdf1.crs != gdf2.crs:
         print(f"CRSs differ. Reprojecting second GeoDataFrame to match the first's CRS: {gdf1.crs}")
         gdf2 = gdf2.to_crs(gdf1.crs)
-    
+
     # Concatenate the GeoDataFrames and save output
     merged_gdf = pd.concat([gdf1, gdf2], ignore_index=True)
     merged_gdf.to_file(output_gpkg_path, driver="GPKG", layer=filename)
     print(f"Successfully merged GeoPackages into {output_gpkg_path} in layer {filename}")
 
     return
+
 
 def merge_csvs(csv1_path, csv2_path, output_csv_path):
     df1 = pd.read_csv(csv1_path)
@@ -48,6 +51,7 @@ def merge_csvs(csv1_path, csv2_path, output_csv_path):
     print(f"Successfully merged CSVs into {output_csv_path}")
 
     return
+
 
 def merge_geoparquets(parquet1_path, parquet2_path, output_parquet_path):
     df1 = pd.read_parquet(parquet1_path)
@@ -60,6 +64,8 @@ def merge_geoparquets(parquet1_path, parquet2_path, output_parquet_path):
 
 
 def combine_final_outputs(primary_dir, secondary_dir, label):
+
+    print('Combining CatFIM outputs from primary and secondary directories...')
 
     # Confirm that the primary_dir and secondary_dir exist
     if not os.path.exists(primary_dir):
@@ -87,11 +93,17 @@ def combine_final_outputs(primary_dir, secondary_dir, label):
 
     # Confirm that the values are the same
     if catfim_type_primary != catfim_type_secondary:
-        raise ValueError(f"CATFIM_TYPE values differ between directories: {catfim_type_primary} vs {catfim_type_secondary}")
+        raise ValueError(
+            f"CATFIM_TYPE values differ between directories: {catfim_type_primary} vs {catfim_type_secondary}"
+        )
     if fim_run_dir_primary != fim_run_dir_secondary:
-        raise ValueError(f"FIM_RUN_DIR values differ between directories: {fim_run_dir_primary} vs {fim_run_dir_secondary}")
+        raise ValueError(
+            f"FIM_RUN_DIR values differ between directories: {fim_run_dir_primary} vs {fim_run_dir_secondary}"
+        )
     if past_major_interval_cap_primary != past_major_interval_cap_secondary:
-        raise ValueError(f"PAST_MAJOR_INTERVAL_CAP values differ between directories: {past_major_interval_cap_primary} vs {past_major_interval_cap_secondary}")
+        raise ValueError(
+            f"PAST_MAJOR_INTERVAL_CAP values differ between directories: {past_major_interval_cap_primary} vs {past_major_interval_cap_secondary}"
+        )
     if search_primary != search_secondary:
         raise ValueError(f"SEARCH values differ between directories: {search_primary} vs {search_secondary}")
 
@@ -101,20 +113,61 @@ def combine_final_outputs(primary_dir, secondary_dir, label):
         catfim_type_name = "flow_based"
 
     # Get output filepaths for the directories
-    sites_gpkg_path_primary, sites_csv_path_primary, sites_parquet_path_primary, library_gpkg_path_primary, library_csv_path_primary, library_parquet_path_primary = cpp.get_output_filepaths(primary_dir, catfim_type_name)
-    sites_gpkg_path_secondary, sites_csv_path_secondary, sites_parquet_path_secondary, library_gpkg_path_secondary, library_csv_path_secondary, library_parquet_path_secondary = cpp.get_output_filepaths(secondary_dir, catfim_type_name)
+    (
+        sites_gpkg_path_primary,
+        sites_csv_path_primary,
+        sites_parquet_path_primary,
+        library_gpkg_path_primary,
+        library_csv_path_primary,
+        library_parquet_path_primary,
+    ) = cpp.get_output_filepaths(primary_dir, catfim_type_name)
+    (
+        sites_gpkg_path_secondary,
+        sites_csv_path_secondary,
+        sites_parquet_path_secondary,
+        library_gpkg_path_secondary,
+        library_csv_path_secondary,
+        library_parquet_path_secondary,
+    ) = cpp.get_output_filepaths(secondary_dir, catfim_type_name)
+
 
     # Merge GPKGs
-    merge_gpkgs(sites_gpkg_path_primary, sites_gpkg_path_secondary, os.path.join(primary_dir, f'{catfim_type_name}_catfim_sites_{label}.gpkg'))
-    merge_gpkgs(library_gpkg_path_primary, library_gpkg_path_secondary, os.path.join(primary_dir, f'{catfim_type_name}_catfim_library_{label}.gpkg'))
+    merge_gpkgs(
+        sites_gpkg_path_primary,
+        sites_gpkg_path_secondary,
+        os.path.join(primary_dir, f'{catfim_type_name}_catfim_sites_{label}.gpkg'),
+    )
+    merge_gpkgs(
+        library_gpkg_path_primary,
+        library_gpkg_path_secondary,
+        os.path.join(primary_dir, f'{catfim_type_name}_catfim_library_{label}.gpkg'),
+    )
 
     # Merge CSVs
-    merge_csvs(sites_csv_path_primary, sites_csv_path_secondary, os.path.join(primary_dir, f'{catfim_type_name}_catfim_sites_{label}.csv'))
-    merge_csvs(library_csv_path_primary, library_csv_path_secondary, os.path.join(primary_dir, f'{catfim_type_name}_catfim_library_{label}.csv'))
+    merge_csvs(
+        sites_csv_path_primary,
+        sites_csv_path_secondary,
+        os.path.join(primary_dir, f'{catfim_type_name}_catfim_sites_{label}.csv')
+    )
+    merge_csvs(
+        library_csv_path_primary,
+        library_csv_path_secondary,
+        os.path.join(primary_dir, f'{catfim_type_name}_catfim_library_{label}.csv')
+    )
 
     # Merge GeoParquets
-    merge_geoparquets(sites_parquet_path_primary, sites_parquet_path_secondary, os.path.join(primary_dir, f'{catfim_type_name}_catfim_sites_{label}.parquet'))
-    merge_geoparquets(library_parquet_path_primary, library_parquet_path_secondary, os.path.join(primary_dir, f'{catfim_type_name}_catfim_library_{label}.parquet'))
+    merge_geoparquets(
+        sites_parquet_path_primary,
+        sites_parquet_path_secondary,
+        os.path.join(primary_dir, f'{catfim_type_name}_catfim_sites_{label}.parquet')
+    )
+    merge_geoparquets(
+        library_parquet_path_primary,
+        library_parquet_path_secondary,
+        os.path.join(primary_dir, f'{catfim_type_name}_catfim_library_{label}.parquet')
+    )
+
+    print('Successfully combined CatFIM outputs from primary and secondary directories into new files in the primary directory.')
 
     return
 
@@ -135,7 +188,7 @@ if __name__ == '__main__':
     Example
     -------
 
-    python catfim_combine_final_outputs.py -p /path/to/primary/outputs -s /path/to/secondary/outputs -l '_w_Guam'
+    python /foss_fim/tools/catfim/catfim_combine_final_outputs.py -p /data/catfim/emily_test/4_9_20_1_stage_based -s /data/catfim/emily_test/guam_4_9_20_1_stage_based/ -l 'w_Guam'
 
 
     '''

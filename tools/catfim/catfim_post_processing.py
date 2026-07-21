@@ -85,9 +85,15 @@ def catfim_post_processing(output_folder):
         )
 
         # Create filepath names and delete any pre-existing output files
-        sites_gpkg_path, sites_csv_path, sites_parquet_path, library_gpkg_path, library_csv_path, library_parquet_path, deleted_file_count = (
-            __set_start_files_folders(output_folder, catfim_type_name)
-        )
+        (
+            sites_gpkg_path,
+            sites_csv_path,
+            sites_parquet_path,
+            library_gpkg_path,
+            library_csv_path,
+            library_parquet_path,
+            deleted_file_count,
+        ) = __set_start_files_folders(output_folder, catfim_type_name)
 
         if deleted_file_count > 0:
             logging.info(f"Removed {deleted_file_count} pre-existing output file(s)")
@@ -308,7 +314,14 @@ def get_output_filepaths(output_folder, catfim_type_name):
     library_parquet_path = os.path.join(output_folder, f"{catfim_type_name}_catfim_library.parquet")
     library_csv_path = os.path.join(output_folder, f"{catfim_type_name}_catfim_library.csv")
 
-    return sites_gpkg_path, sites_csv_path, sites_parquet_path, library_gpkg_path, library_csv_path, library_parquet_path
+    return (
+        sites_gpkg_path,
+        sites_csv_path,
+        sites_parquet_path,
+        library_gpkg_path,
+        library_csv_path,
+        library_parquet_path
+    )
 
 
 def __set_start_files_folders(output_folder, catfim_type_name):
@@ -344,7 +357,7 @@ def __set_start_files_folders(output_folder, catfim_type_name):
     deleted_file_count = 0
 
     filepath_tuple = get_output_filepaths(output_folder, catfim_type_name)
-    
+
     for filepath in filepath_tuple:
         if os.path.exists(filepath):
             os.remove(filepath)
