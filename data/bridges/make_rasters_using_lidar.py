@@ -284,6 +284,24 @@ def make_lidar_footprints():
     return entwine_footprints_gdf
 
 
+def write_modified_bridge_file(OSM_bridge_lines_gdf, modified_bridge_dir, huc_output_dir, HUC):
+    os.makedirs(modified_bridge_dir, exist_ok=True)
+
+    output_bridge_path = os.path.join(modified_bridge_dir, f"huc_{HUC}_osm_bridges_modified.gpkg")
+    created_tif_ids = {
+        os.path.splitext(os.path.basename(path))[0]
+        for path in glob.glob(os.path.join(huc_output_dir, 'lidar_osm_rasters', '*.tif'))
+    }
+
+    OSM_bridge_lines_gdf = OSM_bridge_lines_gdf.copy()
+    OSM_bridge_lines_gdf['osmid'] = OSM_bridge_lines_gdf['osmid'].astype(str)
+    OSM_bridge_lines_gdf['huc8'] = OSM_bridge_lines_gdf['huc8'].astype(str)
+    OSM_bridge_lines_gdf['has_lidar_tif'] = OSM_bridge_lines_gdf['osmid'].apply(
+        lambda x: 'Y' if str(x) in created_tif_ids else 'N'
+    )
+    OSM_bridge_lines_gdf.to_file(output_bridge_path)
+
+
 def make_rasters_in_parallel(
     osmid, points_paths, output_dir, raster_resolution, bridges_crs, remove_las_files=True
 ):
@@ -350,6 +368,7 @@ def process_single_bridge_file(
     buffer_width,
     raster_resolution,
     output_dir,
+    modified_bridge_dir,
     job_number_lidar,
     job_number_raster,
     base_entwine_footprints_gdf,
@@ -525,6 +544,8 @@ def process_single_bridge_file(
                 os.path.join(output_dir, 'bridge_elevation_filter_summary.csv'), index=False
             )
 
+        write_modified_bridge_file(OSM_bridge_lines_gdf, modified_bridge_dir, output_dir, huc_num)
+
         # Record run time
         end_time = datetime.now(timezone.utc)
         tot_run_time = end_time - start_time
@@ -570,14 +591,13 @@ def process_bridges_lidar_data(
                 f"Error: No bridge files matched the requested HUCs in {OSM_bridge_input}. Program terminated."
             )
 
-    start_time = datetime.now(timezone.utc)
-
     os.makedirs(output_dir, exist_ok=True)
+    lidar_processing_dir = os.path.join(output_dir, 'lidar_processing')
+    modified_bridge_dir = os.path.join(output_dir, 'modified_osm_bridges')
     base_entwine_footprints_gdf = make_lidar_footprints()
 
     per_file_classification_summaries = []
     per_file_elevation_summaries = []
-    processed_huc_dirs = []
 
     total_hucs = len(bridge_files)
 
@@ -590,7 +610,7 @@ def process_bridges_lidar_data(
             )
 
         huc_num = huc_match.group(1)
-        bridge_output_dir = os.path.join(output_dir, huc_num)
+        bridge_output_dir = os.path.join(lidar_processing_dir, huc_num)
         print(f"working on HUC {huc_num} ({huc_index}/{total_hucs})")
 
         process_single_bridge_file(
@@ -599,14 +619,13 @@ def process_bridges_lidar_data(
             buffer_width=buffer_width,
             raster_resolution=raster_resolution,
             output_dir=bridge_output_dir,
+            modified_bridge_dir=modified_bridge_dir,
             job_number_lidar=job_number_lidar,
             job_number_raster=job_number_raster,
             base_entwine_footprints_gdf=base_entwine_footprints_gdf,
             remove_las_files=remove_las_files,
             cli_args=cli_args,
         )
-
-        processed_huc_dirs.append((huc_num, bridge_output_dir))
 
         classification_summary_path = os.path.join(bridge_output_dir, 'classifications_summary.csv')
         if os.path.exists(classification_summary_path):
@@ -633,21 +652,6 @@ def process_bridges_lidar_data(
                 os.path.join(output_dir, 'all_bridge_elevation_filter_summary.csv'), index=False
             )
 
-    end_time = datetime.now(timezone.utc)
-    master_log_path = os.path.join(output_dir, 'all_bridge_lidar_rasters.log')
-    with open(master_log_path, 'w') as master_log:
-        master_log.write(f"Master log — started (UTC): {start_time.strftime('%m/%d/%Y %H:%M:%S')}\n")
-        master_log.write("=" * 80 + "\n\n")
-        for huc_num, huc_dir in processed_huc_dirs:
-            huc_log_files = sorted(glob.glob(os.path.join(huc_dir, 'osm_lidar_rasters-*.log')))
-            if huc_log_files:
-                master_log.write(f"--- HUC {huc_num} ".ljust(80, '-') + "\n")
-                with open(huc_log_files[0]) as huc_log:
-                    master_log.write(huc_log.read())
-                master_log.write("\n")
-        master_log.write("=" * 80 + "\n")
-        master_log.write(f"TOTAL RUN TIME: {end_time - start_time}\n")
-
 
 def __setup_logger(output_folder_path):
     start_time = datetime.now(timezone.utc)
@@ -670,13 +674,6 @@ def __setup_logger(output_folder_path):
 
 if __name__ == "__main__":
     '''
-    INPUT DATA PIPELINE — run scripts in this order:
-        Step 1  : pull_osm_bridges.py          — pull OSM bridge lines per HUC
-        Step 2a : make_rasters_using_lidar.py  — (this script) generate lidar TIFs (independent of 2b, can run in parallel)
-        Step 2b : make_rasters_using_ml.py     — generate ML-classified lidar TIFs (independent of 2a, can run in parallel)
-        Step 2c : make_modified_bridges.py     — add TIF flags, write huc_*_osm_bridges_modified.gpkg (run once)
-        Step 3  : make_dem_dif_for_bridges.py  — build diff rasters per region (run 4× for CONUS/AK/GU/AS)
-
     Sample usage:
 
     python make_rasters_using_lidar.py
@@ -688,6 +685,10 @@ if __name__ == "__main__":
      -r 3
 
     This needs to be run twice, once for AK and once for CONUS.
+
+    If new OSM bridge data is pulled, this tool needs to be run to pull new bridge lidar data.
+
+    With running this tool, you will also need to run 'make_dem_dif_for_briges.py`
     '''
 
     parser = argparse.ArgumentParser(

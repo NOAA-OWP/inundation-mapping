@@ -60,83 +60,76 @@ def rasters_to_point(tif_paths, file_logger, screen_queue, task_id):
 
 
 def make_one_diff(
-    dem_file,
-    huc_bridge_file,
-    lidar_raster_dir,
-    ml_raster_dir,
-    HUC,
-    output_diff_path,
-    file_logger,
-    screen_queue,
-    task_id,
+    dem_file, huc_bridge_file, lidar_processing_dir, HUC, output_diff_path, file_logger, screen_queue, task_id
 ):
+
     try:
         screen_queue.put(f"Start processing {task_id}")
         OSM_bridge_lines_gdf = None
-
-        # Collect lidar and ML TIF paths for this HUC
         HUC_lidar_tif_paths = sorted(
-            glob.glob(os.path.join(lidar_raster_dir, HUC, 'lidar_osm_rasters', '*.tif'))
+            glob.glob(os.path.join(lidar_processing_dir, HUC, 'lidar_osm_rasters', '*.tif'))
         )
-        HUC_ml_tif_paths = sorted(glob.glob(os.path.join(ml_raster_dir, HUC, 'ml_osm_rasters', '*.tif')))
-
-        # Build combined TIF map: lidar takes priority; ML fills in where lidar is absent
-        lidar_tif_map = {os.path.splitext(os.path.basename(p))[0]: p for p in HUC_lidar_tif_paths}
-        ml_tif_map = {os.path.splitext(os.path.basename(p))[0]: p for p in HUC_ml_tif_paths}
-        combined_tif_map = {**ml_tif_map, **lidar_tif_map}
-        combined_tif_paths = sorted(combined_tif_map.values())
+        HUC_lidar_tif_osmids = [
+            os.path.splitext(os.path.basename(tif_path))[0] for tif_path in HUC_lidar_tif_paths
+        ]
 
         if not os.path.exists(huc_bridge_file):
             file_logger.info(f"No HUC8 bridge gpkg found for {HUC} at {huc_bridge_file}")
             screen_queue.put(f"No HUC8 bridge gpkg found for {HUC} at {huc_bridge_file}")
         else:
             OSM_bridge_lines_gdf = gpd.read_file(huc_bridge_file)
-            OSM_bridge_lines_gdf = OSM_bridge_lines_gdf[['osmid', 'geometry']].copy()
+            cols_to_keep = ['osmid', 'geometry']
+            OSM_bridge_lines_gdf = OSM_bridge_lines_gdf[cols_to_keep]
             OSM_bridge_lines_gdf['osmid'] = OSM_bridge_lines_gdf['osmid'].astype(str)
 
-        if combined_tif_paths:
+        if HUC_lidar_tif_paths:
             file_logger.info(
-                'working on HUC8 %s with %d combined rasters (%d lidar, %d ML): '
-                % (str(HUC), len(combined_tif_paths), len(HUC_lidar_tif_paths), len(HUC_ml_tif_paths))
+                'working on HUC8 %s with %d osm rasters: ' % (str(HUC), len(HUC_lidar_tif_paths))
             )
-            HUC_lidar_points_gdf = rasters_to_point(combined_tif_paths, file_logger, screen_queue, task_id)
+            HUC_lidar_points_gdf = rasters_to_point(HUC_lidar_tif_paths, file_logger, screen_queue, task_id)
 
-            temp_buffer = OSM_bridge_lines_gdf[OSM_bridge_lines_gdf['osmid'].isin(combined_tif_map.keys())]
+            temp_buffer = OSM_bridge_lines_gdf[OSM_bridge_lines_gdf['osmid'].isin(HUC_lidar_tif_osmids)]
 
-            # keep only the points within 2 meters of the bridge lines
+            # make a buffer file because we want to keep only the points within 2 meter of the bridge lines
             temp_buffer.loc[:, 'geometry'] = temp_buffer['geometry'].buffer(2)
             HUC_lidar_points_gdf = gpd.sjoin(HUC_lidar_points_gdf, temp_buffer, predicate='within')
 
-            coords = [(geom.x, geom.y) for geom in HUC_lidar_points_gdf.geometry]
+            # Sample raster values at each point location
+            coords = [(geom.x, geom.y) for geom in HUC_lidar_points_gdf.geometry]  # Extract point coordinates
             with rasterio.open(dem_file) as src:
                 raster = src.read(1)
                 raster_meta = src.meta.copy()
                 transform = src.transform
                 nodata = src.nodata
-                sampled_values = [value[0] for value in src.sample(coords)]
+                sampled_values = [value[0] for value in src.sample(coords)]  # Sample raster values
 
+            # Step 5: Add the sampled values to the GeoDataFrame
             HUC_lidar_points_gdf['ori_dem_elev'] = sampled_values
             HUC_lidar_points_gdf['elev_diff'] = (
                 HUC_lidar_points_gdf['lidar_elev'] - HUC_lidar_points_gdf['ori_dem_elev']
             )
 
+            # Replace 'value' with the column in your GeoPackage that contains the point values
             shapes = (
                 (geom, value)
                 for geom, value in zip(HUC_lidar_points_gdf.geometry, HUC_lidar_points_gdf['elev_diff'])
             )
 
+            # Step 4: Rasterize the points
             updated_raster = rasterize(
                 shapes=shapes,
-                out_shape=raster.shape,
-                transform=transform,
-                fill=0,
-                merge_alg=rasterio.enums.MergeAlg.replace,
+                out_shape=raster.shape,  # Match the shape of the original raster
+                transform=transform,  # Use the original raster's affine transform
+                fill=0,  # Preserve 0 value for areas without points
+                merge_alg=rasterio.enums.MergeAlg.replace,  # Replace raster values with point values
                 dtype=raster.dtype,
             )
 
+            # Apply the original raster's NoData mask
             updated_raster[raster == nodata] = nodata
 
-            raster_meta.update({'dtype': updated_raster.dtype, 'compress': 'lzw'})
+            # Step 5: Save the updated raster
+            raster_meta.update({'dtype': updated_raster.dtype, 'compress': 'lzw'})  # Update metadata
             with rasterio.open(output_diff_path, 'w', **raster_meta) as dst:
                 dst.write(updated_raster, 1)
 
@@ -149,12 +142,13 @@ def make_one_diff(
                 nodata = src.nodata
                 raster_meta = src.meta.copy()
 
+            # Set all raster values except nodata to zero
             updated_raster = np.where(raster == nodata, nodata, 0.0)
 
-            raster_meta.update({'compress': 'lzw'})
+            # Step 5: Save the updated raster
+            raster_meta.update({'compress': 'lzw'})  # Update metadata to compress
             with rasterio.open(output_diff_path, 'w', **raster_meta) as dst:
                 dst.write(updated_raster, 1)
-
         screen_queue.put(f"End of processing {task_id}")
         return 1, [True]
 
@@ -164,39 +158,29 @@ def make_one_diff(
         return 0, [False]
 
 
-def make_dif_rasters(
-    dem_dir,
-    lidar_raster_dir,
-    ml_raster_dir,
-    modified_bridge_dir,
-    dem_diff_output_dir,
-    number_jobs,
-    cli_args=None,
-):
+def make_dif_rasters(dem_dir, lidar_processing_dir, OSM_bridge_dir, output_dir, number_jobs, cli_args=None):
     start_time = datetime.now(timezone.utc)
-    if not os.path.exists(dem_diff_output_dir):
-        os.makedirs(dem_diff_output_dir)
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
 
     file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
-    log_file_path = os.path.join(dem_diff_output_dir, f"DEM_diff_rasters-{file_dt_string}.log")
+    log_file_path = os.path.join(output_dir, f"DEM_diff_rasters-{file_dt_string}.log")
     file_logger = setup_mp_file_logger(log_file_path, "DEM_diff_raster")
     if cli_args:
         file_logger.info(f"CLI invocation: {cli_args}")
 
     try:
-        if not os.path.isdir(modified_bridge_dir):
-            raise ValueError(f"Argument -i modified_bridge_dir of {modified_bridge_dir} does not exist.")
-        if not os.path.isdir(lidar_raster_dir):
-            raise ValueError(f"Argument -l lidar_raster_dir of {lidar_raster_dir} does not exist.")
-        if not os.path.isdir(ml_raster_dir):
-            raise ValueError(f"Argument -m ml_raster_dir of {ml_raster_dir} does not exist.")
+        if not os.path.isdir(OSM_bridge_dir):
+            raise ValueError(f"Argument -i OSM_bridge_dir of {OSM_bridge_dir} does not exist.")
+        if not os.path.isdir(lidar_processing_dir):
+            raise ValueError(f"Argument -l lidar_processing_dir of {lidar_processing_dir} does not exist.")
 
         dem_files = list(glob.glob(os.path.join(dem_dir, '*.tif')))
         if len(dem_files) == 0:
             raise ValueError("No DEM files were found. Please recheck the DEM folder pathing")
         dem_files.sort()
 
-        available_dif_files = list(glob.glob(os.path.join(dem_diff_output_dir, '*.tif')))
+        available_dif_files = list(glob.glob(os.path.join(output_dir, '*.tif')))
         base_names_no_ext = [
             os.path.splitext(os.path.basename(path))[0].split('_')[1] for path in available_dif_files
         ]
@@ -206,18 +190,15 @@ def make_dif_rasters(
             # prepare path for output diff file
             base_name, extension = os.path.splitext(os.path.basename(dem_file))
             output_diff_file_name = f"{base_name}_diff{extension}"
-            output_diff_path = os.path.join(dem_diff_output_dir, output_diff_file_name)
+            output_diff_path = os.path.join(output_dir, output_diff_file_name)
             HUC = base_name.split('_')[1]
 
             if HUC not in base_names_no_ext:
                 tasks_args_list.append(
                     {
                         'dem_file': dem_file,
-                        'huc_bridge_file': os.path.join(
-                            modified_bridge_dir, f"huc_{HUC}_osm_bridges_modified.gpkg"
-                        ),
-                        'lidar_raster_dir': lidar_raster_dir,
-                        'ml_raster_dir': ml_raster_dir,
+                        'huc_bridge_file': os.path.join(OSM_bridge_dir, f"huc_{HUC}_osm_bridges.gpkg"),
+                        'lidar_processing_dir': lidar_processing_dir,
                         'HUC': HUC,
                         'output_diff_path': output_diff_path,
                     }
@@ -236,7 +217,7 @@ def make_dif_rasters(
 
         print('multiprocessing tasks finished!')
         # only report if all succeeded or the failed ones
-        failed_keys = [k for k, v in mp_results.items() if not v[0]]
+        failed_keys = [k for k, v in mp_results.items() if not v]
 
         if not failed_keys:
             file_logger.info("✅ All multiprocessing tasks Succeeded")
@@ -252,7 +233,7 @@ def make_dif_rasters(
         print("==================")
         print('Making a vrt files from all diff raster files.')
         file_logger.info('Making a vrt files from all diff raster files')
-        create_vrt_file(dem_diff_output_dir, 'bridge_elev_diff.vrt')
+        create_vrt_file(output_dir, 'bridge_elev_diff.vrt')
 
         # Record run time
         end_time = datetime.now(timezone.utc)
@@ -271,38 +252,33 @@ def make_dif_rasters(
 if __name__ == "__main__":
 
     '''
-    INPUT DATA PIPELINE — run scripts in this order:
-        Step 1  : pull_osm_bridges.py          — pull OSM bridge lines per HUC
-        Step 2a : make_rasters_using_lidar.py  — generate lidar TIFs (independent of 2b, can run in parallel)
-        Step 2b : make_rasters_using_ml.py     — generate ML-classified lidar TIFs (independent of 2a, can run in parallel)
-        Step 2c : make_modified_bridges.py     — add TIF flags, write huc_*_osm_bridges_modified.gpkg (run once)
-        Step 3  : make_dem_dif_for_bridges.py  — (this script) build diff rasters per region (run 4× for CONUS/AK/GU/AS)
-
-    This script must be run separately for each region (CONUS, AK, GU, AS).
-    For each run only -d and -o need to be updated; -l, -m, -i remain the same across all regions.
-    Note: Guam and AS may have no lidar or ML data, producing diff rasters with only zero values.
-
-    Example for CONUS and Alaska:
+    This tool needs to be run 4 times seperately for Conus, AK, GU and AS.
+    For each run, only -d and -o needs to be updated(-l and -i remains the same).
+    Note: Guam and AS might not have any lidar data, which would produce DEM diff with only values of 0.
+    Below example for Conus and Alaska
 
     python /foss_fim/data/bridges/make_dem_dif_for_bridges.py \
      -d data/inputs/dems/3dep_dems/10m_5070/20260128/ \
-     -l data/inputs/osm/bridges/lidar_data/20260315/ \
-     -m data/inputs/NGWPC/ML_bridges/20260315/rasters/ \
-     -i data/inputs/osm/bridges/modified_osm_bridges/20260315/ \
+     -l data/inputs/osm/bridges/lidar_data/20260315/lidar_processing/ \
+     -i data/inputs/osm/bridges/bridge_lines/20260315/ \
      -o data/inputs/osm/bridges/DEM_Diffs/20260315/conus/ \
      -j 10
 
     python /foss_fim/data/bridges/make_dem_dif_for_bridges.py \
      -d data/inputs/dems/3dep_dems/10m_South_Alaska/20260128/ \
-     -l data/inputs/osm/bridges/lidar_data/20260315/ \
-     -m data/inputs/NGWPC/ML_bridges/20260315/rasters/ \
-     -i data/inputs/osm/bridges/modified_osm_bridges/20260315/ \
+     -l data/inputs/osm/bridges/lidar_data/20260315/lidar_processing/ \
+     -i data/inputs/osm/bridges/bridge_lines/20260315/ \
      -o data/inputs/osm/bridges/DEM_Diffs/20260315/alaska/ \
      -j 10
 
-    Re-run triggers:
-      - New OSM bridge data → re-run steps 2a, 2b, 2c, then this script
-      - New DEMs only       → re-run this script only (re-use existing lidar/ML TIFs and modified GPKGs)
+    If new OSM bridge data is pulled, it will trigger new bridge lidar date, which would trigger
+    running this tool.
+
+    Independently, if new DEMs are pulled, then we need to re-run this tool. Assuming we still
+    have the most recent Bridge Lidar, which may/may not need to be re-run. It is only needed if
+    new OSM data is run.
+
+    You will also get new DEM Diff VRT's each time you run it. ie) bridge_elev_diff.vrt
     '''
 
     parser = argparse.ArgumentParser(description='Make bridge dem difference rasters')
@@ -313,27 +289,20 @@ if __name__ == "__main__":
 
     parser.add_argument(
         '-l',
-        '--lidar_raster_dir',
+        '--lidar_processing_dir',
         help='REQUIRED: folder path to the lidar-processing output root containing per-HUC lidar rasters.',
         required=True,
     )
 
     parser.add_argument(
-        '-m',
-        '--ml_raster_dir',
-        help='REQUIRED: Root directory containing per-HUC ml_osm_rasters subdirectories with ML TIF files.',
-        required=True,
-    )
-
-    parser.add_argument(
         '-i',
-        '--modified_bridge_dir',
-        help='REQUIRED: Folder containing huc_*_osm_bridges_modified.gpkg files (output of make_modified_bridges.py).',
+        '--OSM_bridge_dir',
+        help='REQUIRED: Folder containing all HUC-level gpkg original bridge line files for all regions.',
         required=True,
     )
 
     parser.add_argument(
-        '-o', '--dem_diff_output_dir', help='REQUIRED: folder path for output diff rasters.', required=True
+        '-o', '--output_dir', help='REQUIRED: folder path for output diff rasters.', required=True
     )
 
     parser.add_argument(
