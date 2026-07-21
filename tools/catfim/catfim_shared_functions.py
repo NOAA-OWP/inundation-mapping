@@ -12,6 +12,10 @@ import pandas as pd
 from dotenv import load_dotenv
 
 
+# HUCs have WRDS data available but don't have a upstream/downstream trace
+# (because they're not yet in the NWM) 
+HUCS_WITHOUT_NWM_TRACE = ['19080306', '19080307', '19010301']
+
 # Global vars, shared by all related py files.
 MAGNITUDES_TYPES = ['action', 'minor', 'moderate', 'major', 'record']
 

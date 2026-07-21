@@ -5,6 +5,7 @@ import os
 import pickle
 import random
 import shutil
+import sys
 import time
 import traceback
 from datetime import datetime, timezone
@@ -12,8 +13,7 @@ from datetime import datetime, timezone
 import geopandas as gpd
 import pandas as pd
 from tools_shared_functions import filter_nwm_segments_by_stream_order, flow_data, get_nwm_segs
-
-# foss_fim imports
+from data.wrds.mimic_wrds_data import trace_network
 import data.wrds.download_process_wrds as dpw
 import tools.catfim.catfim_shared_functions as csf
 
@@ -270,7 +270,12 @@ def process_threshold_data(
     elif huc[:4] == '2203':  # American Samoa
         nwm_flows_region_df = gpd.read_file(os.getenv('input_nhd_flows_AmericanSamoa'))
     elif huc[:2] == '19':  # Alaska
-        nwm_flows_region_df = gpd.read_file(os.getenv('input_nwm_flows_Alaska'))
+        if huc in ['19080306', '19080307']:
+            nwm_flows_region_df = gpd.read_file(os.getenv('input_nwm_flows_Fairbanks'))
+        elif huc == '19010301':
+            nwm_flows_region_df = gpd.read_file(os.getenv('input_nwm_flows_Juneau'))
+        else:
+            nwm_flows_region_df = gpd.read_file(os.getenv('input_nwm_flows_Alaska'))
     else:  # CONUS + Hawaii + Puerto Rico
         nwm_flows_region_df = gpd.read_file(os.getenv('input_nwm_flows'))  # might be slow, it is 1.8 GiB
 
@@ -283,6 +288,24 @@ def process_threshold_data(
     # Emily: I'm not certain that any of our FIM output flowlines files will be correct for this
     # application. However, we could potentially use the preclip workflow to create
     # HUC-level flow files for each HUC. I think this is a task to add to the CatFIM Epic.
+
+    # ================================
+    # Calculate the upstream and downstream trace if the HUCs are in the hucs_without_nwm_trace list
+
+    # TODO: should this go in a preprocessing section instead?
+    if huc in csf.HUCS_WITHOUT_NWM_TRACE:
+
+        # Remove sites from sites_gdf where usgs_data_site_type is null # TODO: need to move earlier... like before we make the other tables/lists...?
+        null_sites = sites_gdf[sites_gdf['usgs_data_site_type'].isnull()]['nws_lid'].tolist()
+        logging.info(f"{huc} - Removing {len(null_sites)} sites with null usgs_data_site_type: {null_sites}")
+
+        sites_gdf = sites_gdf[sites_gdf['usgs_data_site_type'].notnull()].copy()
+
+        logging.info(f"{huc} - Calculating upstream and downstream traces for NWM flowlines...")
+
+        # TODO: Get search from runtime args
+        search = 5
+        metadata_json = add_upstream_downstream_traces(sites_gdf, metadata_json, nwm_flows_region_df, search)
 
     # ================================
     # Compile intermediate library data for all valid site/magnitude combinations in the HUC
@@ -317,6 +340,69 @@ def process_threshold_data(
     # that have not met conditions such as -1, 0 or null.
 
     return sites_gdf, huc_library_df
+
+
+def add_upstream_downstream_traces(sites_gdf, metadata_json, nwm_flows_region_df, search):
+    '''
+    function inputs:
+    sites_gdf, metadata_json, nwm_flows_region_df, search
+
+    function outputs:
+    updated metadata_json
+    
+    metadata_json = add_upstream_downstream_traces(sites_gdf, metadata_json, nwm_flows_region_df, search)
+    
+    '''
+
+    # TODO: Could remove sites where usgs_data_site_type is null (maybe not here but somewhere before)
+
+    # Clean up flowlines data (so merge and processing is cleaner)
+    nwm_flows_region_df['nwm_feature_id'] = nwm_flows_region_df['ID']
+    nwm_flows_region_df['LengthKM'] = nwm_flows_region_df['lengthkm']
+
+    columns_to_keep = ['nwm_feature_id', 'to', 'order_', 'LengthKM', 'Lake', 'geometry']
+    nwm_flows_region_df = nwm_flows_region_df[columns_to_keep]
+
+    logging.info(f'Len sites gdf: {len(sites_gdf)}')  # TEMP DEBUG
+
+    # For each USGS site, get the NWM ID of the intersecting flowline
+    nwm_flows_region_df = nwm_flows_region_df.to_crs(sites_gdf.crs)
+    sites_gdf_with_streams = gpd.sjoin_nearest(
+        sites_gdf, nwm_flows_region_df, how="inner", max_distance=200, distance_col="distance"
+    ).drop('index_right', axis=1)
+
+    logging.info(f'Len sites gdf with streams: {len(sites_gdf_with_streams)}')  # TEMP DEBUG
+
+    # Get nwm_feature_id for 8km upstream and 8km downstream   
+    for index, row in sites_gdf_with_streams.iterrows():
+
+        logging.info(f"{row['nws_lid']} - Calculating upstream and downstream traces for NWM flowlines...")
+
+        # Get upstream and downstream traces
+        trace_up, trace_down = [], []
+        trace_up, trace_down = trace_network(nwm_flows_region_df, row['nwm_feature_id'], search)
+
+        # Add trace to metadata json
+        lid_i = row["nws_lid"]
+
+        logging.info(f"{lid_i} - Upstream trace: {trace_up}")  # TEMP DEBUG
+        logging.info(f"{lid_i} - Downstream trace: {trace_down}")  # TEMP DEBUG
+        logging.info(f"{lid_i} - nwm_feature_id: {row['nwm_feature_id']}")  # TEMP DEBUG
+        logging.info(f"{lid_i} - stream_order: {row['order_']}")  # TEMP DEBUG
+
+        # Update the metadata_json with the upstream and downstream traces for this site
+        for item in [d for d in metadata_json if d.get('identifiers').get('nws_lid') == lid_i]:
+            logging.info(f"{lid_i} - Found section of metadata_json to update")  # TEMP DEBUG
+
+            item['identifiers']['nwm_feature_id'] = row['nwm_feature_id']
+            item["upstream_nwm_features"] = trace_up
+            item["downstream_nwm_features"] = trace_down
+            item['nwm_feature_data']['stream_order'] = row['order_'] # TODO: Double check
+
+            # logging.info(f'Updated data: {item}')  # TEMP DEBUG
+    # End sites GDF loop
+
+    return metadata_json
 
 
 # We are still talking about raw threshold data at this point
@@ -426,6 +512,35 @@ def __create_sb_huc_library_data(
 
         # TODO: Don't we already have all of the metadata in sites? For now, leave it so we can use
         # some of the tools_shared_functions for getting the segments
+
+        # # -------------------------
+        # # If the HUC is in the hucs_without_nwm_trace list, add the upstream and downstream trace to the metadata
+
+        # ### COPIED OVER
+        # search = 5 # TODO: get from args file
+
+        # nwm_flows_region_df['nwm_feature_id'] = nwm_flows_region_df['ID']
+
+        # # Convert the trace from miles to km
+        # km_conversion = 1.60934
+        # trace_dist_km = search * km_conversion
+
+        # # Get nwm_feature_id for 8km upstream and 8km downstream
+        # upstream_trace_list, downstream_trace_list = [], []
+        # for index, row in nwm_flows_region_df.iterrows():
+
+        #     # Get upstream and downstream traces
+        #     trace_up, trace_down = [], []
+        #     trace_up, trace_down = trace_network(nwm_flows_region_df, row['nwm_feature_id'], trace_dist_km)
+
+        #     upstream_trace_list.append(trace_up)
+        #     downstream_trace_list.append(trace_down)
+
+        # # Add the upstream and downstream trace to the geodataframe
+        # joined_gdf_with_streams['upstream_nwm_features'] = upstream_trace_list
+        # joined_gdf_with_streams['downstream_nwm_features'] = downstream_trace_list
+        # ## END COPIED OVER
+
 
         # ---------------------------
         # Get the stream segments for the site
@@ -1110,5 +1225,10 @@ def __get_segments(lid_metadata, nwm_flows_region_df):
     segments_lst = filter_nwm_segments_by_stream_order(
         unfiltered_segments, desired_order, nwm_flows_region_df
     )
+    logging.info(f"Getting segments for {lid_metadata['identifiers']['nws_lid']}")  # TEMP DEBUG
+    logging.info(f"Unfiltered segments for {lid_metadata['identifiers']['nws_lid']}: {len(unfiltered_segments)}")  # TEMP DEBUG
+    logging.info(f"Desired stream order for {lid_metadata['identifiers']['nws_lid']}: {desired_order}")  # TEMP DEBUG
+    logging.info(f"Filtered segments for {lid_metadata['identifiers']['nws_lid']}: {len(segments_lst)}")  # TEMP DEBUG
+
     # Previous input was nwm_flows_df, but now it is region specific df (9/25/25)
     return segments_lst

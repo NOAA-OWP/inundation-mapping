@@ -8,7 +8,8 @@ from datetime import date, datetime, timezone
 import geopandas as gpd
 import pandas as pd
 from dotenv import load_dotenv
-from download_process_wrds import label_data_file
+
+from data.wrds.download_process_wrds import label_data_file
 from tools_shared_functions import get_metadata
 
 
@@ -190,7 +191,7 @@ def download_format_metadata(site_thresholds_csv, metadata_url, DEFAULT_DATA_CRS
     return meta_gdf, thresholds_df
 
 
-def trace_network(df, start_id, trace_dist_km):
+def trace_network(df, start_id, trace_dist_mi):
     '''
     Trace upstream and downstream channel segments from a starting feature in a network.
 
@@ -205,8 +206,8 @@ def trace_network(df, start_id, trace_dist_km):
         - 'Lake'           : integer/flag indicating lake presence (>0 indicates a lake)
     start_id : int or str
         The nwm_feature_id value from which to start the trace.
-    trace_dist_km : int, float, or str
-        Maximum cumulative distance (in km) to trace in each direction. The value
+    trace_dist_mi : int, float, or str
+        Maximum cumulative distance (in miles) to trace in each direction. The value
         is converted to float; tracing for a direction stops when the accumulated
         length is greater than or equal to this value.
 
@@ -249,6 +250,11 @@ def trace_network(df, start_id, trace_dist_km):
       (no nodes beyond start depending on comparison and inclusion).
     - The function does not validate column types.
     '''
+
+    # Convert the trace from miles to km
+    km_conversion = 1.60934
+    trace_dist_km = trace_dist_mi * km_conversion
+
     current_id = start_id
     trace_up = []
     trace_down = []
@@ -341,7 +347,7 @@ def crosswalk_trace_flows(joined_gdf, nhd_flowlines_gpkg, search):
     nhd_flowlines_gpkg : str or pathlib.Path
         File path to an NHD flowlines GeoPackage (or other file read-able by geopandas.read_file).
         The function expects the flowlines data to contain an 'ID' column (which will be copied to
-        'nwm_feature_id') and other columns such as 'FROMCOMID', 'to', 'order_', 'LengthKM', and 'Lake'.
+        'nwm_feature_id') and other columns such as 'to', 'order_', 'LengthKM', and 'Lake'.
     search : float
         Search distance in miles for the upstream/downstream trace.
 
@@ -362,7 +368,7 @@ def crosswalk_trace_flows(joined_gdf, nhd_flowlines_gpkg, search):
     - Reprojects the flowlines to joined_gdf.crs before performing a nearest spatial join.
     - Uses geopandas.sjoin_nearest(..., max_distance=20) to find the nearest flowline for each input geometry.
       The max_distance value is interpreted in the units of the CRS of joined_gdf (e.g., meters for a CRS in meters).
-    - Converts the provided search distance from miles to kilometers and uses trace_network(flowlines_gdf, start_id, trace_dist_km)
+    - Uses trace_network(flowlines_gdf, start_id, trace_dist_mi)
       to obtain upstream and downstream network traces for each matched flowline. The function trace_network must be available
       in the current module / namespace and is expected to return two iterables (upstream, downstream) of nwm_feature_id values.
 
@@ -377,7 +383,7 @@ def crosswalk_trace_flows(joined_gdf, nhd_flowlines_gpkg, search):
     # TODO: Eventually could have this iterate a list of NHD flowlines files
     flowlines_gdf = gpd.read_file(nhd_flowlines_gpkg)
     flowlines_gdf['nwm_feature_id'] = flowlines_gdf['ID']
-    columns_to_keep = ['nwm_feature_id', 'FROMCOMID', 'to', 'order_', 'LengthKM', 'Lake', 'geometry']
+    columns_to_keep = ['nwm_feature_id', 'FROMCOMID', 'to', 'order_', 'LengthKM', 'Lake', 'geometry']  # TODO: remove FROMCOMID ? I don't think we use it
     flowlines_gdf = flowlines_gdf[columns_to_keep]
 
     print('Done reading in and filtering NHD flowlines.')
@@ -388,17 +394,13 @@ def crosswalk_trace_flows(joined_gdf, nhd_flowlines_gpkg, search):
         joined_gdf, flowlines_gdf, how="inner", max_distance=20, distance_col="distance"
     ).drop('index_right', axis=1)
 
-    # Convert the trace from miles to km
-    km_conversion = 1.60934
-    trace_dist_km = search * km_conversion
-
     # Get nwm_feature_id for 8km upstream and 8km downstream
     upstream_trace_list, downstream_trace_list = [], []
     for index, row in joined_gdf_with_streams.iterrows():
 
         # Get upstream and downstream traces
         trace_up, trace_down = [], []
-        trace_up, trace_down = trace_network(flowlines_gdf, row['nwm_feature_id'], trace_dist_km)
+        trace_up, trace_down = trace_network(flowlines_gdf, row['nwm_feature_id'], search)
 
         upstream_trace_list.append(trace_up)
         downstream_trace_list.append(trace_down)
