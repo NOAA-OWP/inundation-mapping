@@ -224,7 +224,7 @@ def download_nfhl(
                 with open(os.devnull, 'w') as devnull:
                     with redirect_stdout(devnull), redirect_stderr(devnull):
                         nfhl_df = ESRI_REST.query(
-                            "https://hazards.fema.gov/arcgis/rest/services/FIRMette/NFHLREST_FIRMette/MapServer/20/query",
+                            "https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/28/query",
                             f="json",
                             where=where_clause,
                             returnGeometry="true",
@@ -238,7 +238,7 @@ def download_nfhl(
                         )
 
                         nfhl_availability_df = ESRI_REST.query(
-                            "https://hazards.fema.gov/arcgis/rest/services/FIRMette/NFHLREST_FIRMette/MapServer/0/query",
+                            "https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/0/query",
                             f="json",
                             where="1=1",
                             returnGeometry="true",

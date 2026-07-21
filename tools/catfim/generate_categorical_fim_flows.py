@@ -269,13 +269,10 @@ def process_threshold_data(
         nwm_flows_region_df = gpd.read_file(os.getenv('input_nhd_flows_Guam'))
     elif huc[:4] == '2203':  # American Samoa
         nwm_flows_region_df = gpd.read_file(os.getenv('input_nhd_flows_AmericanSamoa'))
-    elif huc[:2] == '19':  # Alaska
-        if huc in ['19080306', '19080307']:
-            nwm_flows_region_df = gpd.read_file(os.getenv('input_nwm_flows_Fairbanks'))
-        elif huc == '19010301':
-            nwm_flows_region_df = gpd.read_file(os.getenv('input_nwm_flows_Juneau'))
-        else:
-            nwm_flows_region_df = gpd.read_file(os.getenv('input_nwm_flows_Alaska'))
+    elif huc in ['19010301', '19080306', '19080307']:
+        nwm_flows_region_df = gpd.read_file(os.getenv('input_flows_NorthAlaska'))
+    elif huc[:2] == '19':  # South Alaska
+        nwm_flows_region_df = gpd.read_file(os.getenv('input_nwm_flows_SouthAlaska'))
     else:  # CONUS + Hawaii + Puerto Rico
         nwm_flows_region_df = gpd.read_file(os.getenv('input_nwm_flows'))  # might be slow, it is 1.8 GiB
 
