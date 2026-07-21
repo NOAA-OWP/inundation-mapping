@@ -31,6 +31,8 @@ OUTGOING_COL_ORDER = [
     'is_valid',
 ]
 
+# ripple_collection_dir = '/outputs/collections/'
+
 
 # -----------------------------------------------------------------------------
 def arrange_outgoing_columns(df):
