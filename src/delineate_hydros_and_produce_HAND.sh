@@ -2,7 +2,7 @@
 #### always leave the -e above as it means exit on fail (critical to our system)
 ### set -eo pipefail  (debugging)
 
-source $srcDir/bash_functions.env
+source ${srcDir}/bash_functions.env
 
 ## Level is equal to the parent script: 'unit' or 'branch'
 level=$1
@@ -80,34 +80,40 @@ args=(
 gdal_calc.py "${args[@]}"
 
 ## FLOW CONDITION STREAMS ##
-echo -e $startDiv"Flow Condition Thalweg $hucNumber $current_branch_id"
-python3 $srcDir/run_taudem_subprocess.py flowdircond \
-    -t "$taudemDir" \
-    -p "$tempCurrentBranchDataDir/flowdir_d8_burned_filled_flows_$current_branch_id.tif" \
-    -z "$tempCurrentBranchDataDir/dem_lateral_thalweg_adj_$current_branch_id.tif" \
-    -zfdc "$tempCurrentBranchDataDir/dem_thalwegCond_$current_branch_id.tif"
+echo -e $startDiv"Flow Condition Thalweg ${hucNumber} ${current_branch_id}"
+args=(
+    -t "${taudemDir}"
+    -p "${tempCurrentBranchDataDir}/flowdir_d8_burned_filled_flows_${current_branch_id}.tif"
+    -z "${tempCurrentBranchDataDir}/dem_lateral_thalweg_adj_${current_branch_id}.tif"
+    -zfdc "${tempCurrentBranchDataDir}/dem_thalwegCond_${current_branch_id}.tif"
+)
+python3 "${srcDir}/run_taudem_subprocess.py" flowdircond "${args[@]}"
 
 ## D8 SLOPES ##
-echo -e $startDiv"D8 Slopes from DEM $hucNumber $current_branch_id"
-python3 $srcDir/run_taudem_subprocess.py d8flowdir \
-    -n $ncores_fd \
-    -t $taudemDir2 \
-    -fel $tempCurrentBranchDataDir/dem_lateral_thalweg_adj_$current_branch_id.tif \
-    -sd8 $tempCurrentBranchDataDir/slopes_d8_dem_meters_$current_branch_id.tif
+echo -e $startDiv"D8 Slopes from DEM ${hucNumber} ${current_branch_id}"
+args=(
+    -n "${ncores_fd}"
+    -t "${taudemDir2}"
+    -fel "${tempCurrentBranchDataDir}/dem_lateral_thalweg_adj_${current_branch_id}.tif"
+    -sd8 "${tempCurrentBranchDataDir}/slopes_d8_dem_meters_${current_branch_id}.tif"
+)
+python3 "${srcDir}/run_taudem_subprocess.py" d8flowdir "${args[@]}"
 
 ## STREAMNET FOR REACHES ##
-echo -e $startDiv"Stream Net for Reaches $hucNumber $current_branch_id"
-python3 $srcDir/run_taudem_subprocess.py streamnet \
-    -t "$taudemDir" \
-    -p "$tempCurrentBranchDataDir/flowdir_d8_burned_filled_$current_branch_id.tif" \
-    -fel "$tempCurrentBranchDataDir/dem_thalwegCond_$current_branch_id.tif" \
-    -ad8 "$tempCurrentBranchDataDir/flowaccum_d8_burned_filled_$current_branch_id.tif" \
-    -src "$tempCurrentBranchDataDir/demDerived_streamPixels_$current_branch_id.tif" \
-    -ord "$tempCurrentBranchDataDir/streamOrder_$current_branch_id.tif" \
-    -tree "$tempCurrentBranchDataDir/treeFile_$current_branch_id.txt" \
-    -coord "$tempCurrentBranchDataDir/coordFile_$current_branch_id.txt" \
-    -w "$tempCurrentBranchDataDir/sn_catchments_reaches_$current_branch_id.tif" \
-    -net "$tempCurrentBranchDataDir/demDerived_reaches_$current_branch_id.shp"
+echo -e $startDiv"Stream Net for Reaches ${hucNumber} ${current_branch_id}"
+args=(
+    -t "${taudemDir}"
+    -p "${tempCurrentBranchDataDir}/flowdir_d8_burned_filled_${current_branch_id}.tif"
+    -fel "${tempCurrentBranchDataDir}/dem_thalwegCond_${current_branch_id}.tif"
+    -ad8 "${tempCurrentBranchDataDir}/flowaccum_d8_burned_filled_${current_branch_id}.tif"
+    -src "${tempCurrentBranchDataDir}/demDerived_streamPixels_${current_branch_id}.tif"
+    -ord "${tempCurrentBranchDataDir}/streamOrder_${current_branch_id}.tif"
+    -tree "${tempCurrentBranchDataDir}/treeFile_${current_branch_id}.txt"
+    -coord "${tempCurrentBranchDataDir}/coordFile_${current_branch_id}.txt"
+    -w "${tempCurrentBranchDataDir}/sn_catchments_reaches_${current_branch_id}.tif"
+    -net "${tempCurrentBranchDataDir}/demDerived_reaches_${current_branch_id}.shp"
+)
+python3 "${srcDir}/run_taudem_subprocess.py" streamnet "${args[@]}"
 
 ## SPLIT DERIVED REACHES ##
 echo -e "${startDiv}Split Derived Reaches ${hucNumber} ${current_branch_id}"
@@ -126,14 +132,16 @@ args=(
 python3 "${srcDir}/split_flows.py" "${args[@]}"
 
 ## GAGE WATERSHED FOR REACHES ##
-echo -e $startDiv"Gage Watershed for Reaches $hucNumber $current_branch_id"
-python3 $srcDir/run_taudem_subprocess.py gagewatershed \
-    -n $ncores_gw \
-    -t "$taudemDir" \
-    -p "$tempCurrentBranchDataDir/flowdir_d8_burned_filled_$current_branch_id.tif" \
-    -gw "$tempCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.tif" \
-    -o "$tempCurrentBranchDataDir/demDerived_reaches_split_points_$current_branch_id.gpkg" \
-    -id "$tempCurrentBranchDataDir/idFile_$current_branch_id.txt"
+echo -e $startDiv"Gage Watershed for Reaches ${hucNumber} ${current_branch_id}"
+args=(
+    -n "${ncores_gw}"
+    -t "${taudemDir}"
+    -p "${tempCurrentBranchDataDir}/flowdir_d8_burned_filled_${current_branch_id}.tif"
+    -gw "${tempCurrentBranchDataDir}/gw_catchments_reaches_${current_branch_id}.tif"
+    -o "${tempCurrentBranchDataDir}/demDerived_reaches_split_points_${current_branch_id}.gpkg"
+    -id "${tempCurrentBranchDataDir}/idFile_${current_branch_id}.txt"
+)
+python3 "${srcDir}/run_taudem_subprocess.py" gagewatershed "${args[@]}"
 
 ## VECTORIZE FEATURE ID CENTROIDS ##
 echo -e "${startDiv}Vectorize Pixel Centroids ${hucNumber} ${current_branch_id}"
@@ -145,14 +153,16 @@ args=(
 python3 "${srcDir}/reachID_grid_to_vector_points.py" "${args[@]}"
 
 ## GAGE WATERSHED FOR PIXELS ##
-echo -e $startDiv"Gage Watershed for Pixels $hucNumber $current_branch_id"
-python3 $srcDir/run_taudem_subprocess.py gagewatershed \
-    -n $ncores_gw \
-    -t "$taudemDir" \
-    -p "$tempCurrentBranchDataDir/flowdir_d8_burned_filled_$current_branch_id.tif" \
-    -gw "$tempCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.tif" \
-    -o "$tempCurrentBranchDataDir/flows_points_pixels_$current_branch_id.gpkg" \
-    -id "$tempCurrentBranchDataDir/idFile_$current_branch_id.txt" \
+echo -e $startDiv"Gage Watershed for Pixels ${hucNumber} ${current_branch_id}"
+args=(
+    -n "${ncores_gw}"
+    -t "${taudemDir}"
+    -p "${tempCurrentBranchDataDir}/flowdir_d8_burned_filled_${current_branch_id}.tif"
+    -gw "${tempCurrentBranchDataDir}/gw_catchments_pixels_${current_branch_id}.tif"
+    -o "${tempCurrentBranchDataDir}/flows_points_pixels_${current_branch_id}.gpkg"
+    -id "${tempCurrentBranchDataDir}/idFile_${current_branch_id}.txt"
+)
+python3 "${srcDir}/run_taudem_subprocess.py" gagewatershed "${args[@]}"
 
 
 ## CATCH AND MITIGATE BRANCH OUTLET BACKPOOL ERROR ##
@@ -294,33 +304,35 @@ if [[ "${healed_hand_hydrocondition}" == "true"  &&  "${current_branch_id}" != "
 fi
 
 ## HYDRAULIC PROPERTIES ##
-echo -e $startDiv"Sample reach averaged parameters $hucNumber $current_branch_id"
-python3 $srcDir/run_taudem_subprocess.py catchhydrogeo \
-    -t "$taudemDir" \
-    -hand "$tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif" \
-    -catch "$tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_$current_branch_id.tif" \
-    -catchlist "$tempCurrentBranchDataDir/catch_list_$current_branch_id.txt" \
-    -slp "$tempCurrentBranchDataDir/slopes_d8_dem_meters_masked_$current_branch_id.tif" \
-    -H "$tempCurrentBranchDataDir/stage_$current_branch_id.txt" \
-    -table "$tempCurrentBranchDataDir/src_base_$current_branch_id.csv"
+echo -e $startDiv"Sample reach averaged parameters ${hucNumber} ${current_branch_id}"
+args=(
+    -t "${taudemDir}"
+    -hand "${tempCurrentBranchDataDir}/rem_zeroed_masked_${current_branch_id}.tif"
+    -catch "${tempCurrentBranchDataDir}/gw_catchments_reaches_filtered_addedAttributes_${current_branch_id}.tif"
+    -catchlist "${tempCurrentBranchDataDir}/catch_list_${current_branch_id}.txt"
+    -slp "${tempCurrentBranchDataDir}/slopes_d8_dem_meters_masked_${current_branch_id}.tif"
+    -H "${tempCurrentBranchDataDir}/stage_${current_branch_id}.txt"
+    -table "${tempCurrentBranchDataDir}/src_base_${current_branch_id}.csv"
+)
+python3 "${srcDir}/run_taudem_subprocess.py" catchhydrogeo "${args[@]}"
 
 ## FINALIZE CATCHMENTS AND MODEL STREAMS ##
-echo -e $startDiv"Finalize catchments and model streams $hucNumber $current_branch_id"
-python3 $srcDir/add_crosswalk.py \
-    -d $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_$current_branch_id.gpkg \
-    -a $tempCurrentBranchDataDir/demDerived_reaches_split_filtered_$current_branch_id.gpkg \
-    -s $tempCurrentBranchDataDir/src_base_$current_branch_id.csv \
-    -l $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked_$current_branch_id.gpkg \
-    -f $tempCurrentBranchDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked_$current_branch_id.gpkg \
-    -r $tempCurrentBranchDataDir/src_full_crosswalked_$current_branch_id.csv \
-    -j $tempCurrentBranchDataDir/src_$current_branch_id.json \
-    -x $tempCurrentBranchDataDir/crosswalk_table_$current_branch_id.csv \
-    -t $tempCurrentBranchDataDir/hydroTable_$current_branch_id.csv \
+echo -e $startDiv"Finalize catchments and model streams ${hucNumber} ${current_branch_id}"
+python3 ${srcDir}/add_crosswalk.py \
+    -d ${tempCurrentBranchDataDir}/gw_catchments_reaches_filtered_addedAttributes_${current_branch_id}.gpkg \
+    -a ${tempCurrentBranchDataDir}/demDerived_reaches_split_filtered_${current_branch_id}.gpkg \
+    -s ${tempCurrentBranchDataDir}/src_base_${current_branch_id}.csv \
+    -l ${tempCurrentBranchDataDir}/gw_catchments_reaches_filtered_addedAttributes_crosswalked_${current_branch_id}.gpkg \
+    -f ${tempCurrentBranchDataDir}/demDerived_reaches_split_filtered_addedAttributes_crosswalked_${current_branch_id}.gpkg \
+    -r ${tempCurrentBranchDataDir}/src_full_crosswalked_${current_branch_id}.csv \
+    -j ${tempCurrentBranchDataDir}/src_${current_branch_id}.json \
+    -x ${tempCurrentBranchDataDir}/crosswalk_table_${current_branch_id}.csv \
+    -t ${tempCurrentBranchDataDir}/hydroTable_${current_branch_id}.csv \
     -w $tempHucDataDir/wbd8_clp.gpkg \
     -b $b_arg \
-    -u $hucNumber \
+    -u ${hucNumber} \
     -m $manning_n \
-    -k $tempCurrentBranchDataDir/small_segments_$current_branch_id.csv \
+    -k ${tempCurrentBranchDataDir}/small_segments_${current_branch_id}.csv \
     -e $min_catchment_area \
     -g $min_stream_length \
     -i $iris_sword_slope \

@@ -151,12 +151,14 @@ fi
 rd_depression_filling "${args[@]}"
 
 ## D8 FLOW DIR - BRANCHES (NOT 0) (NWM levelpath streams) ##
-echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber $current_branch_id"
-python3 $srcDir/run_taudem_subprocess.py d8flowdir \
-    -n $ncores_fd \
-    -t $taudemDir2 \
-    -fel $tempCurrentBranchDataDir/dem_burned_filled_$current_branch_id.tif \
-    -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$current_branch_id.tif
+echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber ${current_branch_id}"
+args=(
+    -n "${ncores_fd}"
+    -t "${taudemDir2}"
+    -fel "${tempCurrentBranchDataDir}/dem_burned_filled_${current_branch_id}.tif"
+    -p "${tempCurrentBranchDataDir}/flowdir_d8_burned_filled_${current_branch_id}.tif"
+)
+python3 $srcDir/run_taudem_subprocess.py d8flowdir "${args[@]}"
 
 ## RASTERIZE NWM Levelpath HEADWATERS (1 & 0) ##
 echo -e "${startDiv}Rasterize NWM Headwaters ${hucNumber} ${current_branch_id}"

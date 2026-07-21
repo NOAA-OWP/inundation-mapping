@@ -310,12 +310,14 @@ args=(
 rd_depression_filling "${args[@]}"
 
 ## D8 FLOW DIR - BRANCH 0 (include all NWM streams) ##
-echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber $branch_zero_id"
-python3 $srcDir/run_taudem_subprocess.py d8flowdir \
-    -n $ncores_fd \
-    -t $taudemDir2 \
-    -fel $tempCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif \
-    -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$branch_zero_id.tif
+echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber ${branch_zero_id}"
+args=(
+    -n "$ncores_fd"
+    -t "${taudemDir2}"
+    -fel "${tempCurrentBranchDataDir}/dem_burned_filled_${branch_zero_id}.tif"
+    -p "${tempCurrentBranchDataDir}/flowdir_d8_burned_filled_${branch_zero_id}.tif"
+)
+python3 "${srcDir}/run_taudem_subprocess.py" d8flowdir "${args[@]}"
 
 ## MAKE A COPY OF THE DEM and DEM DIFF FOR BRANCH 0
 echo -e "${startDiv}Copying DEM to Branch 0"
