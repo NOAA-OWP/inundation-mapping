@@ -1,7 +1,37 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.x.x.x - 2026-05-15 - [PR#1787](https://github.com/NOAA-OWP/inundation-mapping/pull/1787)
+## v4.x.x.x - 2026-07-21 - [PR#1901](https://github.com/NOAA-OWP/inundation-mapping/pull/1901)
+This PR closes issue #1850. 
+
+## Summary
+
+This PR address CRS selection logic for Alaska, Guam, American Samoa, and CONUS. This PR centralizes that logic into a single get_crs_for_huc() helper added to src/utils/shared_functions.py and src/bash_functions.env, which selects the appropriate CRS based on the HUC number. All affected scripts now call this shared function instead of repeating the branching logic, making future CRS updates a one-line change in a single location rather than a search-and-update across the codebase.
+
+Also, the PR improves the functionality of `run_with_mp` function in `src/utils/shared_functions.py`by:
+- Made `task_id_key` a required positional argument with explicit validation
+- Worker return contract documented: `(rtn_code, [payload...])` where `rtn_code` 1=success, 0=fail, -1=critical
+- Added `if pbar:` guard in exception handler to avoid crash when progress bar is disabled
+
+---
+
+
+### Changes
+- src/utils/shared_functions.py 
+- data/roads/pull_osm_roads.py  
+- src/aggregate_branches_to_huc.py 
+- data/wbd/generate_pre_clip_fim_huc8.py 
+- data/wbd/clip_vectors_to_wbd.py  
+- data/nfhl/download_fema_nfhl.py 
+- data/buildings/make_buildings_parts_per_huc.py 
+- data/bridges/pull_osm_bridges.py  
+- data/buildings/get_fema_buildings.py  
+- src/bash_functions.env
+- src/run_huc.sh
+- src/run_by_branch.sh
+
+<br/>
+
 ## v4.9.20.1 - 2026-07-13 - [PR#1892](https://github.com/NOAA-OWP/inundation-mapping/pull/1892)
 
 Fixes a topology error in `associate_levelpaths_with_levees.py` where the negative buffer causes a `non-noded intersection`. 
