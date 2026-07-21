@@ -159,8 +159,6 @@ def split_flows(
     # the pyogrio + arrow engine was giving random segmentation faults that
     # we think may be due to many branches trying to read the same GPKG
     wbd8 = gpd.read_file(wbd8_clp_filename, engine='fiona')
-    dem = rasterio.open(dem_filename, 'r')
-
     if isfile(lakes_filename):
         lakes = gpd.read_file(lakes_filename, engine='fiona')
     else:
@@ -298,89 +296,92 @@ def split_flows(
 
     # --- begin copied into branch outlet backpool --- DEBUG -- maybe make this a function so we can call both?
     # Iterate through flows and calculate channel slope, manning's n, and LengthKm for each segment
-    for i, lineString in enumerate(flows.geometry):
-        # Reverse geometry order (necessary for BurnLines)
-        lineString = LineString(lineString.coords[::-1])
+    with rasterio.open(dem_filename, 'r') as dem:
+        for i, lineString in enumerate(flows.geometry):
+            # Reverse geometry order (necessary for BurnLines)
+            lineString = LineString(lineString.coords[::-1])
 
-        # Skip lines of zero length
-        if lineString.length == 0:
-            continue
-
-        # Process existing reaches that are less than the max_length
-        if lineString.length < max_length:
-            split_flows = split_flows + [lineString]
-            line_points = [point for point in zip(*lineString.coords.xy)]
-
-            # Calculate channel slope
-            start_point = line_points[0]
-            end_point = line_points[-1]
-            start_elev, end_elev = [i[0] for i in rasterio.sample.sample_gen(dem, [start_point, end_point])]
-            slope = float(abs(start_elev - end_elev) / lineString.length)
-            if slope < slope_min:
-                slope = slope_min
-            slopes = slopes + [slope]
-            continue
-
-        # Calculate the split length
-        splitLength = lineString.length / np.ceil(lineString.length / max_length)
-
-        cumulative_line = []
-        line_points = []
-        last_point = []
-
-        last_point_in_entire_lineString = list(zip(*lineString.coords.xy))[-1]
-
-        # Calculate cumulative length and channel slope,
-        for point in zip(*lineString.coords.xy):
-            cumulative_line = cumulative_line + [point]
-            line_points = line_points + [point]
-            numberOfPoints_in_cumulative_line = len(cumulative_line)
-
-            if last_point:
-                cumulative_line = [last_point] + cumulative_line
-                numberOfPoints_in_cumulative_line = len(cumulative_line)
-            elif numberOfPoints_in_cumulative_line == 1:
+            # Skip lines of zero length
+            if lineString.length == 0:
                 continue
 
-            cumulative_length = LineString(cumulative_line).length
-
-            # If the cumulative line length is greater than or equal to the split length....
-            if cumulative_length >= splitLength:
-                splitLineString = LineString(cumulative_line)
-                split_flows = split_flows + [splitLineString]
+            # Process existing reaches that are less than the max_length
+            if lineString.length < max_length:
+                split_flows = split_flows + [lineString]
+                line_points = [point for point in zip(*lineString.coords.xy)]
 
                 # Calculate channel slope
-                start_point = cumulative_line[0]
-                end_point = cumulative_line[-1]
+                start_point = line_points[0]
+                end_point = line_points[-1]
                 start_elev, end_elev = [
                     i[0] for i in rasterio.sample.sample_gen(dem, [start_point, end_point])
                 ]
-                slope = float(abs(start_elev - end_elev) / splitLineString.length)
+                slope = float(abs(start_elev - end_elev) / lineString.length)
                 if slope < slope_min:
                     slope = slope_min
                 slopes = slopes + [slope]
+                continue
 
-                last_point = end_point
+            # Calculate the split length
+            splitLength = lineString.length / np.ceil(lineString.length / max_length)
 
-                if last_point == last_point_in_entire_lineString:
+            cumulative_line = []
+            line_points = []
+            last_point = []
+
+            last_point_in_entire_lineString = list(zip(*lineString.coords.xy))[-1]
+
+            # Calculate cumulative length and channel slope,
+            for point in zip(*lineString.coords.xy):
+                cumulative_line = cumulative_line + [point]
+                line_points = line_points + [point]
+                numberOfPoints_in_cumulative_line = len(cumulative_line)
+
+                if last_point:
+                    cumulative_line = [last_point] + cumulative_line
+                    numberOfPoints_in_cumulative_line = len(cumulative_line)
+                elif numberOfPoints_in_cumulative_line == 1:
                     continue
 
-                cumulative_line = []
-                line_points = []
+                cumulative_length = LineString(cumulative_line).length
 
-        splitLineString = LineString(cumulative_line)
-        split_flows = split_flows + [splitLineString]
+                # If the cumulative line length is greater than or equal to the split length....
+                if cumulative_length >= splitLength:
+                    splitLineString = LineString(cumulative_line)
+                    split_flows = split_flows + [splitLineString]
 
-        # Calculate channel slope
-        start_point = cumulative_line[0]
-        end_point = cumulative_line[-1]
-        start_elev, end_elev = [i[0] for i in rasterio.sample.sample_gen(dem, [start_point, end_point])]
-        slope = float(abs(start_elev - end_elev) / splitLineString.length)
-        if slope < slope_min:
-            slope = slope_min
-        slopes = slopes + [slope]
+                    # Calculate channel slope
+                    start_point = cumulative_line[0]
+                    end_point = cumulative_line[-1]
+                    start_elev, end_elev = [
+                        i[0] for i in rasterio.sample.sample_gen(dem, [start_point, end_point])
+                    ]
+                    slope = float(abs(start_elev - end_elev) / splitLineString.length)
+                    if slope < slope_min:
+                        slope = slope_min
+                    slopes = slopes + [slope]
 
-    del flows, dem
+                    last_point = end_point
+
+                    if last_point == last_point_in_entire_lineString:
+                        continue
+
+                    cumulative_line = []
+                    line_points = []
+
+            splitLineString = LineString(cumulative_line)
+            split_flows = split_flows + [splitLineString]
+
+            # Calculate channel slope
+            start_point = cumulative_line[0]
+            end_point = cumulative_line[-1]
+            start_elev, end_elev = [i[0] for i in rasterio.sample.sample_gen(dem, [start_point, end_point])]
+            slope = float(abs(start_elev - end_elev) / splitLineString.length)
+            if slope < slope_min:
+                slope = slope_min
+            slopes = slopes + [slope]
+
+    del flows
 
     # Assemble the slopes and split flows into a geodataframe
     split_flows_gdf = gpd.GeoDataFrame(

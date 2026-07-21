@@ -16,7 +16,8 @@ import requests
 from dotenv import load_dotenv
 from networkx import Graph, connected_components
 from osmnx._errors import InsufficientResponseError
-from shapely.geometry import LineString, shape
+
+from shapely.geometry import LineString, box, shape
 
 from src.utils.shared_functions import get_crs_for_huc, run_with_mp, setup_mp_file_logger
 
@@ -29,10 +30,6 @@ ox.settings.request_timeout = 500
 # ox.settings.requests_timeout = 1200  # Set timeout to 20 minutes
 srcDir = os.getenv('srcDir')
 load_dotenv(f'{srcDir}/bash_variables.env')
-
-# TODO: HUC 02060006 remains a known special case. Prior attempts, including splitting to HUC10s,
-# have not produced usable bridge output through the standard osmnx.features_from_polygon(...) workflow.
-# Revisit with an alternative acquisition method.
 
 
 # Dissolve touching lines
@@ -61,6 +58,77 @@ def find_touching_groups(gdf, file_logger, screen_queue, task_id):
     return groups
 
 
+def split_polygon_grid(polygon, num_splits=2):
+    """Split a polygon's bounding box into a num_splits x num_splits grid,
+    clipped to the original polygon boundary."""
+    minx, miny, maxx, maxy = polygon.bounds
+    x_step = (maxx - minx) / num_splits
+    y_step = (maxy - miny) / num_splits
+
+    sub_polys = []
+    for i in range(num_splits):
+        for j in range(num_splits):
+            cell = box(minx + i * x_step, miny + j * y_step, minx + (i + 1) * x_step, miny + (j + 1) * y_step)
+            clipped = polygon.intersection(cell)
+            if not clipped.is_empty:
+                sub_polys.append(clipped)
+    return sub_polys
+
+
+def query_osm_bridges_with_split(
+    huc_num, huc_polygon, num_splits, file_logger, screen_queue, task_id, max_depth=4
+):
+    """Query OSM bridge features by splitting the HUC polygon into a num_splits x num_splits grid.
+    When a sub-polygon times out, recursively splits it into 2x2 up to max_depth times.
+    Returns (combined GeoDataFrame deduplicated by OSM ID or None, had_timeout) where
+    had_timeout is True if any sub-polygon hit the recursion limit and was skipped."""
+    sub_polys = split_polygon_grid(huc_polygon, num_splits)
+    gdfs = []
+    had_timeout = False
+
+    for idx, sub_poly in enumerate(sub_polys):
+        file_logger.info(
+            f"  [{task_id}] Querying sub-polygon {idx + 1}/{len(sub_polys)} (split={num_splits}x{num_splits})"
+        )
+        try:
+            sub_gdf = ox.features_from_polygon(sub_poly, {"bridge": True})
+            gdfs.append(sub_gdf)
+        except InsufficientResponseError:
+            file_logger.info(f"  [{task_id}] Sub-polygon {idx + 1}/{len(sub_polys)} had no bridge features")
+        except requests.exceptions.ReadTimeout:
+            if max_depth > 0:
+                file_logger.warning(
+                    f"  [{task_id}] Sub-polygon {idx + 1}/{len(sub_polys)} timed out"
+                    f" — recursing with 2x2 split"
+                )
+                sub_result, sub_failed = query_osm_bridges_with_split(
+                    huc_num, sub_poly, 2, file_logger, screen_queue, task_id, max_depth - 1
+                )
+                if sub_failed:
+                    had_timeout = True
+                if sub_result is not None:
+                    gdfs.append(sub_result)
+            else:
+                file_logger.warning(
+                    f"  [{task_id}] Sub-polygon {idx + 1}/{len(sub_polys)} timed out"
+                    f" and recursion limit reached — skipping"
+                )
+                had_timeout = True
+
+    # reject partial results — if any sub-polygon timed out, the coverage is incomplete
+    if had_timeout:
+        return None, True
+
+    # had_timeout is False here; empty gdfs means all sub-polygons had no bridge features
+    if not gdfs:
+        return None, False
+
+    # no timeouts and at least one sub-polygon returned features — combine and deliver
+    combined = pd.concat(gdfs)
+    combined = combined[~combined.index.duplicated(keep='first')]
+    return combined, False
+
+
 def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom, file_logger, screen_queue, task_id):
     try:
 
@@ -71,16 +139,26 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom, file_logger, sc
         file_logger.info(f" ** Creating gpkg for {huc_num}")
         screen_queue.put(f" ** Creating gpkg for {huc_num}")
 
+        split_had_timeout = False
+
+        huc_polygon = shape(huc_geom)
         try:
-            gdf = ox.features_from_polygon(shape(huc_geom), {"bridge": True})
+            gdf = ox.features_from_polygon(huc_polygon, {"bridge": True})
         except InsufficientResponseError:
             file_logger.warning(f"osmnx pull for {huc_num} came back with no matching bridge features")
             screen_queue.put(f"osmnx pull for {huc_num} came back with no matching bridge features")
             return 1, [True]
         except requests.exceptions.ReadTimeout:
-            file_logger.warning(f"osmnx pull for {huc_num} timed out while waiting on Overpass")
-            screen_queue.put(f"osmnx pull for {huc_num} timed out while waiting on Overpass")
-            return 1, [True]
+            file_logger.warning(f"osmnx pull for {huc_num} timed out — retrying with 2x2 grid split")
+            screen_queue.put(f"osmnx pull for {huc_num} timed out — retrying with 2x2 grid split")
+            gdf, split_had_timeout = query_osm_bridges_with_split(
+                huc_num, huc_polygon, 2, file_logger, screen_queue, task_id
+            )
+            if split_had_timeout:
+                msg = f"Grid split for {huc_num} failed — at least one sub-polygon timed out"
+                file_logger.warning(msg)
+                screen_queue.put(msg)
+                return 0, [False]
 
         if gdf is None or len(gdf) == 0:
             file_logger.warning(f"osmnx pull for {huc_num} came back with no records")
@@ -184,6 +262,13 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom, file_logger, sc
         gdf1 = gpd.GeoDataFrame(
             gdf.loc[gdf.geometry.geom_type.isin(linear_geom_types)].copy(), geometry='geometry', crs=gdf.crs
         )
+
+        if gdf1.empty:
+            file_logger.warning(
+                f"osmnx pull for {huc_num} returned no linear bridge geometries after filtering"
+            )
+            screen_queue.put(f"osmnx pull for {huc_num} returned no linear bridge geometries after filtering")
+            return 1, [True]
 
         if gdf1.empty:
             file_logger.warning(

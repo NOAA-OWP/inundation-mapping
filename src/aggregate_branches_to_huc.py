@@ -5,7 +5,8 @@ import glob
 import os
 import re
 import traceback
-from concurrent.futures import ProcessPoolExecutor
+
+# from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime
 from os.path import join
 
@@ -16,6 +17,14 @@ from dotenv import load_dotenv
 from heal_bridges_osm import flow_lookup, flows_from_hydrotable
 from utils.shared_functions import get_crs_for_huc
 
+
+#################################
+# TODO: July 4, 2026:  In the event of an exception, the log file will not exist
+# and its details as well.
+# This needs a try/except with printing to log and at least a one liner
+# saying including the word "exception or error", which can be picked up automatically
+# by the rollup to fim_process_huc.sh or process_rerun_calibration_huc.sh
+################################
 
 load_dotenv('/foss_fim/src/bash_variables.env')
 
@@ -484,7 +493,7 @@ class HucDirectory(object):
 
                     self.agg_building_fimpact.to_csv(buildings_fimpact_file, index=False)
 
-        except Exception:
+        except Exception as ex:
             errMsg = (
                 "--------------------------------------"
                 f"\n huc_id {huc_id} has an error - outside multi proc\n"
@@ -503,6 +512,7 @@ class HucDirectory(object):
                 huc_id,
                 errMsg,
             )
+            raise ex  # we need to re-raise here to abort the scripts above it.
 
 
 # ==============================
@@ -542,6 +552,10 @@ def log_error(
         os.makedirs(log_dir)
 
     file_path = os.path.join(log_dir, file_name)
+
+    # this goes back to calibrate_rating_curve.sh which rolls up to its parent "tee"
+    # Then it can be scanned in the error system based on solely the "tee" file
+    print(errMsg)
 
     f = open(file_path, "a")
     f.write(errMsg)
@@ -606,7 +620,7 @@ def aggregate_by_huc(
             building_flag,
             huc_id,
         )
-    except Exception:
+    except Exception as ex:
         errMsg = "--------------------------------------" f"\n huc_id {huc_id} has an error\n"
         errMsg = errMsg + traceback.format_exc()
         print(errMsg, flush=True)
@@ -622,6 +636,7 @@ def aggregate_by_huc(
             huc_id,
             errMsg,
         )
+        raise ex  # We need to re-raise
 
     end_time = datetime.now()
     dt_string = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
