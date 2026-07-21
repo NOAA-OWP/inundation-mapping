@@ -675,7 +675,7 @@ def partial_optimization_huc(
         fim_version = os.path.basename(os.path.normpath(fim_dir))
         initial_hydroTables_ls = read_initial_hydroTables(fim_dir, huc)
 
-        bankfull_flows_file = 'inputs/rating_curve/bankfull_flows/nwm3_high_water_threshold_cms.csv'
+        bankfull_flows_file = 'data/inputs/rating_curve/bankfull_flows/nwm3_high_water_threshold_cms.csv'
         df_bflows = pd.read_csv(bankfull_flows_file, dtype={'feature_id': int})
 
         bounds = [(0.1, 2.0), (0.15, 1.7)]
