@@ -6,7 +6,7 @@ import logging
 import os
 
 # import pathlib
-import re
+# import re
 import shutil
 
 # import sys
@@ -727,36 +727,70 @@ def find_matching_subdirectories(parent_folder1, parent_folder2):
 
 
 ########################################################################
-# Function to concatenate huc csv files to a single dataframe/csv
+# Function to search and concatenate huc csvs files to a single dataframe/csv
 ########################################################################
-def concat_huc_csv(fim_dir, csv_name):
-    '''
-    Checks if huc csv file exist, concatenates contents of csv
-    Returns
-    -------
-    None.
-    '''
+def search_concat_huc_csvs(directory_path, pattern, output_file_path, is_recursive=True):
+    """
+    Scans a directory and subdirectories for files files matching a pattern.
 
-    merged_csv = []
-    huc_list = [d for d in os.listdir(fim_dir) if re.match(r'^\d{8}$', d)]
-    for huc in huc_list:
-        if huc != 'logs':
-            csv_file = os.path.join(fim_dir, huc, str(csv_name))
-            if Path(csv_file).is_file():
-                # Aggregate all of the individual huc elev_tables into one for accessing all data in one csv
-                read_csv = pd.read_csv(
-                    csv_file,
-                    dtype={'HUC8': object, 'location_id': object, 'feature_id': int, 'levpa_id': object},
-                )
-                # Add huc field to dataframe
-                read_csv['HUC8'] = huc
-                merged_csv.append(read_csv)
+    Args:
+        directory_path (str): The root folder to start scanning.
+        pattern (str): The search pattern (e.g., 'huc_*' or '*branch_ids.csv').
+        output_file_path (str): location of where to save the output csv file.
+        is_recursive (bool):
+    Returns:
+        Number of file found that was concatenated. Note, if no files were found
+        this will not create an empty output csv file.
+    """
 
-    # Create and return a concatenated pd dataframe
-    if merged_csv:
-        print("Creating aggregate csv")
-        concat_df = pd.concat(merged_csv)
-        return concat_df
+    # Create a Path object for the base directory
+    search_path = Path(directory_path)
+
+    ___, extention = os.path.splitext(output_file_path)
+    if extention != ".csv":
+        raise Exception(f"output file name and path {output_file_path} does not end in .csv")
+
+    if os.path.dirname(output_file_path) == "":
+        raise Exception(
+            f"The directory path of {output_file_path} has no pathing and is just a file name."
+            " Please add full path of where you want to save the output file."
+        )
+
+    if pattern == "":
+        raise Exception("file search pattern has not been supplied")
+
+    file_list = []
+    if is_recursive is True:
+        # rglob stands for "recursive glob" and finds matches in all subfolders
+        # Use .glob() instead if you only want to scan the top-level folder
+        file_list = list(search_path.rglob(pattern))
+    else:
+        file_list = list(search_path.glob(pattern))
+
+    num_files_found = len(file_list)
+    if num_files_found == 0:
+        return num_files_found
+
+    dataframes = []
+    for file in file_list:
+        try:
+            df = pd.read_csv(file, dtype=str)
+            if len(df) != 0:
+                # It might have just a header row but no columns, basically empty
+                dataframes.append(df)
+        except Exception as e:
+            raise Exception(f"Error reading {file.name}: {e}")
+
+    if dataframes:
+        # ignore_index=True re-indexes the rows from 0 to N
+        combined_df = pd.concat(dataframes, ignore_index=True)
+        if "huc_num" in combined_df:
+            combined_df = combined_df.sort_values(by="huc_num")
+
+        # Save to a new CSV file without writing row numbers
+        combined_df.to_csv(output_file_path, index=False)
+
+    return num_files_found
 
 
 # -----------------------------------------------------------
