@@ -13,7 +13,16 @@ from pathlib import Path
 import pandas as pd
 
 from src_roughness_optimization import update_rating_curve
-from utils.shared_functions import check_file_age, concat_huc_csv
+from utils.shared_functions import check_file_age
+
+
+#################################
+# TODO: July 4, 2026:  In the event of an exception, the log file will not exist
+# and its details as well.
+# This needs a try/except with printing to log and at least a one liner
+# saying including the word "exception or error", which can be picked up automatically
+# by the rollup to fim_process_huc.sh or process_rerun_calibration_huc.sh
+################################
 
 
 '''
@@ -174,8 +183,13 @@ def create_ras2fim_rating_database(huc_ras_input_file, ras_elev_df, nwm_recurr_f
         # Log any signifant differences btw the NWM flow value and closest RAS2FIM rating flow
         # (this ensures that we consistently sample the RAS2FIM rating curves at
         # known intervals - NWM recur flow)
+
+        # TODO: Jul 2026: As is, becuase this does not also print, it will not show up in any warning
+        # scans as scannign is only done against the huc_{huc num}_unit.log file.
+        # Do you want it in the warning logs?
         log_text += 'Warning: Large variance (>10%) between NWM flow and closest RAS2FIM flow -->\n'
         log_text += calc_df[calc_df['check_variance'] > 0.1].to_string() + '\n'
+
         final_df = final_df[final_df['check_variance'] < 0.1]
         # Get datestamp from ras2fim rating curve file to use as coll_time attribute in hydroTable.csv
         # TODO below needs update since now it is a file name and not a path and will return None

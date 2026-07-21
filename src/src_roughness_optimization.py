@@ -509,6 +509,8 @@ def update_rating_curve(
                         print(f"Error reading GeoPackage file: {e}")
                         log_text += f"Error reading GeoPackage file: {e}\n"
                         output_catchments = None
+                        # re raise ex ?  # TODO: Do we want to stop processing the huc if we get an error here?
+                        # If yes, we need to raise ex, make sure to write your log_text if you need to.
 
                 df_nmerge = df_nmerge.drop(['src_calibrated'], axis=1, errors='ignore')
 

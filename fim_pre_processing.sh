@@ -1,4 +1,7 @@
 #!/bin/bash -e
+### We want to keep the -e as it is ok to let errors and codes returned to fim_pipeline.sh or AWS
+### for this specific file.
+### Yes.. not all of our .sh files are the same with the -e flag, be design.
 
 :
 usage()
@@ -189,29 +192,61 @@ source ${srcDir}/bash_variables.env
 # these export are for fim_pipeline only.
 export runName=$runName
 export jobHucLimit=$jobHucLimit
+huc_list_output_file="${outputDestDir}/huc_list.txt"
 
-num_hucs=$(python3 ${srcDir}/check_huc_inputs.py -u ${hucList} -i ${full_huc_list_file})
+# TODO: July 2026: using setfacl is a power tool to help manage perms settings
+# but it is not yet in our Docker build. See notes in Dockerfile.dev
+# Set default permissions for the owner, group, and others
+# This forces 775 (rwxrwxr-x) on all newly created files and folders
+# setfacl -d -m u::rwx $tempHucDataDir
+# setfacl -d -m g::rwx $tempHucDataDir
+# setfacl -d -m o::rx $tempHucDataDir
+# In the meantime, we have a weird combination of inefficient chmod everywhere.
+
+if [ -d $tempRunDir ]; then
+    chmod 777 -R $tempRunDir  # in theory we do not need this (but needed for aborts)
+    rm -rdf $tempRunDir
+    mkdir -p $tempRunDir
+    chmod 777 $tempRunDir
+    # TODO: Hold until a new docker image is created    
+    # Set default permissions for the owner, group, and others
+    # This forces 775 (rwxrwxr-x) on all newly created files and folders
+    # setfacl -d -m u::rwx $tempRunDir
+    # setfacl -d -m g::rwx $tempRunDir
+    # setfacl -d -m o::rx $tempRunDir
+fi
+
+# make dirs
+if [ ! -d $outputDestDir ]; then
+    mkdir -p $outputDestDir
+    chmod 777 -R $outputDestDir
+    # TODO: Hold until a new docker image is created
+    # Set default permissions for the owner, group, and others
+    # This forces 775 (rwxrwxr-x) on all newly created files and folders
+    # setfacl -d -m u::rwx $tempRunDir
+    # setfacl -d -m g::rwx $tempRunDir
+    # setfacl -d -m o::rx $tempRunDir
+
+else
+    # remove these directories and files on a new or overwrite run
+    rm -rdf $outputDestDir/logs
+    # rm -rdf $outputDestDir/branch_errors
+    rm -rdf $outputDestDir/eval
+    rm -f $outputDestDir/crosswalk_table.csv
+    rm -f $outputDestDir/fim_inputs*
+    rm -f $outputDestDir/*.env
+    rm -f $huc_list_output_file
+fi
+
+mkdir -p $outputDestDir/logs
+chmod 777 $outputDestDir/logs
+
+# Yes.. if this fails in AWS, we don't see it easily but can see it in its CloudWatch
+# This is a parsed, cleaned up line by line huc list, regardless if it is a file, single huc, multiple hucs, etc
+num_hucs=$(python3 $srcDir/check_huc_inputs.py -u ${hucList} -i ${FULL_HUC_LIST_PATH} -o ${huc_list_output_file} )
 echo
 echo "--- Number of HUCs to process is $num_hucs"
 
-# make dirs
-if [ ! -d ${outputDestDir} ]; then
-    mkdir -p ${outputDestDir}
-    chmod 777 -R ${outputDestDir}
-    mkdir -p $tempRunDir
-	chmod 777 -R $tempRunDir
-else
-    # remove these directories and files on a new or overwrite run
-    rm -rdf ${outputDestDir}/logs
-    rm -rdf ${outputDestDir}/branch_errors
-    rm -rdf ${outputDestDir}/eval
-    rm -f ${outputDestDir}/crosswalk_table.csv
-    rm -f ${outputDestDir}/fim_inputs*
-    rm -f ${outputDestDir}/*.env
-fi
-
-mkdir -p ${outputDestDir}/logs
-mkdir -p ${outputDestDir}/branch_errors
 
 # copy over config file and rename it (note.. yes, the envFile file can still be
 # loaded from command line and have its own values, it simply gets renamed and saved)
@@ -239,5 +274,4 @@ echo "export evaluateCrosswalk=$evaluateCrosswalk" >> $args_file
 chmod 777 $args_file
 
 echo "--- Pre-processing is complete"
-
 echo

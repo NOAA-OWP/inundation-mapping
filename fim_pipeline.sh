@@ -1,4 +1,5 @@
 #!/bin/bash -e
+### Yes.. not all of our .sh files are the same with the -e flag, be design.
 
 :
 usage()
@@ -45,8 +46,7 @@ usage()
                             does not exceed the total number of cores available.
       -o                : Overwrite outputs if they already exist.
       -x                : If this param is included, the crosswalk will be evaluated.
-
-
+      
     Running 'fim_pipeline.sh' is a quicker process than running all three scripts independently; however,
         you can run them independently if you like. The three sections are:
 
@@ -59,26 +59,21 @@ usage()
                 when more than one HUC is provided, this script is iterated over, and parallelized.
                 For each HUC provided, 'fim_pipeline.sh' will call 'fim_process_huc.sh'.
                 Using the 'fim_process_huc.sh' script allows for a run / rerun of a HUC, or running other
-                HUCs at different times / days or even in different docker containers.
+                HUCs at different times / days or even in different docker containers. It will honor
+                values in the 'runtime_args.env' that was created in pre_processing.
 
             - 'fim_post_processing.sh' : This section takes all of the HUCs that have been processed,
                 aggregates key information from each HUC directory and looks for errors across all HUC
-                folders. It also processes the group in sub-steps such as usgs guages processesing,
-                rating curve adjustments and more. Naturally, running or re-running this script can only
-                be done after running 'fim_pre_processing.sh' and at least one run of 'fim_process_huc.sh'.
-
+                folders. 
     "
     exit
 }
 
 
-set -e
-
 # print usage if agrument is '-h' or '--help'
 if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
     usage
 fi
-
 
 echo
 echo "======================= Start of fim_pipeline.sh ========================="
@@ -89,19 +84,18 @@ source ${srcDir}/bash_functions.env
 . $projectDir/fim_pre_processing.sh "$@"
 
 
-logFile=${outputDestDir}/logs/pipeline_summary_unit.log
 process_wb_file=$projectDir/fim_process_huc.sh
 
 pipeline_start_time=`date +%s`
 
 # PROCESS THE UNITS (And branches)
 # Why an if and else? .. watch the number of colons.
-echo
 echo "---- Unit (HUC) processing is started"
 
+# By having " || true " on the end of the command, if one branch fails, the rest will continue
 if [ -f "$hucList" ]; then
     if [ "$jobHucLimit" = "1" ]; then
-        parallel --verbose --lb -j $jobHucLimit --colsep ',' --joblog $logFile -- $process_wb_file $runName :::: $hucList
+        parallel --verbose --lb -j $jobHucLimit --colsep ',' --joblog $logFile -- $process_wb_file $runName :::: $hucList || true
     else
         parallel -j $jobHucLimit --colsep ',' --joblog $logFile -- $process_wb_file $runName :::: $hucList
     fi
@@ -113,10 +107,9 @@ else
     fi
 fi
 
-echo
 echo "---- Unit (HUC) processing is complete"
 date -u
-Calc_Duration "Duration : " $pipeline_start_time
+Calc_Duration "Duration : " $pipeline_start_time ""
 echo "---------------------------------------------------"
 
 ## POST PROCESSING
@@ -125,13 +118,13 @@ echo "---------------------------------------------------"
 rm -df $workDir/$runName
 
 # Pipe into post processing
-. $projectDir/fim_post_processing.sh -n $runName 
+${projectDir}/fim_post_processing.sh -n $runName
 
 echo
 
 echo "======================== End of fim_pipeline for $runName =========="
 date -u
-Calc_Duration "Total Duration is ... " $pipeline_start_time
+Calc_Duration "Total Duration is ... " $pipeline_start_time ""
 echo
 
 # Exit the script
