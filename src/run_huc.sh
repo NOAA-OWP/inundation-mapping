@@ -7,22 +7,13 @@
 
 ## SOURCE FILE AND FUNCTIONS ##
 # load the various enviro files
-<<<<<<< HEAD
-args_file="${outputDestDir}/runtime_args.env"
 
+args_file=$outputDestDir/runtime_args.env
 source "${args_file}"
 source "${outputDestDir}/params.env"
 source "${srcDir}/bash_functions.env"
 source "${srcDir}/bash_variables.env"
-=======
 source $srcDir/bash_functions.env
-
-args_file=$outputDestDir/runtime_args.env
-source $args_file
-source $outputDestDir/params.env
-source $srcDir/bash_functions.env
-source $srcDir/bash_variables.env
->>>>>>> dev
 
 export HYDRA_LAUNCHER="fork"
 export DISPLAY=":0"
@@ -39,21 +30,21 @@ branchSummaryLog_Adj_File=$tempHucDataDir/logs/"$hucNumber"_summary_branch_adj.c
 huc2Identifier=${hucNumber:0:2}
 
 ## SET CRS and input DEM domain
-if [ $huc2Identifier -eq 19 ]; then
+if [[ "${huc2Identifier}" -eq 19 ]]; then
     huc_CRS=$ALASKA_CRS
     huc_input_DEM_domain=$input_DEM_domain_Alaska
     input_DEM=$input_DEM_Alaska
     input_pit_fill=$input_DEM_pit_fills_Alaska
     input_bridge_elev_diff=$input_bridge_elev_diff_alaska
 
-elif [ $hucNumber -eq 22010000 ]; then
+elif [[ "${hucNumber}" -eq 22010000 ]]; then
     huc_CRS=$GUAM_CRS
     huc_input_DEM_domain=$input_DEM_domain_Guam
     input_DEM=$input_DEM_Guam
     input_pit_fill=$input_DEM_pit_fills_Guam
     input_bridge_elev_diff=$input_bridge_elev_diff_guam
 
-elif [ $hucNumber -eq 22030001 ]; then
+elif [[ "${hucNumber}" -eq 22030001 ]]; then
     huc_CRS=$AMERICAN_SAMOA_CRS
     huc_input_DEM_domain=$input_DEM_domain_AmericanSamoa
     input_DEM=$input_DEM_AmericanSamoa
@@ -61,11 +52,11 @@ elif [ $hucNumber -eq 22030001 ]; then
     input_bridge_elev_diff=$input_bridge_elev_diff_americansamoa
 
 else
-    huc_CRS=$DEFAULT_FIM_PROJECTION_CRS
-    huc_input_DEM_domain=$input_DEM_domain
-    input_DEM=$input_DEM
-    input_pit_fill=$input_DEM_pit_fills
-    input_bridge_elev_diff=$input_bridge_elev_diff
+    huc_CRS="${DEFAULT_FIM_PROJECTION_CRS}"
+    huc_input_DEM_domain="${input_DEM_domain}"
+    input_DEM="${input_DEM}"
+    input_pit_fill="${input_DEM_pit_fills}"
+    input_bridge_elev_diff="${input_bridge_elev_diff}"
 
 fi
 
@@ -167,7 +158,6 @@ args=(
 python3 "${srcDir}/buffer_stream_branches.py" "${args[@]}"
 
 ## CREATE BRANCHID LIST FILE
-<<<<<<< HEAD
 echo -e "${startDiv}Create list file of branch ids for ${hucNumber}"
 args=(
     -d "${tempHucDataDir}/nwm_subset_streams_levelPaths_dissolved.parquet"
@@ -175,12 +165,6 @@ args=(
     -o "${branch_list_lst_file}"
 )
 python3 "${srcDir}/generate_branch_list.py" "${args[@]}"
-=======
-echo -e $startDiv"Create list file of branch ids for processing for $hucNumber"
-$srcDir/generate_branch_list.py -d $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg \
-    -b $branch_id_attribute \
-    -o $branch_list_lst_file
->>>>>>> dev
 
 ## CREATE BRANCH ZERO ##
 branch0_start_time="$(date +%s)"
@@ -394,30 +378,13 @@ fi
 echo -e "${startDiv}Cleaning up outputs in branch zero ${hucNumber}"
 python3 "${srcDir}/outputs_cleanup.py" -d "${tempCurrentBranchDataDir}" -l "${deny_branch_zero_list}" -b "${branch_zero_id}"
 
-<<<<<<< HEAD
-
-# -------------------
-## Start the local csv branch list
-python3 "${srcDir}/generate_branch_list_csv.py" -o "${branch_list_csv_file}" -u "${hucNumber}" -b "${branch_zero_id}"
-
-branch0="$(Calc_Time "${branch0_start_time}")"
-branch0_percent="$(Calc_Time_Minutes_in_Percent "${branch0_start_time}")"
-
-# -------------------
-## Processing Branches ##
-echo
-echo "---- Start of branch processing for ${hucNumber} using ${jobBranchLimit} workers for branch processing"
-branch_processing_start_time="$(date +%s)"
-
-if [[ -f "${branch_list_lst_file}" ]]; then
-=======
-branch0=$(Calc_Time $branch0_start_time)
-branch0_percent=$(Calc_Time_Minutes_in_Percent $branch0_start_time)
+branch0="$(Calc_Time ${branch0_start_time})"
+branch0_percent="$(Calc_Time_Minutes_in_Percent ${branch0_start_time})"
 
 # -------------------
 ## Processing Branches ##
 echo "+++++++++++++++++++++++++++++++++++++++++++++++++"
-echo "---- Start of branch processing for $hucNumber using $jobBranchLimit workers for branch processing"
+echo "---- Start of branch processing for ${hucNumber} using ${jobBranchLimit} workers for branch processing"
 branch_processing_start_time=`date +%s`
 
 # We do not want a branch to shut down the huc, so process_branch.sh always sends
@@ -425,34 +392,23 @@ branch_processing_start_time=`date +%s`
 # We don't have an answer for what if all branches failed at this time.
 # Each will return an independant exit code.
 if [ -f $branch_list_lst_file ]; then
->>>>>>> dev
     date -u
     Tstart
     # There may not be a branch_ids.lst if there were no level paths (no stream orders 3+)
     # but there will still be a branch zero
-<<<<<<< HEAD
     args=(
         --timeout "${branch_timeout}"
         -j "${jobBranchLimit}"
         --joblog "${branchSummaryLogFile}"
         --colsep "','"
-        -- "${srcDir}/process_branch.sh" "${runName}" "${hucNumber}" :::: "${branch_list_lst_file}")
+        --line-buffer
+        -- "${srcDir}/process_branch.sh" "${runName}" "${hucNumber}" :::: "${branch_list_lst_file}" || true)
     parallel "${args[@]}"
-=======
-    # By having " || true " on the end of the command, if one branch fails, the rest will continue
-    parallel --timeout $branch_timeout -j $jobBranchLimit --joblog $branchSummaryLogFile \
-     --colsep ',' --line-buffer \
-     -- $srcDir/process_branch.sh $runName $hucNumber :::: $branch_list_lst_file || true
->>>>>>> dev
     Tcount
 else
     echo "Exit Status: 63 - No level paths exist with this HUC. Processing branch zero only."
 fi
 
-<<<<<<< HEAD
-branches="$(Calc_Time "${branch_processing_start_time}")"
-branches_percent="$(Calc_Time_Minutes_in_Percent "${branch_processing_start_time}")"
-=======
 # We should have a summary file now
 # but it is possible we do not have one if there are no non branch 0 branches left
 if [ -f $branchSummaryLogFile ]; then
@@ -480,31 +436,15 @@ fi
 # It is continuing on to the calibrate tools even though it does not need too.
 
 # -------------------
-branches=$(Calc_Time $branch_processing_start_time)
-branches_percent=$(Calc_Time_Minutes_in_Percent $branch_processing_start_time)
->>>>>>> dev
+branches=$(Calc_Time ${branch_processing_start_time})
+branches_percent=$(Calc_Time_Minutes_in_Percent ${branch_processing_start_time})
 
 ## REMOVE FILES FROM DENY LIST ##
 if [[ -f "${deny_unit_list}" ]]; then
     echo -e "${startDiv}Remove files ${hucNumber}"
     date -u
-<<<<<<< HEAD
-    Tstart
-    python3 "${srcDir}/outputs_cleanup.py" -d "${tempHucDataDir}" -l "${deny_unit_list}" -b "${hucNumber}"
-    Tcount
-fi
-
-echo -e "---- HUC ${hucNumber} - branches have now been processed"
-Calc_Duration "Duration for processing branches : "${branch_processing_start_time}""
-#echo
-total_branches="$(wc -l < ${branch_list_csv_file})"
-
-## call src adjustments..Pass False as an argument to flag it is not a rerun of calibration. 
-"${srcDir}/calibrate_rating_curves.sh" "False" "${jobBranchLimit}"
-
-=======
     Tstart  # TODO: Do we need a tstart and count on this
-    $srcDir/outputs_cleanup.py -d $tempHucDataDir -l $deny_unit_list -b $hucNumber
+    "${srcDir}/outputs_cleanup.py" -d $t{empHucDataDir} -l ${deny_unit_list} -b ${hucNumber}
     Tcount
 fi
 
@@ -519,22 +459,16 @@ $srcDir/generate_branch_list_csv.py -o $branch_list_csv_file -u $hucNumber
 echo "---- HUC $hucNumber - branches have now been processed"
 Calc_Duration "Duration for processing branches : " $branch_processing_start_time
 echo
-total_branches=$(wc -l < $branch_list_csv_file)
+total_branches="$(wc -l < $branch_list_csv_file)"
 
->>>>>>> dev
 # WRITE TO LOG FILE CONTAINING ALL HUC PROCESSING TIMES
 total_duration_display="${hucNumber},$(Calc_Time "${huc_start_time}"),$(Calc_Time_Minutes_in_Percent "${huc_start_time}"),${total_branches},${branch0},${branch0_percent},${branches},${branches_percent}"
 echo -e "${total_duration_display}" >> "${tempHucDataDir}/processing_time_${hucNumber}.txt"
 
 # Yes.. we let this log to the hucLogFile so error seach tools can look only in this huc file.
 date -u
-<<<<<<< HEAD
-echo -e "---- HUC processing for ${hucNumber} is complete"
-Calc_Duration "Duration for huc processing: " "${huc_start_time}"
-=======
-echo "---- HUC processing for $hucNumber is complete"
-Calc_Duration "Duration for huc processing : " $huc_start_time
->>>>>>> dev
+echo "---- HUC processing for ${hucNumber }is complete"
+Calc_Duration "Duration for huc processing : " ${huc_start_time}
 echo
 
 # let the script return whatever code it wants unless controlled exit like calibrate_rating_curves.sh
