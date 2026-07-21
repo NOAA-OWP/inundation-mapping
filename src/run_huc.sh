@@ -29,12 +29,7 @@ branchSummaryLogFile=$tempHucDataDir/logs/"$hucNumber"_summary_branch.log
 branchSummaryLog_Adj_File=$tempHucDataDir/logs/"$hucNumber"_summary_branch_adj.csv
 huc2Identifier=${hucNumber:0:2}
 
-<<<<<<< HEAD
-
 ## SET input DEM domain
-=======
-## SET CRS and input DEM domain
->>>>>>> dev
 if [ $huc2Identifier -eq 19 ]; then
     huc_input_DEM_domain=$input_DEM_domain_Alaska
     input_DEM=$input_DEM_Alaska
