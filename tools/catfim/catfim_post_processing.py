@@ -320,7 +320,7 @@ def get_output_filepaths(output_folder, catfim_type_name):
         sites_parquet_path,
         library_gpkg_path,
         library_csv_path,
-        library_parquet_path
+        library_parquet_path,
     )
 
 

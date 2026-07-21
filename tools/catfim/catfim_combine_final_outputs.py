@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-import os
 import argparse
+import os
 
 import geopandas as gpd
 import pandas as pd
@@ -70,7 +70,7 @@ def combine_final_outputs(primary_dir, secondary_dir, label):
     # Confirm that the primary_dir and secondary_dir exist
     if not os.path.exists(primary_dir):
         raise FileNotFoundError(f"Primary directory does not exist: {primary_dir}")
-    
+
     if not os.path.exists(secondary_dir):
         raise FileNotFoundError(f"Secondary directory does not exist: {secondary_dir}")
 
@@ -130,7 +130,6 @@ def combine_final_outputs(primary_dir, secondary_dir, label):
         library_parquet_path_secondary,
     ) = cpp.get_output_filepaths(secondary_dir, catfim_type_name)
 
-
     # Merge GPKGs
     merge_gpkgs(
         sites_gpkg_path_primary,
@@ -147,27 +146,29 @@ def combine_final_outputs(primary_dir, secondary_dir, label):
     merge_csvs(
         sites_csv_path_primary,
         sites_csv_path_secondary,
-        os.path.join(primary_dir, f'{catfim_type_name}_catfim_sites_{label}.csv')
+        os.path.join(primary_dir, f'{catfim_type_name}_catfim_sites_{label}.csv'),
     )
     merge_csvs(
         library_csv_path_primary,
         library_csv_path_secondary,
-        os.path.join(primary_dir, f'{catfim_type_name}_catfim_library_{label}.csv')
+        os.path.join(primary_dir, f'{catfim_type_name}_catfim_library_{label}.csv'),
     )
 
     # Merge GeoParquets
     merge_geoparquets(
         sites_parquet_path_primary,
         sites_parquet_path_secondary,
-        os.path.join(primary_dir, f'{catfim_type_name}_catfim_sites_{label}.parquet')
+        os.path.join(primary_dir, f'{catfim_type_name}_catfim_sites_{label}.parquet'),
     )
     merge_geoparquets(
         library_parquet_path_primary,
         library_parquet_path_secondary,
-        os.path.join(primary_dir, f'{catfim_type_name}_catfim_library_{label}.parquet')
+        os.path.join(primary_dir, f'{catfim_type_name}_catfim_library_{label}.parquet'),
     )
 
-    print('Successfully combined CatFIM outputs from primary and secondary directories into new files in the primary directory.')
+    print(
+        'Successfully combined CatFIM outputs from primary and secondary directories into new files in the primary directory.'
+    )
 
     return
 
