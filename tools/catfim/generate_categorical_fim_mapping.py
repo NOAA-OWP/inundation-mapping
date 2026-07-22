@@ -1385,16 +1385,26 @@ def post_process_huc_mapping(huc, catfim_type, sites_gdf, huc_library_df, output
             )
             logging.critical(traceback.format_exc())
 
-    # Make inundated multipolygon list into a dataframe
-    reformatted_geom_list_df = pd.concat(reformatted_geom_list, ignore_index=True)
+    # Count how many nan values are in the reformatted_geom_list (in case any tif failed to reformat)
+    num_nan_geoms = sum(x is None for x in reformatted_geom_list)
+    if num_nan_geoms > 0:
+        logging.warning(
+            f"{huc} - Post-Process HUC Mapping - {num_nan_geoms} tif(s) failed to reformat into inundated multipolygons"
+        )
+
+    # Drop nan values from the reformatted_geom_list (in case any tif failed to reformat)
+    reformatted_geom_list = [x for x in reformatted_geom_list if x is not None]
 
     # Exit if no geoms were created
     # (pretty unlikely, should only happen if something has gone wrong while reformatting inundation maps)
-    if len(reformatted_geom_list_df) == 0:
+    if len(reformatted_geom_list) == 0:
         logging.warning(
             f"{huc} - Post-Process HUC Mapping - TIFFs found but no reformatted geom created at {output_mapping_dir}"
         )
         return sites_gdf, None
+
+    # Make inundated multipolygon list into a dataframe
+    reformatted_geom_list_df = pd.concat(reformatted_geom_list, ignore_index=True)
 
     # Handle intervals if CatFIM type is stage-based
     if catfim_type == 'sb':
