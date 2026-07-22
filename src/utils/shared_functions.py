@@ -759,7 +759,7 @@ def search_concat_huc_csvs(directory_path, pattern, is_recursive=True):
 
     num_files_found = len(file_list)
     if num_files_found == 0:
-        return num_files_found
+        return []
 
     csv_df_list = []
     for file in file_list:

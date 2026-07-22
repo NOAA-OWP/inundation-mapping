@@ -126,13 +126,18 @@ compile_error_report() {
     # Note: This is a special log file system.
     # If it runs succesfully, it will add message to the standard huc log file.
     # But if this script itself fails, it gets a special log file.
+    # python3 $srcDir/utils/huc_process_error_report.py \
+    # -u $hucNumber -s $hucLogFile -o $errorLogFile >> $hucLogFile 2> $log_scan_tool_failed_file
     python3 $srcDir/utils/huc_process_error_report.py \
-    -u $hucNumber -s $hucLogFile -o $errorLogFile >> $hucLogFile 2> $log_scan_tool_failed_file
+    -u $hucNumber -s $hucLogFile -o $errorLogFile > >(tee -a $hucLogFile) 2> >(tee -a $log_scan_tool_failed_file >&2)
+    
 
     # Delete the file if it is empty. The line above will create an empty file if there is no error
     # and in this case, I do not want an empty file
     if [ ! -s $log_scan_tool_failed_file ]; then
         rm $log_scan_tool_failed_file
+    else
+        l_echo "Continuing processing of other hucs when applicable, stand by" $hucLogFile
     fi
 }
 

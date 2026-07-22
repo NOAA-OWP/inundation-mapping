@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import os
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -71,6 +72,30 @@ def merge_huc_error_reports(hand_dir, error_output_csv_path, branch_accepted_exi
 
     num_recs_merged = len(csv_df_list)
 
+    # See there are any log_scan_tool_failed_*.log
+    pattern = "log_scan_tool_failed_*.log"
+    search_path = Path(hand_dir)
+
+    file_list = []
+    # rglob stands for "recursive glob" and finds matches in all subfolders
+    # Use .glob() instead if you only want to scan the top-level folder
+    file_list = list(search_path.rglob(pattern))
+
+    if len(file_list) > 0:
+        print("")
+        print(
+            "****** While scanning huc_*_error_reports.csv's, we found some log_scan_tool_failed_*.log files."
+        )
+        print(
+            "       They are created huc_process_error_report.py file itself failed while searching for its HUC errors."
+        )
+        print("       Here are a list of HUCs that have a log_scan_tool_failed_*.log:")
+        print("")
+        for file in file_list:
+            print(f"         {file}")
+        print("")
+        print("Now continuing to search for valid HUC error csv's")
+
     # To keep the df shape matching, lets load all of the recs first into a df
     # then split it to two csv output files.
     # One for branches that have acceptable branch exit codes like 60 - 65.
@@ -81,13 +106,11 @@ def merge_huc_error_reports(hand_dir, error_output_csv_path, branch_accepted_exi
         combined_df = pd.concat(csv_df_list, ignore_index=True)
         if "huc_num" in combined_df:
             combined_df = combined_df.sort_values(by="huc_num")
-
-        # combined_df.to_csv(output_csv_path, index=False)
-
     else:
         print("++++++++++++++++++++++++++++++++++++++")
-        print("No records were found to merge, check the huc logs files to ensure all is well.")
+        print("No HUC error csv records were found to merge.")
         print("++++++++++++++++++++++++++++++++++++++")
+        print("Error report scanning complete")
         return
 
     # The branch_id column could be nan, empty or a number.
