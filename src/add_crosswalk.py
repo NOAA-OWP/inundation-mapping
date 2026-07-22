@@ -466,8 +466,13 @@ def add_crosswalk(
     output_catchments.to_parquet(output_catchments_fileName, index=False)
 
     # HACK -- save a duplicate in .gpkg for now
+
+    output_catchments_fileName_gpkg = os.path.splitext(output_catchments_fileName)[0] + '.gpkg'
     output_catchments.to_file(
-        output_catchments_fileName, driver=getDriver(output_catchments_fileName), index=False
+        output_catchments_fileName_gpkg,
+        driver=getDriver(output_catchments_fileName_gpkg),
+        index=False,
+        engine='fiona',
     )
 
     output_flows.to_parquet(output_flows_fileName, index=False)

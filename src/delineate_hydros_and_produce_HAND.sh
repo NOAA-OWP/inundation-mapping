@@ -138,7 +138,7 @@ args=(
     -t "${taudemDir}"
     -p "${tempCurrentBranchDataDir}/flowdir_d8_burned_filled_${current_branch_id}.tif"
     -gw "${tempCurrentBranchDataDir}/gw_catchments_reaches_${current_branch_id}.tif"
-    -o "${tempCurrentBranchDataDir}/demDerived_reaches_split_points_${current_branch_id}.gpkg"
+    -o "${tempCurrentBranchDataDir}/demDerived_reaches_split_points_${current_branch_id}.shp"
     -id "${tempCurrentBranchDataDir}/idFile_${current_branch_id}.txt"
 )
 python3 "${srcDir}/run_taudem_subprocess.py" gagewatershed "${args[@]}"
@@ -159,7 +159,7 @@ args=(
     -t "${taudemDir}"
     -p "${tempCurrentBranchDataDir}/flowdir_d8_burned_filled_${current_branch_id}.tif"
     -gw "${tempCurrentBranchDataDir}/gw_catchments_pixels_${current_branch_id}.tif"
-    -o "${tempCurrentBranchDataDir}/flows_points_pixels_${current_branch_id}.gpkg"
+    -o "${tempCurrentBranchDataDir}/flows_points_pixels_${current_branch_id}.shp"
     -id "${tempCurrentBranchDataDir}/idFile_${current_branch_id}.txt"
 )
 python3 "${srcDir}/run_taudem_subprocess.py" gagewatershed "${args[@]}"
@@ -318,25 +318,27 @@ python3 "${srcDir}/run_taudem_subprocess.py" catchhydrogeo "${args[@]}"
 
 ## FINALIZE CATCHMENTS AND MODEL STREAMS ##
 echo -e $startDiv"Finalize catchments and model streams ${hucNumber} ${current_branch_id}"
-python3 ${srcDir}/add_crosswalk.py \
-    -d ${tempCurrentBranchDataDir}/gw_catchments_reaches_filtered_addedAttributes_${current_branch_id}.gpkg \
-    -a ${tempCurrentBranchDataDir}/demDerived_reaches_split_filtered_${current_branch_id}.gpkg \
-    -s ${tempCurrentBranchDataDir}/src_base_${current_branch_id}.csv \
-    -l ${tempCurrentBranchDataDir}/gw_catchments_reaches_filtered_addedAttributes_crosswalked_${current_branch_id}.gpkg \
-    -f ${tempCurrentBranchDataDir}/demDerived_reaches_split_filtered_addedAttributes_crosswalked_${current_branch_id}.gpkg \
-    -r ${tempCurrentBranchDataDir}/src_full_crosswalked_${current_branch_id}.csv \
-    -j ${tempCurrentBranchDataDir}/src_${current_branch_id}.json \
-    -x ${tempCurrentBranchDataDir}/crosswalk_table_${current_branch_id}.csv \
-    -t ${tempCurrentBranchDataDir}/hydroTable_${current_branch_id}.csv \
-    -w $tempHucDataDir/wbd8_clp.gpkg \
-    -b $b_arg \
-    -u ${hucNumber} \
-    -m $manning_n \
-    -k ${tempCurrentBranchDataDir}/small_segments_${current_branch_id}.csv \
-    -e $min_catchment_area \
-    -g $min_stream_length \
-    -i $iris_sword_slope \
-    -p $hfab_ransac_slope
+args=(
+    -d "${tempCurrentBranchDataDir}/gw_catchments_reaches_filtered_addedAttributes_${current_branch_id}.parquet"
+    -a "${tempCurrentBranchDataDir}/demDerived_reaches_split_filtered_${current_branch_id}.parquet"
+    -s "${tempCurrentBranchDataDir}/src_base_${current_branch_id}.csv"
+    -l "${tempCurrentBranchDataDir}/gw_catchments_reaches_filtered_addedAttributes_crosswalked_${current_branch_id}.parquet"
+    -f "${tempCurrentBranchDataDir}/demDerived_reaches_split_filtered_addedAttributes_crosswalked_${current_branch_id}.parquet"
+    -r "${tempCurrentBranchDataDir}/src_full_crosswalked_${current_branch_id}.csv"
+    -j "${tempCurrentBranchDataDir}/src_${current_branch_id}.json"
+    -x "${tempCurrentBranchDataDir}/crosswalk_table_${current_branch_id}.csv"
+    -t "${tempCurrentBranchDataDir}/hydroTable_${current_branch_id}.csv"
+    -w "${tempHucDataDir}/wbd8_clp.gpkg"
+    -b "${b_arg}"
+    -u "${hucNumber}"
+    -m "${manning_n}"
+    -k "${tempCurrentBranchDataDir}/small_segments_${current_branch_id}.csv"
+    -e "${min_catchment_area}"
+    -g "${min_stream_length}"
+    -i "${iris_sword_slope}"
+    -p "${hfab_ransac_slope}"
+)
+python3 "${srcDir}/add_crosswalk.py" "${args[@]}"
 
 ## HEAL HAND -- REMOVES HYDROCONDITIONING ARTIFACTS ##
 if [[ "${healed_hand_hydrocondition}" == "true" && "${current_branch_id}" == "${branch_zero_id}" ]]; then
@@ -369,8 +371,6 @@ if [[ -f "${tempHucDataDir}/osm_bridges_subset.gpkg" ]]; then
     )
     python3 "${srcDir}/heal_bridges_osm.py" "${args[@]}"
     Tcount
-
-
 else
     echo -e "${startDiv}No applicable bridge data for ${hucNumber}"
 fi

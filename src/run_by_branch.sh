@@ -45,17 +45,6 @@ fi
 ## MAKE OUTPUT BRANCH DIRECTORY
 mkdir -p "${tempCurrentBranchDataDir}"
 
-<<<<<<< HEAD
-## START MESSAGE ##
-echo -e "${startDiv}Processing HUC: ${hucNumber} - branch_id: ${current_branch_id}"
-
-## INITIALIZE TOTAL BRANCH TIMER ##
-T_total_start
-branch_start_time="$(date +%s)"
-date -u
-
-=======
->>>>>>> dev
 ## SUBSET VECTORS
 echo -e "${startDiv}Subsetting vectors to branches ${hucNumber} ${current_branch_id}"
 args=(
