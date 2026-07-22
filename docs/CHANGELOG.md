@@ -1,6 +1,29 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.x.x - 2026-07-xx - [PR#1896](https://github.com/NOAA-OWP/inundation-mapping/pull/1896)
+
+These are a few minor edits to reinstate some arguments and values used to get the BED through.  This also includes some loggings upgrades to help split out when we have an acceptable branch exits code such as codes 60 - 69. We now have two output files, one for errors and one for acceptable branch codes. 
+
+Also fully tested the recalibration system and validated it works as designed.
+
+Other fixes include:
+- Fixed a FutureWarning message in aggregate_branches_to_huc.py.  This closes #1875 
+- grep warning check on fim_process_huc.sh breaks if the word "warning" is not found.
+- When the new huc_process_error_compare.py file itself fails, and considering how it interacts with the whole system, it does not attempt to update its own file. It creates a new simple .log file with the log details. An update added here is for the post processing error log search to look for any of those special log files and report them.
+
+### Changes
+- `config\params_templates.env`: branch timeout reduced back down to one hour.
+- `tools\hash_compare.py`: Added another example for usage.
+- `src`
+    - `utils\huc_process_error_report.py`: as described.
+    - `utils\shared_functions.py`: as described.
+     - `aggregate_branches_to_hucs.py`:  fixed futurewarning as described above.
+     - `bash_variables.env`: fix for using tstart and tcount which was broken.
+- `fim_post_processing.sh`: logging and error update as mentioned above.
+- `fim_process_huc.sh`: small improvements and bug fixes. grep command would fail if the word warning was not found.
+<br/>
+
 ## v4.9.20.1 - 2026-07-13 - [PR#1892](https://github.com/NOAA-OWP/inundation-mapping/pull/1892)
 
 Fixes a topology error in `associate_levelpaths_with_levees.py` where the negative buffer causes a `non-noded intersection`. 
