@@ -10,16 +10,9 @@ import numpy as np
 import pandas as pd
 
 
-optz_metrics_dir = '/outputs/optz_final_all/'  # roughness_optz_v62
-OPTZ_METRICS_DIR = optz_metrics_dir
-pre_clip_huc8_dir = '/data/inputs/pre_clip_huc8/20260615/'
-PRE_CLIP_HUC8_DIR = pre_clip_huc8_dir
-RECURRENCE_CLUSTER_FILENAME = 'recurrence_flows_nwm_v3_CONUS_100_interval_added_clusters.csv'
 OPTZ_MANNINGS_FILENAME = 'optz_mannings_v6_1_1.csv'
 OPTZ_MANNINGS_OUTPUT_FILENAME = 'optz_mannings_v6_2.csv'
 OHIO_ALLEGENY_MONONGAHELA_RIVERS_FILENAME = 'ohio_allegeny_monongahela_chicago_more_fids_mannings_n.csv'
-# CHANNEL_N_OHIO_ALLEGENY_MONONGAHELA = 0.012
-# OVERBANK_N_OHIO_ALLEGENY_MONONGAHELA = 0.0482
 CHANNEL_N_NAN_FILL = 0.06
 OVERBANK_N_NAN_FILL = 0.12
 LOSS_DEVIATION_THRESHOLD = 15
@@ -352,14 +345,13 @@ def _add_clusters_to_huc_features(
 
 
 # *****************************************************************************
-def create_huc_feature_cluster_df(optz_metrics_dir, pre_clip_huc8_dir, max_workers=None):
+def create_huc_feature_cluster_df(optz_metrics_dir, pre_clip_huc8_dir, cluster_csv_path, max_workers=None):
 
     hucs = get_optimized_hucs(optz_metrics_dir)
     huc_feature_df = _read_huc_feature_df(hucs, pre_clip_huc8_dir)
 
-    cluster_csv_path = join(optz_metrics_dir, RECURRENCE_CLUSTER_FILENAME)
     if not os.path.exists(cluster_csv_path):
-        raise FileNotFoundError(f"{RECURRENCE_CLUSTER_FILENAME} not found in {optz_metrics_dir}")
+        raise FileNotFoundError(f"{cluster_csv_path}")
 
     cluster_df = _read_recurrence_flow_clusters(cluster_csv_path, huc_feature_df['feature_id'])
     huc_feature_cluster_df = _add_clusters_to_huc_features(
@@ -514,8 +506,8 @@ def create_optz_roughness_df(
 def add_optz_roughness_to_huc_features(
     huc_feature_cluster_df,
     optz_roughness_df,
+    optz_metrics_dir,
     loss_deviation_threshold=LOSS_DEVIATION_THRESHOLD,
-    optz_metrics_dir=OPTZ_METRICS_DIR,
 ):
     # Reads huc_feature_cluster_df for hucs that have optz roughness
     # huc_feature_clusters_csv_path = join(optz_metrics_dir, 'huc_feature_clusters_20260626.csv')
@@ -713,14 +705,12 @@ def create_cluster_order_optz_roughness_df(huc_feature_optz_df, optz_metrics_dir
 
 # *****************************************************************************
 def update_mannings_with_cluster_order_optz_roughness(
-    all_huc_feature_cluster_df,
-    cluster_order_optz_roughness_df,
-    optz_mannings_path=join(OPTZ_METRICS_DIR, OPTZ_MANNINGS_FILENAME),
-    output_csv_path=None,
-    ohio_allegeny_monongahela_mannings_path=join(OPTZ_METRICS_DIR, OHIO_ALLEGENY_MONONGAHELA_RIVERS_FILENAME),
-    # channel_n_ohio_allegeny_monongahela=CHANNEL_N_OHIO_ALLEGENY_MONONGAHELA,
-    # overbank_n_ohio_allegeny_monongahela=OVERBANK_N_OHIO_ALLEGENY_MONONGAHELA,
+    all_huc_feature_cluster_df, cluster_order_optz_roughness_df, optz_metrics_dir, output_csv_path=None
 ):
+    optz_mannings_path = join(optz_metrics_dir, OPTZ_MANNINGS_FILENAME)
+    ohio_allegeny_monongahela_mannings_path = join(
+        optz_metrics_dir, OHIO_ALLEGENY_MONONGAHELA_RIVERS_FILENAME
+    )
 
     required_mannings_cols = ['feature_id', 'channel_n', 'overbank_n']
     required_feature_cols = ['feature_id', 'cluster', 'order_']
@@ -748,15 +738,6 @@ def update_mannings_with_cluster_order_optz_roughness(
     #     )
     # cluster_order_optz_roughness_path = join(optz_metrics_dir, 'cluster_order_optz_roughness_20260630_manual.csv')
     # cluster_order_optz_roughness_df = pd.read_csv(cluster_order_optz_roughness_path, dtype={'cluster': 'Int64'})
-
-    # custom_huc = '02040201'
-    # custom_order = 6
-    # custom_mask = (all_huc_feature_cluster_df['huc']==custom_huc)
-    #   & (all_huc_feature_cluster_df['order_'] >= custom_order)
-    # custom_feature_roughness = all_huc_feature_cluster_df[custom_mask]
-    # print(custom_feature_roughness)
-    # custom_csv_path = join(optz_metrics_dir, f'feature_huc_cluster_order_custom_{custom_huc}_{custom_order}.csv')
-    # custom_feature_roughness.to_csv(custom_csv_path, index=False)
 
     missing_feature_cols = [
         col for col in required_feature_cols if col not in all_huc_feature_cluster_df.columns
@@ -890,26 +871,20 @@ def update_mannings_with_cluster_order_optz_roughness(
 
 
 # *****************************************************************************
-def analyze_optz_roughness(optz_metrics_dir=OPTZ_METRICS_DIR, pre_clip_huc8_dir=PRE_CLIP_HUC8_DIR):
+def analyze_optz_roughness(optz_metrics_dir, pre_clip_huc8_dir, cluster_csv_path):
 
     huc_feature_cluster_df, all_huc_feature_cluster_df = create_huc_feature_cluster_df(
-        optz_metrics_dir=optz_metrics_dir, pre_clip_huc8_dir=pre_clip_huc8_dir
+        optz_metrics_dir, pre_clip_huc8_dir, cluster_csv_path
     )
-    optz_roughness_df = create_optz_roughness_df(optz_metrics_dir=optz_metrics_dir)
+    optz_roughness_df = create_optz_roughness_df(optz_metrics_dir)
     huc_feature_optz_df = add_optz_roughness_to_huc_features(
-        huc_feature_cluster_df, optz_roughness_df, optz_metrics_dir=optz_metrics_dir
+        huc_feature_cluster_df, optz_roughness_df, optz_metrics_dir
     )
     cluster_order_optz_roughness_df = create_cluster_order_optz_roughness_df(
-        huc_feature_optz_df, optz_metrics_dir=optz_metrics_dir
+        huc_feature_optz_df, optz_metrics_dir
     )
     update_mannings_with_cluster_order_optz_roughness(
-        all_huc_feature_cluster_df,
-        cluster_order_optz_roughness_df,
-        optz_mannings_path=join(optz_metrics_dir, OPTZ_MANNINGS_FILENAME),
-        output_csv_path=join(optz_metrics_dir, OPTZ_MANNINGS_OUTPUT_FILENAME),
-        ohio_allegeny_monongahela_mannings_path=join(
-            optz_metrics_dir, OHIO_ALLEGENY_MONONGAHELA_RIVERS_FILENAME
-        ),
+        all_huc_feature_cluster_df, cluster_order_optz_roughness_df, optz_metrics_dir, output_csv_path=None
     )
 
 
@@ -929,8 +904,17 @@ if __name__ == '__main__':
         '-preclip_huc8_dir', '--preclip_huc8_dir', help='Path to preclip_huc8_dir', required=True, type=str
     )
 
+    parser.add_argument(
+        '-cluster_csv_path',
+        '--cluster_csv_path',
+        help='Path to a nwm_flow_clusters, e.g. /inputs/rating_curve/nwm_recur_flows/recurrence_flows_nwm_v3_CONUS_100_interval_added_clusters.csv',
+        required=True,
+        type=str,
+    )
+
     args = vars(parser.parse_args())
     analysis_dir = args['metrics_dir']
     preclip_huc8_dir = args['preclip_huc8_dir']
+    cluster_csv_path = args['cluster_csv_path']
 
-    analyze_optz_roughness(analysis_dir, preclip_huc8_dir)
+    analyze_optz_roughness(analysis_dir, preclip_huc8_dir, cluster_csv_path)
