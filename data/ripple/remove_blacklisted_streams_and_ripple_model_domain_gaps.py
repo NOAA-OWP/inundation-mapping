@@ -4,7 +4,7 @@ import argparse
 import os
 import re
 from concurrent.futures import ProcessPoolExecutor
-from datetime import date
+from datetime import datetime
 from math import ceil
 from os.path import join
 
@@ -17,6 +17,7 @@ from shapely.ops import linemerge, substring
 
 
 TARGET_CRS = "EPSG:5070"
+RUN_TIMESTAMP = datetime.now().strftime("%Y%m%d_%H%M")
 
 # EDGE_TOLERANCE_WIDTH_FRACTION = 0.20
 EDGE_TOLERANCE_M = 300
@@ -181,7 +182,7 @@ def create_huc_validated_whitelist(ripple_analysis_dir, ripple_whitelist_table, 
 
     if 'huc' in whitelist_df.columns:
         whitelist_df['huc'] = whitelist_df['huc'].astype('string')
-    today = date.today().strftime("%Y%m%d")
+    today = RUN_TIMESTAMP
     whitelist_df.to_csv(
         join(ripple_analysis_dir, f'ripple_feature_ids_whitelist_pregap_{today}.csv'), index=False
     )
@@ -230,7 +231,7 @@ def create_whitelist_domain(ripple_analysis_dir, ripple_domain_gpkg, collection_
     domain_whitelist_gdf["geometry"] = domain_whitelist_gdf["geometry"].make_valid()
     domain_whitelist_gdf["geometry"] = domain_whitelist_gdf["geometry"].buffer(0)
 
-    today = date.today().strftime("%Y%m%d")
+    today = RUN_TIMESTAMP
     domain_whitelist_gdf.to_file(
         join(ripple_analysis_dir, f"whitelist_ripple_model_domain_pregap_{today}.gpkg"), driver="GPKG"
     )
@@ -286,7 +287,7 @@ def create_save_whitelist_streams(whitelist_df, streams_gdf, ripple_analysis_dir
         crs=streams_gdf.crs,
     )
 
-    today = date.today().strftime("%Y%m%d")
+    today = RUN_TIMESTAMP
     whitelist_streams_gdf.to_file(
         join(ripple_analysis_dir, f"whitelist_ripple_nwm_streams_pregap_{today}.gpkg"), driver="GPKG"
     )
@@ -455,7 +456,7 @@ def create_save_whitelist_merged_domain(domain_whitelist_gdf, streams_gdf, rippl
     # Main river polygon + small disconnected island polygon
     domain_whitelist_gdf = keep_main_collection_domain_components(domain_whitelist_gdf, streams_gdf)
 
-    today = date.today().strftime("%Y%m%d")
+    today = RUN_TIMESTAMP
     domain_whitelist_gdf.to_file(
         join(ripple_analysis_dir, f"whitelist_ripple_model_domain_main_component_{today}.gpkg"), driver="GPKG"
     )
@@ -651,14 +652,17 @@ def compute_downstream_domain_metrics_parallel(geometries, domain_union_buffered
 
 
 # -----------------------------------------------------------------------------
-def select_valid_streams(streams_gdf, merged_domain_whitelist_2streams0h_gdf, n_workers, chunksize):
+def select_valid_streams(
+    streams_gdf, merged_domain_whitelist_2streams0h_gdf, whitelist_feature_ids, n_workers, chunksize
+):
 
     merged_domain_whitelist_2streams0h_gdf = merged_domain_whitelist_2streams0h_gdf.to_crs(TARGET_CRS)
     streams_gdf = streams_gdf.to_crs(TARGET_CRS)
+    whitelist_streams_gdf = streams_gdf[streams_gdf["feature_id"].isin(whitelist_feature_ids)].copy()
 
     # Streams that are completely within the whitelist ripple domain
     streams_within_gdf = gpd.sjoin(
-        streams_gdf, merged_domain_whitelist_2streams0h_gdf, how="inner", predicate="within"
+        whitelist_streams_gdf, merged_domain_whitelist_2streams0h_gdf, how="inner", predicate="within"
     ).drop(columns=["index_right"])
 
     within_feature_ids = set(streams_within_gdf["feature_id"])
@@ -669,7 +673,7 @@ def select_valid_streams(streams_gdf, merged_domain_whitelist_2streams0h_gdf, n_
     # Candidate whitelisted streams that have any intersection
     # with domain components covers at least 2 streams (2streams0h)
     candidates = gpd.sjoin(
-        streams_gdf, merged_domain_whitelist_2streams0h_gdf, how="inner", predicate="intersects"
+        whitelist_streams_gdf, merged_domain_whitelist_2streams0h_gdf, how="inner", predicate="intersects"
     ).drop(columns=["index_right"])
 
     candidates = candidates.drop_duplicates(subset="feature_id").reset_index(drop=True)
@@ -750,29 +754,167 @@ def select_valid_streams(streams_gdf, merged_domain_whitelist_2streams0h_gdf, n_
 
 # -----------------------------------------------------------------------------
 def select_fully_overlapping_domain_polygons(domain_whitelist_gdf, merged_domain_whitelist_2streams0h_gdf):
-    """Return domain polygons completely covered by the merged whitelist domain."""
+    """Restore source-domain rows and attributes to the retained merged geometry."""
 
     if domain_whitelist_gdf.crs is None or merged_domain_whitelist_2streams0h_gdf.crs is None:
         raise ValueError("Both domain GeoDataFrames must have a defined CRS.")
 
-    domain_for_comparison = domain_whitelist_gdf.to_crs(merged_domain_whitelist_2streams0h_gdf.crs)
-    merged_domain = merged_domain_whitelist_2streams0h_gdf.geometry.dropna().make_valid().union_all()
+    domain_for_overlay = domain_whitelist_gdf.to_crs(merged_domain_whitelist_2streams0h_gdf.crs).copy()
+    domain_for_overlay["geometry"] = domain_for_overlay.geometry.make_valid()
 
-    polygon_mask = domain_for_comparison.geometry.geom_type.isin(["Polygon", "MultiPolygon"])
-    complete_overlap_mask = (
-        polygon_mask
-        & ~domain_for_comparison.geometry.is_empty
-        & domain_for_comparison.geometry.make_valid().covered_by(merged_domain)
-    )
+    merged_geometries = merged_domain_whitelist_2streams0h_gdf.geometry.dropna().make_valid()
 
-    whitelist_domain_final_gdf = domain_whitelist_gdf.loc[complete_overlap_mask].copy().reset_index(drop=True)
+    if merged_geometries.empty:
+        whitelist_domain_final_gdf = domain_whitelist_gdf.iloc[0:0].copy()
+    else:
+        merged_union_gdf = gpd.GeoDataFrame(
+            geometry=[merged_geometries.union_all()], crs=merged_domain_whitelist_2streams0h_gdf.crs
+        )
 
-    today = date.today().strftime("%Y%m%d")
+        whitelist_domain_final_gdf = gpd.overlay(
+            domain_for_overlay, merged_union_gdf, how="intersection", keep_geom_type=True
+        )
+        whitelist_domain_final_gdf = whitelist_domain_final_gdf.to_crs(domain_whitelist_gdf.crs).reset_index(
+            drop=True
+        )
+
+    today = RUN_TIMESTAMP
     whitelist_domain_final_gdf.to_file(
         join(ripple_analysis_dir, f"whitelist_domain_final_{today}.gpkg"), driver="GPKG"
     )
 
-    # return domain_gdf.loc[complete_overlap_mask].copy().reset_index(drop=True)
+    return whitelist_domain_final_gdf
+
+
+# -----------------------------------------------------------------------------
+def flag_too_long_streams(
+    whitelist_final_df,
+    streams_gdf,
+    whitelist_domain_final_gdf,
+    candidates_metrics_df,
+    coverage_threshold=0.95,
+):
+    """Flag valid streams covered collectively, but not individually, by multiple models."""
+
+    if not 0 < coverage_threshold <= 1:
+        raise ValueError("coverage_threshold must be greater than 0 and no greater than 1.")
+
+    required_whitelist_columns = {"feature_id", "is_bridge", "is_valid"}
+    required_stream_columns = {"feature_id", "geometry"}
+    required_domain_columns = {"collection_id", "model_id", "geometry"}
+    required_metrics_columns = {"feature_id", "included_by", "not_headwater_stream", "topology_bridge"}
+    missing_whitelist_columns = required_whitelist_columns.difference(whitelist_final_df.columns)
+    missing_stream_columns = required_stream_columns.difference(streams_gdf.columns)
+    missing_domain_columns = required_domain_columns.difference(whitelist_domain_final_gdf.columns)
+    missing_metrics_columns = required_metrics_columns.difference(candidates_metrics_df.columns)
+
+    if missing_whitelist_columns:
+        raise ValueError(f"whitelist_final_df is missing columns: {sorted(missing_whitelist_columns)}")
+    if missing_stream_columns:
+        raise ValueError(f"streams_gdf is missing columns: {sorted(missing_stream_columns)}")
+    if missing_domain_columns:
+        raise ValueError(f"whitelist_domain_final_gdf is missing columns: {sorted(missing_domain_columns)}")
+    if missing_metrics_columns:
+        raise ValueError(f"candidates_metrics_df is missing columns: {sorted(missing_metrics_columns)}")
+
+    whitelist_final_df = whitelist_final_df.copy()
+    whitelist_final_df["too_long"] = False
+    valid_feature_ids = set(whitelist_final_df.loc[whitelist_final_df["is_valid"].eq(True), "feature_id"])
+    not_headwater_feature_ids = set(
+        candidates_metrics_df.loc[candidates_metrics_df["not_headwater_stream"].eq(True), "feature_id"]
+    )
+    excluded_feature_ids = set(
+        candidates_metrics_df.loc[
+            candidates_metrics_df["included_by"].eq("within")
+            | candidates_metrics_df["topology_bridge"].eq(True),
+            "feature_id",
+        ]
+    )
+    excluded_feature_ids.update(
+        whitelist_final_df.loc[whitelist_final_df["is_bridge"].eq(True), "feature_id"]
+    )
+    valid_feature_ids &= not_headwater_feature_ids
+    valid_feature_ids -= excluded_feature_ids
+
+    valid_streams_gdf = (
+        streams_gdf.loc[streams_gdf["feature_id"].isin(valid_feature_ids), ["feature_id", "geometry"]]
+        .drop_duplicates(subset="feature_id")
+        .copy()
+    )
+
+    if valid_streams_gdf.empty or whitelist_domain_final_gdf.empty:
+        return whitelist_final_df
+
+    valid_streams_gdf = valid_streams_gdf.to_crs(TARGET_CRS)
+    valid_streams_gdf["geometry"] = valid_streams_gdf.geometry.apply(as_single_linestring)
+    valid_streams_gdf = valid_streams_gdf[
+        valid_streams_gdf.geometry.notna() & ~valid_streams_gdf.geometry.is_empty
+    ].copy()
+    valid_streams_gdf["stream_length_m"] = valid_streams_gdf.geometry.length
+    valid_streams_gdf = valid_streams_gdf[valid_streams_gdf["stream_length_m"] > 0].copy()
+
+    if valid_streams_gdf.empty:
+        return whitelist_final_df
+
+    model_domains_gdf = whitelist_domain_final_gdf.to_crs(TARGET_CRS).copy()
+    model_domains_gdf["geometry"] = model_domains_gdf.geometry.make_valid()
+    model_domains_gdf = model_domains_gdf.dissolve(
+        by=["collection_id", "model_id"], as_index=False, dropna=False
+    ).reset_index(drop=True)
+
+    stream_model_pairs = gpd.sjoin(
+        valid_streams_gdf,
+        model_domains_gdf[["collection_id", "model_id", "geometry"]],
+        how="inner",
+        predicate="intersects",
+    ).reset_index(drop=True)
+
+    if stream_model_pairs.empty:
+        return whitelist_final_df
+
+    matched_model_geometry = gpd.GeoSeries(
+        model_domains_gdf.geometry.iloc[stream_model_pairs["index_right"].to_numpy()].to_numpy(),
+        index=stream_model_pairs.index,
+        crs=TARGET_CRS,
+    )
+    covered_geometry = stream_model_pairs.geometry.intersection(matched_model_geometry, align=False)
+    stream_model_pairs["covered_length_m"] = covered_geometry.length
+    stream_model_pairs = stream_model_pairs[stream_model_pairs["covered_length_m"] > 0].copy()
+
+    if stream_model_pairs.empty:
+        return whitelist_final_df
+
+    stream_model_pairs["individual_coverage"] = (
+        stream_model_pairs["covered_length_m"] / stream_model_pairs["stream_length_m"]
+    )
+    coverage_by_feature = stream_model_pairs.groupby("feature_id").agg(
+        model_count=("model_id", "size"),
+        maximum_individual_coverage=("individual_coverage", "max"),
+        stream_length_m=("stream_length_m", "first"),
+    )
+
+    covered_pieces_gdf = gpd.GeoDataFrame(
+        stream_model_pairs[["feature_id"]].copy(),
+        geometry=covered_geometry.loc[stream_model_pairs.index],
+        crs=TARGET_CRS,
+    )
+    combined_covered_length = covered_pieces_gdf.dissolve(by="feature_id").geometry.length
+    coverage_by_feature["combined_coverage"] = (
+        combined_covered_length / coverage_by_feature["stream_length_m"]
+    )
+
+    too_long_feature_ids = coverage_by_feature.index[
+        (coverage_by_feature["model_count"] >= 2)
+        & (coverage_by_feature["combined_coverage"] >= coverage_threshold)
+        & (coverage_by_feature["maximum_individual_coverage"] < coverage_threshold)
+    ]
+
+    whitelist_final_df.loc[
+        whitelist_final_df["is_valid"].eq(True) & whitelist_final_df["feature_id"].isin(too_long_feature_ids),
+        "too_long",
+    ] = True
+
+    return whitelist_final_df
 
 
 # -----------------------------------------------------------------------------
@@ -790,7 +932,7 @@ def process_streams_save_outputs(
         ripple_analysis_dir, ripple_domain_gpkg, collection_model_ids
     )
 
-    today = date.today().strftime("%Y%m%d")
+    today = RUN_TIMESTAMP
     domain_whitelist_gdf.to_file(
         join(ripple_analysis_dir, f"whitelist_ripple_model_domain_{today}.gpkg"), driver="GPKG"
     )
@@ -806,7 +948,11 @@ def process_streams_save_outputs(
     )
 
     included_streams_gdf, candidates_metrics_df, within_count = select_valid_streams(
-        streams_gdf, merged_domain_whitelist_2streams0h_gdf, n_workers=n_workers, chunksize=chunksize
+        streams_gdf,
+        merged_domain_whitelist_2streams0h_gdf,
+        whitelist_feature_ids=set(whitelist_df["feature_id"]),
+        n_workers=n_workers,
+        chunksize=chunksize,
     )
 
     included_streams_gdf = included_streams_gdf.drop(
@@ -860,15 +1006,38 @@ def process_streams_save_outputs(
     whitelist_final_df = whitelist_final_df[
         [col for col in whitelist_final_df.columns if col != "is_valid"] + ["is_valid"]
     ]
-    whitelist_final_df.sort_values("feature_id").to_csv(
-        join(ripple_analysis_dir, f"whitelist_ripple_feature_ids_{today}.csv"), index=False
-    )
-    # included_feature_ids = included_streams_gdf["feature_id"]
-    # gap_df = whitelist_df[~whitelist_df["feature_id"].isin(included_feature_ids)].copy()
-    # gap_df.to_csv(join(ripple_analysis_dir, "whitelist_ripple_nwm_streams_GAP_excluded.csv"), index=False)
 
-    # Create the final ripple model domain with the necessary columns
-    select_fully_overlapping_domain_polygons(domain_whitelist_gdf, merged_domain_whitelist_2streams0h_gdf)
+    whitelist_final_df.loc[whitelist_final_df["feature_id"].duplicated(keep=False), "is_duplicated"] = True
+    final_valid_override1 = (
+        whitelist_final_df["is_blacklisted"].eq(False)
+        & whitelist_final_df["is_library_path_valid"].eq(True)
+        & whitelist_final_df["is_duplicated"].eq(True)
+        & whitelist_final_df["huc_valid"].eq(True)
+        & whitelist_final_df["is_gap"].eq(True)
+        & whitelist_final_df["is_valid"].eq(False)
+    )
+    whitelist_final_df.loc[final_valid_override1, "is_valid"] = True
+    final_valid_override2 = (
+        whitelist_final_df["is_blacklisted"].eq(False)
+        & whitelist_final_df["is_library_path_valid"].eq(False)
+        & whitelist_final_df["is_bridge"].eq(True)
+        & whitelist_final_df["is_duplicated"].eq(True)
+        & whitelist_final_df["huc_valid"].eq(True)
+        & whitelist_final_df["is_gap"].eq(True)
+        & whitelist_final_df["is_valid"].eq(False)
+    )
+    whitelist_final_df.loc[final_valid_override2, "is_valid"] = True
+
+    whitelist_domain_final_gdf = select_fully_overlapping_domain_polygons(
+        domain_whitelist_gdf, merged_domain_whitelist_2streams0h_gdf
+    )
+    whitelist_final_df = flag_too_long_streams(
+        whitelist_final_df, streams_gdf, whitelist_domain_final_gdf, candidates_metrics_df
+    )
+
+    whitelist_final_df.sort_values("feature_id").to_csv(
+        join(ripple_analysis_dir, f"whitelist_ripple_feature_ids_final_{today}.csv"), index=False
+    )
 
 
 if __name__ == "__main__":
