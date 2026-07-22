@@ -1,6 +1,206 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.20.1 - 2026-07-13 - [PR#1892](https://github.com/NOAA-OWP/inundation-mapping/pull/1892)
+
+Fixes a topology error in `associate_levelpaths_with_levees.py` where the negative buffer causes a `non-noded intersection`. 
+This branch merged in the dev-logging branch, [PR 1731](https://github.com/NOAA-OWP/inundation-mapping/pull/1731): Logging and Error handling upgrades. PR 1731 will be merged to dev first, then this one.
+
+After merging dev-logging and while testing this PR, a few more minor corrects for logging and error handling were made to this branch.
+
+This branch was used for the BED run of hand_4_9_20_1.
+
+Resolves #1890.
+
+### Changes
+
+- `src`
+    - `associate_levelpaths_with_levees.py`: Adds `resolution` parameter for buffer creation.
+    - `run_huc.sh`: Some minor text updates and the phrase `--line-buffer` was added to the code that processes branches in parallel. This help with memory queues and reduces memory in storage with no loss to the script. It is sort of like a print flush.
+    - `process_branch.sh`: Two things were added here.
+        - A random 10 second sleep timer to slow down branches from all hitting the exact same files at the exact same time. Helps with memory management and file collisions. It is more of a safety addition.
+        - Addition of a bash trap, to help ensure that the script always returns a exit code of 0 back to run_huc.sh. This helps ensure that other branches will continue to run even if this branch fails. It was not a problem in the past, but it is a safety addition in case there are errors on the `process_branch.sh` page itself, which was previously unmanaged.
+ - `config\params_template.env`: Increased the branch  timeout from 1 hour to 2 hours. This is a temp stop gap while memory and parallel issues are fixed in future releases.
+Fixes a topology error in `associate_levelpaths_with_levees.py` where the negative buffer causes a `non-noded intersection`. The base branch for this PR is `dev-logging`.
+
+### Changes
+
+`src/associate_levelpaths_with_levees.py`: Adds `resolution` parameter for buffer creation.
+
+<br/>
+
+## v4.9.20.0 - 2026-07-11 - [PR#1731](https://github.com/NOAA-OWP/inundation-mapping/pull/1731)
+
+A very wide array of fixes relating to logging and error handing have been added as well as quite a few new "TODO" lines requiring deeper investigation later.
+
+There is a number of inconsistencies of how the .sh and .py files interact and how the overall chain works.  Many were fixed here, especially ones that did leave possible holes for errors and exceptions to fall through the cracks with no errors or exceptions record and could be buried.  Most of them were tiny holes or non optimum but there were a few critical fixes needed such as parallelization issues with branches. 
+
+A very large amount of inline comments were added to help folks understand the hierarchy. It is a rather unusual error and logging handling system but one that has evolved at least more than five years ago. Eventually, we can get out of the bash business and simplify the architecture, but this is a very large project.
+
+------------
+### Update: Key discovery about missing key word error searching. (July 9, 2026)
+While there were a number of little holes were an error message could fall through, it was discovered today, that all of the system only scanned for the word "error" and not others such as:
+- command exited with non-zero status
+- exit status (1 to 999)
+- error (but not proceeded by the word "no")
+- exception
+- command not found
+- parallel: warning
+
+These are pretty common error message and we may have been missing errors in the past with no knowledge. This was discovered by doing over 20 tests against an older code branch as well as tracing multiple check ins over the past few years.
+
+------------
+### Normal HUC processing flow, including bug fixes and enhancements.
+Our normal error and exception handling system in the `fim_pipeline`, now significantly upgraded, is:
+1) `fim_process_huc.sh`
+    - is called either by `fim_pipeline` or `AWS huc iterator`.
+    - As much as possible, it needs catch errors and exceptions, log them, then ensure the HUC folder is copied from its temp directory to the outputs directory.
+    - We added a bash `trap` system, which has a lot of needs, including critical use of the bash page heads such as set -e (or bin/bash -e).  If `-e` is in place, then the page will auto stop execution on error. Depending on the page, this is a critical problem as it can loose the ability to get copied from temp to outputs.
+    - When `set -e` is in place, error `trap` will not work. It is disabled by adding `set +e` just above the trap commands. Any logic above the error trap is deemed acceptable as in the `fim_pipeline` world, you see it on screen quickly even though it is not logged. AWS has a harder time catching errors without major AWS upgrades for it's cloud watch system. By the time we run a BED in AWS, it is extremely unlikely that input errors would exist.
+    - fim_process_huc.sh catches all errors and outputs for child scripts such as the call to `process_huc.sh`. By catching it final the `tee` command and all errors and outputs are pushed to the HUC log which can be scanned later for key error words.
+    - This means all child .sh and .py files from run_unit.sh and down, are automatically covered for errors.
+    - If a specific error codes such as our custom status codes of 60 - 65 are caught, they are now  handled by a generic trap error handler in `bash_functions.sh`.
+    - Previously, if an error occurred in most places in the pages, such as grep commands which searched the log page for errors could compromise the entire page. Now, we use a new file called `huc_process_error_report.py` which has far more capacity to find and handle its own page level errors. If this file script itself fails, a special file named `log_scan_tool_failed_${hucNumber}.log` will be created.
+
+2) `fim_process_huc.sh` <- `run_unit.sh`
+    - Any errors will be either / and be shown on screen and auto caught by `fim_process_huc.sh` for handle and error scanning.
+        - `run_unit.sh`
+            - calls `delineate_hydros_and_produce_HAND.sh`, which also sends exceptions, errors and text to `run_unit.sh` which is forwarded to `fim_process_huc.sh`
+            - calls `calibrate_rating_curve.sh`: also sends exceptions, errors and text to `run_unit.sh` which is forwarded to `fim_process_huc.sh`
+            - Includes a parallel iterator to call and process branches. Each iteration calls `process_branch.sh`.
+
+3) `fim_process_huc.sh` <- `run_unit.sh` <- `process_branch.sh`
+     - Calls `run_by_branch.sh`
+     - Any errors, output or exceptions in `run_by_branch.sh are caught by `process_branch.sh` and using the `tee` command are auto forwarded up the chain for for `fim_process_huc.sh` to ultimately catch and log
+     - `process_branch.sh` is the same type of wrapper / error handler supporting `run_by_branch.sh`, as `fim_process_huc.sh` is to `run_unit.sh`
+
+4) `calibrate_rating_curve.sh`
+    - While there was technically nothing wrong with it, it attempted to catch its own errors for huc runs and re-runs, which
+ also  had the problem of .py files not responding correctly. It was also a convention that conflicted with how `fim_process_huc.sh` worked. While nothing slipped through other then said .py files, it was messy and if the script itself had errors like "grep" commands failing, it was caught by `fim_process_huc.sh` but with little detail.
+    - has two files that could call it
+        - `fim_process_huc.sh`
+        - `rerun_calibration.py`. While it appears this chain did work, it was easier to manage in the short term by adding a new file named `process_rerun_calibration.sh` as a wrapper, which was further called by `rerun_calibration.py`. This helps with consistency for now. Note: Later, we can likely go back to not using a `process_rerun_calibraion.sh` file but need to adjust how error logs and error scanning are done.
+       
+There are other minor fixes or enhancements or misc TODO's added for future fixes.  Important TODOs that require attention sooner than later have been added to a new issue card for future releases.
+
+---------------------
+### HUC and post processing searching for key error words and rolling them up into larger log files.
+- At the huc level, there is a new tool called `huc_process_error_report.py`. This provides a far more stable solution for scanning the huc log file for various key error words. It further can isolate when possible the status code included. This only uses just the one single huc_{huc number}_unit.log file as all child log data is already added to this including all branch and src files. This system avoids the previous included, far more complex and unstable system of using bash command like grep and find with elaborate conditions.  The reason this exists at the huc file it so see  errors in each huc as they are being processed instead of waiting until post_processing. It also take better advantage of resources using bash parallelization.
+- At the post processing level, it has a new tool called `post_process_error_reports.py`. It simply scans all huc directories looking for the huc csv re port and concatenates them in to one single error report.
+- searching for the word of just "warning" continues to be a very simple grep command and it done only at the huc level. There is no run level rollup, same as before.
+- The two new error log.csv including all branch errors including acceptable ones such as code 60 - 65. With it being a csv, it is now sortable and filterable.
+- Note: it is not perfect. Most errors are recorded more than once with slightly different text. ie. A failure inside `run_huc.sh`, will record via scan of the logs, but then record again one or two more times as it passes that error up to `fim_process_huc.sh`. A decision was made to leave it, just in case the failure did not originate in a child .sh file but that command line with the "tee" in it.
+
+---------------------
+### Increased error handling at key places
+- `fim_post_procssing.sh` had no error handling and insufficient logging. If an error occurred on the script itself or in a child script such as `aggregate_branch_lists.py` would fail, we had limited information why. When in AWS and it failed, there would be near zero information on why it failed.
+- `fim_process_huc.sh`: If an error occurred on in the script itself and not in the child `run_by_unit.sh`, limited information was available on why it failed. In AWS, that information was lost.  Improved error handling using `Bash TRAP` command helps identify problems on this page, but also helps ensure that code breakages to not stop the huc folder being moved from the temp directory to the output directory. While rare, it has happened, leaving us no information on why it happened. We currently also do not have a tool that checks if all HUCs came back or were lost. 
+
+-------------
+
+### Additions
+- `src\utils`
+    - `huc_process_error_report.py` and `post_process_error_report.py`: as described in the HUC and post processing searching section notes above.
+- `src\process_rerun_calibration_huc.sh`: A temp new file addition to follow the same convention and upgrades to handle errors and logging. It also simplifies the key file `calibrate_rating_curves.sh` which is used in both the fim_pipeline process as well as the rerun-calibration process. Future upgrade will be made to `rerun_calibration.py` can be made to remove this temp .sh file and still keep the `calibrate_rating_curves.sh` file simple and more compatible with each processing stream. Note: The current solution was acceptable, just needed some logic move to other parts of the overall system.
+
+### Changes
+- `\data\ripple\get_s3_folders_from_list.sh`: While unlike to be re-used, a key oversite in the log was fixed but not tested in case it is used again someday.
+- `src`
+    - `utils`
+         - `fim_enums.py` : Commented out an unused code
+         - `shared_functions.py`: adjusted an earlier function named `concat_huc_csv` was renamed and upgraded for usage by the new `fim_post_procssing.sh` file which rolls up huc level error reports. The `concat_huc_csv` was originally not in use.
+    - `aggegate_branch_lists.py`: minor code readability change made.
+    - `aggregate_branches_to_huc.py`:
+        - Commented out some unused pages and also made some minor code readability changes.
+        - Added some print statements as key points to help make it to the scannable log files.
+        - At the point of an exception being captured, added a re-raise line to for the huc to abort processing on error.
+    - `bash_functions.env`:
+         - A significant amount of inline comments were added to help people know when and how to use some functions.
+         - Added a new generic new ERROR Handling and tools, to help with re-useability with adding new `Bash Trap` to parts of some key pages. They help manage some script errors that are not in a child .sh script. ie) `fim_process_huc.sh` now has better handling when an error on its page directly is triggered.
+         - Some cleanup and minor enhancements to some existing functions.
+     - `calibrate_rating_curves.sh`:
+       - As mentioned above, changes made to create more consistency in how errors and logs are handled in the system. 
+       - Also allowed for significant simplification and error handling especially for unstable command like `grep`.
+       - Added some inline comments to help show why some function, like the use of `l_echo` was removed and how the file fits into the bigger picture.
+       - Removed some of the tstarts and tcounts to simplify logging. They really are only needed in very long running tools to help highlight very slow tools. Quick ones that take under a few minutes, just clutter up the logs. While testing, I did not see any sections that were long running.
+       - Removed a section of code that handled logging and error scanning for key files in the src directory. This was no longer necessary when standardized again parent .sh files.
+    - `check_huc_inputs.py`: 
+        - Some minor cleanup, but a key addition of a system that now saves a line delimited new file showing all HUCs about to be processed regardless if the run input was a file, single HUCs or multiple HUCs. In the near future, functionality will be added to fim_post_processing.sh to look for any HUCs that may not have been returned, just in case. This will become a safety tool, especially when being run in AWS.
+        - A new message was added to help calculate and display if a possible bad huc list file path has been submitted. Prior to this addition, the error message was vague and confusing.
+    - `clip_rasters_to_branches.py`: A note added about a file structural change desired to help with reusability.
+    - `delineate_hydros_and_produce_HAND.sh`:
+        - Addition of some comments about using our bash headers in our processing.
+        - Removal of some tstart and tcount usage for sections that run very fast and do not need duration data. Helps clean up the logs for info that has no value.
+    - `duration_system.py`:  Added a test condition if no HUCs existing to handle it more gracefully. During some development and testing, it happens were all HUCs fail, then this script fails but no information on why, leading to some confusion.
+   - `generate_branch_list_csv.py`:
+      - This was a code location that was strongly suspected to create MP collisions and parallel errors. The file was being called in each `process_branch.sh` chain, resulting in them all attempting to update a HUC level file at the same time. We have detected branch problems recently and have had to lower our branch job numbers significantly. While it is not possible to confirm it, it is a risky practice. Now this tool is used at the end of run_unit.sh which scans to look for hydrotables files which only exist if the branch was successful on being processed.
+    - `process_branch.sh`: updates to error handling, logging and messaging as described above. 
+    - `reset_htable_src.py`: Minor text update to help with contexts.
+    - `run_by_branch.sh`
+        - Additional comments added for clarity of usage.
+        - Start and Ending messages were moved into its parent `process_branch.sh` to help show fails in that `process_branch.sh` level.
+    - `run_huc.sh`
+        - Added some comments.
+        - Added a system were it can build the list of successful branches, removing each branch attempting to update the single file at the HUC level, probable culprit for the recent rash of parallel issues seen since that functionality was added at the branch level a while back.
+        - A bit of cleanup.
+- `tools\rerun_calibration.py`
+     - Temp changes in conjunction with temp addition of `process_rerun_calibration_huc.sh`, to help make the `calibrate_rating_curve.sh` more standardized with the `fim_process_huc.sh` processing chain. Note, this file will need a bit more adjustments to handle errors and logging, which will allow for the removal of the `process_rerun_calibration_hucs.sh` file.
+     - Added some inline comments about how our over all processing architecture works at this time.
+     - Addition of using the new shared_functions.py -> logging system and enhanced error trapping and logging. A little more adjustments and testing are required. 
+- `Dockerfile.dev` and `Dockerfile.owp`
+    - It has been noticed a number of times over the past year, where permissions issues at a file or folder level have created accessibility issues. A technology was discovered that allows using a package named `acl`, which allows permission to be set a folder level and automatically inherited lower down as new files and folders are added. This will remove some code we have where we are regularly running chmod commands to stabilize it. When the new docker image is created, it allows us to finish this system enhancement and adjust some, but not  all, files that use the chmod command.
+    - Problems with permissions has been a very regular problem in the OWP environments and only occasionally in the EC2 enviroments.
+- `fim_pipeline.sh`
+    - Addition of an empty string on the end of the two Calc_Duration calls as Calc_Duration has been upgraded to allow for optional and additional saving the echo to a file.
+    - Minor cleanup
+ - `fim_post_processing.sh`
+     - Significant upgrades to add a multi-layer error handling system.  As mentioned earlier, when a .py file was called and that file failed, all logging for post processing was easily lost. This had the most affect in AWS with a failure in post_processing and not information on why.  
+     - All calls to child .py scripts now have a wrapper to show what went wrong in the child script and log it.
+     - An new post_processing error log file was created to support fim_post_processing.sh script level errors.
+     - The addition of a new tool to roll up all huc level error csv reports into a master csv file.
+  - `fim_pre_processing.sh`
+      - Addition of some comments to help developers.
+      - Addition of a system to work with the `check_huc_inputs.py` file to create a new file to be saved in the run level folder of a list of HUCs being processed. This covers if the huc list argument came in as a file list, single HUC or multiple HUCs. In the near future, a further addition will be added to post processing to ensure all HUC folders are accounted for. 
+    - `fim_process_huc.sh`:
+        - `Significant updates for better error handling and logging. Including the addition of bash `TRAP` commands to decrease the possibility of the HUC folder being copied from the temp directory to the output directory for most catastrophic failures. There are still a small few scenarios where this could happen, mostly around input arg validation, but it is acceptable.
+        - Added usage of the new `huc_process_error_report.py` file as described above. We will no longer ever get a huc level error file, but will likely get a huc level error csv file which has multiple columns available for filtering and sorting.
+### Files needing review and/or adjustments in the `calibration` family of files.
+- A significant amount of files being called as part of the `calibrate_rating_curve.sh`, chain, shared similar problems and/or adjustment such as:  
+    -  Some have custom log_text systems where they write to their own log file.  However, if exceptions are triggered at key points, the built up information can be lost resulting in a error with no trace information.
+    - Most had a try / except system, but they did not use "print" commands. "prints" are key to our system as it rolls up via `fim_process_huc.sh` log files and are scanned for errors and issues. Scanning of file in the src directory was generally not done similar to the branch folders, but `calibrate_rating_curves.sh` did attempt file scanning at that level, but some could be lost. See more notes above about changes to the `calibrate_rating_curves.sh` file for more details. In this PR, use of "print" command as well as tracing via print(traceback.format_exc()) were added to help trace errors when they occurs, when applicable.
+    - When an exception was triggered, almost none re-raised the exception and stop the HUC from continuing processing. While this needs to be reviewed on a case-by-case basis in the future, it is assumed that many will need to re-raise exceptions, not  counting exceptions writing to its own log files, to stop further HUC processing.
+        - Files adjusted and need future review for future releases include:
+            - `bathymetric_adjustment.py`
+            - `identify_src_bankfull.py`
+            - `longitudial_flow_adjustments.py`
+            - `nonmonotonic_src_adjustments.py`
+            - `src_adjust_ras2fim_rating.py`
+            - `src_adjust_spatial_obs.py`
+            - `src_adjust_usgs_rating_trace.py`
+            - `src_manual_calibation.py`
+            - `src_roughness_optimization.py`
+            - `subdiv_chan_obank_src.py`
+            - `thalweg_notches_adjustment.py`
+ - While detected in many files in the `optimization` family of files, no other py files were reviewed for similar problems, but few are expected. Review of the other files is recommend for future release. Most of these files are new and have been following shared conventions, but need adjusting and review.
+
+### Removals
+None
+
+---------------------------------------------------------------
+### Notes about the rerun calibration system.
+- A significant amount of changes were key files used in the recalibration system. Due to time limits, it has not yet been fully tested and will not hold back this PR. As more testing is done, a further PR will be created as necessary. Some changes are expected but not a significant amount.
+
+---------------------------------------------------------------
+### Testing
+- A very wide array of testing was done multiple times. This includes over 20 tests checking for thinges like:
+    - bash errors and exceptions,
+    - python exceptions ,  adding or usage in py files for various key words such as error, warning, exception and others, and deliberate sys.exit usage.
+    - Testing a all .sh scripts in the fim_pipeline chain and ensure the logs are rolled up and no errors or exceptions were non recorded.
+    - Testing of the new error handling and logging for critical files such as fim_post_processing.sh and fim_process_huc.sh which are the primary parent for most calculations via downstream tools and code.
+    - A wide array of random errors and exceptions all over the place, to see if it can be "broken", to ensure that anythign that breaks is addressed, mostly by error handling and logging.
+
+- The full set of 20 plus tests, were also done against older branches prior to this PR to ensure all changes that were required for comparison reasons.
+<br/>
 
 ## v4.9.xx.xx - 2026-xx-xx - [PR#1882](https://github.com/NOAA-OWP/inundation-mapping/pull/1882)
 
