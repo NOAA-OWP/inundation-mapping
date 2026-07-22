@@ -15,6 +15,15 @@ import numpy as np
 import pandas as pd
 
 
+#################################
+# CRITICAL TODO: July 4, 2026:  In the event of an exception, the log file will not exist
+# and its details as well.
+# This needs a try/except with printing to log and at least a one liner
+# saying including the word "exception or error", which can be picked up automatically
+# by the rollup to fim_process_huc.sh or process_rerun_calibration_huc.sh
+################################
+
+
 # -------------------------------------------------------
 # Reseting stage column in SRCs for fixing thalweg notches
 def reset_stage(srcs_df):
@@ -269,17 +278,37 @@ def apply_thalweg_notches_adjustment(huc_dir, huc, stage_interval, log_file_path
         msg = f"Correcting rating curve for thalweg notches for HUC : {huc}\n"
         log_text += msg
         print(msg)
+        # raise Exception("Rob is tesing an exception before correct_thalweg (sort of)")
         log_text += correct_thalweg_notches(huc_dir, huc, stage_interval)  # bankfull_flows_file
 
+    # except Exception as ex:
     except Exception:
-        log_text += f"An error has occurred while processing thalweg notches for huc {huc}\n"
+        err_msg = f"An error has occurred while processing thalweg notches for huc {huc}\n"
+        log_text += err_msg
         log_text += traceback.format_exc()
+
+        # this goes back to calibrate_rating_curve.sh which rolls up to its parent "tee"
+        # Then it can be scanned in the error system based on solely the "tee" file
+        print(err_msg)
+        print(traceback.format_exc())
+
+        # re raise ex ?  # TODO: Do we want to stop processing the huc if we get an error here?
+        # If yes, we need to raise ex, make sure to write your log_text if you need to.
+        # raise Exception("Rob is tesing an exception reraise (sort of ) in thalweg")
+
+        # for now.. lets just print the exception so it can be auto picked up the .sh
+        # chain.
 
     try:
         with open(log_file_path, "a") as log_file:
             log_file.write(log_text + '\n')
     except Exception:
-        print(f"Error trying to write to the log file of {log_file_path}\n")
+        # this goes back to calibrate_rating_curve.sh which rolls up to its parent "tee"
+        # Then it can be scanned in the error system based on solely the "tee" file
+        print(f"Error trying to write to the log file of {log_file_path}")
+        print(traceback.format_exc())
+
+        # ok. maybe not here for a rethrow
 
 
 # -------------------------------------------------------
@@ -302,29 +331,44 @@ def process_thalweg_notches_adjustment(huc_dir):  # stage_interval,
     if not os.path.isdir(log_dir):
         os.makedirs(log_dir)
     log_file_path = os.path.join(log_dir, 'thalweg_notches_adjustment.log')
-    print(f'Writing progress to log file here: {log_file_path}')
-    ## Create a time var to log run time
-    begin_time = dt.datetime.now(dt.timezone.utc)
 
-    ## Initiate log file
-    with open(log_file_path, "w") as log_file:
-        log_file.write('START TIME: ' + str(begin_time) + '\n')
-        log_file.write('#########################################################\n\n')
+    try:
 
-    # Let log_text build up starting here until the bottom.
-    log_text = ""
+        print(f'Writing progress to log file here: {log_file_path}')
+        ## Create a time var to log run time
+        begin_time = dt.datetime.now(dt.timezone.utc)
 
-    stage_interval = 0.3048  # float(os.getenv('stage_interval_meters'))
+        ## Initiate log file
 
-    huc = os.path.basename(os.path.normpath(huc_dir))
-    apply_thalweg_notches_adjustment(huc_dir, huc, stage_interval, log_file_path)
+        #  TODO: Fix THIS... it is an open file ~~~~
 
-    ## Record run time and close log file
-    end_time = dt.datetime.now(dt.timezone.utc)
-    log_text += 'END TIME: ' + str(end_time) + '\n'
-    tot_run_time = end_time - begin_time
-    log_text += 'TOTAL RUN TIME: ' + str(tot_run_time).split('.')[0]
-    log_file.close()
+        with open(log_file_path, "w") as log_file:
+            log_file.write('START TIME: ' + str(begin_time) + '\n')
+            log_file.write('#########################################################\n\n')
+
+        # Let log_text build up starting here until the bottom.
+        log_text = ""
+
+        stage_interval = 0.3048  # float(os.getenv('stage_interval_meters'))
+
+        huc = os.path.basename(os.path.normpath(huc_dir))
+        apply_thalweg_notches_adjustment(huc_dir, huc, stage_interval, log_file_path)
+
+        ## Record run time and close log file
+        end_time = dt.datetime.now(dt.timezone.utc)
+        log_text += 'END TIME: ' + str(end_time) + '\n'
+        tot_run_time = end_time - begin_time
+        log_text += 'TOTAL RUN TIME: ' + str(tot_run_time).split('.')[0]
+        log_file.close()
+
+    except Exception as ex:
+        # this goes back to calibrate_rating_curve.sh which rolls up to its parent "tee"
+        # Then it can be scanned in the error system based on solely the "tee" file
+        print(f"An exception occurred while processing thalweg notch adjustments for {huc_dir}.")
+        print(f"Details: {traceback.format_exc()}")
+
+        # TODO: catch the details and log as well as print. ??
+        raise ex
 
 
 if __name__ == '__main__':
