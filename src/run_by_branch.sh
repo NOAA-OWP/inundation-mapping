@@ -127,16 +127,15 @@ python3 "${srcDir}/adjust_floodplains.py" "${args[@]}"
 
 ## PIT REMOVE BURNED DEM - BRANCHES (NOT 0) (NWM levelpath streams) ##
 echo -e "${startDiv}Pit remove Burned DEM ${hucNumber} ${current_branch_id}"
+if [[ -f "${tempCurrentBranchDataDir}/dem_burned_adjusted_${current_branch_id}.tif" ]]; then
+    dem_burned="${tempCurrentBranchDataDir}/dem_burned_adjusted_${current_branch_id}.tif"
+else
+    dem_burned="${tempCurrentBranchDataDir}/dem_burned_${current_branch_id}.tif"
+fi
 args=(
-    "${tempCurrentBranchDataDir}/dem_burned_${current_branch_id}.tif"
+    "${dem_burned}"
     "${tempCurrentBranchDataDir}/dem_burned_filled_${current_branch_id}.tif"
 )
-if [[ -f "${tempCurrentBranchDataDir}/dem_burned_adjusted_${current_branch_id}.tif" ]]; then
-    args=(
-        "${tempCurrentBranchDataDir}/dem_burned_adjusted_${current_branch_id}.tif"
-        "${tempCurrentBranchDataDir}/dem_burned_filled_${current_branch_id}.tif"
-    )
-fi
 rd_depression_filling "${args[@]}"
 
 ## D8 FLOW DIR - BRANCHES (NOT 0) (NWM levelpath streams) ##
@@ -147,7 +146,7 @@ args=(
     -fel "${tempCurrentBranchDataDir}/dem_burned_filled_${current_branch_id}.tif"
     -p "${tempCurrentBranchDataDir}/flowdir_d8_burned_filled_${current_branch_id}.tif"
 )
-python3 $srcDir/run_taudem_subprocess.py d8flowdir "${args[@]}"
+python3 "${srcDir}/run_taudem_subprocess.py" d8flowdir "${args[@]}"
 
 ## RASTERIZE NWM Levelpath HEADWATERS (1 & 0) ##
 echo -e "${startDiv}Rasterize NWM Headwaters ${hucNumber} ${current_branch_id}"
