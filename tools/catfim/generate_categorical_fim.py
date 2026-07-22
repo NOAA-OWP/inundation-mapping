@@ -136,10 +136,11 @@ def process_generate_categorical_fim(
 
     is_logging_loaded = False
 
+    overall_start_time = datetime.now(timezone.utc)
+    dt_string = overall_start_time.strftime("%m/%d/%Y %H:%M:%S")
+    print("================================")
+
     try:
-        overall_start_time = datetime.now(timezone.utc)
-        dt_string = overall_start_time.strftime("%m/%d/%Y %H:%M:%S")
-        print("================================")
 
         load_dotenv('/foss_fim/src/bash_variables.env')
 
@@ -282,9 +283,7 @@ def process_generate_categorical_fim(
                 else:
                     logging.info(msg)
 
-        end_dt = datetime.now(timezone.utc)
-        time_duration = end_dt - section_start_dt
-        logging.info(f"Completed loading metadata - Duration: {str(time_duration).split('.')[0]}")
+        logging.info(f"Completed loading metadata : {sf.calculate_duration_msg(section_start_dt)}")
         logging.info("")
 
         # ================================
@@ -391,9 +390,7 @@ def process_generate_categorical_fim(
             threshold_url = f'{api_base_url}/nws_threshold'
             dpw.download_all_thresholds(thresholds_filepath, threshold_url, huc_dictionary, lid_source_dict)
 
-            end_dt = datetime.now(timezone.utc)
-            time_duration = end_dt - section_start_dt
-            logging.info(f"Completed downloading thresholds - Duration: {str(time_duration).split('.')[0]}")
+            logging.info(f"Completed downloading thresholds : {sf.calculate_duration_msg(section_start_dt)}")
             print("")
 
         # ================================
@@ -492,6 +489,7 @@ def process_generate_categorical_fim(
         failed_HUCs_list = []
         sucessful_HUCs_list = []
 
+        section_start_dt = datetime.now(timezone.utc)
         with ProcessPoolExecutor(max_workers=number_jobs) as executor:
 
             # Some mp functions might throw an exception, which means it may not get to as_completed
@@ -567,6 +565,7 @@ def process_generate_categorical_fim(
         # End muliproc rerun
 
         logging.info("Completed CatFIM HUC multiprocessing!")
+        logging.info(f"{sf.calculate_duration_msg(section_start_dt)}")
 
         # Print number of failed HUCs
         if len(failed_HUCs_list) > 0:
@@ -577,11 +576,6 @@ def process_generate_categorical_fim(
         # ================================
         # Run CatFIM post processing
         catfim_post_processing(output_folder)
-
-        logging.info("")
-        duration_msg = sf.calculate_duration_msg(overall_start_time)
-        logging.info(f"End of process_generate_categorical_fim() - {duration_msg}")
-        logging.info("")
 
     except Exception as ex:
         trace_error = traceback.format_exc()
@@ -599,9 +593,7 @@ def process_generate_categorical_fim(
 
     finally:
         if is_logging_loaded:
-            print("")
             print("Rolling up logs for process_generate_categorical_fim, HUCs, and multiproc...")
-            print("")
 
             huc_list_rollup = [a['huc'] for a in task_args_list]
             __roll_up_final_logs(log_file_path, huc_list_rollup, output_folder)
@@ -614,6 +606,11 @@ def process_generate_categorical_fim(
             print("Logging not loaded, skipping logs roll-up.")
             print("")
             print("================================")
+
+        logging.info("")
+        duration_msg = sf.calculate_duration_msg(overall_start_time)
+        logging.info(f"End of process_generate_categorical_fim() - {duration_msg}")
+        logging.info("")
 
 
 def make_logs_path_list(main_log_path):
