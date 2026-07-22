@@ -92,13 +92,23 @@ ENV LC_ALL=C.UTF-8
 ENV LANG=C.UTF-8
 ENV PYTHONUNBUFFERED=TRUE
 
+########################
+
+# TODO: Jul 2026: I already added the install here for "acl" which allows us to use
+# a powerful tools called setfacl to help manage permissions in folders and files
+# Once we do a new build, search in the code for the phrase "setfacl" and uncomment it
+# then you can comment out the weird chmod all of over the place
+
+########################
+
+
 ## ============================
 ## Install necessary packages
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
     p7zip-full python3.12 python3-pip python3-dev time parallel \
     mpich libmpich-dev libgeos-dev \
-    make gcc g++ expect rsync tzdata wget bzip2 curl unzip \
+    make gcc g++ expect rsync tzdata wget bzip2 curl unzip acl \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 RUN apt auto-remove
 

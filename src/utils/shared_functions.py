@@ -4,10 +4,12 @@ import glob
 import inspect
 import logging
 import os
-import pathlib
-import re
+
+# import pathlib
+# import re
 import shutil
-import sys
+
+# import sys
 import threading
 import traceback
 from concurrent.futures import Future, ProcessPoolExecutor, as_completed
@@ -16,7 +18,7 @@ from multiprocessing import Manager
 from os.path import splitext
 from pathlib import Path
 
-import fiona
+# import fiona
 import geopandas as gp
 import numpy as np
 import pandas as pd
@@ -85,8 +87,6 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
     file_dt_string = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M")
     log_file_name = f"{log_file_name_prefix}_{file_dt_string}.log"
     log_file_path = os.path.join(log_file_dir, log_file_name)
-
-    permissions_code = 0o777
 
     # we will assume the parent folder already exists
     os.makedirs(log_file_dir, exist_ok=True, mode=permissions_code)
@@ -237,8 +237,8 @@ def setup_mp_file_logger(log_file_path: str, logger_name: str, level=logging.DEB
         file_handler = logging.FileHandler(log_file_path)
         file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(formatter)
-        os.chmod(log_file_path, mode=permissions_code)
         logger.addHandler(file_handler)
+        os.chmod(log_file_path, mode=permissions_code)
         logger.propagate = False  # avoid logging to root logger too
 
     return logger
@@ -270,6 +270,52 @@ def l_print(msg, file_logger, log_level="info", screen_queue=None):
             file_logger.critical(msg)
         case _:
             raise Exception("Invalid log level value. Options are debug, info, warning, error and critical")
+
+
+def rollup_log_files(src_file, trg_file, remove_old_src_file=True):
+    # Sometimes we want to append log file onto another file.
+    # For example, a temp mp log file into the parent log.
+
+    # This will not error out if the files do not exist
+    # only send back a True / False (successful)
+
+    # this will also look for rollups automatically for -warning and -error files
+
+    if not os.path.exists(src_file) or not os.path.exists(trg_file):
+        return False
+
+    with open(src_file, 'r') as src:
+        with open(trg_file, 'a') as trg:
+            shutil.copyfileobj(src, trg)
+
+    if remove_old_src_file:
+        os.remove(src_file)
+
+    # ----------------
+    # This will auto rollup warning files if they exist
+    warning_src_file_name = src_file.replace(".log", "-warnings.log")
+    warning_trg_file_name = trg_file.replace(".log", "-warnings.log")
+    if os.path.exists(warning_src_file_name) and os.path.exists(warning_trg_file_name):
+        with open(warning_src_file_name, 'r') as src:
+            with open(warning_trg_file_name, 'a') as trg:
+                shutil.copyfileobj(src, trg)
+
+        if remove_old_src_file:
+            os.remove(warning_src_file_name)
+
+    # ----------------
+    # This will auto rollup errors files if they exist
+    error_src_file_name = src_file.replace(".log", "-errors.log")
+    error_trg_file_name = trg_file.replace(".log", "-errors.log")
+    if os.path.exists(error_src_file_name) and os.path.exists(error_trg_file_name):
+        with open(error_src_file_name, 'r') as src:
+            with open(error_trg_file_name, 'a') as trg:
+                shutil.copyfileobj(src, trg)
+
+        if remove_old_src_file:
+            os.remove(error_src_file_name)
+
+    return True
 
 
 # #################################
@@ -551,24 +597,6 @@ def run_with_mp(
 
 # #################################
 # Misc tools#
-def concat_files(src_file, trg_file, remove_old_src_file=True):
-    # Sometimes we want to append log file onto another file.
-    # For example, a temp mp log file into the parent log.
-
-    # This will not error out if the files do not exist
-    # only send back a True / False (successful)
-
-    if not os.path.exists(src_file) or not os.path.exists(trg_file):
-        return False
-
-    with open(src_file, 'r') as src:
-        with open(trg_file, 'a') as trg:
-            shutil.copyfileobj(src, trg)
-
-    if remove_old_src_file:
-        os.remove(src_file)
-
-    return True
 
 
 def getDriver(fileName):
@@ -717,36 +745,70 @@ def find_matching_subdirectories(parent_folder1, parent_folder2):
 
 
 ########################################################################
-# Function to concatenate huc csv files to a single dataframe/csv
+# Function to search and concatenate huc csvs files to a single dataframe/csv
 ########################################################################
-def concat_huc_csv(fim_dir, csv_name):
-    '''
-    Checks if huc csv file exist, concatenates contents of csv
-    Returns
-    -------
-    None.
-    '''
+def search_concat_huc_csvs(directory_path, pattern, output_file_path, is_recursive=True):
+    """
+    Scans a directory and subdirectories for files files matching a pattern.
 
-    merged_csv = []
-    huc_list = [d for d in os.listdir(fim_dir) if re.match(r'^\d{8}$', d)]
-    for huc in huc_list:
-        if huc != 'logs':
-            csv_file = os.path.join(fim_dir, huc, str(csv_name))
-            if Path(csv_file).is_file():
-                # Aggregate all of the individual huc elev_tables into one for accessing all data in one csv
-                read_csv = pd.read_csv(
-                    csv_file,
-                    dtype={'HUC8': object, 'location_id': object, 'feature_id': int, 'levpa_id': object},
-                )
-                # Add huc field to dataframe
-                read_csv['HUC8'] = huc
-                merged_csv.append(read_csv)
+    Args:
+        directory_path (str): The root folder to start scanning.
+        pattern (str): The search pattern (e.g., 'huc_*' or '*branch_ids.csv').
+        output_file_path (str): location of where to save the output csv file.
+        is_recursive (bool):
+    Returns:
+        Number of file found that was concatenated. Note, if no files were found
+        this will not create an empty output csv file.
+    """
 
-    # Create and return a concatenated pd dataframe
-    if merged_csv:
-        print("Creating aggregate csv")
-        concat_df = pd.concat(merged_csv)
-        return concat_df
+    # Create a Path object for the base directory
+    search_path = Path(directory_path)
+
+    ___, extention = os.path.splitext(output_file_path)
+    if extention != ".csv":
+        raise Exception(f"output file name and path {output_file_path} does not end in .csv")
+
+    if os.path.dirname(output_file_path) == "":
+        raise Exception(
+            f"The directory path of {output_file_path} has no pathing and is just a file name."
+            " Please add full path of where you want to save the output file."
+        )
+
+    if pattern == "":
+        raise Exception("file search pattern has not been supplied")
+
+    file_list = []
+    if is_recursive is True:
+        # rglob stands for "recursive glob" and finds matches in all subfolders
+        # Use .glob() instead if you only want to scan the top-level folder
+        file_list = list(search_path.rglob(pattern))
+    else:
+        file_list = list(search_path.glob(pattern))
+
+    num_files_found = len(file_list)
+    if num_files_found == 0:
+        return num_files_found
+
+    dataframes = []
+    for file in file_list:
+        try:
+            df = pd.read_csv(file, dtype=str)
+            if len(df) != 0:
+                # It might have just a header row but no columns, basically empty
+                dataframes.append(df)
+        except Exception as e:
+            raise Exception(f"Error reading {file.name}: {e}")
+
+    if dataframes:
+        # ignore_index=True re-indexes the rows from 0 to N
+        combined_df = pd.concat(dataframes, ignore_index=True)
+        if "huc_num" in combined_df:
+            combined_df = combined_df.sort_values(by="huc_num")
+
+        # Save to a new CSV file without writing row numbers
+        combined_df.to_csv(output_file_path, index=False)
+
+    return num_files_found
 
 
 # -----------------------------------------------------------

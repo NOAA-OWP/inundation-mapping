@@ -16,6 +16,8 @@ bridge_elev_diff_meters.tif
 dem_burned.tif
 dem_burned_filled.tif
 dem_meters.tif
+dem_meters_orig.tif
+dem_meters_pit_fill.tif
 flowdir_d8_burned_filled.tif
 flows_grid_boolean.tif
 # LandSea_subset.gpkg
@@ -38,7 +40,7 @@ nwm_subset_streams_levelPaths_dissolved_headwaters.gpkg
 # wbd8_clp.gpkg
 wbd_buffered.gpkg
 wbd_buffered_streams.gpkg
-DEM_Domain.gpkg
+DEM_Domain.parquet
 usgs_gages.gpkg
 reformat_ras_rating_curve_points_rel_101.gpkg
 nws_lid.gpkg
