@@ -47,6 +47,8 @@ def optimized_flash_flow_conflation(lookup_table, domain, timestep, output):
             lookup_table, dtype={'feature_id': 'Int64', 'row_idx': 'Int64', 'col_idx': 'Int64'}
         ).dropna(subset=["coordinates"])
 
+    domain = domain.upper()
+
     for model in ["CREST", "SAC", "HP"]:
         if timestep == "latest":
             print(f" Pulling latest {model} data")

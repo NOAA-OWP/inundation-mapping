@@ -10,6 +10,8 @@ This PR updates the FLASH FIM workflow to make it more efficient for development
 
 ### Changes
 - `tools/flashfim/conflate_flash_flows.py`: Restructured reading of FLASH grib file for efficiency.
+<br/>
+
 ## v4.9.20.1 - 2026-07-13 - [PR#1892](https://github.com/NOAA-OWP/inundation-mapping/pull/1892)
 
 Fixes a topology error in `associate_levelpaths_with_levees.py` where the negative buffer causes a `non-noded intersection`. 
@@ -35,7 +37,6 @@ Fixes a topology error in `associate_levelpaths_with_levees.py` where the negati
 ### Changes
 
 `src/associate_levelpaths_with_levees.py`: Adds `resolution` parameter for buffer creation.
-
 <br/>
 
 ## v4.9.20.0 - 2026-07-11 - [PR#1731](https://github.com/NOAA-OWP/inundation-mapping/pull/1731)
