@@ -16,7 +16,6 @@ One key changes is related to the `deploy_to_hydrovis.py` script. In the past, w
     - `deny_branch_zero.lst`,  `deny_branches.lst`, and `deny_unit.lst`:  Some cleanup and updates.
     - `hv_deploy_params.env`:  Updated to true paths, plus new hand/fim versions updated. Also a few adjustments based on current other tools needs for uploading to HV for this releasel.
 - `data/wrds/download_process_wrds.py`:  Fix file saving issues for permissions as experienced in the OWP enviro. Also changed the output file name convention.
-- `src/bash_variables.env`; update for the latest wrds meta and threshold pickle file paths. (copied to all enviros)
 - `tools/test_case_by_hydro_id.py`
     - misc small adjustment but also updated the filterwarning for all files and not just gdal.
     - Changed to build up a list of dataframes instead of constant concatenation. Helps with performance.
