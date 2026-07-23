@@ -10,13 +10,13 @@ import numpy as np
 import pandas as pd
 
 
-OPTZ_MANNINGS_OUTPUT_FILENAME = 'optz_mannings_v6_2.csv'
 CHANNEL_N_NAN_FILL = 0.06
 OVERBANK_N_NAN_FILL = 0.12
 LOSS_DEVIATION_THRESHOLD = 15
 CH_N_VALID_THRESHOLD = (0.011, 0.09)
 OB_N_VALID_THRESHOLD = (0.040, 0.17)
 DUPLICATE_FEATURE_OVERLAP_CRS = 'EPSG:5070'
+# OPTZ_MANNINGS_OUTPUT_FILENAME = 'optz_mannings_v6_2.csv'
 
 
 # *****************************************************************************
