@@ -684,9 +684,10 @@ def get_huc_vars(huc):
 
     Keys are consistent across all regions ('crs', 'landsea', 'roads', 'NLD',
     'levees_preprocessed', 'levee_protected_areas', 'lakes', 'nwm_catchments',
-    'streams', 'headwaters'); a key is None where a region has no dedicated
-    value (e.g. American Samoa has no NLD/levee inputs). 'landsea' resolves to the
-    Great Lakes boundary for HUCs in region 04, regardless of CRS region.
+    'streams', 'headwaters', 'wbd', 'dem_domain'); a key is None where a region
+    has no dedicated value (e.g. American Samoa has no NLD/levee inputs).
+    'landsea' resolves to the Great Lakes boundary for HUCs in region 04,
+    regardless of CRS region.
     Expects bash_variables.env to have been loaded by the calling script.
     """
     if str(huc).startswith('19'):
@@ -701,6 +702,8 @@ def get_huc_vars(huc):
             'nwm_catchments': os.getenv('input_nwm_catchments_Alaska'),
             'streams': os.getenv('input_nwm_flows_Alaska'),
             'headwaters': os.getenv('input_nwm_headwaters_Alaska'),
+            'wbd': os.getenv('input_WBD_gdb_Alaska'),
+            'dem_domain': os.getenv('input_DEM_domain_Alaska'),
         }
     elif str(huc) == '22010000':
         return {
@@ -714,6 +717,8 @@ def get_huc_vars(huc):
             'nwm_catchments': os.getenv('input_nwm_catchments_Guam'),
             'streams': os.getenv('input_nhd_flows_Guam'),
             'headwaters': os.getenv('input_nhd_headwaters_Guam'),
+            'wbd': os.getenv('input_WBD_gdb_Guam'),
+            'dem_domain': os.getenv('input_DEM_domain_Guam'),
         }
     elif str(huc) == '22030001':
         return {
@@ -727,6 +732,8 @@ def get_huc_vars(huc):
             'nwm_catchments': os.getenv('input_nwm_catchments_AmericanSamoa'),
             'streams': os.getenv('input_nhd_flows_AmericanSamoa'),
             'headwaters': os.getenv('input_nhd_headwaters_AmericanSamoa'),
+            'wbd': os.getenv('input_WBD_gdb_AmericanSamoa'),
+            'dem_domain': os.getenv('input_DEM_domain_AmericanSamoa'),
         }
     else:
         return {
@@ -742,6 +749,8 @@ def get_huc_vars(huc):
             'nwm_catchments': os.getenv('input_nwm_catchments'),
             'streams': os.getenv('input_nwm_flows'),
             'headwaters': os.getenv('input_nwm_headwaters'),
+            'wbd': os.getenv('input_WBD_gdb'),
+            'dem_domain': os.getenv('input_DEM_domain'),
         }
 
 
