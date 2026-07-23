@@ -18,7 +18,7 @@ from networkx import Graph, connected_components
 from osmnx._errors import InsufficientResponseError
 from shapely.geometry import LineString, box, shape
 
-from src.utils.shared_functions import get_crs_for_huc, run_with_mp, setup_mp_file_logger
+from src.utils.shared_functions import get_huc_vars, run_with_mp, setup_mp_file_logger
 
 
 # Set the timeout to 500 seconds (5 minutes), which is possible depending on network speed
@@ -276,7 +276,7 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom, file_logger, sc
             screen_queue.put(f"osmnx pull for {huc_num} returned no linear bridge geometries after filtering")
             return 1, [True]
 
-        gdf1 = gdf1.to_crs(get_crs_for_huc(huc_num))
+        gdf1 = gdf1.to_crs(get_huc_vars(huc_num)['crs'])
 
         # Perform dissolve touching lines
         buffered = gdf1.copy()

@@ -679,21 +679,70 @@ def get_env_value(env_var_name):
 
 
 # ============================
-def get_crs_for_huc(huc):
-    """Return the appropriate CRS string for a given 8-digit HUC number.
+def get_huc_vars(huc):
+    """Return the region-specific env vars (CRS and input paths) for a given 8-digit HUC number.
 
-    Reads DEFAULT_FIM_PROJECTION_CRS, ALASKA_CRS, GUAM_CRS, and
-    AMERICAN_SAMOA_CRS from the environment (expects bash_variables.env
-    to have been loaded by the calling script).
+    Keys are consistent across all regions ('crs', 'landsea', 'roads', 'NLD',
+    'levees_preprocessed', 'levee_protected_areas', 'lakes', 'nwm_catchments',
+    'streams', 'headwaters'); a key is None where a region has no dedicated
+    value (e.g. American Samoa has no NLD/levee inputs). 'landsea' resolves to the
+    Great Lakes boundary for HUCs in region 04, regardless of CRS region.
+    Expects bash_variables.env to have been loaded by the calling script.
     """
     if str(huc).startswith('19'):
-        return os.getenv('ALASKA_CRS')
+        return {
+            'crs': os.getenv('ALASKA_CRS'),
+            'landsea': os.getenv('input_landsea_Alaska'),
+            'roads': os.getenv('osm_roads_alaska'),
+            'NLD': os.getenv('input_NLD_Alaska'),
+            'levees_preprocessed': os.getenv('input_levees_preprocessed_Alaska'),
+            'levee_protected_areas': os.getenv('input_nld_levee_protected_areas_Alaska'),
+            'lakes': os.getenv('input_nwm_lakes_Alaska'),
+            'nwm_catchments': os.getenv('input_nwm_catchments_Alaska'),
+            'streams': os.getenv('input_nwm_flows_Alaska'),
+            'headwaters': os.getenv('input_nwm_headwaters_Alaska'),
+        }
     elif str(huc) == '22010000':
-        return os.getenv('GUAM_CRS')
+        return {
+            'crs': os.getenv('GUAM_CRS'),
+            'landsea': os.getenv('input_landsea_Guam'),
+            'roads': os.getenv('osm_roads_guam'),
+            'NLD': os.getenv('input_NLD_Guam'),
+            'levees_preprocessed': os.getenv('input_levees_preprocessed_Guam'),
+            'levee_protected_areas': os.getenv('input_nld_levee_protected_areas_Guam'),
+            'lakes': os.getenv('input_nhd_lakes_Guam'),
+            'nwm_catchments': os.getenv('input_nwm_catchments_Guam'),
+            'streams': os.getenv('input_nhd_flows_Guam'),
+            'headwaters': os.getenv('input_nhd_headwaters_Guam'),
+        }
     elif str(huc) == '22030001':
-        return os.getenv('AMERICAN_SAMOA_CRS')
+        return {
+            'crs': os.getenv('AMERICAN_SAMOA_CRS'),
+            'landsea': os.getenv('input_landsea_AmericanSamoa'),
+            'roads': os.getenv('osm_roads_americansamoa'),
+            'NLD': None,
+            'levees_preprocessed': None,
+            'levee_protected_areas': None,
+            'lakes': os.getenv('input_nhd_lakes_AmericanSamoa'),
+            'nwm_catchments': os.getenv('input_nwm_catchments_AmericanSamoa'),
+            'streams': os.getenv('input_nhd_flows_AmericanSamoa'),
+            'headwaters': os.getenv('input_nhd_headwaters_AmericanSamoa'),
+        }
     else:
-        return os.getenv('DEFAULT_FIM_PROJECTION_CRS')
+        return {
+            'crs': os.getenv('DEFAULT_FIM_PROJECTION_CRS'),
+            'landsea': (
+                os.getenv('input_GL_boundaries') if str(huc).startswith('04') else os.getenv('input_landsea')
+            ),
+            'roads': os.getenv('osm_roads'),
+            'NLD': os.getenv('input_NLD'),
+            'levees_preprocessed': os.getenv('input_levees_preprocessed'),
+            'levee_protected_areas': os.getenv('input_nld_levee_protected_areas'),
+            'lakes': os.getenv('input_nwm_lakes'),
+            'nwm_catchments': os.getenv('input_nwm_catchments'),
+            'streams': os.getenv('input_nwm_flows'),
+            'headwaters': os.getenv('input_nwm_headwaters'),
+        }
 
 
 # ============================

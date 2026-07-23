@@ -15,7 +15,7 @@ import pandas as pd
 from dotenv import load_dotenv
 
 from heal_bridges_osm import flow_lookup, flows_from_hydrotable
-from utils.shared_functions import get_crs_for_huc
+from utils.shared_functions import get_huc_vars
 
 
 #################################
@@ -467,7 +467,7 @@ class HucDirectory(object):
 
                     # Set the CRS if it is not already set
                     if bridge_pnts.crs is None:
-                        bridge_pnts.set_crs(get_crs_for_huc(huc_id), inplace=True)
+                        bridge_pnts.set_crs(get_huc_vars(huc_id)['crs'], inplace=True)
                     bridge_pnts.to_file(bridge_pnts_file, index=False, engine='fiona')
 
             if road_flag:

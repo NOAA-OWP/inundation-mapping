@@ -16,7 +16,7 @@ import pyarrow.parquet as pq
 from dotenv import load_dotenv
 from shapely.geometry import box
 
-from src.utils.shared_functions import get_crs_for_huc, run_with_mp, setup_mp_file_logger
+from src.utils.shared_functions import get_huc_vars, run_with_mp, setup_mp_file_logger
 
 
 # Your required building attributes (geometry always will be included)
@@ -128,7 +128,7 @@ def load_single_huc_for_crs(huc8: str, huc_dir: Path, file_logger, screen_queue,
         if not gpkg.exists():
             raise RuntimeError(f"Missing wbd_buffered.gpkg file for HUC8_{huc8}.")
 
-        crs_key = get_crs_for_huc(huc8)
+        crs_key = get_huc_vars(huc8)['crs']
 
         h = gpd.read_file(gpkg)
         geom = h.geometry.union_all()
@@ -167,10 +167,10 @@ def load_hucs_by_crs(
 
     # Buckets keyed by CRS string
     crs_to_hucs_dict: Dict[str, List[dict]] = {
-        get_crs_for_huc('00000000'): [],  # conus
-        get_crs_for_huc('19000000'): [],  # alaska
-        get_crs_for_huc('22010000'): [],  # guam
-        get_crs_for_huc('22030001'): [],  # american samoa
+        get_huc_vars('00000000')['crs']: [],  # conus
+        get_huc_vars('19000000')['crs']: [],  # alaska
+        get_huc_vars('22010000')['crs']: [],  # guam
+        get_huc_vars('22030001')['crs']: [],  # american samoa
     }
 
     huc_tasks = [{"huc8": d.name, "huc_dir": d} for d in huc_dirs]

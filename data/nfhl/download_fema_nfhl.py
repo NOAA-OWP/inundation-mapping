@@ -11,7 +11,7 @@ from shapely import Polygon
 
 from src.utils.shared_functions import FIM_Helpers as fh
 from src.utils.shared_functions import (
-    get_crs_for_huc,
+    get_huc_vars,
     read_huc_file_list_or_array_of_hucs,
     run_with_mp,
     setup_mp_file_logger,
@@ -165,7 +165,7 @@ def download_nfhl(
             wbd = wbd_american_samoa
         else:
             wbd = wbd_conus
-        geometryCRS = int(get_crs_for_huc(huc).split(':')[1])
+        geometryCRS = int(get_huc_vars(huc)['crs'].split(':')[1])
 
         if wbd is None:
             file_logger.error(f'No wbd available for huc {huc}')
