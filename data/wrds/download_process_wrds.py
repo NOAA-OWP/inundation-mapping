@@ -677,7 +677,7 @@ def download_process_wrds(
     # If no metafile is provided, generate filepath and filename
     if input_metadata_file == '':
         label_with_date = label_data_file(label, lst_hucs)
-        output_metadata_filename = f'metadata{label_with_date}.pkl'
+        output_metadata_filename = f'WRDS_Metadata{label_with_date}.pkl'
         metadata_filepath = os.path.join(output_folder, output_metadata_filename)
 
     # If metadata filepath is provided, use it
@@ -732,7 +732,7 @@ def download_process_wrds(
         print(f'Site source table will be saved to {output_lid_source_table_filepath}')
 
         label_with_date = label_data_file(label, lst_hucs)
-        output_thresholds_filename = f'thresholds{label_with_date}.pkl'
+        output_thresholds_filename = f'WRDS_Thresholds{label_with_date}.pkl'
         thresholds_filepath = os.path.join(output_folder, output_thresholds_filename)
 
         print(f"Thresholds will be downloaded for sites in {len(huc_lid_dict)} HUCs")
