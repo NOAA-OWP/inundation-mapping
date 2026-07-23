@@ -10,9 +10,7 @@ import numpy as np
 import pandas as pd
 
 
-OPTZ_MANNINGS_FILENAME = 'optz_mannings_v6_1_1.csv'
 OPTZ_MANNINGS_OUTPUT_FILENAME = 'optz_mannings_v6_2.csv'
-OHIO_ALLEGENY_MONONGAHELA_RIVERS_FILENAME = 'ohio_allegeny_monongahela_chicago_more_fids_mannings_n.csv'
 CHANNEL_N_NAN_FILL = 0.06
 OVERBANK_N_NAN_FILL = 0.12
 LOSS_DEVIATION_THRESHOLD = 15
@@ -705,11 +703,14 @@ def create_cluster_order_optz_roughness_df(huc_feature_optz_df, optz_metrics_dir
 
 # *****************************************************************************
 def update_mannings_with_cluster_order_optz_roughness(
-    all_huc_feature_cluster_df, cluster_order_optz_roughness_df, optz_metrics_dir, optz_mannings_path
+    all_huc_feature_cluster_df,
+    cluster_order_optz_roughness_df,
+    optz_metrics_dir,
+    custom_roughness_path,
+    previous_mannings_path,
+    optz_mannings_path,
 ):
-    ohio_allegeny_monongahela_mannings_path = join(
-        optz_metrics_dir, OHIO_ALLEGENY_MONONGAHELA_RIVERS_FILENAME
-    )
+    ohio_allegeny_monongahela_mannings_path = custom_roughness_path
 
     required_mannings_cols = ['feature_id', 'channel_n', 'overbank_n']
     required_feature_cols = ['feature_id', 'cluster', 'order_']
@@ -721,13 +722,13 @@ def update_mannings_with_cluster_order_optz_roughness(
         'optz_mannN_ob_<=3',
     ]
 
-    if not os.path.exists(optz_mannings_path):
-        raise FileNotFoundError(f"{optz_mannings_path} not found")
+    if not os.path.exists(previous_mannings_path):
+        raise FileNotFoundError(f"{previous_mannings_path} not found")
 
-    mannings_df = pd.read_csv(optz_mannings_path)
+    mannings_df = pd.read_csv(previous_mannings_path)
     missing_mannings_cols = [col for col in required_mannings_cols if col not in mannings_df.columns]
     if missing_mannings_cols:
-        raise ValueError(f"{optz_mannings_path} is missing required columns: {missing_mannings_cols}")
+        raise ValueError(f"{previous_mannings_path} is missing required columns: {missing_mannings_cols}")
 
     # # TODO Manually adjust some huc/features roughness values
     # all_huc_feature_cluster_path = join(optz_metrics_dir, 'all_huc_feature_clusters_20260630.csv')
@@ -791,10 +792,6 @@ def update_mannings_with_cluster_order_optz_roughness(
     cluster_lookup_df[cluster_lookup_df.columns[1:]] = cluster_lookup_df[cluster_lookup_df.columns[1:]].round(
         3
     )
-    # cluster_lookup_df.loc[
-    #     cluster_lookup_df["cluster"].between(1, 5),
-    #     ["optz_mannN_ch_>3", "optz_mannN_ch_<=3", "optz_mannN_ob_>3", "optz_mannN_ob_<=3"],
-    # ] = [0.051, 0.053, 0.109, 0.087]
 
     feature_roughness_df = feature_lookup_df.merge(cluster_lookup_df, on='cluster', how='left')
     order_gt_3 = feature_roughness_df['order_'] > 3
@@ -833,11 +830,6 @@ def update_mannings_with_cluster_order_optz_roughness(
         ohio_allegeny_monongahela_df['overbank_n'], errors='raise'
     )
 
-    # ohio_allegeny_monongahela_feature_ids = set(ohio_allegeny_monongahela_df['feature_id'].drop_duplicates())
-    # ohio_allegeny_monongahela_update_mask = updated_mannings_df['feature_id'].isin(
-    #     ohio_allegeny_monongahela_feature_ids
-    # )
-
     channel_map = ohio_allegeny_monongahela_df.set_index('feature_id')['channel_n']
     overbank_map = ohio_allegeny_monongahela_df.set_index('feature_id')['overbank_n']
 
@@ -849,13 +841,6 @@ def update_mannings_with_cluster_order_optz_roughness(
         overbank_map
     )
 
-    # updated_mannings_df.loc[ohio_allegeny_monongahela_update_mask, 'channel_n'] = (
-    #     ohio_allegeny_monongahela_df['channel_n']
-    # )
-    # updated_mannings_df.loc[ohio_allegeny_monongahela_update_mask, 'overbank_n'] = (
-    #     ohio_allegeny_monongahela_df['overbank_n']
-    # )
-
     updated_mannings_df['channel_n'] = updated_mannings_df['channel_n'].fillna(CHANNEL_N_NAN_FILL)
     updated_mannings_df['overbank_n'] = updated_mannings_df['overbank_n'].fillna(OVERBANK_N_NAN_FILL)
 
@@ -863,13 +848,20 @@ def update_mannings_with_cluster_order_optz_roughness(
         3
     )
 
-    output_csv_path = join(os.path.dirname(optz_mannings_path), OPTZ_MANNINGS_OUTPUT_FILENAME)
+    output_csv_path = optz_mannings_path
 
     updated_mannings_df[required_mannings_cols].to_csv(output_csv_path, index=False)
 
 
 # *****************************************************************************
-def analyze_optz_roughness(optz_metrics_dir, pre_clip_huc8_dir, cluster_csv_path, optz_mannings_path):
+def analyze_optz_roughness(
+    optz_metrics_dir,
+    pre_clip_huc8_dir,
+    cluster_csv_path,
+    custom_roughness_path,
+    previous_mannings_path,
+    optz_mannings_path,
+):
 
     huc_feature_cluster_df, all_huc_feature_cluster_df = create_huc_feature_cluster_df(
         optz_metrics_dir, pre_clip_huc8_dir, cluster_csv_path
@@ -882,7 +874,12 @@ def analyze_optz_roughness(optz_metrics_dir, pre_clip_huc8_dir, cluster_csv_path
         huc_feature_optz_df, optz_metrics_dir
     )
     update_mannings_with_cluster_order_optz_roughness(
-        all_huc_feature_cluster_df, cluster_order_optz_roughness_df, optz_metrics_dir, optz_mannings_path
+        all_huc_feature_cluster_df,
+        cluster_order_optz_roughness_df,
+        optz_metrics_dir,
+        custom_roughness_path,
+        previous_mannings_path,
+        optz_mannings_path,
     )
 
 
@@ -910,9 +907,24 @@ if __name__ == '__main__':
         type=str,
     )
     parser.add_argument(
+        '-custom_roughness_path',
+        '--custom_roughness_path',
+        help='Path to a csv file of custom roughness to be over-written, e.g. '
+        '/inputs/rating_curve/variable_roughness/ohio_allegeny_monongahela_chicago_more_fids_mannings_n.csv',
+        required=True,
+        type=str,
+    )
+    parser.add_argument(
+        '-previous_mannings_path',
+        '--previous_mannings_path',
+        help='Path to a previous optz_mannings.csv, e.g. /inputs/rating_curve/variable_roughness/optz_mannings_v6_1_1.csv',
+        required=True,
+        type=str,
+    )
+    parser.add_argument(
         '-optz_mannings_path',
         '--optz_mannings_path',
-        help='Path to a previous optz_mannings.csv, e.g. /inputs/rating_curve/variable_roughness/optz_mannings_v6_1_1.csv',
+        help='Path to save optz_mannings.csv (output), e.g. /inputs/rating_curve/variable_roughness/optz_mannings_v6_2.csv or a custom dir',
         required=True,
         type=str,
     )
@@ -921,6 +933,15 @@ if __name__ == '__main__':
     analysis_dir = args['metrics_dir']
     preclip_huc8_dir = args['preclip_huc8_dir']
     cluster_csv_path = args['cluster_csv_path']
+    custom_roughness_path = args['custom_roughness_path']
+    previous_mannings_path = args['previous_mannings_path']
     optz_mannings_path = args['optz_mannings_path']
 
-    analyze_optz_roughness(analysis_dir, preclip_huc8_dir, cluster_csv_path, optz_mannings_path)
+    analyze_optz_roughness(
+        analysis_dir,
+        preclip_huc8_dir,
+        cluster_csv_path,
+        custom_roughness_path,
+        previous_mannings_path,
+        optz_mannings_path,
+    )
