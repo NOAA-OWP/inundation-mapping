@@ -390,9 +390,9 @@ echo "Overall processing duration (in percent minutes) : $overall_list_download_
 echo "-- scanning for files for warnings and errors"
 file_name_date=$(date +"%Y%m%d_%H%M")
 error_file_path="$error_folder_name/errors_${file_name_date}.log"
-find $log_folder -maxdepth 1 -type f -exec grep -iHn "error" {} +  > $error_file_path &
+find $log_folder -maxdepth 1 -type f -print0 | -exec grep -iHn "error" {} +  > $error_file_path
 
 warning_file_path="$error_folder_name/warnings_${file_name_date}.log"
-find $log_folder -maxdepth 1 -type f -exec grep -iHn "warning" {} +  > $warning_file_path &
+find $log_folder -maxdepth 1 -type f  -print0 | -exec grep -iHn "warning" {} +  > $warning_file_path
 
 echo "======================= End of loading model collection folders ========================="
