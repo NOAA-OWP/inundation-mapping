@@ -187,21 +187,20 @@ class StreamNetwork(gpd.GeoDataFrame):
         )
         return self
 
-    def drop(self, labels=None, axis=0):
+    def drop(self, labels=None, axis=0, **kwargs):
         branch_id_attribute = self.branch_id_attribute
         attribute_excluded = self.attribute_excluded
         values_excluded = self.values_excluded
 
-        self = super(gpd.GeoDataFrame, self)
-        self = self.drop(labels=labels, axis=axis)
+        # Pass everything cleanly down to GeoDataFrame's drop method
+        df_dropped = super().drop(labels=labels, axis=axis, **kwargs)
 
-        self = StreamNetwork(
-            self,
+        return StreamNetwork(
+            df_dropped,
             branch_id_attribute=branch_id_attribute,
             attribute_excluded=attribute_excluded,
             values_excluded=values_excluded,
         )
-        return self
 
     def rename(self, columns):
         branch_id_attribute = self.branch_id_attribute
