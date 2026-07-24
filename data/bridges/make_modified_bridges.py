@@ -38,7 +38,7 @@ def make_modified_bridges(osm_bridge_dir, lidar_raster_dir, ml_raster_dir, outpu
         HUC = match.group(1)
 
         lidar_tifs = glob.glob(os.path.join(lidar_raster_dir, HUC, 'lidar_osm_rasters', '*.tif'))
-        ml_tifs = glob.glob(os.path.join(ml_raster_dir, HUC, 'ml_osm_rasters', '*.tif'))
+        ml_tifs = glob.glob(os.path.join(ml_raster_dir, HUC, '*.tif'))
         lidar_osmids = {os.path.splitext(os.path.basename(p))[0] for p in lidar_tifs}
         ml_osmids = {os.path.splitext(os.path.basename(p))[0] for p in ml_tifs}
 
@@ -53,7 +53,7 @@ def make_modified_bridges(osm_bridge_dir, lidar_raster_dir, ml_raster_dir, outpu
 
         n_lidar = (gdf['has_lidar_tif'] == 'Y').sum()
         n_ml = (gdf['has_ml_tif'] == 'Y').sum()
-        msg = f"HUC {HUC}: {len(gdf)} bridges — {n_lidar} with lidar TIF, {n_ml} with ML TIF → {out_path}"
+        msg = f"HUC {HUC}: {len(gdf)} bridges — {n_lidar} with lidar TIF, {n_ml} with ML TIF"
         file_logger.info(msg)
         print(msg)
 
@@ -108,7 +108,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '-m',
         '--ml_raster_dir',
-        help='REQUIRED: Root directory containing per-HUC ml_osm_rasters/ subdirectories (output of make_rasters_using_ml.py).',
+        help='REQUIRED: Root directory containing per-HUC subdirectories containing ml rasters (output of make_rasters_using_ml.py).',
         required=True,
     )
 

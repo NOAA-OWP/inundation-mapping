@@ -78,7 +78,7 @@ def make_one_diff(
         HUC_lidar_tif_paths = sorted(
             glob.glob(os.path.join(lidar_raster_dir, HUC, 'lidar_osm_rasters', '*.tif'))
         )
-        HUC_ml_tif_paths = sorted(glob.glob(os.path.join(ml_raster_dir, HUC, 'ml_osm_rasters', '*.tif')))
+        HUC_ml_tif_paths = sorted(glob.glob(os.path.join(ml_raster_dir, HUC, '*.tif')))
 
         # Build combined TIF map: lidar takes priority; ML fills in where lidar is absent
         lidar_tif_map = {os.path.splitext(os.path.basename(p))[0]: p for p in HUC_lidar_tif_paths}
@@ -321,7 +321,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '-m',
         '--ml_raster_dir',
-        help='REQUIRED: Root directory containing per-HUC ml_osm_rasters subdirectories with ML TIF files.',
+        help='REQUIRED: Root directory containing per-HUC subdirectories containing ML TIF files.',
         required=True,
     )
 

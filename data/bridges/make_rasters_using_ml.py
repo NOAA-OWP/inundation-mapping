@@ -17,11 +17,10 @@ from make_rasters_using_lidar import (
     handle_noises,
     las_to_gpkg,
     make_local_tifs,
-    progress_bar_handler,
     summarize_classification_counts,
 )
 
-from src.utils.shared_functions import get_crs_for_huc, run_with_mp, setup_mp_file_logger
+from src.utils.shared_functions import get_huc_vars, run_with_mp, setup_mp_file_logger
 
 
 _srcDir = os.getenv('srcDir')
@@ -93,11 +92,13 @@ def discover_tasks(laz_base_dir):
         if not huc_dir.is_dir() or not HUC_PATTERN.match(huc_dir.name):
             continue
 
-        # Creates a dictionary where each OSMID can map to a list of .laz files.
+        # Creates a dictionary where each OSMID can map to a list of .laz files--each osmd can have multiple laz files
         osmid_map = defaultdict(list)
         for laz_file in sorted(huc_dir.glob('*.laz')):
+            # osmid_match is a re.Match object if the filename fits that pattern, else None.
             osmid_match = OSMID_PATTERN.match(laz_file.name)
             if osmid_match:
+                # group(1) is the first parenthesized group, i.e. the digits captured by (\d+) -- the osmid itself.
                 osmid = osmid_match.group(1)
                 osmid_map[osmid].append(str(laz_file))
 
@@ -115,13 +116,13 @@ def process_ml_laz_to_rasters(laz_base_dir, output_raster_dir, raster_resolution
     log_file_path = os.path.join(output_raster_dir, "bridge_rasters_from_ml.log")
     file_logger = setup_mp_file_logger(log_file_path, logger_name="bridge_rasters_from_ml")
     print('started the process')
-    file_logger.info('started the process')
 
     file_logger.info(f"Starting ML bridge LAZ-to-raster conversion at {start_time}")
     file_logger.info(f"LAZ input dir:     {laz_base_dir}")
     file_logger.info(f"Raster output dir: {output_raster_dir}")
 
     # Scan HUC directories and group LAZ files by extracted OSMID.
+    # this returns list of (osmid, [laz_paths], huc_name)
     tasks = discover_tasks(laz_base_dir)
     if not tasks:
         sys.exit(f"No valid LAZ files found under {laz_base_dir}")
@@ -133,18 +134,18 @@ def process_ml_laz_to_rasters(laz_base_dir, output_raster_dir, raster_resolution
             sys.exit(f"No LAZ files found for the requested HUCs: {selected_hucs}")
 
     huc_count = len({t[2] for t in tasks})
-    file_logger.info(f"Found {len(tasks)} osmid tasks across {huc_count} HUC directories")
-    print(f"Found {len(tasks)} osmid tasks across {huc_count} HUC directories")
+    file_logger.info(f"Working on {len(tasks)} osmid across {huc_count} HUC")
+    print(f"Working on {len(tasks)} osmid across {huc_count} HUC")
 
     for huc in {t[2] for t in tasks}:
-        os.makedirs(os.path.join(output_raster_dir, huc, 'ml_osm_rasters'), exist_ok=True)
+        os.makedirs(os.path.join(output_raster_dir, huc), exist_ok=True)
 
     ### start of parallel
     osmid_to_huc = {osmid: huc for osmid, _, huc in tasks}
     tasks_args_list = []
     for osmid, laz_paths, huc in tasks:
-        bridges_crs = get_crs_for_huc(huc)
-        output_dir = os.path.join(output_raster_dir, huc, 'ml_osm_rasters')
+        bridges_crs = get_huc_vars(huc)['crs']
+        output_dir = os.path.join(output_raster_dir, huc)
         tasks_args_list.append(
             {
                 'osmid': osmid,
