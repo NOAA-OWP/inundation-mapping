@@ -31,6 +31,23 @@ Also a new `get_crs_for_huc()` function in `src/bash_functions.env` is created f
 
 <br/>
 
+## v4.9.20.2 - 2026-07-24 - [PR#1882](https://github.com/NOAA-OWP/inundation-mapping/pull/1882)
+
+This PR focuses on an automated calibration framework that optimizes channel and overbank Manning's roughness coefficients to improve FIM accuracy. The workflow iteratively updates hydroTables with candidate roughness values, generates new inundation maps, and evaluates their performance against benchmark flood extents using validation metrics. An optimization algorithm searches for the Manning's n values that minimize the selected loss function across all available benchmark events for each HUC. Finally, the optimized roughness values are aggregated, quality controlled, and mapped back to bash_varables.sh as a file optz_mannings_v6_2.csv to produce updated Manning's n datasets for operational use.
+
+### Additions
+
+- /tools/analyze_optz_roughness.py : post-processes the Manning’s n optimization results by reading the iteration-metrics CSVs, selecting the best or valid optimized roughness values for each HUC, and summarizing them into output tables. It also links those optimized values back to stream features, HUCs, stream orders, and runoff clusters so the final channel and overbank Manning’s n values can be applied across the hydrofabric.
+
+### Changes
+
+- /tools/manningN_optimization.py : implements the main optimization loop that searches for the best channel and overbank Manning’s n coefficients for each HUC by repeatedly updating hydroTables, generating inundation results, and minimizing false positives plus false negatives. Its required inputs are fim_dir/FIM output directory, mannN_file/CSV of initial Manning’s n values by feature_id, job_number_branch, job_number_huc, and bench_cat to choose AHPS or BLE  benchmark evaluation. The optimizer uses coefficient bounds, differential evolution, and validation metrics to write optimized Manning’s n values and total-loss results for each HUC.
+
+- /tools/run_test_case_mannN_optz_func.py : generates inundation outputs from updated hydroTables and computes benchmark validation metrics for the Manning’s n optimization workflow.
+
+<br/>
+
+
 ## v4.9.20.1 - 2026-07-13 - [PR#1892](https://github.com/NOAA-OWP/inundation-mapping/pull/1892)
 
 Fixes a topology error in `associate_levelpaths_with_levees.py` where the negative buffer causes a `non-noded intersection`. 
@@ -231,6 +248,7 @@ None
 
 - The full set of 20 plus tests, were also done against older branches prior to this PR to ensure all changes that were required for comparison reasons.
 <br/>
+
 
 ## v4.9.19.0 - 2026-07-08 - [PR#1867](https://github.com/NOAA-OWP/inundation-mapping/pull/1867)
 This pull request updates the source of the slope data to use the values provided by the hydrofabric dev team using the RANSAC (Random Sample Consensus) method. This effectively replaces the existing slope data values for use in the SRC calculations.
