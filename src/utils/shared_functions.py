@@ -324,8 +324,8 @@ def run_with_mp(
     task_function,
     tasks_args_list,
     file_logger,
+    task_id_key,  # must be one of the keys in the args list.
     max_workers=4,
-    task_id_key=None,  # must not be None and must be one of the keys in the args list.
     show_progress=True,
 ):
     '''
@@ -363,13 +363,11 @@ def run_with_mp(
 
     # Different tools have different needs for how it uses it's MP functions and what it returns from run_with_mp.
 
-    # This tool requires that two things are returned: a return code, then a list (might be empty
-    #    or any just one list item containing any object such as a bool, string, dictionary, dataframe, etc)
-    #    If you the task is succesful and you have no specific need for anything to return, just return an empty
-    #    list. ie) [].
-    #    Only one item inside the list can be returned and it will be extracted to add to the growing
-    #    main return set. results = {}.
-    #    In the end, you will have a set of T/F, dictionaries, dataframes, string, etc
+    # This tool requires that two things are returned: a return code, then a list.
+    #    The list can be empty ([]), contain a single item, or contain multiple items — whatever
+    #    the caller needs (e.g. a bool, a string, a dataframe, or multiple values like
+    #    [bool, df1, df2]). The entire list is stored as-is in the results dict under the task_id.
+    #    In the end, results = {task_id: rtn_value_list, ...}
 
     # -  A status code. options are:
     #       1: Success and show tqdm or print success line
@@ -402,14 +400,15 @@ def run_with_mp(
     if not task_id_key:
         raise Exception("task_id_key can not be None or empty")
 
-    # TODO: Add a validation test to ensure the task_id_key exists as a poplated key in all items
-    # in the tasks_args_list.
+    missing = [i for i, t in enumerate(tasks_args_list) if task_id_key not in t]
+    if missing:
+        raise Exception(f"task_id_key '{task_id_key}' missing from tasks_args_list at indices: {missing}")
 
     try:
         # the thread must be inside the try catch to be closed correct in system fail.
         screen_queue = (
             Manager().Queue()
-        )  # creates a process-safe Queue that allows subprocesses to put() messages into it.
+        )  # Manager proxy queue — picklable so it can be passed to spawned worker processes via ProcessPoolExecutor
 
         # Background thread to print logs without interrupting tqdm
         def log_worker(queue):
@@ -565,7 +564,8 @@ def run_with_mp(
                 # Yes.. seems weird to have this here and a new exception.
                 # But it helps force shut down other objects like manual logging and a
                 # a queue.
-                pbar.close()  # aborts the progress bar
+                if pbar:
+                    pbar.close()  # aborts the progress bar
 
                 if console_queue_thread:
                     screen_queue.put("DONE")  # sends the stop SIGNAL to thread
@@ -676,6 +676,82 @@ def get_env_value(env_var_name):
             break
 
     return env_value
+
+
+# ============================
+def get_huc_vars(huc):
+    """Return the region-specific env vars (CRS and input paths) for a given 8-digit HUC number.
+
+    Keys are consistent across all regions ('crs', 'landsea', 'roads', 'NLD',
+    'levees_preprocessed', 'levee_protected_areas', 'lakes', 'nwm_catchments',
+    'streams', 'headwaters', 'wbd', 'dem_domain'); a key is None where a region
+    has no dedicated value (e.g. American Samoa has no NLD/levee inputs).
+    'landsea' resolves to the Great Lakes boundary for HUCs in region 04,
+    regardless of CRS region.
+    Expects bash_variables.env to have been loaded by the calling script.
+    """
+    if str(huc).startswith('19'):
+        return {
+            'crs': os.getenv('ALASKA_CRS'),
+            'landsea': os.getenv('input_landsea_Alaska'),
+            'roads': os.getenv('osm_roads_alaska'),
+            'NLD': os.getenv('input_NLD_Alaska'),
+            'levees_preprocessed': os.getenv('input_levees_preprocessed_Alaska'),
+            'levee_protected_areas': os.getenv('input_nld_levee_protected_areas_Alaska'),
+            'lakes': os.getenv('input_nwm_lakes_Alaska'),
+            'nwm_catchments': os.getenv('input_nwm_catchments_Alaska'),
+            'streams': os.getenv('input_nwm_flows_Alaska'),
+            'headwaters': os.getenv('input_nwm_headwaters_Alaska'),
+            'wbd': os.getenv('input_WBD_gdb_Alaska'),
+            'dem_domain': os.getenv('input_DEM_domain_Alaska'),
+        }
+    elif str(huc) == '22010000':
+        return {
+            'crs': os.getenv('GUAM_CRS'),
+            'landsea': os.getenv('input_landsea_Guam'),
+            'roads': os.getenv('osm_roads_guam'),
+            'NLD': os.getenv('input_NLD_Guam'),
+            'levees_preprocessed': os.getenv('input_levees_preprocessed_Guam'),
+            'levee_protected_areas': os.getenv('input_nld_levee_protected_areas_Guam'),
+            'lakes': os.getenv('input_nhd_lakes_Guam'),
+            'nwm_catchments': os.getenv('input_nwm_catchments_Guam'),
+            'streams': os.getenv('input_nhd_flows_Guam'),
+            'headwaters': os.getenv('input_nhd_headwaters_Guam'),
+            'wbd': os.getenv('input_WBD_gdb_Guam'),
+            'dem_domain': os.getenv('input_DEM_domain_Guam'),
+        }
+    elif str(huc) == '22030001':
+        return {
+            'crs': os.getenv('AMERICAN_SAMOA_CRS'),
+            'landsea': os.getenv('input_landsea_AmericanSamoa'),
+            'roads': os.getenv('osm_roads_americansamoa'),
+            'NLD': None,
+            'levees_preprocessed': None,
+            'levee_protected_areas': None,
+            'lakes': os.getenv('input_nhd_lakes_AmericanSamoa'),
+            'nwm_catchments': os.getenv('input_nwm_catchments_AmericanSamoa'),
+            'streams': os.getenv('input_nhd_flows_AmericanSamoa'),
+            'headwaters': os.getenv('input_nhd_headwaters_AmericanSamoa'),
+            'wbd': os.getenv('input_WBD_gdb_AmericanSamoa'),
+            'dem_domain': os.getenv('input_DEM_domain_AmericanSamoa'),
+        }
+    else:
+        return {
+            'crs': os.getenv('DEFAULT_FIM_PROJECTION_CRS'),
+            'landsea': (
+                os.getenv('input_GL_boundaries') if str(huc).startswith('04') else os.getenv('input_landsea')
+            ),
+            'roads': os.getenv('osm_roads'),
+            'NLD': os.getenv('input_NLD'),
+            'levees_preprocessed': os.getenv('input_levees_preprocessed'),
+            'levee_protected_areas': os.getenv('input_nld_levee_protected_areas'),
+            'lakes': os.getenv('input_nwm_lakes'),
+            'nwm_catchments': os.getenv('input_nwm_catchments'),
+            'streams': os.getenv('input_nwm_flows'),
+            'headwaters': os.getenv('input_nwm_headwaters'),
+            'wbd': os.getenv('input_WBD_gdb'),
+            'dem_domain': os.getenv('input_DEM_domain'),
+        }
 
 
 # ============================
