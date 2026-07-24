@@ -1,6 +1,36 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.21.0 - 2026-07-24 - [PR#1901](https://github.com/NOAA-OWP/inundation-mapping/pull/1901)
+This PR closes issue #1850. 
+
+## Summary
+
+This PR addresses region-specific value selection for Alaska, Guam, American Samoa, and CONUS. It centralizes this logic into a single `get_huc_vars()` helper in `src/utils/shared_functions.py`, which returns the appropriate CRS and input file paths (landsea, roads, NLD, levees preprocessed, levee-protected areas, lakes, NWM catchments, streams, WBD, dem_domain, and headwaters) for a given HUC in one dict. All affected scripts now call get_huc_vars() instead of repeating the branching logic, making future region-specific updates a one-line change in a single location rather than a search-and-update across the codebase. 
+
+Also a new `get_crs_for_huc()` function in `src/bash_functions.env` is created for the two bash callers that only need the CRS string.  All other region-specific path branching stays inline in each script since bash can't cleanly return multiple values the way the Python get_huc_vars() dict does, so **for bash scripts we only centralize CRS selection.**
+
+---
+
+
+### Changes
+- src/utils/shared_functions.py 
+- data/bridges/pull_osm_bridges.py
+- data/roads/pull_osm_roads.py  
+- src/aggregate_branches_to_huc.py 
+- data/wbd/generate_pre_clip_fim_huc8.py 
+- data/wbd/clip_vectors_to_wbd.py  
+- data/nfhl/download_fema_nfhl.py 
+- data/buildings/make_buildings_parts_per_huc.py 
+- data/buildings/get_fema_buildings.py  
+- src/bash_functions.env
+- src/run_huc.sh
+- src/run_by_branch.sh
+- tools/catfim/generate_categorical_fim_flows.py
+- tools/run_test_case.py
+
+<br/>
+
 ## v4.9.20.2 - 2026-07-24 - [PR#1882](https://github.com/NOAA-OWP/inundation-mapping/pull/1882)
 
 This PR focuses on an automated calibration framework that optimizes channel and overbank Manning's roughness coefficients to improve FIM accuracy. The workflow iteratively updates hydroTables with candidate roughness values, generates new inundation maps, and evaluates their performance against benchmark flood extents using validation metrics. An optimization algorithm searches for the Manning's n values that minimize the selected loss function across all available benchmark events for each HUC. Finally, the optimized roughness values are aggregated, quality controlled, and mapped back to bash_varables.sh as a file optz_mannings_v6_2.csv to produce updated Manning's n datasets for operational use.
@@ -429,6 +459,7 @@ Updated `clip_vectors_to_wbd.py` to support the new OSM bridge data layout, wher
 ### Removals
 - data/bridges/conda_fim_bridges_enviro.yml
 - data/bridges/setup_conda_for_make_rasters.txt
+
 <br/>
 
 ## v4.9.15.0 - 2026-06-02 - [PR#1816](https://github.com/NOAA-OWP/inundation-mapping/pull/1816)
