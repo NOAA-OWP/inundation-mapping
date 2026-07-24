@@ -17,12 +17,14 @@ from datetime import datetime, timezone
 from multiprocessing import Manager
 from os.path import splitext
 from pathlib import Path
+from typing import Union
 
 # import fiona
 import geopandas as gp
 import numpy as np
 import pandas as pd
 from fsspec.core import url_to_fs
+from hilbertcurve.hilbertcurve import HilbertCurve
 from tqdm import tqdm
 
 
@@ -30,6 +32,46 @@ from tqdm import tqdm
 _LOGGER_REGISTRY = {}
 
 gp.options.io_engine = "pyogrio"
+
+
+def to_hilbert_parquet(
+    gdf: gp.GeoDataFrame, output_path: Union[str, Path], p: int = 16, **to_parquet_kwargs
+) -> None:
+    """
+    Exports a GeoDataFrame to GeoParquet sorted by a 2D Hilbert curve.
+
+    Accepts any standard parameters supported by `geopandas.to_parquet()`.
+    """
+    if gdf.empty:
+        gdf.to_parquet(output_path, **to_parquet_kwargs)
+        return
+
+    # Derive representative centroids for Hilbert indexing
+    centroids = gdf.geometry.centroid
+    minx, miny, maxx, maxy = gdf.total_bounds
+
+    x_span = (maxx - minx) if maxx != minx else 1.0
+    y_span = (maxy - miny) if maxy != miny else 1.0
+    max_val = (1 << p) - 1
+
+    # Rescale centroids to integer coordinates
+    norm_x = ((centroids.x - minx) / x_span * max_val).clip(0, max_val).astype(int)
+    norm_y = ((centroids.y - miny) / y_span * max_val).clip(0, max_val).astype(int)
+
+    # Compute Hilbert curve distances
+    hc = HilbertCurve(p=p, n=2)
+    distances = hc.distances_from_points(list(zip(norm_x, norm_y)))
+
+    # Sort spatial index and drop temporary distance column
+    sorted_gdf = (
+        gdf.assign(_hilbert_dist=distances)
+        .sort_values("_hilbert_dist")
+        .drop(columns=["_hilbert_dist"])
+        .reset_index(drop=True)
+    )
+
+    # Export using original geopandas to_parquet function
+    sorted_gdf.to_parquet(output_path, **to_parquet_kwargs)
 
 
 # #################################

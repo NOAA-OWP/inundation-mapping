@@ -16,7 +16,7 @@ import pyarrow.parquet as pq
 from dotenv import load_dotenv
 from shapely.geometry import box
 
-from src.utils.shared_functions import run_with_mp, setup_mp_file_logger
+from src.utils.shared_functions import run_with_mp, setup_mp_file_logger, to_hilbert_parquet
 
 
 # Your required building attributes (geometry always will be included)
@@ -328,7 +328,8 @@ def process_row_group_chunk(
                 part_dir.mkdir(parents=True, exist_ok=True)
                 part_path = part_dir / f"{state}_rg{rg:05d}.parquet"
 
-                sub.to_parquet(
+                to_hilbert_parquet(
+                    sub,
                     part_path,
                     index=False,
                     compression="zstd",

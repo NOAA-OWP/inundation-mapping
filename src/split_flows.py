@@ -17,7 +17,7 @@ from shapely.ops import split as shapely_ops_split
 
 import build_stream_traversal
 from utils.fim_enums import FIM_exit_codes
-from utils.shared_functions import getDriver
+from utils.shared_functions import getDriver, to_hilbert_parquet
 from utils.shared_variables import FIM_ID
 
 
@@ -448,7 +448,7 @@ def split_flows(
         print("There are no flowlines after stream order filtering.")
         sys.exit(FIM_exit_codes.NO_FLOWLINES_EXIST.value)  # Note: Will send a 61 back
 
-    split_flows_gdf.to_parquet(split_flows_filename, index=False)
+    to_hilbert_parquet(split_flows_gdf, split_flows_filename, index=False)
 
     if len(split_points_gdf) == 0:
         raise Exception("No points exist.")

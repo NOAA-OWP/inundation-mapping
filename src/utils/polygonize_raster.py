@@ -7,6 +7,7 @@ import geopandas as gpd
 import rasterio
 from rasterio.features import shapes
 from shapely.geometry import shape
+from shared_functions import to_hilbert_parquet
 
 
 def polygonize(
@@ -76,7 +77,7 @@ def polygonize(
 
         # Save straight to Parquet bypassing missing GDAL OGR drivers
         if os.path.splitext(output_file)[-1].lower() == '.parquet':
-            gdf.to_parquet(output_file, index=False)
+            to_hilbert_parquet(gdf, output_file, index=False)
         else:
             gdf.to_file(output_file, index=False, engine='fiona')
 

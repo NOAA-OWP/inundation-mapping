@@ -21,6 +21,7 @@ from shapely.strtree import STRtree
 from tqdm import tqdm
 
 from utils.fim_enums import FIM_exit_codes
+from utils.shared_functions import to_hilbert_parquet
 from utils.shared_variables import PREP_CRS
 
 
@@ -142,7 +143,7 @@ class StreamNetwork(gpd.GeoDataFrame):
             print("Writing to {}".format(fileName))
 
         if os.path.splitext(fileName)[1] == ".parquet":
-            self.to_parquet(fileName, index=index)
+            to_hilbert_parquet(self, fileName, index=index)
         else:
             # sets driver
             driverDictionary = {".gpkg": "GPKG", ".geojson": "GeoJSON", ".shp": "ESRI Shapefile"}

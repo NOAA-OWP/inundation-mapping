@@ -8,6 +8,8 @@ import geopandas as gpd
 import pyarrow as pa
 import pyarrow.parquet as pq
 
+from utils.shared_functions import to_hilbert_parquet
+
 
 def parse_where_to_filters(where_clause, input_path):
     """
@@ -85,7 +87,7 @@ def convert_layer(input_path, output_path, crs, where_clause):
             df = df.to_crs(crs)
 
         # Write natively to Parquet via PyArrow
-        df.to_parquet(output_path, index=False)
+        to_hilbert_parquet(df, output_path, index=False)
         print("  Success!")
 
     except Exception as e:

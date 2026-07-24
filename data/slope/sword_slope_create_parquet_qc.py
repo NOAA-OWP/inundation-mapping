@@ -5,6 +5,8 @@ import pathlib
 import geopandas as gpd
 import pandas as pd
 
+from src.utils.shared_functions import to_hilbert_parquet
+
 
 """
 River Network Slope QA/QC and Gap-Filling Script
@@ -459,7 +461,7 @@ def process_network(csv_file, nwm_streams_gpkg_file, output_dir, gpkg_output):
         f.write("\n".join(log_lines))
 
     # Save Parquet output
-    df.to_parquet(parquet_file, engine="pyarrow", index=False)
+    to_hilbert_parquet(df, parquet_file, index=False)
 
     # Optional GeoPackage output (keep only flowlines with valid slopes)
     if gpkg_output:

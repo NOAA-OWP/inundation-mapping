@@ -8,6 +8,8 @@ import rasterio
 from rasterio.features import shapes
 from shapely.geometry import shape
 
+from utils.shared_functions import to_hilbert_parquet
+
 
 def polygonize_raster(
     input_raster: str, output_file: str, field_name: str, connectivity: int = 8, quiet: bool = False
@@ -74,7 +76,7 @@ def polygonize_raster(
 
         # Save straight to Parquet bypassing missing GDAL OGR drivers
         if os.path.splitext(output_file)[-1].lower() == '.parquet':
-            gdf.to_parquet(output_file, index=False)
+            to_hilbert_parquet(gdf, output_file, index=False)
         else:
             gdf.to_file(output_file, index=False, engine='fiona')
 

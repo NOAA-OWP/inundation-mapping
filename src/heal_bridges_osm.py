@@ -12,6 +12,8 @@ from rasterio import features
 from rasterio.warp import Resampling, reproject
 from rasterstats import zonal_stats
 
+from utils.shared_functions import to_hilbert_parquet
+
 
 threatened_percent = 0.75
 
@@ -180,7 +182,7 @@ def process_bridges_in_huc(
     # Check if the GeoDataFrame is empty
     if not osm_gdf.empty:
         # Write the bridge points to a geopackage
-        osm_gdf.to_parquet(bridge_centroids, index=False)
+        to_hilbert_parquet(osm_gdf, bridge_centroids, index=False)
     else:
         print('The geoDataFrame is empty. File not saved.')
 

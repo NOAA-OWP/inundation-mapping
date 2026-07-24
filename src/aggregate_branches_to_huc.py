@@ -5,8 +5,6 @@ import glob
 import os
 import re
 import traceback
-
-# from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime
 from os.path import join
 
@@ -15,6 +13,7 @@ import pandas as pd
 from dotenv import load_dotenv
 
 from heal_bridges_osm import flow_lookup, flows_from_hydrotable
+from utils.shared_functions import to_hilbert_parquet
 
 
 #################################
@@ -416,7 +415,8 @@ class HucDirectory(object):
                     #       Won't work: df.loc[df["feature_id"] == '10926557']
                     temp_df = temp_df.sort_values(['HydroID', 'feature_id', 'discharge_cms'])
                     temp_df = temp_df.set_index(['HydroID', 'feature_id'])
-                    temp_df.to_parquet(
+                    to_hilbert_parquet(
+                        temp_df,
                         hydrotable_file.replace('.csv', '.parquet'),
                         compression='zstd',
                         index=True,

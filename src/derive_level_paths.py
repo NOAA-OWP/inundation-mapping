@@ -8,6 +8,7 @@ import geopandas as gpd
 
 from stream_branches import StreamNetwork
 from utils.fim_enums import FIM_exit_codes
+from utils.shared_functions import to_hilbert_parquet
 from utils.shared_variables import HIGH_STREAM_DENSITY_HUCS, MEDIUM_HIGH_STREAM_DENSITY_HUCS
 
 
@@ -165,7 +166,7 @@ def Derive_level_paths(
 
         catchments = catchments.reset_index(drop=True)
 
-        catchments.to_parquet(catchments_outfile, index=False)
+        to_hilbert_parquet(catchments, catchments_outfile, index=False)
 
     # derive headwaters
     if headwaters_outfile is not None:
@@ -173,7 +174,7 @@ def Derive_level_paths(
             inlets_attribute=inlets_attribute, outlet_linestring_index=outlet_linestring_index
         )
         # headwaters write
-        headwaters.to_parquet(headwaters_outfile, index=False)
+        to_hilbert_parquet(headwaters, headwaters_outfile, index=False)
 
     if out_stream_network is not None:
         if verbose:
@@ -228,7 +229,7 @@ def Derive_level_paths(
         )
 
         if not branch_inlets.empty:
-            branch_inlets.to_parquet(branch_inlets_outfile, index=False)
+            to_hilbert_parquet(branch_inlets, branch_inlets_outfile, index=False)
 
 
 if __name__ == "__main__":

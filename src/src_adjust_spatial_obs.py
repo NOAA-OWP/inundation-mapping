@@ -13,6 +13,7 @@ import rasterio
 from dotenv import load_dotenv
 
 from src_roughness_optimization import update_rating_curve
+from utils.shared_functions import to_hilbert_parquet
 from utils.shared_variables import (
     DEFAULT_FIM_PROJECTION_CRS,
     DOWNSTREAM_THRESHOLD,
@@ -225,9 +226,9 @@ def ingest_points_layer(huc_dir, branch_jobs, debug_outputs_option, log_file):
         water_edge_df.to_csv(huc_debug_pts_out)
         huc_debug_pts_out_gpkg = os.path.join(huc_dir, 'export_water_edge_df_' + huc + '.gpkg')
         water_edge_df.to_file(huc_debug_pts_out_gpkg, driver='GPKG', index=False, engine='fiona')
-        # write parquet file using ".to_parquet() method"
+        # write parquet file using "to_hilbert_parquet() method"
         parquet_filepath = os.path.join(huc_dir, 'debug_water_edge_df_' + huc + '.parquet')
-        water_edge_df.to_parquet(parquet_filepath, index=False)
+        to_hilbert_parquet(water_edge_df, parquet_filepath, index=False)
 
     procs_list = []
     huc_branches_dir = os.path.join(huc_dir, 'branches')
