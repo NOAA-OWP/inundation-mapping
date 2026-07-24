@@ -20,6 +20,73 @@ One key changes is related to the `deploy_to_hydrovis.py` script. In the past, w
     - misc small adjustment but also updated the filterwarning for all files and not just gdal.
     - Changed to build up a list of dataframes instead of constant concatenation. Helps with performance.
  - `workflows/deploy/hand_to_owp.py`: Added deprecation notice as it is no longer applicable.
+## v4.9.21.1 - 2026-07-24 - [PR#1896](https://github.com/NOAA-OWP/inundation-mapping/pull/1896)
+
+These are a few minor edits to reinstate some arguments and values used to get the BED through.  This also includes some loggings upgrades to help split out when we have an acceptable branch exits code such as codes 60 - 69. We now have two output files, one for errors and one for acceptable branch codes. 
+
+Also fully tested the recalibration system and validated it works as designed.
+
+Other fixes include:
+- Fixed a FutureWarning message in aggregate_branches_to_huc.py.  This closes #1875 
+- grep warning check on fim_process_huc.sh breaks if the word "warning" is not found.
+- When the new huc_process_error_compare.py file itself fails, and considering how it interacts with the whole system, it does not attempt to update its own file. It creates a new simple .log file with the log details. An update added here is for the post processing error log search to look for any of those special log files and report them.
+
+### Changes
+- `config\params_templates.env`: branch timeout reduced back down to one hour.
+- `tools\hash_compare.py`: Added another example for usage.
+- `src`
+    - `utils\huc_process_error_report.py`: as described.
+    - `utils\shared_functions.py`: as described.
+     - `aggregate_branches_to_hucs.py`:  fixed futurewarning as described above.
+     - `bash_variables.env`: fix for using tstart and tcount which was broken.
+- `fim_post_processing.sh`: logging and error update as mentioned above.
+- `fim_process_huc.sh`: small improvements and bug fixes. grep command would fail if the word warning was not found.
+<br/>
+
+## v4.9.21.0 - 2026-07-24 - [PR#1901](https://github.com/NOAA-OWP/inundation-mapping/pull/1901)
+This PR closes issue #1850. 
+
+## Summary
+
+This PR addresses region-specific value selection for Alaska, Guam, American Samoa, and CONUS. It centralizes this logic into a single `get_huc_vars()` helper in `src/utils/shared_functions.py`, which returns the appropriate CRS and input file paths (landsea, roads, NLD, levees preprocessed, levee-protected areas, lakes, NWM catchments, streams, WBD, dem_domain, and headwaters) for a given HUC in one dict. All affected scripts now call get_huc_vars() instead of repeating the branching logic, making future region-specific updates a one-line change in a single location rather than a search-and-update across the codebase. 
+
+Also a new `get_crs_for_huc()` function in `src/bash_functions.env` is created for the two bash callers that only need the CRS string.  All other region-specific path branching stays inline in each script since bash can't cleanly return multiple values the way the Python get_huc_vars() dict does, so **for bash scripts we only centralize CRS selection.**
+
+---
+
+
+### Changes
+- src/utils/shared_functions.py 
+- data/bridges/pull_osm_bridges.py
+- data/roads/pull_osm_roads.py  
+- src/aggregate_branches_to_huc.py 
+- data/wbd/generate_pre_clip_fim_huc8.py 
+- data/wbd/clip_vectors_to_wbd.py  
+- data/nfhl/download_fema_nfhl.py 
+- data/buildings/make_buildings_parts_per_huc.py 
+- data/buildings/get_fema_buildings.py  
+- src/bash_functions.env
+- src/run_huc.sh
+- src/run_by_branch.sh
+- tools/catfim/generate_categorical_fim_flows.py
+- tools/run_test_case.py
+
+<br/>
+
+## v4.9.20.2 - 2026-07-24 - [PR#1882](https://github.com/NOAA-OWP/inundation-mapping/pull/1882)
+
+This PR focuses on an automated calibration framework that optimizes channel and overbank Manning's roughness coefficients to improve FIM accuracy. The workflow iteratively updates hydroTables with candidate roughness values, generates new inundation maps, and evaluates their performance against benchmark flood extents using validation metrics. An optimization algorithm searches for the Manning's n values that minimize the selected loss function across all available benchmark events for each HUC. Finally, the optimized roughness values are aggregated, quality controlled, and mapped back to bash_varables.sh as a file optz_mannings_v6_2.csv to produce updated Manning's n datasets for operational use.
+
+### Additions
+
+- /tools/analyze_optz_roughness.py : post-processes the Manning’s n optimization results by reading the iteration-metrics CSVs, selecting the best or valid optimized roughness values for each HUC, and summarizing them into output tables. It also links those optimized values back to stream features, HUCs, stream orders, and runoff clusters so the final channel and overbank Manning’s n values can be applied across the hydrofabric.
+
+### Changes
+
+- /tools/manningN_optimization.py : implements the main optimization loop that searches for the best channel and overbank Manning’s n coefficients for each HUC by repeatedly updating hydroTables, generating inundation results, and minimizing false positives plus false negatives. Its required inputs are fim_dir/FIM output directory, mannN_file/CSV of initial Manning’s n values by feature_id, job_number_branch, job_number_huc, and bench_cat to choose AHPS or BLE  benchmark evaluation. The optimizer uses coefficient bounds, differential evolution, and validation metrics to write optimized Manning’s n values and total-loss results for each HUC.
+
+- /tools/run_test_case_mannN_optz_func.py : generates inundation outputs from updated hydroTables and computes benchmark validation metrics for the Manning’s n optimization workflow.
+
 <br/>
 
 
@@ -223,6 +290,7 @@ None
 
 - The full set of 20 plus tests, were also done against older branches prior to this PR to ensure all changes that were required for comparison reasons.
 <br/>
+
 
 ## v4.9.19.0 - 2026-07-08 - [PR#1867](https://github.com/NOAA-OWP/inundation-mapping/pull/1867)
 This pull request updates the source of the slope data to use the values provided by the hydrofabric dev team using the RANSAC (Random Sample Consensus) method. This effectively replaces the existing slope data values for use in the SRC calculations.
@@ -433,6 +501,7 @@ Updated `clip_vectors_to_wbd.py` to support the new OSM bridge data layout, wher
 ### Removals
 - data/bridges/conda_fim_bridges_enviro.yml
 - data/bridges/setup_conda_for_make_rasters.txt
+
 <br/>
 
 ## v4.9.15.0 - 2026-06-02 - [PR#1816](https://github.com/NOAA-OWP/inundation-mapping/pull/1816)
