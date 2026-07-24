@@ -1,6 +1,27 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.21.2 - 2026-07-24 - [PR#1895](https://github.com/NOAA-OWP/inundation-mapping/pull/1895)
+
+Most notes embedded.
+
+One key changes is related to the `deploy_to_hydrovis.py` script. In the past, we stored just a template of it. The run time edition was in the efs drive in the config directory. Now, we honor the version in the git repo and no longer use the disk version. It was too easy to let them get out of sync. It does mean that for each new FIM release, this file will need to be updated, get a PR and have it merged.
+
+### Renamed
+- Was `config/hv_deployments_params_template.env` is now `config/hv_deployments_params_template.env`
+
+### Changes
+- `github/PULL_REQUEST_TEMPLATE.md`:  minor updates plus changing the sections around a little.
+- `config`
+    - `deny_branch_zero.lst`,  `deny_branches.lst`, and `deny_unit.lst`:  Some cleanup and updates.
+    - `hv_deploy_params.env`:  Updated to true paths, plus new hand/fim versions updated. Also a few adjustments based on current other tools needs for uploading to HV for this releasel.
+- `data/wrds/download_process_wrds.py`:  Fix file saving issues for permissions as experienced in the OWP enviro. Also changed the output file name convention.
+- `tools/test_case_by_hydro_id.py`
+    - misc small adjustment but also updated the filterwarning for all files and not just gdal.
+    - Changed to build up a list of dataframes instead of constant concatenation. Helps with performance.
+ - `workflows/deploy/hand_to_owp.py`: Added deprecation notice as it is no longer applicable.
+<br/>
+
 ## v4.9.21.1 - 2026-07-24 - [PR#1896](https://github.com/NOAA-OWP/inundation-mapping/pull/1896)
 
 These are a few minor edits to reinstate some arguments and values used to get the BED through.  This also includes some loggings upgrades to help split out when we have an acceptable branch exits code such as codes 60 - 69. We now have two output files, one for errors and one for acceptable branch codes. 
