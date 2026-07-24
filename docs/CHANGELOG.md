@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.9.xx.xx - 2026-xx-xx - [PR#1882](https://github.com/NOAA-OWP/inundation-mapping/pull/1882)
+## v4.9.20.2 - 2026-07-24 - [PR#1882](https://github.com/NOAA-OWP/inundation-mapping/pull/1882)
 
 This PR focuses on an automated calibration framework that optimizes channel and overbank Manning's roughness coefficients to improve FIM accuracy. The workflow iteratively updates hydroTables with candidate roughness values, generates new inundation maps, and evaluates their performance against benchmark flood extents using validation metrics. An optimization algorithm searches for the Manning's n values that minimize the selected loss function across all available benchmark events for each HUC. Finally, the optimized roughness values are aggregated, quality controlled, and mapped back to bash_varables.sh as a file optz_mannings_v6_2.csv to produce updated Manning's n datasets for operational use.
 
