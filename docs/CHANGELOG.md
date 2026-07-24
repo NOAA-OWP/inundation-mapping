@@ -1,7 +1,6 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.x.x.x - 2026-05-15 - [PR#1787](https://github.com/NOAA-OWP/inundation-mapping/pull/1787)
 ## v4.9.20.1 - 2026-07-13 - [PR#1892](https://github.com/NOAA-OWP/inundation-mapping/pull/1892)
 
 Fixes a topology error in `associate_levelpaths_with_levees.py` where the negative buffer causes a `non-noded intersection`. 
@@ -412,7 +411,6 @@ Updated `clip_vectors_to_wbd.py` to support the new OSM bridge data layout, wher
 ### Removals
 - data/bridges/conda_fim_bridges_enviro.yml
 - data/bridges/setup_conda_for_make_rasters.txt
-
 <br/>
 
 ## v4.9.15.0 - 2026-06-02 - [PR#1816](https://github.com/NOAA-OWP/inundation-mapping/pull/1816)

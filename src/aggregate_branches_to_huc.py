@@ -15,7 +15,6 @@ import pandas as pd
 from dotenv import load_dotenv
 
 from heal_bridges_osm import flow_lookup, flows_from_hydrotable
-from utils.shared_functions import get_crs_for_huc
 
 
 #################################
@@ -27,6 +26,8 @@ from utils.shared_functions import get_crs_for_huc
 ################################
 
 load_dotenv('/foss_fim/src/bash_variables.env')
+DEFAULT_FIM_PROJECTION_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
+ALASKA_CRS = os.getenv('ALASKA_CRS')
 
 
 class HucDirectory(object):
@@ -466,8 +467,13 @@ class HucDirectory(object):
                     bridge_pnts = bridge_pnts.astype(self.bridge_dtypes, errors='ignore')
 
                     # Set the CRS if it is not already set
+                    huc2Identifier = huc_id[:2]
                     if bridge_pnts.crs is None:
-                        bridge_pnts.set_crs(get_crs_for_huc(huc_id), inplace=True)
+                        # Alaska
+                        if huc2Identifier == '19':
+                            bridge_pnts.set_crs(ALASKA_CRS, inplace=True)
+                        else:
+                            bridge_pnts.set_crs(DEFAULT_FIM_PROJECTION_CRS, inplace=True)
                     bridge_pnts.to_file(bridge_pnts_file, index=False, engine='fiona')
 
             if road_flag:

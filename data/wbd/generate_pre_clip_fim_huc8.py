@@ -19,7 +19,6 @@ from clip_vectors_to_wbd import subset_vector_layers
 from dotenv import load_dotenv
 
 from src.utils.shared_functions import FIM_Helpers as fh
-from src.utils.shared_functions import get_crs_for_huc
 
 
 """
@@ -64,6 +63,11 @@ projectDir = os.getenv('projectDir')
 load_dotenv(f'{srcDir}/bash_variables.env')
 load_dotenv(f'{projectDir}/config/params_template.env')
 
+# Variables from src/bash_variables.env
+DEFAULT_FIM_PROJECTION_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
+ALASKA_CRS = os.getenv('ALASKA_CRS')  # Alaska
+GUAM_CRS = os.getenv('GUAM_CRS')  # Guam
+AMERICAN_SAMOA_CRS = os.getenv('AMERICAN_SAMOA_CRS')  # American Samoa
 
 input_WBD_gdb = os.getenv('input_WBD_gdb')
 input_WBD_gdb_Alaska = os.getenv('input_WBD_gdb_Alaska')  # Alaska
@@ -380,20 +384,23 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir, copy_from_dir, preclipping_f
         huc2Identifier = huc[:2]
         input_NHD_WBHD_layer = f"WBDHU{hucUnitLength}"
 
-        # Assign WBD filename and DEM domain based on region, and derive CRS from HUC number
+        # Check whether the HUC is in Alaska or not and assign the CRS and filenames accordingly
         if huc2Identifier == '19':
+            huc_CRS = ALASKA_CRS
             input_WBD_filename = input_WBD_gdb_Alaska
             dem_domain = input_DEM_domain_Alaska
         elif huc == '22010000':  # Guam
+            huc_CRS = GUAM_CRS
             input_WBD_filename = input_WBD_gdb_Guam
             dem_domain = input_DEM_domain_Guam
         elif huc == '22030001':  # American Samoa
+            huc_CRS = AMERICAN_SAMOA_CRS
             input_WBD_filename = input_WBD_gdb_AmericanSamoa
             dem_domain = input_DEM_domain_AmericanSamoa
         else:
+            huc_CRS = DEFAULT_FIM_PROJECTION_CRS
             input_WBD_filename = input_WBD_gdb
             dem_domain = input_DEM_domain
-        huc_CRS = get_crs_for_huc(huc)
 
         # Define the landsea waterbody mask using either Great Lakes or Ocean polygon input #
         if huc2Identifier == "04":
