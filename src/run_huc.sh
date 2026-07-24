@@ -114,15 +114,6 @@ $srcDir/derive_level_paths.py -i $tempHucDataDir/nwm_subset_streams.gpkg \
     -wbd $tempHucDataDir/wbd.gpkg \
     -u $hucNumber
 
-
-# test if we received a non-zero code back from derive_level_paths.py
-#subscript_exit_code=$?
-
-# we have to retrow it if it is not a zero (but it will stop further execution in this script)
-# if [ $subscript_exit_code -ne 0 ] && [ $subscript_exit_code -ne 62 ] && [ $subscript_exit_code -eq 63 ]; then
-#     exit $subscript_exit_code
-# fi
-
 # check if level paths exists
 levelpaths_exist=1
 if [ ! -f $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg ]; then levelpaths_exist=0; fi

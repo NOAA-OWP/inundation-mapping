@@ -5,6 +5,7 @@ import glob
 import os
 import re
 import traceback
+import warnings
 
 # from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime
@@ -16,6 +17,9 @@ from dotenv import load_dotenv
 
 from heal_bridges_osm import flow_lookup, flows_from_hydrotable
 from utils.shared_functions import get_huc_vars
+
+
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
 #################################

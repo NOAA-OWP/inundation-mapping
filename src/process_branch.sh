@@ -10,7 +10,7 @@
 # This is a key part to handling .sh exceptions.
 
 # This script does not need its own trap if there are errors on this page
-# because, as mentioned, it auto goes to screen, then log rollups and using l_echo has no value.
+# because, as mentioned, it auto goes to screen, then log rollups and usign l_echo has no value.
 
 runName=$1
 hucNumber=$2
