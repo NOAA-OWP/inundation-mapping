@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.x.x.x - 2026-07-21 - [PR#1901](https://github.com/NOAA-OWP/inundation-mapping/pull/1901)
+## v4.9.21.0 - 2026-07-24 - [PR#1901](https://github.com/NOAA-OWP/inundation-mapping/pull/1901)
 This PR closes issue #1850. 
 
 ## Summary
