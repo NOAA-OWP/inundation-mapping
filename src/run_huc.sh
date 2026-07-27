@@ -29,20 +29,13 @@ branchSummaryLogFile=$tempHucDataDir/logs/"$hucNumber"_summary_branch.log
 branchSummaryLog_Adj_File=$tempHucDataDir/logs/"$hucNumber"_summary_branch_adj.csv
 huc2Identifier=${hucNumber:0:2}
 
-<<<<<<< HEAD
 ## SET CRS and input DEM domain
 # Alaska EPSG:3338
 if [ $huc2Identifier -eq 19 ]; then
-    huc_CRS=$ALASKA_CRS
-    input_bridge_elev_diff=$input_bridge_elev_diff_alaska
-=======
-## SET input DEM domain
-if [ $huc2Identifier -eq 19 ]; then
     huc_input_DEM_domain=$input_DEM_domain_Alaska
->>>>>>> dev
     input_DEM=$input_DEM_Alaska
     input_pit_fill=$input_DEM_pit_fills_Alaska
-    huc_input_DEM_domain=$input_DEM_domain_Alaska
+    input_bridge_elev_diff=$input_bridge_elev_diff_alaska
     
 # Guam EPSG:6637
 elif [ $hucNumber -eq 22010000 ]; then
