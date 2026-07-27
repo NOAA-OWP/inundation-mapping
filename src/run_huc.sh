@@ -29,18 +29,23 @@ branchSummaryLogFile=$tempHucDataDir/logs/"$hucNumber"_summary_branch.log
 branchSummaryLog_Adj_File=$tempHucDataDir/logs/"$hucNumber"_summary_branch_adj.csv
 huc2Identifier=${hucNumber:0:2}
 
+<<<<<<< HEAD
 ## SET CRS and input DEM domain
 # Alaska EPSG:3338
 if [ $huc2Identifier -eq 19 ]; then
     huc_CRS=$ALASKA_CRS
     input_bridge_elev_diff=$input_bridge_elev_diff_alaska
+=======
+## SET input DEM domain
+if [ $huc2Identifier -eq 19 ]; then
+    huc_input_DEM_domain=$input_DEM_domain_Alaska
+>>>>>>> dev
     input_DEM=$input_DEM_Alaska
     input_pit_fill=$input_DEM_pit_fills_Alaska
     huc_input_DEM_domain=$input_DEM_domain_Alaska
     
 # Guam EPSG:6637
 elif [ $hucNumber -eq 22010000 ]; then
-    huc_CRS=$GUAM_CRS
     huc_input_DEM_domain=$input_DEM_domain_Guam
     input_DEM=$input_DEM_Guam
     input_pit_fill=$input_DEM_pit_fills_Guam
@@ -48,7 +53,6 @@ elif [ $hucNumber -eq 22010000 ]; then
 
 # American Samoa EPSG:32702
 elif [ $hucNumber -eq 22030001 ]; then
-    huc_CRS=$AMERICAN_SAMOA_CRS
     huc_input_DEM_domain=$input_DEM_domain_AmericanSamoa
     input_DEM=$input_DEM_AmericanSamoa
     input_pit_fill=$input_DEM_pit_fills_AmericanSamoa
@@ -56,12 +60,13 @@ elif [ $hucNumber -eq 22030001 ]; then
 
 # CONUS EPSG:5070
 else
-    huc_CRS=$DEFAULT_FIM_PROJECTION_CRS
     huc_input_DEM_domain=$input_DEM_domain
     input_DEM=$input_DEM
     input_pit_fill=$input_DEM_pit_fills
     input_bridge_elev_diff=$input_bridge_elev_diff
 fi
+
+huc_CRS=$(get_crs_for_huc "$hucNumber")
 
 echo -e $startDiv"Using CRS: $huc_CRS" ## debug
 
@@ -118,15 +123,6 @@ $srcDir/derive_level_paths.py -i $tempHucDataDir/nwm_subset_streams.gpkg \
     -w $tempHucDataDir/nwm_lakes_proj_subset.gpkg \
     -wbd $tempHucDataDir/wbd.gpkg \
     -u $hucNumber
-
-
-# test if we received a non-zero code back from derive_level_paths.py
-#subscript_exit_code=$?
-
-# we have to retrow it if it is not a zero (but it will stop further execution in this script)
-# if [ $subscript_exit_code -ne 0 ] && [ $subscript_exit_code -ne 62 ] && [ $subscript_exit_code -eq 63 ]; then
-#     exit $subscript_exit_code
-# fi
 
 # check if level paths exists
 levelpaths_exist=1

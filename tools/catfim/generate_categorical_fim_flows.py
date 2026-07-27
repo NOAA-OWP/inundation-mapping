@@ -15,6 +15,7 @@ from tools_shared_functions import filter_nwm_segments_by_stream_order, flow_dat
 
 # foss_fim imports
 import data.wrds.download_process_wrds as dpw
+import src.utils.shared_functions as sf
 import tools.catfim.catfim_shared_functions as csf
 
 
@@ -265,19 +266,10 @@ def process_threshold_data(
     # ================================
     # Load the flows dataframe based on the HUC
 
-    if huc[:4] == '2201':  # Guam
-        nwm_flows_region_df = gpd.read_file(os.getenv('input_nhd_flows_Guam'))
-    elif huc[:4] == '2203':  # American Samoa
-        nwm_flows_region_df = gpd.read_file(os.getenv('input_nhd_flows_AmericanSamoa'))
-    elif huc in ['19010301', '19080306', '19080307']:
-        nwm_flows_region_df = gpd.read_file(os.getenv('input_flows_NorthAlaska'))
-    elif huc[:2] == '19':  # South Alaska
-        nwm_flows_region_df = gpd.read_file(os.getenv('input_nwm_flows_SouthAlaska'))
-    else:  # CONUS + Hawaii + Puerto Rico
-        nwm_flows_region_df = gpd.read_file(os.getenv('input_nwm_flows'))  # might be slow, it is 1.8 GiB
+    nwm_flows_region_df = gpd.read_file(sf.get_huc_vars(huc)['streams'])
 
-    # Note: 'else' assumes that any HUC not meeting the above criteria is CONUS, HI, or PR. If an
-    # valid HUC makes it this far (unlikely), it will fall out later in the processing.
+    # Note: CONUS + Hawaii + Puerto Rico falls through to get_huc_vars' 'else' case, which might be
+    # slow to load as it is 1.8 GiB.
 
     # TODO: Rob: This should be changed to loading something_path at the HUC level for flow data,
     # because the CONUS flow file it is 1.6 GiB and is a bit slow to load.
