@@ -3,6 +3,7 @@
 # Use curly braces to denote branch_id
 backpool_stats.csv
 bridge_elev_diff_meters_{}.tif
+# buildings_fimpact_0.csv
 catch_list_{}.txt
 coordFile_{}.txt
 crosswalk_table_{}.csv
@@ -51,7 +52,8 @@ nwm_subset_streams_levelPaths_{}.parquet
 nwm_subset_streams_levelPaths_dissolved_extended_{}.parquet
 nwm_subset_streams_levelPaths_dissolved_headwaters_{}.parquet
 nwm_subset_streams_levelPaths_extended_{}.parquet
-#osm_bridge_centroids_{}.gpkg
+# osm_bridge_centroids_{}.gpkg
+# osm_roads_fimpact_{}.csv
 #ras_elev_table.csv
 rem_{}.tif
 # rem_zeroed_masked_{}.tif

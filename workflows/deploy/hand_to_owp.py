@@ -16,6 +16,13 @@ import src.utils.shared_functions as sf
 from src.utils.shared_functions import FIM_Helpers as fh
 
 
+# **************************
+
+# July 2026: Deprecated: If revived, it will need to be updated to use the repo config /config/hv_deploy_params.env
+# and not the file ssytem version. See changes in PR 1895, where deploy_to_hydrovis.py was updated.
+
+# **************************
+
 '''
 aws s3 cli equiv (note.. may not be up-to-date here)
    - Why do we do it via python/boto3? We can use multi-thread to make it faster

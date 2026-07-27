@@ -12,6 +12,7 @@ agree_smogrid_dist.tif
 agree_smogrid_zerod.tif
 backpool_stats.csv
 bridge_elev_diff_meters_{}.tif
+# buildings_fimpact_1691000007.csv
 catch_list_{}.txt
 coordFile_{}.txt
 crosswalk_table_{}.csv
@@ -54,7 +55,8 @@ nwm_catchments_proj_subset_levelPaths_{}.parquet
 nwm_subset_streams_levelPaths_{}.parquet
 nwm_subset_streams_levelPaths_dissolved_extended_{}.parquet
 nwm_subset_streams_levelPaths_dissolved_headwaters_{}.parquet
-#osm_bridge_centroids_{}.gpkg
+# osm_bridge_centroids_{}.gpkg
+# osm_roads_fimpact_{}.csv
 rem_{}.tif
 #rem_zeroed_masked_{}.tif
 rem_zeroed_masked_{}_float32.tif

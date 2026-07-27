@@ -19,16 +19,7 @@ hucUnitLength="${#hucNumber}"
 huc4Identifier="${hucNumber:0:4}"
 huc2Identifier="${hucNumber:0:2}"
 
-## SET CRS
-if [[ "${huc2Identifier}" == "19" ]]; then
-    huc_CRS="${ALASKA_CRS}"
-elif [[ "${hucNumber}" == "22010000" ]]; then
-    huc_CRS="${GUAM_CRS}"
-elif [[ "${hucNumber}" == "22030001" ]]; then
-    huc_CRS="${AMERICAN_SAMOA_CRS}"
-else
-    huc_CRS="${DEFAULT_FIM_PROJECTION_CRS}"
-fi
+huc_CRS=$(get_crs_for_huc "$hucNumber")
 
 # Skip branch zero
 if [[ "${current_branch_id}" == "${branch_zero_id}" ]]; then
