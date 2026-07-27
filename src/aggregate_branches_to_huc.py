@@ -415,8 +415,7 @@ class HucDirectory(object):
                     #       Won't work: df.loc[df["feature_id"] == '10926557']
                     temp_df = temp_df.sort_values(['HydroID', 'feature_id', 'discharge_cms'])
                     temp_df = temp_df.set_index(['HydroID', 'feature_id'])
-                    to_hilbert_parquet(
-                        temp_df,
+                    temp_df.to_parquet(
                         hydrotable_file.replace('.csv', '.parquet'),
                         compression='zstd',
                         index=True,
