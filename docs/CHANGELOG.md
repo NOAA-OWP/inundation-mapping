@@ -1,6 +1,39 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.x.x - 2026-07-27 - [PR#1899](https://github.com/NOAA-OWP/inundation-mapping/pull/1899)
+
+Adds three new HUC8s in Alaska for Fairbanks (19080306 and 19080307) and Juneau (19010301). These data are derived from IFSAR 5-meter DTMs acquired from State of Alaska Division of Geological and Geophysical Surveys (DGGS) and vector features (flowlines, catchments, and lakes) from GEOGLOWS. These data are combined into a subregion called "North Alaska" to differentiate them from the "South Alaska" subregion around Anchorage based on DEMs from 3DEP and NHDPlusHR vector data. The two subregion data are combined into one "Alaska" region where possible. This naming convention has been propagated through the codebase as well as the EFS inputs. To generate the new inputs, preclipped vectors, bridge DEM diffs and pit filled DEM folders from 20260619 were duplicated and renamed 20260708. New versions of those data were created for the three new HUCs and copied into their respective 20260708 folders.
+
+Additionally, some reorganization of input data occurred. The primary change was to create a VRT folder in `/data/inputs/dems` where all of the DEM VRT, pit fill VRT, and DEM domain polygon files are contained in a single directory, now identified by region (previously each DEM_domain file was located in its own region's DEM folder). The VRT creation script was modified so that the VRT can be generated from multiple folders, for example, the VRT for Alaska includes both the "North Alaska" and "South Alaska" regions.
+
+### Additions
+
+- `src/data/preprocess_NorthAlaska.py`: unzips, mosaics, and preprocesses IFSAR 5-meter DTM data to 10-meters
+
+### Changes
+- `.github/PULL_REQUEST_TEMPLATE.md`: fix spelling error
+- `config/huc_lists/full_huc_list.lst`: added new HUCs to full HUC list
+- `data/`
+    - `bridges/make_dem_dif_for_bridges.py`, `get_sample_data.py`, `wbd/preprocess_wbd.py`: update subregion name(s)
+    - `create_DEM_domain_and_VRT_files.py`: updated `create_vrt_file.py` to produce DEM domain polygon (copied from `acquire_and_preprocess_3dep_dems.py`)
+    - `nfhl/download_fema_nfhl.py`: update URL
+    - `nhdplus/`
+        - `preprocess_nhdplus.py` and `preprocess_nhdplus.py`: removed creation of DEM domain polygon `__polygonize`
+    - `wbd/`
+        - `clip_vectors_to_wbd.py`: Updated to work with GEOGLOWS data
+        - `generate_pre_clip_fim_huc8.py`: Updated comments
+- `src/`
+    - `bash_variables.env`: Updated preclip date to 20260708 and updated new files/locations
+    - `run_huc.sh`: Handle missing pit_fill file and clean up
+- `tools/`
+    - `catfim/`
+        - `generate_categorical_fim_flows.py`: Added new HUCs
+        - `viz_categorical_fim.py`: Out of date -- note added. 
+    - `run_test_case.py`: Added lakes mask for new subregion
+
+<br/>
+
 ## v4.9.21.2 - 2026-07-24 - [PR#1895](https://github.com/NOAA-OWP/inundation-mapping/pull/1895)
 
 Most notes embedded.
