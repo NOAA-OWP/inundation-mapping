@@ -3,7 +3,7 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v4.9.x.x - 2026-06-15 - [PR#1862](https://github.com/NOAA-OWP/inundation-mapping/pull/1862)
 
-Fixes SQLite errors caused by geopackage file handling by the OS (introduced in #1805) by using geoparquet files created by Python instead of system GDAL commands. Three new files replace the three GDAL command-line programs `gdal_polygonize.py`, `gdal_rasterize.py`, and `ogr2ogr`. In a couple of intermediate cases where GDAL was called directly and does not accept geoparquet input files, shapefiles were used instead of geopackages.
+Fixes SQLite errors caused by geopackage file handling by the OS (introduced in #1805) by using geoparquet files (sorted by Hilbert curve) created by Python instead of system GDAL commands. Three new files replace the three GDAL command-line programs `gdal_polygonize.py`, `gdal_rasterize.py`, and `ogr2ogr`. In a couple of intermediate cases where GDAL was called directly and does not accept geoparquet input files, shapefiles were used instead of geopackages.
 
 Bash scripts were also refactored to use bash arrays and use of explicit notation including curly braces around environment variables, quotes around arguments, and double brackets around conditional blocks.
 
@@ -14,6 +14,18 @@ Bash scripts were also refactored to use bash arrays and use of explicit notatio
     - `subset_vectors_to_branches.py`: Python script to replace GDAL command-line `ogr2ogr`
 
 ### Changes
+#### Added new shared function to sort geodataframes by Hilbert curve before saving as geoparquet
+- `src/utils/shared_functions.py`: Added `to_hilbert_parquet` to sort by Hilbert curve before saving as geoparquet
+- `Pipfile` and `Pipfile.lock`: Added `hilbertcurve` Python package required for `to_hilbert_parquet`
+##### The files below previously wrote parquet files but were modified to use `to_hilbert_parquet`
+- `data/`
+    - `buildings/get_fema_buildings.py` and `make_buildings_parts_per_huc.py`
+    - `nws/ahps_bench_polys_to_calb_pts.py` and `merge_nws_usgs_point_parquet.py`
+    - `slope/sword_slope_create_parquet_qc.py`
+    - `usgs/acquire_and_preprocess_3dep_dems.py` and `write_parquet_from_calib_pts.py`
+- `src/aggregate_branches_to_huc.py` and `src_adjust_spatial_obs.py`
+- `tools/catfim/generate_categorical_fim.py`
+
 #### Changed to use geoparquet instead of geopackages and refactored
 - `src/`
     - `delineate_hydros_and_produce_HAND.sh`, `reachID_grid_to_vector_points.py`, `run_by_branch.sh`, `run_huc.sh`
