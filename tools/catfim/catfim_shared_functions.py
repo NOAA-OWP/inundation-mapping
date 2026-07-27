@@ -852,7 +852,7 @@ def drop_output_columns(df, catfim_type):
 
     # List of columns to only remove for fb or sb CatFIM
     fb_specific_cols_to_remove = ['interval_stage', 'is_interval', 'stage', 'stage_uni', 'stage_src']
-    sb_specific_cols_to_remove = ['q', 'q_src', 'q_uni', 'stage']
+    sb_specific_cols_to_remove = ['q', 'q_src', 'q_uni']
     # TODO: Eventually can remove the stage intermediate vals, but keeping for now
     # bcs it’s useful for debugging at the moment (datum_adj_ft, datum_adj_wse_ft, lid_alt_ft, hand_stage)
 

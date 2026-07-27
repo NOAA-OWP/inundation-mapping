@@ -904,15 +904,15 @@ def run_sb_inundation(
 
         if not os.path.exists(rem_path):
             msg = "Branch REM doesn't exist (could be bad branch)"
-            logging.warnings(f'{msg_id_w_branch} - {msg}')
+            logging.warning(f'{msg_id_w_branch} - {msg}')
             continue
         if not os.path.exists(catchments_path):
             msg = "Branch catchments files don't exist (could be bad branch)"
-            logging.warnings(f'{msg_id_w_branch} - {msg}')
+            logging.warning(f'{msg_id_w_branch} - {msg}')
             continue
         if not os.path.exists(hydrotable_path):
             msg = "Branch hydrotable doesn't exist (could be bad branch)"
-            logging.warnings(f'{msg_id_w_branch} - {msg}')
+            logging.warning(f'{msg_id_w_branch} - {msg}')
             continue
 
         # Use hydroTable to determine hydroid_list from site_ms_segments.
@@ -1444,6 +1444,7 @@ def post_process_huc_mapping(huc, catfim_type, sites_gdf, huc_library_df, output
                 # Add the interval information
                 huc_library_df_subset['interval_stage'] = interval_stage
                 huc_library_df_subset['is_interval'] = True
+                huc_library_df_subset['stage'] = interval_stage  # overwrites the RFC stage with the interval stage
 
                 huc_library_interval_data_list.append(huc_library_df_subset)
 
