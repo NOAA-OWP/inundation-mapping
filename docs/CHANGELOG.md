@@ -23,7 +23,7 @@ Bash scripts were also refactored to use bash arrays and use of explicit notatio
     - `nws/ahps_bench_polys_to_calb_pts.py` and `merge_nws_usgs_point_parquet.py`
     - `slope/sword_slope_create_parquet_qc.py`
     - `usgs/acquire_and_preprocess_3dep_dems.py` and `write_parquet_from_calib_pts.py`
-- `src/aggregate_branches_to_huc.py` and `src_adjust_spatial_obs.py`
+- `src/src_adjust_spatial_obs.py`
 - `tools/catfim/generate_categorical_fim.py`
 
 #### Changed to use geoparquet instead of geopackages and refactored
