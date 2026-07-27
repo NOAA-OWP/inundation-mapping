@@ -13,7 +13,6 @@ import pandas as pd
 from dotenv import load_dotenv
 
 from heal_bridges_osm import flow_lookup, flows_from_hydrotable
-from utils.shared_functions import to_hilbert_parquet
 
 
 #################################
