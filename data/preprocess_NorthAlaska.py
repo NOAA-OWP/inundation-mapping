@@ -127,15 +127,6 @@ def preprocess_dem(input_dem_zip_file, out_dem_folder, region, date, target_crs_
         gdal.Warp(output_mosaic, src_files_to_mosaic, options=warp_options)
         print(f"\nSuccess! Mosaic saved to {output_mosaic}")
 
-        # Clip mosaic to HUC(s), e.g.:
-        # huc=19010301; region=Juneau;
-        # gdalwarp /data/inputs/dems/ifsar_dtm/${region}/20260708/${region}_ifsar_DTM_3338.tif
-        # /data/inputs/dems/ifsar_dtm/${region}/20260708/HUC8_${huc}_dem.tif
-        # -cutline /data/inputs/wbd/HUC8_Alaska/HUC8_${huc}.gpkg
-        # -crop_to_cutline -ot Float32 -r bilinear -of "GTiff" -overwrite
-        # -co "BLOCKXSIZE=256" -co "BLOCKYSIZE=256" -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES"
-        # -tr 10 10 -tap -t_srs EPSG:3338 -cblend 6
-
         # Define variables
         if region == 'Juneau':
             hucs = ['19010301']
