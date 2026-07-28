@@ -3,7 +3,6 @@ import logging
 import os
 import shutil
 import time
-from concurrent.futures import ThreadPoolExecutor
 from multiprocessing import Pool
 
 import geopandas as gpd
@@ -50,14 +49,63 @@ def timed_step(step_name, logger=None):
     return Timer()
 
 
-# Function to interpolate discharge based on stage value and HydroID
-def interpolate_discharge(rem_value, hydro_id, htable_df):
-    src_data = htable_df[htable_df['HydroID_join'] == hydro_id]
+def _hilbert_xy2d(bits, x, y):
+    """Convert integer (x,y) in [0,2^bits) to Hilbert distance d."""
+    n = 1 << bits
+    d = 0
+    s = n >> 1
+    while s > 0:
+        rx = 1 if (x & s) else 0
+        ry = 1 if (y & s) else 0
+        d += (s * s) * ((3 * rx) ^ ry)
+        if ry == 0:
+            if rx == 1:
+                x = n - 1 - x
+                y = n - 1 - y
+            x, y = y, x
+        s >>= 1
+    return d
 
-    if len(src_data) > 1:
+
+def compute_hilbert_values(geos, bits=16):
+    """Compute Hilbert index for each geometry's centroid.
+
+    Returns list of integer hilbert distances. If geos is empty or has constant
+    coordinates, returns None.
+    """
+    if geos.empty:
+        return None
+    centroids = geos.centroid
+    xs = centroids.x.values
+    ys = centroids.y.values
+    min_x, max_x = xs.min(), xs.max()
+    min_y, max_y = ys.min(), ys.max()
+    if min_x == max_x or min_y == max_y:
+        return None
+    max_int = (1 << bits) - 1
+    # normalize to [0, max_int]
+    x_int = np.floor((xs - min_x) / (max_x - min_x) * max_int).astype(int)
+    y_int = np.floor((ys - min_y) / (max_y - min_y) * max_int).astype(int)
+    hilbert_vals = [_hilbert_xy2d(bits, int(x), int(y)) for x, y in zip(x_int, y_int)]
+    return hilbert_vals
+
+
+# Function to interpolate discharge based on stage value and HydroID
+def interpolate_discharge(rem_value, hydro_id, htable_lookup):
+    """Interpolate discharge/volume/velocity using a pre-built lookup dict.
+
+    `htable_lookup` is a dict mapping HydroID_join -> DataFrame sorted by stage.
+    """
+    src_data = htable_lookup.get(hydro_id)
+
+    if src_data is not None and len(src_data) > 1:
         discharge = np.interp(rem_value, src_data['stage'], src_data['discharge_cms'])
         volume_m3 = np.interp(rem_value, src_data['stage'], src_data['Volume (m3)'])
-        velocity_ms = np.interp(rem_value, src_data['stage'], src_data['velocity_ms'])
+        # velocity_ms may not exist in older htables; guard access
+        if 'velocity_ms' in src_data.columns:
+            velocity_ms = np.interp(rem_value, src_data['stage'], src_data['velocity_ms'])
+        else:
+            velocity_ms = np.nan
     else:
         discharge = np.nan
         volume_m3 = np.nan
@@ -67,7 +115,9 @@ def interpolate_discharge(rem_value, hydro_id, htable_df):
 
 
 # Function to generate polygons from the combined elevation and catchment data below the threshold
-def polygonize_combined_rasters(elevation, catchment_ids, transform, threshold, branch_id, htable_df, logger):
+def polygonize_combined_rasters(
+    elevation, catchment_ids, transform, threshold, branch_id, htable_lookup, logger
+):
     threshold_start = time.time()
     true_rem = threshold / SCALE_FACTOR
 
@@ -125,7 +175,7 @@ def polygonize_combined_rasters(elevation, catchment_ids, transform, threshold, 
 
                 catchment_id = int(value)
                 discharge_cms, volume_m3, velocity_ms = interpolate_discharge(
-                    true_rem, catchment_id, htable_df
+                    true_rem, catchment_id, htable_lookup
                 )
 
                 features.append(
@@ -223,9 +273,11 @@ def process_branch(branch_path, branch_id, log_dir, huc_id):
         )  # 0.25ft interval for 4-40ft (most common for inundation - want resolution)
         high_range = np.arange(12.192, 25.0, 0.1524)  # 0.5ft for 40-82ft (uncommon extreme inundation)
         thresholds = (np.concatenate((low_range, mid_range, high_range)) * SCALE_FACTOR).astype(np.uint16)
+        thresholds = np.sort(thresholds)
 
-        # foot_range = np.arange(0.6096, 25.0, 0.3048) * SCALE_FACTOR
-        # thresholds = foot_range.astype(np.uint16)
+        foot_range = np.arange(0.6096, 25.0, 0.3048) * SCALE_FACTOR
+        thresholds = foot_range.astype(np.uint16)
+        thresholds = np.sort(thresholds)
 
         # Add SRC velocity calc
         htable_df['velocity_ms'] = np.where(
@@ -238,15 +290,18 @@ def process_branch(branch_path, branch_id, log_dir, huc_id):
             htable_df["HydroID_join"] = htable_df["HydroID"]
         htable_df_interp = htable_df[['HydroID_join', 'stage', 'discharge_cms', 'Volume (m3)', 'velocity_ms']]
 
+        # Build a lookup dict keyed by HydroID_join to avoid repeated DataFrame filtering
+        htable_lookup = {
+            hid: group.sort_values('stage')
+            for hid, group in htable_df_interp.groupby('HydroID_join', sort=False)
+        }
+
         all_features = []
-        with ThreadPoolExecutor() as executor:
-            for threshold_features in executor.map(
-                lambda thr: polygonize_combined_rasters(
-                    elevation, catchment_ids, transform, thr, branch_id, htable_df_interp, logger
-                ),
-                thresholds,
-            ):
-                all_features.extend(threshold_features)
+        for thr in thresholds:
+            threshold_features = polygonize_combined_rasters(
+                elevation, catchment_ids, transform, thr, branch_id, htable_lookup, logger
+            )
+            all_features.extend(threshold_features)
 
     with timed_step(f"[Branch {branch_id}] Post-processing features", logger):
         gdf = gpd.GeoDataFrame.from_features(all_features)
@@ -288,6 +343,16 @@ def process_branch(branch_path, branch_id, log_dir, huc_id):
 
     with timed_step(f"[Branch {branch_id}] Saving output", logger):
         gdf = gdf.set_geometry("geometry")
+        # compute Hilbert ordering to keep spatially nearby geometries together
+        try:
+            hilbert_vals = compute_hilbert_values(gdf.geometry, bits=16)
+            if hilbert_vals is not None:
+                gdf['hilbert'] = hilbert_vals
+                gdf = gdf.sort_values('hilbert')
+                gdf = gdf.drop(columns=['hilbert'])
+        except Exception:
+            logger.warning(f"[Branch {branch_id}] Hilbert sorting failed; writing unsorted GeoDataFrame.")
+
         gdf.to_parquet(output_geoparquet_path, index=False)
 
     logger.info(f"[Branch {branch_id}] Saved output to {output_geoparquet_path}")
