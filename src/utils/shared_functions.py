@@ -8,6 +8,7 @@ import os
 # import pathlib
 import re
 import shutil
+from contextlib import contextmanager
 
 # import sys
 import threading
@@ -31,6 +32,18 @@ _LOGGER_REGISTRY = {}
 
 gp.options.io_engine = "pyogrio"
 
+
+@contextmanager
+def use_pandas_3_behavior():
+    """Enable pandas 3.0 behavior temporarily.
+    1. Enable Copy-on-Write behavior for improved memory management.
+    2. Use PyArrow strings for better performance/memory usage.
+    3. Disable silent downcasting with fillna, replace, and clip.
+    """
+    with pd.option_context("mode.copy_on_write", True,
+                           "future.infer_string", True,
+                           "future.no_silent_downcasting", True):
+        yield
 
 # #################################
 # log file tools
