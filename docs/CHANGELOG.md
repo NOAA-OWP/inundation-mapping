@@ -1,6 +1,38 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.xx.x - 2026-xx-xx - [PR#1842](https://github.com/NOAA-OWP/inundation-mapping/pull/1842)
+
+This PR identifies and removes NWM streams that fall into the whitelist ripple model domain gaps. It also builds a final list of valid Ripple/NWM stream reaches and matching model domains. It removes blacklisted or invalid records, resolves cross-HUC duplicates, removes small disconnected domain fragments, excludes streams insufficiently covered by the retained domain, and preserves short topological bridges. So main goals include:
+
+  - Excludes blacklisted streams
+  - Revalidates stream records using library-path status, HUC assignments, and HUC boundary overlap.
+  - Keeps only model domains belonging to surviving collection/model combinations.
+  - Excludes any island model domain (small model domain that are not connected of the main Ripple domain). Therefore, it Removes disconnected domain components that intersect one or zero streams.
+  - Buffers that domain by 100 metres to tolerate small edge/alignment errors.
+  - Decides which whitelisted streams have adequate spatial coverage:
+ 
+      1.  Includes streams fully inside the ripple domain (within)
+      2.  Includes streams between 2 included streams. The current workflow uses 3 streams.
+      3.  Includes headwaters that at least 50% of downstream tail of stream is inside the domain and downstream_endpoint covered by the domain.
+      4.  Includes the middle streams that at least 60%  of stream is inside the domain and downstream_endpoint covered by the domain.
+
+  - Retains short gaps of up to three reaches when they connect two included reaches.
+  - Flags certain streams spanning multiple individual model domains as “too long.”
+  - Removes domain rows whose intersecting streams are all invalid.
+
+
+### Additions
+`/data/ripple/remove_ripple_blacklisted_streams_and_model_gaps.py`
+
+### Changes
+`/data/ripple/validate_ripple_data.py`
+`/data/ripple/remove_blacklisted_streams_and_ripple_model_domain_gaps.py`
+
+
+<br/>
+
+
 ## v4.9.21.2 - 2026-07-24 - [PR#1895](https://github.com/NOAA-OWP/inundation-mapping/pull/1895)
 
 Most notes embedded.
