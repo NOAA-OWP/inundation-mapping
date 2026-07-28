@@ -1,10 +1,16 @@
 #!/bin/bash -e
-
-## INITIALIZE TOTAL TIME TIMER ##
-T_total_start
+# We ... DO ....  the -e here which means stop execution immediately on fail.
+# We want this to auto fail as it is logging and error handling are done by its parent
+# of process_huc.sh
+### Yes.. not all of our .sh files are the same with the -e flag, be design.
 
 ## SOURCE BASH FUNCTIONS
 source $srcDir/bash_functions.env
+
+## INITIALIZE TOTAL TIME TIMER ##
+## Used by timers in sections below
+## Overall page timer in process_branch.sh in case of errors
+T_total_start
 
 ## SET VARIABLES AND FILE INPUTS ##
 hucNumber="$1"
@@ -13,16 +19,7 @@ hucUnitLength=${#hucNumber}
 huc4Identifier=${hucNumber:0:4}
 huc2Identifier=${hucNumber:0:2}
 
-## SET CRS
-if [ $huc2Identifier -eq 19 ]; then
-    huc_CRS=$ALASKA_CRS
-elif [ $hucNumber -eq 22010000 ]; then
-    huc_CRS=$GUAM_CRS
-elif [ $hucNumber -eq 22030001 ]; then
-    huc_CRS=$AMERICAN_SAMOA_CRS
-else
-    huc_CRS=$DEFAULT_FIM_PROJECTION_CRS
-fi
+huc_CRS=$(get_crs_for_huc "$hucNumber")
 
 # Skip branch zero
 if [ $current_branch_id = $branch_zero_id ]; then
@@ -38,14 +35,6 @@ fi
 
 ## MAKE OUTPUT BRANCH DIRECTORY
 mkdir -p $tempCurrentBranchDataDir
-
-## START MESSAGE ##
-echo -e $startDiv"Processing HUC: $hucNumber - branch_id: $current_branch_id"
-
-## INITIALIZE TOTAL BRANCH TIMER ##
-T_total_start
-branch_start_time=`date +%s`
-date -u
 
 ## SUBSET VECTORS
 echo -e $startDiv"Subsetting vectors to branches $hucNumber $current_branch_id"
@@ -176,7 +165,4 @@ if [ -f $deny_branches_list ]; then
     $srcDir/outputs_cleanup.py -d $tempCurrentBranchDataDir -l $deny_branches_list -b $current_branch_id
 fi
 
-echo -e $startDiv"End Branch Processing $hucNumber $current_branch_id ..."
-date -u
-Calc_Duration "Duration : " $branch_start_time
 echo
