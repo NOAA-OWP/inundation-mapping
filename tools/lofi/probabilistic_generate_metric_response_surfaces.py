@@ -16,6 +16,8 @@ from tqdm.notebook import tqdm
 warnings.filterwarnings("ignore")
 
 
+# Jun 2026: num_workers arg is no longer available
+# It was not previously used correctly in produce_mosaicked_inundation
 def create_flood_maps(
     hydrofabric_dir: str,
     fim_outputs_dir: str,
@@ -27,8 +29,7 @@ def create_flood_maps(
     flows: List[str],
     overwrite: Optional[bool] = False,
     num_threads: Optional[int] = 1,
-    num_jobs: Optional[int] = 1,
-    log_file: Optional[str] = None,
+    # num_jobs: Optional[int] = 1,  # No longer in use
     windowed: Optional[bool] = False,
 ):
     """
@@ -56,10 +57,8 @@ def create_flood_maps(
         Whether to overwrite existing files
     num_threads : Optional[int], default = 1
         Number of threads to run operation
-    num_jobs : Optional[int], default = 1
-        Number of processes to run operation
-    log_file : Optional[str], default = None
-        File to write statements to
+    # num_jobs : Optional[int], default = 1
+    #     Number of processes to run operation
 
     """
     # Count of how many maps will be created
@@ -74,11 +73,11 @@ def create_flood_maps(
 
     # Iterate through all combinations of datasets and parameters
     loop_idx = 1
-    for N, obank_N, s, huc, flow_path in (
+    for N, obank_N, s, huc, flow_file_path in (
         pbar := tqdm(product(channel_mannings_n, overbank_mannings_n, slope_adjustments, hucs, flows))
     ):
 
-        filename = flow_path.split('/')[-1].split('.')[0].replace('flows', 'extent')
+        filename = flow_file_path.split('/')[-1].split('.')[0].replace('flows', 'extent')
 
         # Skip if overbank N is smaller than channel N
         if obank_N < N:
@@ -98,7 +97,7 @@ def create_flood_maps(
         if os.path.exists(final_inundation_path) and not overwrite:
             continue
 
-        mask_path = os.path.join(hydrofabric_dir, str(huc), 'wbd.gpkg')
+        # mask_path = os.path.join(hydrofabric_dir, str(huc), 'wbd.gpkg')
 
         # Sub-divide src
         src_output_file = "htable_branch" + "_{0}" + f"_{N}_{obank_N}_{s}.feather"
@@ -114,22 +113,30 @@ def create_flood_maps(
                 )
 
         # Make inundation extent output
+        # Jun 2026: orig num_workers=num_jobs arg is no longer available.
+        # As there is only one HUC, there is no sense wrapping this in a MP or MT
         produce_mosaicked_inundation(
             hydrofabric_dir,
             huc,
-            flow_path,
-            hydro_table_df=os.path.join(src_output_path, src_output_file),
-            inundation_raster=final_inundation_path,
-            mask=mask_path,
+            flow_file_path,
+            hydro_table_path=os.path.join(src_output_path, src_output_file),
+            inundation_raster_path=final_inundation_path,
+            # mask_path=mask_path,
             verbose=False,
-            num_workers=num_jobs,
+            # num_workers=num_jobs,
             num_threads=num_threads,
             windowed=windowed,
-            log_file=log_file,
-            remove_intermediate=True,
+            remove_intermediate=True
         )
 
+        # TODO: Jun 2026: consider changing this to a "with" and "load"
+        # to stop possible read file collisions
+        # ie)
+        # ds = None
+        # with rxr.open_rasterio(final_inundation_path) as src:
+        #    ds = src.load()
         ds = rxr.open_rasterio(final_inundation_path)
+
         nodata, crs = ds.rio.nodata, ds.rio.crs
         nodata_mask = ds == nodata
         ds.data = xr.where(ds < 0, 0, ds)
@@ -196,7 +203,12 @@ def evaluate_maps(
         file_name = bench.split('/')[-1].split('.')[0]
         site, flow = file_name.split('_')[0], file_name.split('_')[-1]
 
-        # Open benchmark dataset
+        # TODO: Jun 2026: consider changing this to a "with" and "load"
+        # to stop possible read file collisions
+        # ie)
+        # b_mark = None
+        # with rxr.open_rasterio(bench, mask_and_scale=True) as src:
+        #    b_mark = src.load()
         b_mark = rxr.open_rasterio(bench, mask_and_scale=True)
 
         # Find all relevant candidate datasets
@@ -216,6 +228,12 @@ def evaluate_maps(
 
             cbar.set_description(f"Running candidate maps {c_idx} of {len(candidate_maps)}")
 
+            # TODO: Jun 2026: consider changing this to a "with" and "load"
+            # to stop possible read file collisions
+            # ie)
+            # cand = None
+            # with rxr.open_rasterio(c_path, mask_and_scale=True) as src:
+            #    cand = src.load()
             # Open candidate dataset
             cand = rxr.open_rasterio(c_path, mask_and_scale=True)
 
@@ -297,8 +315,8 @@ if __name__ == "__main__":
         #     'sites': sites,
         'flows': flows,
         'hucs': [huc],
-        'num_jobs': 8,
-        'num_threads': 8,
+        # 'num_jobs': 8,  # Jun 2026: no longer in use
+        'num_threads': 40,  # Jun 2026: Change from 8
         'overwrite': True,
         'windowed': False,
     }

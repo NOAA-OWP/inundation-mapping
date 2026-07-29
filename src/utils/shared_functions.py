@@ -3,8 +3,9 @@
 import glob
 import inspect
 import logging
+import logging.handlers
 import os
-
+import queue
 # import pathlib
 # import re
 import shutil
@@ -29,16 +30,40 @@ from tqdm import tqdm
 # Registry: name -> path
 _LOGGER_REGISTRY = {}
 
+# Jun 2026: Now that we are using .debug level logging, rasterio defaults
+# to auto catch it and prints HUGE amount of debug statements, this
+# will surpress it.
+# Get the root or rasterio logger and set the level to warning
+# Mute only rasterio Python logs
+logging.getLogger("rasterio").setLevel(logging.WARNING)
+logging.getLogger("numba").setLevel(logging.WARNING)
+
+
 gp.options.io_engine = "pyogrio"
 
+
+# #################################
+class hydroTableHasOnlyLakes(Exception):
+    """Raised when a Hydro-Table only has lakes"""
+    pass
+
+class NoForecastFound(Exception):
+    """Raised when no forecast is available for a given Hydro-Table"""
+    pass
 
 # #################################
 # log file tools
 
 
-# This one is a standard Python logger, NOT MEANT for multi-proc
-# def setup_file_logger(log_file_path):
-def setup_file_logger(log_file_dir, log_file_name_prefix):
+# This one is a standard Python logger.
+# If you want the MP's to share a log file (not recommended),
+# then use the setup_mp_file_logger which shares a screenqueue object.
+# You can use this one in an MP but only if you ensure that each MP process
+# has its own log file. There is now a new log rollup function in here to
+# roll all of the child log files back into the parent log if you like.
+# merge_child_logs_into_parent_log.
+# Note: If you are calling this from inside a MP child worker, it MUST have a unique logging name
+def setup_file_logger(log_file_dir, log_file_name_prefix, logger_name=""):
     """
 
     This creates a file name for you. I will take the log_file_name_prefix, then append a dt, then extension
@@ -67,7 +92,16 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
 
     In the end, the error log file is not removed if it is empty, just watch its file size.
 
+    Note: logging types:
+        - debug goes to file only.
+        - the rest info, warning, etc) go screen and file both.
+        - error and critical value is duplicated into an error file
+        - warning level value is duplicated into a warning file.
+
     Returns the name/path of the new log file.
+
+    IMPORTANT: Extensive use of logging, can degrade performance a little.
+
     """
 
     if not log_file_dir:
@@ -77,7 +111,7 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
         raise ValueError("log file name prefix can not be None or empty")
 
     # Example with a different permission (e.g., full access for everyone)
-    permissions_code = 0o776
+    permissions_code = 0o766
     os.makedirs(log_file_dir, mode=permissions_code, exist_ok=True)
     # even though we used os.makedirs, it does not mean it had permission to make the dir
     # the mode is for permissions of the folder once is created.
@@ -90,15 +124,22 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
 
     # we will assume the parent folder already exists
     os.makedirs(log_file_dir, exist_ok=True, mode=permissions_code)
-    print(f"Logs saved to: {log_file_path}")
+    # print(f"Logs saved to: {log_file_path}")
 
     # even though we used os.makedirs, it does not mean it had permission to make the dir
     # the mode is for permissions of the folder once is created.
     if not os.path.isdir(log_file_dir):
         raise Exception("This script likely does have permission to add a log folder")
 
-    logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
+    if logger_name == "":
+        logger = logging.getLogger()
+    else:
+        # Note: if you are alling this function inside a function that is a child worker
+        # of a ProcessPool, you must give it a unique name or it will hold memory pointers
+        # via loggin
+        logger = logging.getLogger(logger_name)
+
+    logger.setLevel(logging.DEBUG)
     # logger.propagate = False # Prevent propagation to the root logger
 
     # basic screen handler
@@ -175,6 +216,13 @@ def setup_mp_file_logger(log_file_path: str, logger_name: str, level=logging.DEB
     For now.. it can leave empty error files when all is said and done and that is fine. Just watch
     It's file size.
 
+    Note: logging types:
+        - debug goes to file only.
+        - the rest info, warning, etc) go screen and file both.
+        - error and critical value is duplicated into an error file
+        - warning level value is duplicated into a warning file.
+
+
     """
 
     if not logger_name:
@@ -184,7 +232,7 @@ def setup_mp_file_logger(log_file_path: str, logger_name: str, level=logging.DEB
         raise Exception("log file name must end with .log")
 
     abs_path = os.path.abspath(log_file_path)
-    permissions_code = 0o776
+    permissions_code = 0o766
     log_folder = os.path.dirname(abs_path)
     os.makedirs(log_folder, mode=permissions_code, exist_ok=True)
     # even though we used os.makedirs, it does not mean it had permission to make the dir
@@ -244,6 +292,34 @@ def setup_mp_file_logger(log_file_path: str, logger_name: str, level=logging.DEB
     return logger
 
 
+def convert_logger_to_async(logger_name=None):
+    """Converts an existing logger to use a QueueHandler automatically."""
+    # 1. Get the existing target logger (None gets the root logger)
+    target_logger = logging.getLogger(logger_name)
+
+    # 2. Extract all handlers already attached to this logger
+    existing_handlers = target_logger.handlers[:]
+    if not existing_handlers:
+        return None  # No handlers to migrate
+
+    # 3. Create the shared queue
+    log_queue = queue.Queue(-1)
+
+    # 4. Create the QueueHandler
+    queue_handler = logging.handlers.QueueHandler(log_queue)
+
+    # 5. Remove old handlers and attach the new QueueHandler
+    for handler in existing_handlers:
+        target_logger.removeHandler(handler)
+    target_logger.addHandler(queue_handler)
+
+    # 6. Create and start the listener with the original handlers
+    listener = logging.handlers.QueueListener(log_queue, *existing_handlers)
+    listener.start()
+
+    return listener
+
+
 # This saves the msg to a log file, but also either a standard "print" or a "screen queue"
 # Note: the screen queue is really just a Manager.queue and we are usign a "put"
 # If the screen_queue is None, it defaults to "print"
@@ -272,6 +348,8 @@ def l_print(msg, file_logger, log_level="info", screen_queue=None):
             raise Exception("Invalid log level value. Options are debug, info, warning, error and critical")
 
 
+# TODO: Jun 2026: this rollup_log_files and merge_child_logs_into_parent_log are both new functions
+# We should check if we can merge them.
 def rollup_log_files(src_file, trg_file, remove_old_src_file=True):
     # Sometimes we want to append log file onto another file.
     # For example, a temp mp log file into the parent log.
@@ -314,6 +392,100 @@ def rollup_log_files(src_file, trg_file, remove_old_src_file=True):
 
         if remove_old_src_file:
             os.remove(error_src_file_name)
+
+    return True
+
+
+# This is helpful when using MP. You can setup the parent log, then in the MP child code, you
+# can set them up with there own files with the child_prefix. Each MP will start with that prefix
+# and some sort of unique identifer at the end of the file name. This avoids MP child functions
+# from colliding with them all writing to the same log file. If you do let each MP write to a file of any type,
+# they will drop records or lock it.
+# This just searches for the prefix and concats to the parent so the parent have rollups.
+# it does assume the child logs are in the same dir as the parent file.
+# This will also auto cover -error.log and -warning.log files as well.
+
+
+# Note: This may seem identical to rollup_log_files function, but there is one key different.
+# rollup_log_files uses a target file, this one uses a child prefix and glob.
+def merge_child_logs_into_parent_log(parent_log_file, child_prefix, remove_old_src_file=True):
+
+    if parent_log_file is None or parent_log_file == "":
+        raise ValueError("parent log file can not be none or empty")
+
+    if child_prefix is None or child_prefix == "":
+        raise ValueError("child_prefix can not be none or empty")
+
+    parent_log_folder = os.path.dirname(parent_log_file)
+    parent_log_file_name = os.path.basename(parent_log_file)
+
+    if parent_log_file_name.startswith(child_prefix):
+        raise ValueError(
+            f"Parent log file name of {parent_log_file} can not start with the same"
+            "child prefix. Otherwise, glob is search for its own parent log"
+            "file instead of children to concat to the parent log file"
+        )
+
+    # calc the default parent error and warnign file.
+    parent_log_error_file = parent_log_file.replace(".log", "-errors.log")
+    parent_log_warning_file = parent_log_file.replace(".log", "-warnings.log")
+
+    child_log_files = list(glob.glob(os.path.join(parent_log_folder, f'{child_prefix}*'), recursive=True))
+    num_child_files_found = len(child_log_files)
+    # print(f"num child found = {num_child_files_found}")
+
+    for child_log in child_log_files:
+        if "-error" in child_log:
+            concat_files(child_log, parent_log_error_file, remove_old_src_file)
+        elif "-warning" in child_log:
+            concat_files(child_log, parent_log_warning_file, remove_old_src_file)
+        else:
+            concat_files(child_log, parent_log_file, remove_old_src_file)
+
+    return num_child_files_found
+
+
+# Clears out all files with that prefix so old ones are not merged into a new run.
+# Which can for various reasons including fails and aborts.
+def remove_child_logs(parent_log_file, child_prefix):
+    if parent_log_file is None or parent_log_file == "":
+        raise ValueError("parent log file can not be none or empty")
+
+    if child_prefix is None or child_prefix == "":
+        raise ValueError("child_prefix can not be none or empty")
+
+    parent_log_folder = os.path.dirname(parent_log_file)
+    parent_log_file_name = os.path.basename(parent_log_file)
+
+    if parent_log_file_name.startswith(child_prefix):
+        raise ValueError(
+            f"Parent log file name of {parent_log_file} can not start with the same"
+            "child prefix. Otherwise, glob is search for its own parent log"
+            "file instead of children to concat to the parent log file"
+        )
+
+    child_log_files = list(glob.glob(os.path.join(parent_log_folder, f'{child_prefix}*'), recursive=True))
+    for child_log in child_log_files:
+        if os.path.isfile(child_log):
+            os.remove(child_log)
+
+
+def concat_files(src_file, trg_file, remove_old_src_file=True):
+    # Sometimes we want to append log file onto another file.
+    # For example, a temp mp log file into the parent log.
+
+    # This will not error out if the files do not exist
+    # only send back a True / False (successful)
+
+    if not os.path.exists(src_file) or not os.path.exists(trg_file):
+        return False
+
+    with open(src_file, 'r') as src:
+        with open(trg_file, 'a') as trg:
+            shutil.copyfileobj(src, trg)
+
+    if remove_old_src_file:
+        os.remove(src_file)
 
     return True
 
@@ -431,12 +603,14 @@ def run_with_mp(
         #   - CPU collisons, etc
 
         # Because there are multiple ways that an MP can crash, it very easy to leave either
-        #   an orphaned process (memory leak), or a thread that is still forceing the program to stay open.
-        #   It is not possible to kill an mp function already in progress short of some very, very complex
-        #   complete operating system process management (extremely not recommended).
-        #   In this case we are manageing an process pool, a memory thread, and logging. It is possible
-        #   and has happened in development that something dies and the program hangs.
-        #   One would think just a simple try/except is enough but that is not always true.
+        #   an orphaned process (memory leak) that is still forceing the program to stay open.
+        #   While it may seem like a person can just do try/except inside the as_complete, that
+        #   is not true. If the basic definition call to the child function call is bad, it won't
+        #   get back a future result, so you need a different try / except outside the future
+        #   result testing. Hence.. the multi-layer try/except.
+        #   In this particular run_with_mp, it also has a thread and memory / screen queue which can also
+        #   be get stuck and not get cleaned up. TQDM is a threaded tool and it has to be managed
+        #   to make sure it doesn't get stuck as well.
         #   This is why we have a bizarre exception handling system here and it works pretty well.
         #
         # Also as mentioned... can not kill an mp that has already started. There is no abort a currently running
@@ -454,8 +628,10 @@ def run_with_mp(
         # When an MP dies and we want to shut down the app, we have to let it finish the wip mps, then we can
         #   abort and stop new ones from firing.
 
-        # CTRL-C entered multiple of times from console will stop the two program faster, but will leave orphaned memory
-        #    leaks.  If you do this, close your container to release the memory leaks and restart a new container.
+        # CTRL-C entered multiple of times from console will stop the two program faster as it will kill
+        # each child process one at a time, but CTRL-C a bunch of times can kill it.
+        # However, if you CTRL-C abort, close your container to release the memory leaks or unclosed
+        # processes and restart a new container.
 
         results = {}
         with ProcessPoolExecutor(max_workers=max_workers) as executor:

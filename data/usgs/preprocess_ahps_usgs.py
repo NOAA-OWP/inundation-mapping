@@ -10,7 +10,8 @@ import pandas as pd
 import rasterio
 import requests
 from dotenv import load_dotenv
-from tools_shared_functions import (
+
+from tools.tools_shared_functions import (
     aggregate_wbd_hucs,
     flow_data,
     get_datum,
@@ -409,6 +410,9 @@ def preprocess_usgs(source_dir, destination, reference_raster):
 
                     # Create Binary Grids, first create domain of analysis, then create binary grid
 
+                    # TODO: Jun 2026: Change all rasterio.open commands to better scope contol.
+                    # Using either the "with" syntax, or open the file / read / explicit close
+
                     # Domain extent is largest floodmap in the static library WITH holes filled
                     filled_domain_raster = outputdir.parent / f'{code}_filled_orig_domain.tif'
                     # Create a domain raster if it does not exist.
@@ -416,10 +420,13 @@ def preprocess_usgs(source_dir, destination, reference_raster):
                         # Open extent data as rasterio object
                         domain = rasterio.open(extent)
                         domain_profile = domain.profile
+
+                        # TODO: Jun 2026: Change  rasterio.open commands to better scope contol.
+                        # Using either the "with" syntax, or open the file / read / explicit close
+
                         # Domain should have donut holes removed
                         process_extent(domain, domain_profile, output_raster=filled_domain_raster)
 
-                    # Open domain raster as rasterio object
                     filled_domain = rasterio.open(filled_domain_raster)
                     filled_domain_profile = filled_domain.profile
 

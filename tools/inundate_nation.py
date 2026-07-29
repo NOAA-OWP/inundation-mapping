@@ -16,7 +16,8 @@ from rasterio.enums import Resampling
 from rasterio.shutil import copy
 from rio_vrt import build_vrt
 
-from utils.shared_functions import FIM_Helpers as fh
+from src.utils.shared_functions import FIM_Helpers as fh
+from src.utils.shared_functions import setup_file_logger
 
 
 # INUN_REVIEW_DIR = r'/data/inputs/rating_curve/nwm_recur_flows/'
@@ -26,21 +27,19 @@ from utils.shared_functions import FIM_Helpers as fh
 # DEFAULT_OUTPUT_DIR = '/data/inundation_review/inundate_nation/mosaic_output/'
 
 
-# TODO: Nov 2023, Logging system appears to be not working correctly.
-
-
 def inundate_nation(
     fim_run_dir,
     output_dir,
     magnitude_key,
-    flow_file,
+    flow_file_path,
     huc_list,
     inc_mosaic,
     precalb,
     job_number,
     thread_number,
 ):
-    assert os.path.exists(flow_file), f"ERROR: could not find the flow file: {flow_file}"
+
+    assert os.path.exists(flow_file_path), f"ERROR: could not find the flow file: {flow_file_path}"
 
     if job_number > available_cores:
         job_number = available_cores - 1
@@ -56,7 +55,8 @@ def inundate_nation(
     fim_version = os.path.basename(os.path.normpath(fim_run_dir))
     output_base_file_name = magnitude_key + "_" + fim_version
 
-    __setup_logger(output_dir, output_base_file_name)
+    log_file_path = setup_file_logger(log_file_dir=output_dir, log_file_name_prefix="inundation_nation")
+    print(f"Logs will be saved to {log_file_path}")
     logging.info(f"Using fim version: {fim_version}")
 
     start_dt = datetime.now()
@@ -64,7 +64,7 @@ def inundate_nation(
     logging.info(f"Input FIM Directory: {fim_run_dir}")
     logging.info(f"output_dir: {output_dir}")
     logging.info(f"magnitude_key: {magnitude_key}")
-    logging.info(f"flow_file: {flow_file}")
+    logging.info(f"flow_file: {flow_file_path}")
     logging.info(f"inc_mosaic: {str(inc_mosaic)}")
     logging.info(f"Precalibration Discharge: {str(precalb)}")
 
@@ -94,14 +94,16 @@ def inundate_nation(
     huc_list.sort()
 
     logging.info(f"Inundation mosaic wrapper outputs will saved here: {magnitude_output_dir}")
+    # Jun 2026: job_number arg is no longer available
+    # It was not previously used correctly. But it is used in other parts of this script.
     run_inundation(
         [
             fim_run_dir,
             huc_list,
             magnitude_key,
             magnitude_output_dir,
-            flow_file,
-            job_number,
+            flow_file_path,
+            # job_number, # Jun 2026: temp not in use, see notes below
             thread_number,
             precalb,
         ]
@@ -129,6 +131,9 @@ def inundate_nation(
                 procs_list.append([magnitude_output_dir, rasfile, output_bool_dir, fim_version])
 
         # Multiprocess --> create boolean inundation rasters for all hucs
+        # TODO: Jun 2026: This is loose and might be subject now to memory leaks or freeze up
+        # as seen in other apps this month. Consider upgrading or at least review
+        # It really needs a try/except as the pool can get stuck open on exceptions.
         if len(procs_list) > 0:
             with Pool(processes=job_number) as pool:
                 pool.map(create_bool_rasters, procs_list)
@@ -138,7 +143,7 @@ def inundate_nation(
             logging.info(msg)
 
         # Perform VRT creation and mosaic all of the huc rasters using boolean rasters
-        vrt_raster_mosaic(output_bool_dir, output_dir, output_base_file_name, thread_number, precalb)
+        vrt_raster_mosaic(output_bool_dir, output_dir, output_base_file_name, job_number, precalb)
 
         # now cleanup the temp bool directory
         shutil.rmtree(output_bool_dir, ignore_errors=True)
@@ -153,6 +158,7 @@ def inundate_nation(
     fh.print_current_date_time()
     logging.info(logging.info(datetime.now().strftime("%Y_%m_%d-%H_%M_%S")))
     end_time = datetime.now()
+    print(f"Logs will be saved to {log_file_path}")
     logging.info(fh.print_date_time_duration(start_dt, end_time))
 
 
@@ -165,15 +171,16 @@ def run_inundation(args):
             magnitude_output_dir (str), forecast (str), job_number (int)]
 
     """
-
+    # Jun 2026: job_number arg is no longer available
+    # It was not previously used correctly. But it is used in other parts of this script.
     fim_run_dir = args[0]
     huc_list = args[1]
     magnitude = args[2]
     magnitude_output_dir = args[3]
     forecast = args[4]
-    job_number = args[5]
-    thread_number = args[6]
-    precalb = args[7]
+    # job_number = args[5]
+    thread_number = args[5]
+    precalb = args[6]
 
     # Define file paths for use in inundate().
 
@@ -190,18 +197,36 @@ def run_inundation(args):
     )
     print()
 
+    # Jun 2026: gms_multi_process no longer available as it is now Multi-threaded only
+    # Also show_progress_bar (TQDM was added and defaulted on. See how it looks.
+    # It has been a bit finicky with not updating itself great, but try it and add a card
+    # if it not working correctly. It is untested when visible.
+
+    # However, it would be well worth adding a ProcessPoolExecutor here, similar to the one in
+    # synthesis_test_case. The you use the num_workers there.
+
+    # TODO: July 1, 2026:
+    #  wrap this in a loop, processpool and/or TQDM. Inundate_gms now only accepts
+    # one huc at a time now due to performance and memory overhead.
+    # See synethesis_test_case
+    # will need to get the map_files_df and contact them.
+    # for each loop, a map_files_df wil come back but for only one huc at a time.
+    # concat them, to take further for mosaicking
+    # 
+    
+    huc=huc_list[0]  # first rec for now only. See above.
+
     produce_mosaicked_inundation(
-        fim_run_dir,
-        huc_list,
-        forecast,
-        inundation_raster=inundation_raster,
-        num_workers=job_number,
+        hydrofabric_dir=fim_run_dir,
+        huc=huc,
+        flow_file_path=forecast,
+        inundation_raster_path=inundation_raster,
         num_threads=thread_number,
         remove_intermediate=True,
         verbose=True,
         is_mosaic_for_branches=True,
-        gms_multi_process=True,
         precalb_option=precalb,
+        windowed=True,
     )
 
 
@@ -243,7 +268,9 @@ def create_bool_rasters(args):
         dst.write(array.astype(rasterio.uint8))
 
 
-def vrt_raster_mosaic(output_bool_dir, output_dir, fim_version_tag, threads, precalb):
+# thread value was not used
+# def vrt_raster_mosaic(output_bool_dir, output_dir, fim_version_tag, threads, precalb):
+def vrt_raster_mosaic(output_bool_dir, output_dir, fim_version_tag, precalb):
     crs_groups = defaultdict(list)
 
     # Group rasters by CRS
@@ -291,7 +318,7 @@ def vrt_raster_mosaic(output_bool_dir, output_dir, fim_version_tag, threads, pre
             vrt_file = build_vrt(output_mosaic_vrt, raster_list)
 
             logging.info(f"Building raster mosaic: {output_mosaic_raster}")
-            logging.info(f"Using {threads} threads for parallelizing")
+            # logging.info(f"Using {threads} threads for parallelizing")
             # Use rasterio.shutil.copy to apply the COG profile during the merge
             rasterio.shutil.copy(vrt_file, output_mosaic_raster, **creation_options)
 
@@ -306,43 +333,44 @@ def vrt_raster_mosaic(output_bool_dir, output_dir, fim_version_tag, threads, pre
             vrt_file = None
 
 
-def __setup_logger(output_folder_path, log_file_name_key, log_level=logging.INFO):
-    start_time = datetime.now()
-    file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
-    log_file_name = f"{log_file_name_key}-{file_dt_string}.log"
+# def __setup_logger(output_folder_path, log_file_name_key, log_level=logging.INFO):
+#     start_time = datetime.now()
+#     file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
+#     log_file_name = f"{log_file_name_key}-{file_dt_string}.log"
 
-    log_file_path = os.path.join(output_folder_path, log_file_name)
-    print('Log file created here:' + str(log_file_path))
+#     log_file_path = os.path.join(output_folder_path, log_file_name)
+#     print('Log file created here:' + str(log_file_path))
 
-    # Clear previous logging configuration
-    logging.getLogger().handlers = []
+#     # Clear previous logging configuration
+#     logging.getLogger().handlers = []
 
-    # Create a StreamHandler and set the level
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(log_level)
+#     # Create a StreamHandler and set the level
+#     console_handler = logging.StreamHandler()
+#     console_handler.setLevel(log_level)
 
-    # Create a FileHandler and set the level
-    file_handler = logging.FileHandler(log_file_path)
-    file_handler.setLevel(log_level)
+#     # Create a FileHandler and set the level
+#     file_handler = logging.FileHandler(log_file_path)
+#     file_handler.setLevel(log_level)
 
-    # Create a formatter and set the formatter for the handlers
-    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-    console_handler.setFormatter(formatter)
-    file_handler.setFormatter(formatter)
+#     # Create a formatter and set the formatter for the handlers
+#     formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+#     console_handler.setFormatter(formatter)
+#     file_handler.setFormatter(formatter)
 
-    # Add the handlers to the logger
-    logger = logging.getLogger()
-    logger.setLevel(log_level)
-    logger.addHandler(console_handler)
-    logger.addHandler(file_handler)
+#     # Add the handlers to the logger
+#     logger = logging.getLogger()
+#     logger.setLevel(log_level)
+#     logger.addHandler(console_handler)
+#     logger.addHandler(file_handler)
 
-    # Log the start time
-    logger.info(f'Started: {start_time.strftime("%m/%d/%Y %H:%M:%S")}')
-    logger.info("----------------")
+#     # Log the start time
+#     logger.info(f'Started: {start_time.strftime("%m/%d/%Y %H:%M:%S")}')
+#     logger.info("----------------")
 
 
 if __name__ == "__main__":
     """
+
     Sample usage:
     python3 /foss_fim/tools/inundate_nation.py
         -r /outputs/fim_4_0_9_2 -m 100_0
@@ -361,8 +389,6 @@ if __name__ == "__main__":
         -t 8
     outputs become /data/inundation_review/inundate_nation/hw_fim_4_0_9_2_mosiac.tif (.log, etc)
 
-    If run on UCS2, you can map docker as -v /dev_fim_share../:/data -v /local...outputs:/outputs
-    -v .../inundation-mapping/:/foss_fim as normal.
     """
 
     available_cores = multiprocessing.cpu_count()
@@ -402,7 +428,7 @@ if __name__ == "__main__":
 
     parser.add_argument(
         '-f',
-        '--flow_file',
+        '--flow-file-path',
         help='the path and flow file to be used. '
         'ie /data/inputs/rating_curve/bankfull_flows/'
         'nwm3_high_water_threshold_cms.csv',
@@ -435,10 +461,18 @@ if __name__ == "__main__":
         default=False,
     )
 
+    # Jun 2026: This is not really used for now until this script creates it own ProcessPoolExecutor
     parser.add_argument('-j', '--job-number', help='The number of jobs', required=False, default=1, type=int)
 
+    # Jun 2026: Threading in inundate_gms has been updated. It has not be stress tested but try at 20 or 40
+    # keep an eye on the performance counters to see if you are overthrottling.
     parser.add_argument(
-        '-t', '--thread-number', help='The number of threads', required=False, default=1, type=int
+        '-t',
+        '--thread-number',
+        help='The number of threads, can go higher up to 20 to 40 (untested at high amounts)',
+        required=False,
+        default=1,
+        type=int,
     )
 
     args = vars(parser.parse_args())

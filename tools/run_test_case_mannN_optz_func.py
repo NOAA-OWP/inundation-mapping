@@ -26,7 +26,20 @@ from tools_shared_variables import (  # INPUTS_DIR,
 )
 from tqdm import tqdm
 
-from utils.shared_functions import FIM_Helpers as fh
+from src.utils.shared_functions import FIM_Helpers as fh
+
+
+# NOTE: Jun 2026:  With major updates being made to inudation files, this tool will no longer
+# work and requires major updates including optimizations.
+# It was agreed that it was ok to defer as this script might not even be used anymore
+
+# TODO: Jun 2026: Why do we have so much duplication to run_test_cases.py
+# if we do want to keep this and not rebuild... consider rebuilding it to use our
+# standard logging system. See synthesize_test_case.py, run_test_case.py and various
+# inundation files under it.
+# At a min, review the part that calls inundation.inundate and compare to inundate_gms.py
+# But this script needs to be rebuilt anyways and call inundate_gms.py and not duplicate it here.
+# This script is now very out of date, including the need to remove FIM 3 references.
 
 
 # *******************************************************
@@ -186,6 +199,8 @@ def data(huc, category):
 
 
 # *********************************************************
+# TODO: Jun 2026: Along with comparing and updating this against run_test_case.py, also
+# adjust for workers. Temp disabled here.
 def alpha_test(
     test_case_dic,
     hydroTable_all,
@@ -217,7 +232,7 @@ def alpha_test(
     verbose : bool
         If True, prints out all pertinent data.
     gms_workers : int
-        Number of worker processes assigned to GMS processing.
+        Number of worker processes assigned to processing.
     '''
     try:
 
@@ -275,13 +290,7 @@ def alpha_test(
                 # instance will be the lid for AHPS sites and '' for other sites
                 # For each site, inundate the REM and compute aggreement raster with stats
                 _inundate_and_compute(
-                    hydroTable_all,
-                    test_case_dic,
-                    magnitude,
-                    instance,
-                    model=model,
-                    verbose=verbose,
-                    gms_workers=gms_workers,
+                    hydroTable_all, test_case_dic, magnitude, instance, model=model, verbose=verbose
                 )
 
             # Clean up 'total_area' outputs from AHPS sites
@@ -302,7 +311,7 @@ def alpha_test(
 
 
 def _inundate_and_compute(
-    hydroTable_all, test_case_dic, magnitude, lid, compute_only=False, model='', verbose=False, gms_workers=1
+    hydroTable_all, test_case_dic, magnitude, lid, compute_only=False, model='', verbose=False
 ):
     '''Method for inundating and computing contingency rasters as part of the alpha_test.
     Used by both the alpha_test() and composite() methods.
@@ -511,17 +520,22 @@ def produce_mosaicked_inundation(
 
     if mosaic_output is not None:
         # Call Mosaic_inundation
+        # TODO: Jun 2026: Mosaic_inundation has our standard logging added to it
+        # To test: Will it blow up now with logging not being added here?  Likely not
+        # A python logger default, (not ours in shared_functions), knows how
+        # to compensate if a log file does not exist. Google "python logger what if file is not set"
         mosaic_file_path = Mosaic_inundation(
             map_file.copy(),
             mosaic_attribute=mosaic_attribute,
             mosaic_output=mosaic_output,
-            mask=mask,
+            # mask=mask,
             unit_attribute_name=unit_attribute_name,
             nodata=elev_raster_ndv,
             remove_inputs=remove_intermediate,
             verbose=verbose,
             is_mosaic_for_branches=is_mosaic_for_branches,
             inundation_polygon=inundation_polygon,
+            show_progress_bar=False,
         )
 
     fh.vprint("Mosaicking complete.", verbose)
@@ -554,6 +568,8 @@ def Inundate_gms(
         hucs = [hucs]
     if type(hucs) is str:
         hucs = [hucs]
+
+    # TODO: Jun 2026: We likely need a test to ensure hucs has at least one value. It likely always has only one. TBD
 
     num_workers = int(num_workers)
 
@@ -590,6 +606,11 @@ def Inundate_gms(
 
     # start up process pool
     # better results with Process pool
+    # TODO: Jun 2026: This needs a major upgrade to manage memory leaks which can easily occur here.
+    # See the run_test_case chain and inundate_gms for examples of both multi-procs and multi-thread
+    # That update should also update how TQDM is used in order to not leave hung TQDM threads which
+    # have been seen.
+    # This can trigger memory leaks as is.
     executor = ProcessPoolExecutor(max_workers=num_workers)
 
     # collect output filenames
@@ -607,6 +628,7 @@ def Inundate_gms(
         desc=f"Inundating branches with {num_workers} workers",
         disable=(not verbose),
     ):
+        # TODO: Jun 2026: This wil break as inundate hucCode and branch_id will not exist
         hucCode, branch_id = executor_generator[future]
 
         try:
@@ -721,14 +743,13 @@ def __inundate_gms_generator(
             "hucs": None,
             "hucs_layerName": None,
             "subset_hucs": None,
-            "num_workers": 1,
             "aggregate": False,
             "inundation_raster": inundation_branch_raster,
             # "inundation_polygon": inundation_branch_polygon,
             "depths": depths_branch_raster,
             # "out_raster_profile": None,
             # "out_vector_profile": None,
-            "quiet": not verbose,
+            "verbose": verbose,
             "windowed": windowed,
         }
         # print(list(inundate_input.items())[3])

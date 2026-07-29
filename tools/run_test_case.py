@@ -1,27 +1,29 @@
 #!/usr/bin/env python3
 
-import json
+import logging
 import os
+import random
 import re
 import shutil
-import sys
+import time
 import traceback
+from datetime import datetime, timezone
 
-import pandas as pd
+# import pandas as pd
 from inundate_mosaic_wrapper import produce_mosaicked_inundation
-from inundation import inundate
-from mosaic_inundation import Mosaic_inundation
+
+# from inundation import inundate
+# from mosaic_inundation import Mosaic_inundation
 from tools_shared_functions import compute_contingency_stats_from_rasters
-from tools_shared_variables import (
+from tools_shared_variables import (  # INPUTS_DIR,; elev_raster_ndv,
     AHPS_BENCHMARK_CATEGORIES,
-    INPUTS_DIR,
     MAGNITUDE_DICT,
     OUTPUTS_DIR,
     PREVIOUS_FIM_DIR,
     TEST_CASES_DIR,
-    elev_raster_ndv,
 )
 
+import src.utils.shared_functions as sf
 from src.utils.shared_functions import FIM_Helpers as fh
 from src.utils.shared_functions import get_huc_vars
 
@@ -89,16 +91,16 @@ class Benchmark(object):
 
 
 class Test_Case(Benchmark):
-    def __init__(self, test_id, version, archive=True):
+    def __init__(self, test_id, hand_version, archive=True):
         """Class that handles test cases, specifically running the alpha test.
 
         Parameters
         ----------
         test_id : str
             ID of the test case in huc8_category format, e.g. `12090201_ble`.
-        version : str
+        hand_version : str
             Version of FIM to which this test_case belongs. This should correspond to the fim directory
-            name in either `/data/previous_fim/` or `/outputs/`.
+            name in either `/data/previous_fim/` or `/outputs/`. ie) hand_4_9_10_10
         archive : bool
             If true, this test case outputs will be placed into the `official_versions` folder
             and the FIM model will be read from the `/data/previous_fim` folder.
@@ -109,22 +111,34 @@ class Test_Case(Benchmark):
         self.test_id = test_id
         self.huc, self.benchmark_cat = test_id.split('_')
         super().__init__(self.benchmark_cat)
-        self.version = version
+        self.is_valid_hand_huc = False
+        self.hand_version = hand_version
         self.archive = archive
         # FIM run directory path - uses HUC 6 for FIM 1 & 2
-        self.fim_dir = os.path.join(
-            PREVIOUS_FIM_DIR if archive else OUTPUTS_DIR,
-            self.version,
-            self.huc if not re.search('^fim_[1,2]', version, re.IGNORECASE) else self.huc[:6],
+
+        self.fim_huc_dir = os.path.join(
+            PREVIOUS_FIM_DIR if archive else OUTPUTS_DIR, self.hand_version, self.huc
         )
+
+        # Test the HUC folder
+        if os.path.exists(self.fim_huc_dir):
+            # files that should exist if the huc finished processing correctly
+            # If not... the huc failed.
+            if os.path.isfile(os.path.join(self.fim_huc_dir, "hydrotable.csv")) or os.path.isfile(
+                os.path.join(self.fim_huc_dir, "hydrotable.parquet")
+            ):
+                self.is_valid_hand_huc = True
+
         # Test case directory path
+        # TODO: Jun 2026: Do we want it to create a bunch of empy dirs in test_cases?
         self.dir = os.path.join(
             TEST_CASES_DIR,
             f'{self.benchmark_cat}_test_cases',
             test_id,
             'official_versions' if archive else 'testing_versions',
-            version,
+            hand_version,
         )
+
         if not os.path.exists(self.dir):
             os.makedirs(self.dir)
         # Benchmark data path
@@ -137,14 +151,14 @@ class Test_Case(Benchmark):
         }
 
     @classmethod
-    def list_all_test_cases(cls, version, archive, benchmark_categories=[]):
+    def list_all_test_cases(cls, hand_version, archive, benchmark_categories=[]):
         """Returns a complete list of all benchmark category test cases as classes.
 
         Parameters
         ----------
-        version : str
+        hand_version : str
             Version of FIM to which this test_case belongs. This should correspond to the fim directory
-            name in either `/data/previous_fim/` or `/outputs/`.
+            name in either `/data/previous_fim/` or `/outputs/`. ie) hand_4_9_10_10
         archive : bool
             If true, this test case outputs will be placed into the `official_versions` folder
             and the FIM model will be read from the `/data/previous_fim` folder.
@@ -160,33 +174,28 @@ class Test_Case(Benchmark):
             benchmark_data = benchmark_class.huc_data()
 
             for huc in benchmark_data.keys():
-                test_case_list.append(cls(f'{huc}_{bench_cat}', version, archive))
+                test_case_list.append(cls(f'{huc}_{bench_cat}', hand_version, archive))
 
         return test_case_list
 
     def alpha_test(
         self,
-        calibrated=False,
-        model='',
-        mask_type='huc',
+        # mask_type='huc', has not been used for a while (fim 3)
         inclusion_area='',
         inclusion_area_buffer=0,
         overwrite=True,
         verbose=False,
-        gms_workers=1,
+        branch_workers=1,
         precalb_option=False,
-        threads=8,
+        log_folder='',
+        log_prefix='',
     ):
         '''Compares a FIM directory with benchmark data from a variety of sources.
 
         Parameters
         ----------
-        calibrated : bool
-            Whether or not this FIM version is calibrated.
-        model : str
-            MS or FR extent of the model. This value will be written to the eval_metadata.json.
-        mask_type : str
-            Mask type to feed into inundation.py.
+        # mask_type : str
+        #     Mask type to feed into inundation.py.
         inclusion_area : int
             Area to include in agreement analysis.
         inclusion_area_buffer : int
@@ -195,44 +204,52 @@ class Test_Case(Benchmark):
             If True, overwites pre-existing test cases within the test_cases directory.
         verbose : bool
             If True, prints out all pertinent data.
-        gms_workers : int
-            Number of worker processes assigned to GMS processing.
-        threads : int
-            Number of threads assigned to GMS processing.
+        branch_workers : int
+            Number of worker processes assigned to branch processing.
+        log_folder: string
+            As this function is being called as part of a MP, it needs its own log file and folder
+        log_prefix: string
+            This is the prefix of the log file name to be used. This code will add a unique value
+            to ensure unique log files per MP
         '''
 
+        # June 2026:
+        # When this first starts, they all hit this function at the same time often hitting the same files.
+        # This is mostly true when we have a huc with more than one benchmark type. One alpha_test case is
+        # based on one huc + benchmark type. They will both aim to get huc level files at the same time.
+        # Putting a random time sleeper helps manage that a little lowering resource needs a little and network
+        # bottlenecks. random between 0 and 5 seconds
+        time.sleep(random.randint(0, 5))
+
+        start_time = datetime.now(timezone.utc)
         try:
+            if log_folder != "":
+                # Each logger get the name of fim_logger but each are in a ProcessPoolExecutor
+                # so they will not collide. But giving it a specific name makes it easier
+                # to share with a ThreadPoolExecutor in inundation
+
+                # Also, each logger should have its own name. 
+                # Just get the system proc id as part of its uniquess
+                sf.setup_file_logger(log_file_dir=log_folder,
+                                     log_file_name_prefix=f"{log_prefix}_{self.test_id}")
+ #                                     logger_name=f"alpha_test_worker_{os.getpid()}")
+                time.sleep(0.2)  # gives time for the logger to fully instanitate
+
+            if verbose:
+                logging.info("")  # helps find the sections in the logs
+                logging.info(f">>>>>>>>>> Started Alpha Test for {self.test_id}")
+            else:
+                logging.debug("")  # helps find the sections in the logs
+                logging.debug(">>>>>>>>>>>>>>>>>>>>>")
+                logging.debug(f"Started Alpha Test for {self.test_id}")
+
             if not overwrite and os.path.isdir(self.dir):
-                print(f"Metrics for {self.dir} already exist. Use overwrite flag (-o) to overwrite metrics.")
+                logging.warning(
+                    f"Metrics for {self.dir} already exist. Use overwrite flag (-o) to overwrite metrics."
+                )
                 return
 
-            fh.vprint(f"Starting alpha test for {self.dir}", verbose)
-
             self.stats_modes_list = ['total_area']
-
-            # Create paths to fim_run outputs for use in inundate()
-            if model != 'GMS':
-                self.rem = os.path.join(self.fim_dir, 'rem_zeroed_masked.tif')
-                if not os.path.exists(self.rem):
-                    self.rem = os.path.join(self.fim_dir, 'rem_clipped_zeroed_masked.tif')
-                self.catchments = os.path.join(
-                    self.fim_dir, 'gw_catchments_reaches_filtered_addedAttributes.tif'
-                )
-                if not os.path.exists(self.catchments):
-                    self.catchments = os.path.join(
-                        self.fim_dir, 'gw_catchments_reaches_clipped_addedAttributes.tif'
-                    )
-                self.mask_type = mask_type
-                if mask_type == 'huc':
-                    self.catchment_poly = ''
-                else:
-                    self.catchment_poly = os.path.join(
-                        self.fim_dir, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg'
-                    )
-                self.hydro_table = os.path.join(self.fim_dir, 'hydroTable.csv')
-
-            # Map necessary inputs for inundate().
-            self.hucs, self.hucs_layerName = os.path.join(INPUTS_DIR, 'wbd', 'WBD_National.gpkg'), 'WBDHU8'
 
             if inclusion_area != '':
                 inclusion_area_name = os.path.split(inclusion_area)[1].split('.')[0]  # Get layer name
@@ -250,14 +267,11 @@ class Test_Case(Benchmark):
                     inclusion_area_buffer = 0
                 self.stats_modes_list.append(inclusion_area_name + '_b' + str(inclusion_area_buffer) + 'm')
 
-            # Delete the directory if it exists
-            # Sometimes with MP, os commands can collide in race conditions depending on what folders
-            # are remove folders (folder in folder and possibly others)
-            if os.path.exists(self.dir):
-                shutil.rmtree(self.dir, ignore_errors=True)
-            os.mkdir(self.dir)
+            # ie) /data/test_cases/ble_test_cases/12090301_ble/testing_versions/Rob_alpha_test_3
+            os.makedirs(self.dir, exist_ok=True)
 
             # Get the magnitudes and lids for the current huc and loop through them
+
             validation_data = self.data(self.huc)
             for magnitude in validation_data:
                 for instance in validation_data[
@@ -267,40 +281,55 @@ class Test_Case(Benchmark):
                     self._inundate_and_compute(
                         magnitude,
                         instance,
-                        model=model,
-                        verbose=verbose,
-                        gms_workers=gms_workers,
+                        branch_workers=branch_workers,
                         precalb_option=precalb_option,
-                        threads=threads,
+                        verbose=verbose,
                     )
 
                 # Clean up 'total_area' outputs from AHPS sites
                 if self.is_ahps:
                     self.clean_ahps_outputs(os.path.join(self.dir, magnitude))
 
+            # Jun 2026: With dropping FIM 3, this has no value anymore
             # Write out evaluation meta-data
-            self.write_metadata(calibrated, model)
+            # self.write_metadata(calibrated, model)
+            # logging.debug(f"Starting to write metadata file to {self.dir}")
+            # self.write_metadata(calibrated)
 
-        except KeyboardInterrupt:
-            print("Program aborted via keyboard interrupt")
-            sys.exit(1)
+        except KeyboardInterrupt as kiex:
+            logging.critical(f"Program aborted via keyboard interrupt: {self.test_id}")
+            # sys.exit(1)  # Note: you can not have this inside an MP as it won't really work
+            raise kiex
         except Exception as ex:
-            print(ex)
-            # Temporarily adding stack trace
-            print(f"trace for {self.test_id} -------------\n", traceback.format_exc())
-            sys.exit(1)
+            logging.critical("++++++++++++++++++++++++++++++++++++++++++++++++")
+            logging.critical(f"An exception has occured for {self.test_id}")
+            logging.critical(traceback.format_exc())
+            raise ex
+        finally:
+            if verbose:
+                logging.info(
+                    f">>>>>>>>>> Completed Alpha Test for {self.test_id}:"
+                    f" Duration: {sf.calculate_duration_msg(start_time)}"
+                )
+            else:
+                logging.debug(">>>>>>>>>>>>>>>>>>>>>")
+                logging.debug(
+                    f"Completed Alpha Test for {self.test_id}:"
+                    f" Duration: {sf.calculate_duration_msg(start_time)}"
+                )
+            # we are about to exit this child logger. The logger does not automatically
+            # get killed until the procespool finishes all workers. But you can drop
+            # the handlers before returning, basically killing the logger. This is important because if you don't, the logger will
+            # keep the file open and you will not be able to delete it. This is a problem when you are running a lot of alpha_tests in a row and you want to delete the log
+            # files after each one. So, we will drop the handlers here.
+            logger = logging.getLogger()
+            handlers = logger.handlers[:]
+            for handler in handlers:
+                handler.close()
+                logger.removeHandler(handler)
 
-    def _inundate_and_compute(
-        self,
-        magnitude,
-        lid,
-        precalb_option,
-        compute_only=False,
-        model='',
-        verbose=False,
-        gms_workers=1,
-        threads=8,
-    ):
+
+    def _inundate_and_compute(self, magnitude, lid, precalb_option, branch_workers=1, verbose=False):
         '''Method for inundating and computing contingency rasters as part of the alpha_test.
         Used by both the alpha_test() and composite() methods.
 
@@ -310,11 +339,8 @@ class Test_Case(Benchmark):
              Magnitude of the current benchmark site.
          lid : str
              lid of the current benchmark site. For non-AHPS sites, this should be an empty string ('').
-         compute_only : bool
-             If true, skips inundation and only computes contingency stats.
         '''
-        # Output files
-        fh.vprint("Creating output files", verbose)
+        logging.debug(f"Preparing file paths for {self.dir} - ({self.huc})")
 
         test_case_out_dir = os.path.join(self.dir, magnitude)
         inundation_prefix = lid + '_' if lid else ''
@@ -341,6 +367,8 @@ class Test_Case(Benchmark):
             domain = os.path.join(self.benchmark_dir, lid, f'{lid}_domain.shp')
             mask_dict_indiv.update({lid: {'path': domain, 'buffer': None, 'operation': 'include'}})
         # Check to make sure all relevant files exist
+
+        logging.debug(f"benchmark_rast is {benchmark_rast} and benchmark_flows is {benchmark_flows}")
         if (
             not os.path.isfile(benchmark_rast)
             or not os.path.isfile(benchmark_flows)
@@ -348,51 +376,21 @@ class Test_Case(Benchmark):
         ):
             return -1
 
-        # Inundate REM
-        if not compute_only:  # composite alpha tests don't need to be inundated
-            if model == "GMS":
-
-                produce_mosaicked_inundation(
-                    hydrofabric_dir=os.path.dirname(self.fim_dir),
-                    hucs=self.huc,
-                    flow_file=benchmark_flows,
-                    inundation_raster=predicted_raster_path,
-                    mask=os.path.join(self.fim_dir, "wbd.gpkg"),
-                    verbose=verbose,
-                    num_threads=threads,
-                    num_workers=gms_workers,
-                    precalb_option=precalb_option,
-                    windowed=True,
-                    gms_multi_process=True,
-                )
-
-            # FIM v3 and before
-            else:
-                fh.vprint("Begin FIM v3 (or earlier) Inundation", verbose)
-                inundate_result = inundate(
-                    self.rem,
-                    self.catchments,
-                    self.catchment_poly,
-                    self.hydro_table,
-                    benchmark_flows,
-                    self.mask_type,
-                    hucs=self.hucs,
-                    hucs_layerName=self.hucs_layerName,
-                    subset_hucs=self.huc,
-                    num_workers=1,
-                    aggregate=False,
-                    inundation_raster=inundation_path,
-                    inundation_polygon=None,
-                    depths=None,
-                    out_raster_profile=None,
-                    out_vector_profile=None,
-                    quiet=True,
-                )
-                if inundate_result != 0:
-                    return inundate_result
+        produce_mosaicked_inundation(
+            hydrofabric_dir=os.path.dirname(self.fim_huc_dir),
+            huc=self.huc,
+            flow_file_path=benchmark_flows,
+            inundation_raster_path=predicted_raster_path,
+            map_filename=os.path.join(os.path.dirname(predicted_raster_path), "map_data.csv"),
+            verbose=verbose,
+            num_threads=branch_workers,
+            precalb_option=precalb_option,
+            windowed=True
+        )
 
         # Create contingency rasters and stats
-        fh.vprint("Begin creating contingency rasters and stats", verbose)
+        # fh.vprint("Begin creating contingency rasters and stats", verbose)
+        logging.debug(f"Begin creating contingency rasters and stats for benchmark_rast is {benchmark_rast}")
         if os.path.isfile(predicted_raster_path):
             compute_contingency_stats_from_rasters(
                 predicted_raster_path,
@@ -404,138 +402,39 @@ class Test_Case(Benchmark):
             )
         return
 
+    # TODO: Jun 2026: Should add logging like we did in the function called alpha_test
+    # This version, run_alpha_test, is currently only used by cache_metrics.py
     @classmethod
     def run_alpha_test(
         cls,
-        version,
+        hand_version,
         test_id,
-        magnitude,
-        calibrated,
-        model,
         precalb_option=False,
         archive_results=False,
-        mask_type='huc',
         inclusion_area='',
         inclusion_area_buffer=0,
         overwrite=True,
         verbose=False,
-        gms_workers=1,
-        threads=8,
+        branch_workers=1,
     ):
+
+        # TODO: Jun 2026: If we keep using this one as just a few tools do, we we want to add some sort of
+        # MP here?
+
         '''Class method for instantiating the test_case class and running alpha_test directly'''
 
-        alpha_class = cls(test_id, version, archive_results)
+        alpha_class = cls(test_id, hand_version, archive_results)
         alpha_class.alpha_test(
-            calibrated,
-            model,
-            mask_type,
-            inclusion_area,
-            inclusion_area_buffer,
-            overwrite,
-            verbose,
-            gms_workers,
-            precalb_option,
-            threads,
+            inclusion_area, inclusion_area_buffer, overwrite, verbose, branch_workers, precalb_option
         )
 
-    def composite(self, version_2, calibrated=False, overwrite=True, verbose=False):
-        '''Class method for compositing MS and FR inundation and creating an agreement raster with stats
-
-        Parameters
-        ----------
-        version_2 : str
-            Version with which to composite.
-        calibrated : bool
-            Whether or not this FIM version is calibrated.
-        overwrite : bool
-            If True, overwites pre-existing test cases within the test_cases directory.
-        '''
-
-        if re.match(r'(.*)(_ms|_fr)', self.version):
-            composite_version_name = re.sub(r'(.*)(_ms|_fr)', r'\1_comp', self.version, count=1)
-        else:
-            composite_version_name = re.sub(r'(.*)(_ms|_fr)', r'\1_comp', version_2, count=1)
-
-        fh.vprint(f"Begin composite for version : {composite_version_name}", verbose)
-
-        composite_test_case = Test_Case(self.test_id, composite_version_name, self.archive)
-        input_test_case_2 = Test_Case(self.test_id, version_2, self.archive)
-        composite_test_case.stats_modes_list = ['total_area']
-
-        if not overwrite and os.path.isdir(composite_test_case.dir):
-            return
-
-        # Delete the directory if it exists
-        if os.path.exists(composite_test_case.dir):
-            shutil.rmtree(composite_test_case.dir, ignore_errors=True)
-
-        validation_data = composite_test_case.data(composite_test_case.huc)
-        for magnitude in validation_data:
-            for instance in validation_data[
-                magnitude
-            ]:  # instance will be the lid for AHPS sites and '' for other sites (ble/ifc/ras2fim)
-                inundation_prefix = instance + '_' if instance else ''
-
-                input_inundation = os.path.join(
-                    self.dir, magnitude, f'{inundation_prefix}inundation_extent_{self.huc}.tif'
-                )
-                input_inundation_2 = os.path.join(
-                    input_test_case_2.dir,
-                    magnitude,
-                    f'{inundation_prefix}inundation_extent_{input_test_case_2.huc}.tif',
-                )
-                output_inundation = os.path.join(
-                    composite_test_case.dir, magnitude, f'{inundation_prefix}inundation_extent.tif'
-                )
-
-                if os.path.isfile(input_inundation) and os.path.isfile(input_inundation_2):
-                    inundation_map_file = pd.DataFrame(
-                        {
-                            'huc8': [composite_test_case.huc] * 2,
-                            'branchID': [None] * 2,
-                            'inundation_rasters': [input_inundation, input_inundation_2],
-                            'depths_rasters': [None] * 2,
-                            'inundation_polygons': [None] * 2,
-                        }
-                    )
-                    os.makedirs(os.path.dirname(output_inundation), exist_ok=True)
-
-                    fh.vprint(f"Begin mosaic inundation for version : {composite_version_name}", verbose)
-                    Mosaic_inundation(
-                        inundation_map_file,
-                        mosaic_attribute='inundation_rasters',
-                        mosaic_output=output_inundation,
-                        mask=None,
-                        unit_attribute_name='huc8',
-                        nodata=elev_raster_ndv,
-                        workers=1,
-                        remove_inputs=False,
-                        subset=None,
-                        verbose=False,
-                    )
-                    composite_test_case._inundate_and_compute(magnitude, instance, compute_only=True)
-
-                elif os.path.isfile(input_inundation) or os.path.isfile(input_inundation_2):
-                    # If only one model (MS or FR) has inundation, simply copy over all files as the composite
-                    single_test_case = self if os.path.isfile(input_inundation) else input_test_case_2
-                    shutil.copytree(
-                        single_test_case.dir,
-                        re.sub(r'(.*)(_ms|_fr)', r'\1_comp', single_test_case.dir, count=1),
-                    )
-                    composite_test_case.write_metadata(calibrated, 'COMP')
-                    return
-
-            # Clean up 'total_area' outputs from AHPS sites
-            if composite_test_case.is_ahps:
-                composite_test_case.clean_ahps_outputs(os.path.join(composite_test_case.dir, magnitude))
-
-        composite_test_case.write_metadata(calibrated, 'COMP')
-
-    def write_metadata(self, calibrated, model):
-        '''Writes metadata files for a test_case directory.'''
-        with open(os.path.join(self.dir, 'eval_metadata.json'), 'w') as meta:
-            eval_meta = {'calibrated': calibrated, 'model': model}
-            meta.write(json.dumps(eval_meta, indent=2))
+    # Jun 2026: This file no longer has any value
+    # def write_metadata(self, calibrated):
+    #     '''Writes metadata files for a test_case directory.'''
+    #     with open(os.path.join(self.dir, 'eval_metadata.json'), 'w') as meta:
+    #         # eval_meta = {'calibrated': calibrated, 'model': model}
+    #         eval_meta = {'calibrated': calibrated}
+    # meta.write(json.dumps(eval_meta, indent=2))
 
     def clean_ahps_outputs(self, magnitude_directory):
         '''Cleans up `total_area` files from an input AHPS magnitude directory.'''

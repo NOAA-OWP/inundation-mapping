@@ -34,6 +34,7 @@ def convert_to_int16(branch_dir: str):
     # Iterate through each pair of gw catchments and rems
     for c, r in zip(catchments, rems):
 
+        # TODO: Jun 2026: change to something that does not keep the file open
         catchment = rxr.open_rasterio(c)
 
         # Check if converting data is possible
@@ -65,6 +66,7 @@ def convert_to_int16(branch_dir: str):
             with open(hydroid_prefix_path, 'w') as file:
                 file.write(hydroid_prefix)
 
+        # TODO: Jun 2026: change to something that does not keep the file open
         rem = rxr.open_rasterio(r)
 
         # Save original as another file to be deleted by deny list or saved

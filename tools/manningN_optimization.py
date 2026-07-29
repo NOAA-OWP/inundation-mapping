@@ -28,6 +28,8 @@ from scipy.optimize import NonlinearConstraint, differential_evolution, minimize
 from tools_shared_variables import MAGNITUDE_DICT, TEST_CASES_DIR
 
 
+# TODO: Jun 2026: There is a very large amount of reduntency with run_test_case.py. Needs review
+
 AHPS_BENCHMARK_CATEGORIES = ["usgs", "nws"]
 
 
@@ -469,6 +471,9 @@ def synthesize_test_cases(huc, fim_version, hydroTable_all, job_number_branch, b
     overwrite = True
     verbose = False
     calibrated = False
+
+    # Jun 2026: Re-eval this as it needs a form of Multi-proc, see synthesize_test_cases.py file.
+    # See below
     for test_case_class in all_test_cases:
         if test_case_class is not None:
             # print(test_case_class)
@@ -485,6 +490,41 @@ def synthesize_test_cases(huc, fim_version, hydroTable_all, job_number_branch, b
                 gms_workers=job_number_branch,
             )
 
+    # Jun 2026: Re-eval this as it needs a form of Multi-proc, see synthesize_test_cases.py file.
+    # job_number_branch = 6
+    # Set up multiprocessor
+    # with ProcessPoolExecutor(max_workers=1) as executor:  # job_number_huc
+    #     # Loop through all test cases,
+    #     # build the alpha test arguments,
+    #     # and submit them to the process pool
+    #     executor_dict = {}
+    #     for test_case_class in all_test_cases:
+    #         if test_case_class is not None:
+    #             if not os.path.exists(test_case_class['fim_dir']):
+    #                 continue
+    #             alpha_test_args = {
+    #                 'test_case_dic': test_case_class,
+    #                 'hydroTable_all': hydroTable_all,
+    #                 'calibrated': calibrated,
+    #                 'model': model,
+    #                 'mask_type': 'huc',
+    #                 'overwrite': overwrite,
+    #                 'verbose': verbose,
+    #                 'gms_workers': job_number_branch,
+    #             }
+    #             try:
+    #                 future = executor.submit(alpha_test, **alpha_test_args)
+
+    #                 executor_dict[future] = test_case_class['test_id']
+    #             except Exception as ex:
+    #                 print(f"*** {ex}")
+    #                 traceback.print_exc()
+    #                 sys.exit(1)
+
+    # # Send the executor to the progress bar and wait for all MS tasks to finish
+    # progress_bar_handler(
+    #     executor_dict, True, f"Running {model} alpha test cases with {job_number_huc} workers"
+    # )
     metrics_df = create_master_metrics_df(fim_version, huc)
 
     print("=" * 40)
@@ -850,7 +890,17 @@ def multi_process_optimization(
             except Exception as ex:
                 failed_hucs.append(huc)
                 print(f"Failed MannN optimization for HUC {huc}: {ex}")
+                # TODO: consider changing traceback.print_exc() to
+                # logging.critical(traceback.format_exc())
+                # traceback.print_exc() goes straight to native logs if set up
+                # traceback.format_exc() returns a string that you can log, print or whatever
+
                 traceback.print_exc()
+
+                # TODO: this won't work. sys.exit inside a ProcessPool will not be honored
+                # Need to use:
+                #    executor.shutdown(wait=False, cancel_futures=True)
+                sys.exit(1)
 
     end_time = datetime.now()
     dt_string = end_time.strftime("%m/%d/%Y %H:%M:%S")

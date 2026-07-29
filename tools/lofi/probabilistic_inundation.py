@@ -5,6 +5,7 @@ import shutil
 import warnings
 from concurrent.futures import as_completed
 from contextlib import ExitStack
+from pathlib import Path
 from typing import Dict, Optional, Tuple, Union
 
 import fsspec
@@ -30,7 +31,7 @@ from scipy.stats import (
 from shapely.geometry import shape
 from tqdm import tqdm
 
-from utils.shared_functions import s3_or_local_glob
+from src.utils.shared_functions import s3_or_local_glob, setup_file_logger
 
 
 def get_fim_probability_distributions(
@@ -412,7 +413,7 @@ def inundate_probabilistic(
     day: Optional[int] = 6,
     hour: Optional[int] = 0,
     overwrite: Optional[bool] = False,
-    num_jobs: Optional[int] = 1,
+    num_jobs: Optional[int] = 1,  # Jun 2026: No longer in use, only thread values now
     num_threads: Optional[int] = 1,
     windowed: Optional[bool] = False,
     output_raster: Optional[bool] = False,
@@ -465,6 +466,10 @@ def inundate_probabilistic(
     if output_raster is False and output_vector is False:
         raise ValueError("Either output_raster or output_vector must be set to True")
 
+    if log_file is not None and log_file != "":
+        log_file_path = Path(log_file)
+        log_file_path = setup_file_logger(log_file_path.parent, log_file_path.name)
+
     # Load datasets
     ensembles = xr.open_dataset(ensembles, engine="h5netcdf")
 
@@ -474,9 +479,6 @@ def inundate_probabilistic(
 
     # Fim outputs directory
     fim_outputs_dir = outputs_dir
-
-    # Masks for HUC Domain
-    mask_path = os.path.join(hydrofabric_dir, huc, 'wbd.gpkg')
 
     # Percentiles and data to add
     percentiles = {'90': 10, '75': 25, '50': 50, '25': 75, '10': 90}
@@ -550,25 +552,27 @@ def inundate_probabilistic(
                 htable_output_file,
             )
 
-        flow_file = os.path.join(flow_path, f'{huc}_{percentile}_flow.csv')
+        flow_file_path = os.path.join(flow_path, f'{huc}_{percentile}_flow.csv')
 
         df = pd.DataFrame(
             {"feature_id": percentile_values['feature_id'], "discharge": percentile_values[percentile]}
         )
-        df.to_csv(flow_file, index=False)
+        df.to_csv(flow_file_path, index=False)
 
+        # Jun 2026: num_workers in produce_mosaiked_inundation in favour of multi-threading.
+        # Consider wrapping this "for" loop into a ProcessPoolExecutor
+        # Use caution on all of the perms of how MP can have exceptions, return values, etc.
+        # While a bit ugly, a very strong example can be seen in synthesize_test_case.
+        # Note: you might even have more ideas to make it even cleaner.
         produce_mosaicked_inundation(
             hydrofabric_dir,
             huc,
-            flow_file,
-            hydro_table_df=os.path.join(htable_output_path, htable_output_file),
-            inundation_raster=final_inundation_path,
-            mask=mask_path,
+            flow_file_path,
+            hydro_table_path=os.path.join(htable_output_path, htable_output_file),
+            inundation_raster_path=final_inundation_path,
             verbose=not quiet,
-            num_workers=num_jobs,
             num_threads=num_threads,
-            windowed=windowed,
-            log_file=log_file,
+            windowed=windowed
         )
 
     # percentiles
