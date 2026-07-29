@@ -226,14 +226,14 @@ def compute_manning_subdivision(df_src, channel_manning, overbank_manning, slope
     delta_stage = vstage - vstage_bf
 
     vol_chan = delta_stage * vsurf_area_bf
-    np.add(vol_chan, vvol_bf, out=vol_chan) # Estimated channel volume
-    np.minimum(vol_chan, vvol, out=vol_chan) # ensure that estimated doesn't exceed actual volume
-    np.copyto(vol_chan, vvol, where=mask) # Use actual volume where stage is below bankfull
+    np.add(vol_chan, vvol_bf, out=vol_chan)  # Estimated channel volume
+    np.minimum(vol_chan, vvol, out=vol_chan)  # ensure that estimated doesn't exceed actual volume
+    np.copyto(vol_chan, vvol, where=mask)  # Use actual volume where stage is below bankfull
 
     # Compute volume overbank
     vol_obank = vvol - vol_chan
-    np.maximum(vol_obank, 0.0, out=vol_obank) # Ensure that vol_obank is always positive
-    np.putmask(vol_obank, mask, 0.0) # Set overbank to 0 where stage doesn't exceed bankfull
+    np.maximum(vol_obank, 0.0, out=vol_obank)  # Ensure that vol_obank is always positive
+    np.putmask(vol_obank, mask, 0.0)  # Set overbank to 0 where stage doesn't exceed bankfull
 
     wetarea_chan = np.divide(vol_chan, lengthm, out=vol_chan)
     del vol_chan
@@ -256,7 +256,7 @@ def compute_manning_subdivision(df_src, channel_manning, overbank_manning, slope
     del wettedperim_chan
 
     hydraulicrad_chan = np.maximum(hydraulicrad_chan, 0.0, out=hydraulicrad_chan)
-    np.power(hydraulicrad_chan, 2/3, out=hydraulicrad_chan)
+    np.power(hydraulicrad_chan, 2 / 3, out=hydraulicrad_chan)
 
     # Compute channel discharge
     q_chan = np.multiply(wetarea_chan, hydraulicrad_chan, out=wetarea_chan)
@@ -268,7 +268,7 @@ def compute_manning_subdivision(df_src, channel_manning, overbank_manning, slope
     del hydraulicrad_chan
 
     np.multiply(q_chan, slope, out=q_chan)
-    np.multiply(q_chan, 1/np.float64(channel_manning), out=q_chan)
+    np.multiply(q_chan, 1 / np.float64(channel_manning), out=q_chan)
 
     wetarea_obank = np.divide(vol_obank, lengthm, out=vol_obank)
     del vol_obank
@@ -279,7 +279,7 @@ def compute_manning_subdivision(df_src, channel_manning, overbank_manning, slope
 
     hydraulicrad_obank = np.divide(wetarea_obank, wettedperim_obank, out=wettedperim_obank)
     np.maximum(hydraulicrad_obank, 0.0, out=hydraulicrad_obank)
-    np.power(hydraulicrad_obank, 2/3, out=hydraulicrad_obank)
+    np.power(hydraulicrad_obank, 2 / 3, out=hydraulicrad_obank)
 
     q_obank = np.multiply(wetarea_obank, hydraulicrad_obank, out=wetarea_obank)
     del wetarea_obank, hydraulicrad_obank
@@ -289,7 +289,7 @@ def compute_manning_subdivision(df_src, channel_manning, overbank_manning, slope
     np.sqrt(slope, out=slope)
 
     np.multiply(q_obank, slope, out=q_obank)
-    np.multiply(q_obank, 1/np.float64(overbank_manning), out=q_obank)
+    np.multiply(q_obank, 1 / np.float64(overbank_manning), out=q_obank)
     del slope
 
     # Compute total discharge
@@ -307,10 +307,19 @@ def compute_manning_subdivision(df_src, channel_manning, overbank_manning, slope
 @use_pandas_3_behavior()
 def read_crosswalk(hydrofabric_dir, huc, branch):
     read_cols = [
-            'Stage', 'Stage_bankfull', 'Volume (m3)', 'Volume_bankfull',
-            'SurfArea_bankfull', 'BedArea (m2)', 'BedArea_bankfull',
-            'LENGTHKM', 'SLOPE_RISE_RUN', 'SLOPE', 'Bathymetry_source',
-            'HydroID', 'Discharge (m3s-1)'
+        'Stage',
+        'Stage_bankfull',
+        'Volume (m3)',
+        'Volume_bankfull',
+        'SurfArea_bankfull',
+        'BedArea (m2)',
+        'BedArea_bankfull',
+        'LENGTHKM',
+        'SLOPE_RISE_RUN',
+        'SLOPE',
+        'Bathymetry_source',
+        'HydroID',
+        'Discharge (m3s-1)',
     ]
     path = os.path.join(hydrofabric_dir, huc, 'branches', branch, f"src_full_crosswalked_{branch}.csv")
     df_src = pd.read_csv(path, engine='pyarrow', usecols=read_cols)
@@ -319,10 +328,13 @@ def read_crosswalk(hydrofabric_dir, huc, branch):
 
 @use_pandas_3_behavior()
 def get_computed_subdivisions(df_src, channel_manning, overbank_manning, slope_adj):
-    subdiv_applied, final_discharge = compute_manning_subdivision(df_src, channel_manning, overbank_manning, slope_adj)
+    subdiv_applied, final_discharge = compute_manning_subdivision(
+        df_src, channel_manning, overbank_manning, slope_adj
+    )
 
     # We copy because we want to release df_src afterward
-    df_computed = pd.DataFrame({
+    df_computed = pd.DataFrame(
+        {
             'HydroID': df_src['HydroID'],
             'stage': df_src['Stage'],
             'Bathymetry_source': df_src['Bathymetry_source'],
@@ -330,8 +342,10 @@ def get_computed_subdivisions(df_src, channel_manning, overbank_manning, slope_a
             'channel_n': channel_manning,
             'overbank_n': overbank_manning,
             'subdiv_discharge_cms': final_discharge,
-            'discharge_cms': final_discharge  # create a copy of vmann modified discharge (used to track future changes)
-        }, copy=False)
+            'discharge_cms': final_discharge,  # create a copy of vmann modified discharge (used to track future changes)
+        },
+        copy=False,
+    )
 
     return df_computed
 
@@ -373,15 +387,14 @@ def get_subdivided_src(
     df_src = read_crosswalk(hydrofabric_dir, huc, branch)
     df_computed = get_computed_subdivisions(df_src, channel_manning, overbank_manning, slope_adj)
     del df_src
-    
+
     # drop the previously modified discharge column to be replaced with updated version
     path = os.path.join(hydrofabric_dir, huc, "hydrotable.parquet")
 
-    htable_cols = ['HydroID', 'feature_id', 
-                   'HUC', 'branch_id', 'stage',
-                   'SurfaceArea (m2)', 'LakeID']
-    df_htable = pd.read_parquet(path, engine='pyarrow', filters=[('branch_id', '==', int(branch))],
-                               columns=htable_cols)
+    htable_cols = ['HydroID', 'feature_id', 'HUC', 'branch_id', 'stage', 'SurfaceArea (m2)', 'LakeID']
+    df_htable = pd.read_parquet(
+        path, engine='pyarrow', filters=[('branch_id', '==', int(branch))], columns=htable_cols
+    )
     df_htable = df_htable.reset_index()
     df_htable = df_htable.astype({'HUC': "string[pyarrow]", 'HydroID': int, 'feature_id': "string[pyarrow]"})
 

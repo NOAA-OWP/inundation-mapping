@@ -8,12 +8,12 @@ import os
 # import pathlib
 # import re
 import shutil
-from contextlib import contextmanager
 
 # import sys
 import threading
 import traceback
 from concurrent.futures import Future, ProcessPoolExecutor, as_completed
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from multiprocessing import Manager
 from os.path import splitext
@@ -40,10 +40,11 @@ def use_pandas_3_behavior():
     2. Use PyArrow strings for better performance/memory usage.
     3. Disable silent downcasting with fillna, replace, and clip.
     """
-    with pd.option_context("mode.copy_on_write", True,
-                           "future.infer_string", True,
-                           "future.no_silent_downcasting", True):
+    with pd.option_context(
+        "mode.copy_on_write", True, "future.infer_string", True, "future.no_silent_downcasting", True
+    ):
         yield
+
 
 # #################################
 # log file tools

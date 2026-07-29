@@ -1,6 +1,20 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.x.x- 2026-07-29 - [PR#1910](https://github.com/NOAA-OWP/inundation-mapping/pull/1910)
+
+Significantly improves performance and memory usage of the manning subdivision code.
+
+### Additions
+* Streamline manning subdivision. Almost all the computation happens within numpy/C layer. For 19020104 huc, branch 0, the manning subdivision is computed in 525ms. Reusing memory buffers within numpy results in significantly reduced memory usage.
+* Add `use_pandas_3_behavior` decorator. This enables current pandas 3.0 behavior in pandas 2.2+ within a scoped block (function or context).
+
+### Changes
+* Several parts of the computation were modified to improve numerical stability and enforce physical constraints.
+
+I observed that the bottleneck of the original function is actually reading files. I split the file I/O and the computation into separate pieces. Switching to a faster csv parser (pyarrow) halved the runtime.
+<br/>
+
 ## v4.9.21.2 - 2026-07-24 - [PR#1895](https://github.com/NOAA-OWP/inundation-mapping/pull/1895)
 
 Most notes embedded.
