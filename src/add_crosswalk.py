@@ -465,10 +465,10 @@ def add_crosswalk(
     # write out
     to_hilbert_parquet(output_catchments, output_catchments_fileName, index=False)
 
+    # HACK
     # July 2026: At this point, a good handful of other tools that are not in the pipeline are looking for the .gpkg version.
-    # This includes: run_test_case.py and various inundation file, test_case_by_hydro_id.py and generate_categorical_fim.py.
-    # Once those been converted, the gpkg can be removed. Note: CatFIM already has it on its todo list. I am also wip for run_test_case.py
-    # and various inundation file. I will build a card to get test_case_by_hydro_id.py changed.
+    # A search in the code for the phrase 'gw_catchments_reaches_filtered_addedAttribute' shows a large number of tools and scripts
+    # that use the .tif or .gpkg. Not all are identified here but a card will be created to search and fix them.
     output_catchments_fileName_gpkg = os.path.splitext(output_catchments_fileName)[0] + '.gpkg'
     output_catchments.to_file(
         output_catchments_fileName_gpkg,
