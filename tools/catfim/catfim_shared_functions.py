@@ -114,6 +114,8 @@ def get_huc_metadata(huc, huc_path):
         A GDF of the same metadata (filtered to the site list for the HUC).
 
     '''
+    huc_metadata_json_list = []
+    huc_sites_gdf = gpd.GeoDataFrame()
 
     # Get filepaths for the metadata
     nwm_meta_file = os.getenv('NWM_METAFILE_PATH')
@@ -164,8 +166,8 @@ def get_huc_metadata(huc, huc_path):
     huc_sites_gdf = all_sites_gdf[all_sites_gdf['HUC8'] == huc].copy()
 
     if len(huc_sites_gdf) == 0:
-        msg = f"Sites table empty after filtering to HUC {huc}"
-        logging.error(msg)
+        msg = f"{huc} - Sites table empty after filtering to HUC"
+        logging.warning(msg)
 
     # There appears to be actual column named "index" at this point, remove it
     huc_sites_gdf.reset_index(drop=True, inplace=True)
@@ -182,15 +184,21 @@ def get_huc_metadata(huc, huc_path):
     nwm_lids = huc_sites_gdf['nws_lid'].tolist()
 
     # Find lid metadata from master list of metadata dictionaries (line 66).
-    huc_metadata_json_list = []
-    for lid_site_data in metadata_json_list:
-        lid = lid_site_data['identifiers']['nws_lid']
-        if lid in nwm_lids:
-            huc_metadata_json_list.append(lid_site_data)
 
-    if len(huc_metadata_json_list) == 0:
-        msg = f"Metadata JSON list empty after filtering to lid list {nwm_lids} for HUC {huc}"
-        logging.error(msg)
+    if len(nwm_lids) > 0:
+
+        for lid_site_data in metadata_json_list:
+            lid = lid_site_data['identifiers']['nws_lid']
+            if lid in nwm_lids:
+                huc_metadata_json_list.append(lid_site_data)
+
+        if len(huc_metadata_json_list) == 0:
+            msg = f"{huc} - Metadata JSON list empty after filtering to lid list {nwm_lids}"
+            logging.error(msg)
+
+    else:
+        msg = f"{huc} - No valid LIDs found in lid list, skipping filtering metadata JSON"
+        logging.warning(msg)
 
     # -----
     # Clean up: Remove the copied-over files once we've read this data in
@@ -856,7 +864,7 @@ def drop_output_columns(df, catfim_type):
 
     # List of columns to only remove for fb or sb CatFIM
     fb_specific_cols_to_remove = ['interval_stage', 'is_interval', 'stage', 'stage_uni', 'stage_src']
-    sb_specific_cols_to_remove = ['q', 'q_src', 'q_uni', 'stage']
+    sb_specific_cols_to_remove = ['q', 'q_src', 'q_uni']
     # TODO: Eventually can remove the stage intermediate vals, but keeping for now
     # bcs it’s useful for debugging at the moment (datum_adj_ft, datum_adj_wse_ft, lid_alt_ft, hand_stage)
 

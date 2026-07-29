@@ -600,8 +600,6 @@ def __process_elevations(
 
         # Make an "rfc_stage" column (for documentation of the data source)
         lid_library_df['rfc_stage'] = lid_library_df['stage']
-        # TODO: Decide if we want to remove the 'stage' col
-        # but add a 'hand_stage' col? I am partial to that because it's more descriptive!
 
         # TODO: rfc_stage, but final library calls this rfs_stage (typo?)
         # uncorrect WRDS value before we adjusted it for inundation

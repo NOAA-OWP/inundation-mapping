@@ -458,12 +458,6 @@ def __create_sb_huc_library_data(
       consistency with the status messaging. In the future, we can look into optimising this
       a bit more (aka making it into just one function for flow- and stage-based CatFIM).
 
-    - TODO: of course, SB needs the data from the stage row, but down the road
-      it also nees some data from the flow row. See __adjust_datum_ft.
-      SO.. As we iterate through lids, makes sure they have both rows.
-
-    SB will use the segments file, but segments will be created anyways as a checkpoint.
-    TODO: Rob, do we mean that SB will NOT use the segments file? typo?
     '''
 
     # Initialize output dataframes
@@ -535,6 +529,8 @@ def __create_sb_huc_library_data(
         # Get the stream segments for the site
         segments_lst = __get_segments(lid_metadata, nwm_flows_region_df)
 
+        logging.info(f"{huc} : {lid} - Found {len(segments_lst)} stream segments for site")
+
         # Update the mapped and status columns of the sites_gdf if we are missing NWM stream segments
         if not segments_lst or len(segments_lst) == 0:
             err_msg = 'Missing nwm stream segments'
@@ -543,6 +539,8 @@ def __create_sb_huc_library_data(
             continue
 
         elif len(segments_lst) > 0:
+            logging.info(f"{huc} : {lid} - Stream segments: {segments_lst}")
+
             # Turn segments_lst from a simple list of feature IDs into a dataframe and add a lid column
             lid_seg_df = pd.DataFrame(data=segments_lst, columns=["feature_id"])
             lid_seg_df["lid"] = lid
@@ -839,6 +837,9 @@ def __create_fb_huc_library_data(
         # ---------------------------
         # Get the stream segments for the site
         segments_lst = __get_segments(lid_metadata, nwm_flows_region_df)
+
+        logging.info(f"{huc} : {lid} - Found {len(segments_lst)} stream segments for site")  # TEMP DEBUG
+        logging.info(f"{huc} : {lid} - Stream segments: {segments_lst}")  # TEMP DEBUG
 
         # Update the mapped and status columns of the sites_gdf if we are missing NWM stream segments
         if not segments_lst or len(segments_lst) == 0:

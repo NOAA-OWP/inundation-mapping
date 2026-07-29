@@ -1,6 +1,22 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.____ - 2026-07-__ - [PR#1869](https://github.com/NOAA-OWP/inundation-mapping/pull/1869)
+
+Smooths out some outstanding quirks found after merging the CatFIM reorg changes into dev and creates a new CatFIM tool for joining outputs from a secondary run (such as Guam stage-based) into the primary CatFIM outputs.
+
+### Additions
+- `tools/catfim/catfim_combine_final_outputs.py`: Joins the CatFIM outputs from a secondary folder to the outputs in a primary folder. The outputs are merged into new files in the primary folder with a label added to the filename.
+
+### Changes
+- `src/process_branch.sh`: Comment change.
+- `tools/catfim/catfim_post_processing.py`: Moved filepath creation to new function `get_output_filepaths()`. Added functionality to save outputs as parquets (as well as the previous CSV and GPKG outputs).
+- `tools/catfim/catfim_shared_functions.py`: Adjusted logging priority.
+- `tools/catfim/generate_categorical_fim.py`: Fixed logging of unfinished HUC list (was causing error).
+- `tools/tools_shared_functions.py`: Comment change.
+
+<br/>
+
 ## v4.9.21.2 - 2026-07-24 - [PR#1895](https://github.com/NOAA-OWP/inundation-mapping/pull/1895)
 
 Most notes embedded.

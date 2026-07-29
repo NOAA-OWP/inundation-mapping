@@ -12,8 +12,6 @@ import numpy as np
 import pandas as pd
 from pyproj import CRS
 from shapely import wkt
-from shapely.geometry import MultiPolygon, Point, Polygon
-from shapely.ops import cascaded_union, unary_union
 
 
 pd.options.mode.chained_assignment = None  # default='warn'
@@ -51,7 +49,7 @@ Outputs:
 - Output CSVs:
     - <product_id>_compare_all_versions.csv
         Columns:
-            site_id, nws_data_wfo, nws_data_rfc, HUC8, name, states,
+            site_id, nws_data_wfo, nws_data_rfc, huc8, name, states,
             <version_1>_site_processed, <version_1>_catfim_mapped, <version_1>_status,
             <version_2>_site_processed, <version_2>_catfim_mapped, <version_2>_status,
             <version_3>_site_processed, <version_3>_catfim_mapped, <version_3>_status
@@ -60,7 +58,7 @@ Outputs:
         Columns:
             site_id, Change, Change Description,
             <version_1>_status, <version_2>_status,
-            nws_data_wfo, nws_data_rfc, HUC8, name, states
+            wfo, rfc, huc8, name, states
 
     Note: product_id refers to either 'flow_based' or 'stage_based'
 
@@ -68,15 +66,15 @@ Outputs:
     - <product_id>_<version_1>_vs_<version_2>_lost_coverage.gpkg
         Columns:
             site_id, magnitude, geometry_before, Change, Change Description,
-            <version_1>_status, <version_2>_status, nws_data_wfo, nws_data_rfc, HUC8, name, states
+            <version_1>_status, <version_2>_status, wfo, rfc, huc8, name, states
     - <product_id>_<version_1>_vs_<version_2>_gained_coverage.gpkg
         Columns:
             site_id, magnitude, geometry_after, Change, Change Description,
-            <version_1>_status, <version_2>_status, nws_data_wfo, nws_data_rfc, HUC8, name, states
+            <version_1>_status, <version_2>_status, wfo, rfc, huc8, name, states
     - <product_id>_<version_1>_vs_<version_2>.gpkg
         Columns:
             site_id, Change, Change Description,
-            <version_1>_status, <version_2>_status, nws_data_wfo, nws_data_rfc, HUC8, name, states
+            <version_1>_status, <version_2>_status, wfo, rfc, huc8, name, states
 
 Change Descriptions:
 - No Change (Has mapped CatFIM in both versions)
@@ -96,9 +94,10 @@ Potential Upgrades TODO:
 '''
 
 
-# Function that compiles CatFIM sites based on an input path list
 def compile_catfim_sites(sorted_path_list):
     '''
+    Function that compiles CatFIM sites based on an input path list
+
     Inputs:
     - sorted_path_list: a list of string with paths to CatFIM runs (which should already be sorted in to flow-based or stage-based)
 
@@ -112,23 +111,44 @@ def compile_catfim_sites(sorted_path_list):
     print(f'Results to compile: {sorted_path_list}')
 
     version_id_list = []
+    pathnum = 0
 
     for path in sorted_path_list:
 
+        pathnum += 1
+        print(f'Processing path {pathnum}/{len(sorted_path_list)}...')
+
+        # For versions post-reorg (Summer 2026), the CatFIM files are in the main dir
+        # and we can use the .gpkg file (since the .csv doesn't have the geometry col)
+
+        # For versions pre-reorg, the CatFIM files are in the mapping directory
+        # and we need to use the .csv file (since we didn't copy the gpkg files over)
+
+        sites_filepath = None
         mapping_path = os.path.join(path, 'mapping')
 
-        # Get the CSV filename and check that it exists
-        csv_path = None
-        for filename in os.listdir(mapping_path):
-            if filename.endswith('sites.csv'):
-                csv_path = os.path.join(mapping_path, filename)
+        # Pre-2026 results -- Check in mapping dir and get the CSV
+        if os.path.exists(mapping_path):
+            for filename in os.listdir(mapping_path):
+                if filename.endswith('sites.csv'):
+                    sites_filepath = os.path.join(mapping_path, filename)
 
-        if csv_path is None:
-            print(f'WARNING: No CSV path found for input path {path}')
+        # Post reorg results -- Check in main dir and get the GPKG
+        if sites_filepath is None:
+            for filename in os.listdir(path):
+                if filename.endswith('sites.gpkg'):
+                    sites_filepath = os.path.join(path, filename)
+
+        if sites_filepath is None:
+            print(f'WARNING: No sites path found for input path {path}')
             continue
 
-        # Read in site CSV
-        sites_df = pd.read_csv(csv_path)
+        if '.gpkg' in sites_filepath:
+            # Read in site GPKG
+            sites_df = gpd.read_file(sites_filepath)
+        elif '.csv' in sites_filepath:
+            # Read in site CSV
+            sites_df = pd.read_csv(sites_filepath)
 
         # Reconcile site ID column name
         if 'ahps_lid' in sites_df.columns:
@@ -136,18 +156,29 @@ def compile_catfim_sites(sorted_path_list):
         elif 'nws_lid' in sites_df.columns:
             sites_df['site_id'] = sites_df['nws_lid']
         else:
-            print(f'WARNING: Did not find ahps_lid or nws_lid column in {csv_path}')
+            print(f'WARNING: Did not find ahps_lid or nws_lid column in {sites_filepath}')
             continue
 
-        # Make a sites dataframes with only the needed columns
+        # If the column names are from the older version of outputs, rename them to match current outputs
+        sites_df = update_column_names(sites_df)
+
+        # if 'nws_data_wfo' in sites_df.columns:
+        #     sites_df['wfo'] = sites_df['nws_data_wfo']
+        # if 'nws_data_rfc' in sites_df.columns:
+        #     sites_df['rfc'] = sites_df['nws_data_rfc']
+        # if 'HUC8' in sites_df.columns:
+        #     sites_df['huc8'] = sites_df['HUC8']
+
         sites_df['site_processed'] = 'yes'
+
+        # Make sites dataframes with only the needed columns
 
         # Status dataframe
         trimmed_sites_df = sites_df[['site_id', 'site_processed', 'mapped', 'status']]
 
         # Metadata dataframe
-        trimmed_site_metadata_df = sites_df[
-            ['site_id', 'nws_data_wfo', 'nws_data_rfc', 'HUC8', 'name', 'states', 'geometry']
+        trimmed_site_metadata_df = sites_df[  # Colnames from post-reorg outputs:
+            ['site_id', 'wfo', 'rfc', 'huc8', 'name', 'states', 'geometry']
         ]
 
         # Pad 7-digit HUCs with a leading zero
@@ -157,15 +188,20 @@ def compile_catfim_sites(sorted_path_list):
                 return '0' + num_str
             return num_str
 
-        trimmed_site_metadata_df['HUC8'] = trimmed_site_metadata_df['HUC8'].apply(add_leading_zero)
+        trimmed_site_metadata_df['huc8'] = trimmed_site_metadata_df['huc8'].apply(add_leading_zero)
 
         # Extract version_id from the path
         match = version_id = re.search(r'(hand|fim)_(\d+_\d+_\d+_\d+)', path)
         if match:
             version_id = match.group(2)
         else:
-            print(f'WARNING: Unable to extract version ID from {path}')
-            continue
+            print(f'WARNING: Unable to extract version ID from {path}, using folder name instead')
+
+            # If unable to extract version ID, just use the folder name (without flow- or stage-based label)
+            version_id = os.path.basename(path)
+            version_id = version_id.replace("_flow_based", "").replace("_stage_based", "")
+
+        print(f'Version ID: {version_id}')
 
         version_id_list.append(version_id)
 
@@ -214,6 +250,11 @@ def compile_catfim_sites(sorted_path_list):
             f'ERROR: Duplicate version IDs detected in path list: {version_id_list}. Remove duplicates and re-run.'
         )
 
+    try:
+        combined_sites_df
+    except NameError:
+        sys.exit('Combined sites DF not found.')
+
     # Loop through columns and fill in details for NA columns
     for col in combined_sites_df.columns:
         if 'site_processed' in col:
@@ -244,7 +285,6 @@ def compile_catfim_sites(sorted_path_list):
     return combined_sites_df, combined_sites_metadata_df, version_id_list
 
 
-# Create version comparison dataframe
 def make_version_comparison_tables(
     combined_sites_df,
     combined_sites_metadata_df,
@@ -254,6 +294,8 @@ def make_version_comparison_tables(
     keep_differences_only,
 ):
     '''
+    Create version comparison dataframe
+
     Inputs:
     - combined_sites_df (dataframe of compiled sites from compile_catfim_sites)
     - combined_sites_metadata_df (dataframe of metadata for the sites from compile_catfim_sites)
@@ -271,7 +313,13 @@ def make_version_comparison_tables(
     def version_key(version):
         return list(map(int, version.split('_')))
 
-    sorted_versions = sorted(version_id_list, key=version_key)
+    try:
+        sorted_versions = sorted(version_id_list, key=version_key)
+    except ValueError:
+        print(
+            'Warning: Unable to sort version IDs, versions will be compared in input order (assuming first input version is oldest)'
+        )
+        sorted_versions = version_id_list
 
     # Iterate through versions (minus the last one) to calculate the Change and Change_Description columns
     for i in range(len(sorted_versions) - 1):
@@ -382,16 +430,20 @@ def make_version_comparison_tables(
                 change_description_col,
                 old_catfim_version_col,
                 old_catfim_status_col,
+                old_catfim_mapped_col,
                 new_catfim_version_col,
                 new_catfim_status_col,
+                new_catfim_mapped_col,
             ]
         ]
 
-        # Rename status columns
+        # Rename status and mapped columns
         compare_sites_df.rename(
             columns={
                 old_catfim_status_col: 'previous_catfim_status',
                 new_catfim_status_col: 'new_catfim_status',
+                old_catfim_mapped_col: 'previous_catfim_mapped',
+                new_catfim_mapped_col: 'new_catfim_mapped',
             },
             inplace=True,
         )
@@ -409,9 +461,10 @@ def make_version_comparison_tables(
         print(f'\nSaved comparison table to {comparison_table_save_path}')
 
 
-# Read CatFIM library, remove intervals, and convert it to a gdf
 def read_format_catfim_library(catfim_library_filepath):
     '''
+    Read CatFIM library, remove intervals, and convert it to a gdf
+
     Inputs:
     - catfim_library_filepath (string)
 
@@ -421,27 +474,42 @@ def read_format_catfim_library(catfim_library_filepath):
     TODO: Do I want to put this in a Try statement?
     '''
 
-    library_table = pd.read_csv(catfim_library_filepath)
+    if '.gpkg' in catfim_library_filepath:
+        # Read in site GPKG
+        print(
+            f'Library file stored as GPKG, creating geometry column - {catfim_library_filepath}'
+        )  # TEMP DEBUG
 
-    # Remove intervals
-    library_table = library_table[library_table['interval_stage'].isna()]
+        library_gdf = gpd.read_file(catfim_library_filepath)
 
-    # Convert the geometry column from WKT format to geometries
-    library_table['geometry'] = library_table['geometry'].apply(wkt.loads)
+    elif '.csv' in catfim_library_filepath:
+        # Read in site CSV
+        print(
+            f'Library file stored as CSV, creating geometry column - {catfim_library_filepath}'
+        )  # TEMP DEBUG
 
-    # Create a GeoDataFrame from the DataFrame
-    library_gdf = gpd.GeoDataFrame(library_table, geometry='geometry')
-    library_gdf = library_gdf.set_crs(HV_CRS)
+        library_table = pd.read_csv(catfim_library_filepath)
+
+        # Remove intervals
+        library_table = library_table[library_table['interval_stage'].isna()]
+
+        # Convert the geometry column from WKT format to geometries
+        library_table['geometry'] = library_table['geometry'].apply(wkt.loads)
+
+        # Create a GeoDataFrame from the DataFrame
+        library_gdf = gpd.GeoDataFrame(library_table, geometry='geometry')
+        library_gdf = library_gdf.set_crs(HV_CRS)
+
+    # Rename columns if needed
+    library_gdf = update_column_names(library_gdf)
 
     return library_gdf
 
 
-def remove_polygon_shards(input_gdf, id_col, mag_col, minimum_area_threshold):
+def remove_polygon_shards(input_gdf, minimum_area_threshold):
     '''
     Inputs:
     - input_gdf (GeoDataFrame)
-    - id_col (string): column name for the site ID
-    - mag_col (string): column name for the magnitude
     - minimum_area_threshold (float): minimum area threshold in square meters
 
     Outputs:
@@ -486,8 +554,22 @@ def remove_polygon_shards(input_gdf, id_col, mag_col, minimum_area_threshold):
     return cleaned_gdf
 
 
-# Counts the number of verticies in a one-line GDF. This is primarily a debugging tool.
+def update_column_names(df):
+    # If the column names are from the older version of outputs, rename them to match current outputs
+    if 'nws_data_wfo' in df.columns:
+        df['wfo'] = df['nws_data_wfo']
+    if 'nws_data_rfc' in df.columns:
+        df['rfc'] = df['nws_data_rfc']
+    if 'HUC8' in df.columns:
+        df['huc8'] = df['HUC8']
+
+    return df
+
+
 def count_verticies(gdf):
+    '''
+    Counts the number of verticies in a one-line GDF. This is primarily a debugging tool.
+    '''
     total_vertices = 0
     if len(gdf) != 1:
         raise Exception(
@@ -523,8 +605,10 @@ def count_verticies(gdf):
     return total_vertices
 
 
-# Pivot table so there's a column per magnitude
 def pivot_and_join_percent_change(areal_comparison, input_table_df, value_column_name, column_suffix):
+    '''
+    Pivot table so there's a column per magnitude
+    '''
     # Hardcode column names for id and magnitude
     id_col, mag_col = 'ahps_lid', 'magnitude'
 
@@ -556,11 +640,12 @@ def pivot_and_join_percent_change(areal_comparison, input_table_df, value_column
     return joined_table_df
 
 
-# Calculate difference between CatFIM libraries of subsequent versions
 def generate_spatial_difference_maps(
     sorted_path_list, product_id, version_id_list, output_save_filepath, debug_mode
 ):
     '''
+    Calculate difference between CatFIM libraries of subsequent versions
+
     Inputs:
     - sorted_path_list (list of strings)
     - product_id (string)
@@ -578,21 +663,41 @@ def generate_spatial_difference_maps(
         library_path_list = []
         for path in sorted_path_list:
 
-            # Get the CSV filename and check that it exists
-            mapping_path = os.path.join(path, 'mapping')
-            csv_path = None
-            for filename in os.listdir(mapping_path):
-                if filename.endswith('library.csv'):
-                    csv_path = os.path.join(mapping_path, filename)
+            # For versions post-reorg (Summer 2026), the CatFIM files are in the main dir
+            # and we can use the .gpkg file (since the .csv doesn't have the geometry col)
 
-            if csv_path is None:
-                print(f'WARNING: No library CSV path found for input path {path}')
+            # For versions pre-reorg, the CatFIM files are in the mapping directory
+            # and we need to use the .csv file (since we didn't copy the gpkg files over)
+
+            filepath = None
+            mapping_path = os.path.join(path, 'mapping')
+
+            # Pre-2026 results -- Check in mapping dir and get the CSV
+            if os.path.exists(mapping_path):
+                for filename in os.listdir(mapping_path):
+                    if filename.endswith('library.csv'):
+                        filepath = os.path.join(mapping_path, filename)
+
+            # Post reorg results -- Check in main dir and get the GPKG
+            if filepath is None:
+                for filename in os.listdir(path):
+                    if filename.endswith('library.gpkg'):
+                        filepath = os.path.join(path, filename)
+
+            if filepath is None:
+                print(f'WARNING: No library path found for input path {path}')
                 continue
 
-            library_path_list.append(csv_path)
+            library_path_list.append(filepath)
 
-        # Put versions in order
-        sorted_versions = sorted(version_id_list, key=lambda version: list(map(int, version.split('_'))))
+        # Put versions in order # TODO: Condense? I think we sort versions twice?
+        try:
+            sorted_versions = sorted(version_id_list, key=lambda version: list(map(int, version.split('_'))))
+        except ValueError:
+            print(
+                'Warning: Unable to sort version IDs, versions will be compared in input order (assuming first input version is oldest)'
+            )
+            sorted_versions = version_id_list
 
         # Iterate through versions (minus the last one) to calculate site change
         for i in range(len(sorted_versions) - 1):
@@ -602,18 +707,19 @@ def generate_spatial_difference_maps(
             comparison_id = f'{product_id}_{old_version_id}_vs_{new_version_id}'
 
             # Get filepaths
-            old_version_library_csv_path = next(
+            old_version_library_gpkg_path = next(
                 (path for path in library_path_list if old_version_id in path), None
             )
-            new_version_library_csv_path = next(
+            new_version_library_gpkg_path = next(
                 (path for path in library_path_list if new_version_id in path), None
             )
 
-            if old_version_library_csv_path is None or new_version_library_csv_path is None:
+            if old_version_library_gpkg_path is None or new_version_library_gpkg_path is None:
                 print(f'WARNING: Skipping GPKG formation for {comparison_id}')
                 continue
 
             print(f'\nCreating comparison geopackages for {comparison_id}.')
+            print(f'Old version: {old_version_id}; New version: {new_version_id}')
 
             # Generate save paths
             lost_coverage_gpkg_save_path = os.path.join(
@@ -625,9 +731,9 @@ def generate_spatial_difference_maps(
 
             read_gpkg_start_time = datetime.now(timezone.utc)
 
-            # Read both versions of CatFIM library CSVs, remove intervals, and convert to a gdf
-            before_gdf = read_format_catfim_library(old_version_library_csv_path)
-            after_gdf = read_format_catfim_library(new_version_library_csv_path)
+            # Read both versions of CatFIM library GPKGs, remove intervals, and convert to a gdf
+            before_gdf = read_format_catfim_library(old_version_library_gpkg_path)
+            after_gdf = read_format_catfim_library(new_version_library_gpkg_path)
 
             read_gpkg_end_time = datetime.now(timezone.utc)
             gpkg_time_duration = read_gpkg_end_time - read_gpkg_start_time
@@ -701,9 +807,7 @@ def generate_spatial_difference_maps(
                             crs=removed_geom.crs,
                         )
 
-                        removed_gdf_cleaned = remove_polygon_shards(
-                            removed_gdf, id_col, mag_col, minimum_area_threshold=3000
-                        )
+                        removed_gdf_cleaned = remove_polygon_shards(removed_gdf, minimum_area_threshold=3000)
 
                         # If removed_gdf_cleaned is None, skip to the next iteration
                         if removed_gdf_cleaned is None:
@@ -726,9 +830,7 @@ def generate_spatial_difference_maps(
                             },
                             crs=added_geom.crs,
                         )
-                        added_gdf_cleaned = remove_polygon_shards(
-                            added_gdf, id_col, mag_col, minimum_area_threshold=3000
-                        )
+                        added_gdf_cleaned = remove_polygon_shards(added_gdf, minimum_area_threshold=3000)
 
                         # If added_gdf_cleaned is None, skip to the next iteration
                         if added_gdf_cleaned is None:
@@ -782,12 +884,12 @@ def generate_spatial_difference_maps(
 
         # Add back in the metadata columns
         removed_geom = removed_geom.merge(
-            before_gdf[[id_col, mag_col, 'huc', 'name', 'WFO', 'rfc', 'state', 'county']],
+            before_gdf[[id_col, mag_col, 'huc8', 'name', 'wfo', 'rfc', 'state', 'county']],
             on=[id_col, mag_col],
             how='left',
         )
         added_geom = added_geom.merge(
-            before_gdf[[id_col, mag_col, 'huc', 'name', 'WFO', 'rfc', 'state', 'county']],
+            before_gdf[[id_col, mag_col, 'huc8', 'name', 'wfo', 'rfc', 'state', 'county']],
             on=[id_col, mag_col],
             how='left',
         )
@@ -835,8 +937,10 @@ def generate_spatial_difference_maps(
         sys.exit(f'ERROR: {e}')
 
 
-# Main function for catfim_site_tracking
-def main(path_list, output_save_filepath, keep_differences_only, generate_geopackages, debug_mode):
+# Main function for catfim_sites_compare
+def execute_catfim_version_comparison(
+    path_list, output_save_filepath, keep_differences_only, generate_geopackages, debug_mode
+):
     '''
     Inputs
     - path_list (space-delimited list)
@@ -894,9 +998,10 @@ def main(path_list, output_save_filepath, keep_differences_only, generate_geopac
     # Loop through the path_list and categorize the paths
     for path in path_list:
 
-        if not os.path.exists(os.path.join(path, 'mapping')):  # Check that mapping folder exists
-            print(f'WARNING: Missing mapping folder in path {path}')
+        if not os.path.exists(path):  # Check that path exists
+            print(f'WARNING: Path does not exist: {path}')
             continue
+
         elif 'stage' in path:
             stage_path_list.append(path)
         elif 'flow' in path:
@@ -1056,7 +1161,7 @@ if __name__ == '__main__':
     args = vars(parser.parse_args())
 
     try:
-        main(**args)
+        execute_catfim_version_comparison(**args)
 
     except Exception:
         print(traceback.format_exc())

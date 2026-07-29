@@ -1061,8 +1061,10 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
                 crs=src_crs,
             )
 
-            ## TEMP DEBUG: Temporarily removing this section which deals with columns types etc,
-            ## becuase I'm worried it might've introduced errors in the USGS calibration TODO: reimplement if needed
+            # TEMPORARILY DISABLED: Temporarily removing this section which deals with columns types etc,
+            # becuase I'm worried it might've introduced errors in the USGS calibration
+            # TODO: Reimplement after issues are smoothed out
+
             # # Add data type to columns, if needed (usually the ones that are sometimes/always NA)
             # for colname, new_dtype in WRDS_METADATA_COL_TYPES.items():
             #     if colname in site_gdf.columns:

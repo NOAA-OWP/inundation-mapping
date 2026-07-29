@@ -2,13 +2,16 @@ import argparse
 import logging
 import os
 import traceback
+import warnings
 from datetime import datetime, timezone
 
 import geopandas as gpd
-from dotenv import load_dotenv
 
 import src.utils.shared_functions as sf
 import tools.catfim.catfim_shared_functions as csf
+
+
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
 """_summary_
@@ -85,9 +88,15 @@ def catfim_post_processing(output_folder):
         )
 
         # Create filepath names and delete any pre-existing output files
-        sites_gpkg_path, sites_csv_path, library_gpkg_path, library_csv_path, deleted_file_count = (
-            __set_start_files_folders(output_folder, catfim_type_name)
-        )
+        (
+            sites_gpkg_path,
+            sites_csv_path,
+            sites_parquet_path,
+            library_gpkg_path,
+            library_csv_path,
+            library_parquet_path,
+            deleted_file_count,
+        ) = __set_start_files_folders(output_folder, catfim_type_name)
 
         if deleted_file_count > 0:
             logging.info(f"Removed {deleted_file_count} pre-existing output file(s)")
@@ -180,24 +189,20 @@ def catfim_post_processing(output_folder):
         hucs_without_library_and_sites = list(set(hucs_without_sites) & set(hucs_without_library))
         if len(hucs_without_library_and_sites) > 0:
             logging.warning(
-                f"WARNING: {len(hucs_without_library_and_sites)} HUC(s) skipped due to missing sites AND library results:"
+                f"{len(hucs_without_library_and_sites)} HUC(s) skipped due to missing sites AND library results:"
             )
             logging.warning(hucs_without_library_and_sites)
 
         # Print HUCs that had library but no sites (unlikely, might indicate a bug)
         hucs_missing_only_sites = list(set(hucs_without_sites).difference(set(hucs_without_library)))
         if len(hucs_missing_only_sites) > 0:
-            logging.warning(
-                f"WARNING: {len(hucs_missing_only_sites)} HUC(s) skipped due to missing sites file:"
-            )
+            logging.warning(f"{len(hucs_missing_only_sites)} HUC(s) skipped due to missing sites file:")
             logging.warning(hucs_missing_only_sites)
 
         # Print HUCs that had sites but no library (just means no sites got mapped)
         hucs_missing_only_library = list(set(hucs_without_library).difference(set(hucs_without_sites)))
         if len(hucs_missing_only_library) > 0:
-            logging.warning(
-                f"WARNING: {len(hucs_missing_only_library)} HUC(s) skipped due to missing library file:"
-            )
+            logging.warning(f"{len(hucs_missing_only_library)} HUC(s) skipped due to missing library file:")
             logging.warning(hucs_missing_only_library)
 
         # ---------------------
@@ -216,6 +221,10 @@ def catfim_post_processing(output_folder):
             compiled_sites_gdf.to_file(sites_gpkg_path, driver='GPKG', engine='fiona', index=False)
             logging.info(f"Saved sites GeoPackage to {sites_gpkg_path}")
 
+            # Save the GeoDataFrames to GeoParquet files
+            compiled_sites_gdf.to_parquet(sites_parquet_path, index=False)
+            logging.info(f"Saved sites GeoParquet to {sites_parquet_path}")
+
             # Drop geometry column and save the csv versions
             compiled_sites_df = compiled_sites_gdf.drop(columns=['geometry'])
             compiled_sites_df.to_csv(sites_csv_path, index=False)
@@ -233,6 +242,11 @@ def catfim_post_processing(output_folder):
             compiled_library_gdf.to_file(library_gpkg_path, driver='GPKG', engine='fiona', index=False)
             logging.info(f"Saved library GeoPackage to {library_gpkg_path}")
 
+            # Save the GeoDataFrames to GeoParquet files
+            compiled_library_gdf.to_parquet(library_parquet_path, index=False)
+            logging.info(f"Saved library GeoParquet to {library_parquet_path}")
+
+            # Drop geometry column and save the csv versions
             compiled_library_df = compiled_library_gdf.drop(columns=['geometry'])
             compiled_library_df.to_csv(library_csv_path, index=False)
             logging.info(f"Saved library CSV to {library_csv_path}")
@@ -263,10 +277,9 @@ def catfim_post_processing(output_folder):
         raise ex
 
 
-def __set_start_files_folders(output_folder, catfim_type_name):
+def get_output_filepaths(output_folder, catfim_type_name):
     '''
-    Removes pre-existing output files / folders except anything in the log folder.
-    We should always keep the logs folder
+    Creates output filenames for CatFIM final products.
 
     Arguments
     ----------
@@ -281,36 +294,77 @@ def __set_start_files_folders(output_folder, catfim_type_name):
         Filepath for final sites GPKG.
     sites_csv_path - STR
         Filepath for final sites CSV.
+    sites_parquet_path - STR
+        Filepath for final sites Parquet.
     library_gpkg_path - STR
         Filepath for final library GPKG.
     library_csv_path - STR
         Filepath for final library CSV.
+    library_parquet_path - STR
+        Filepath for final library Parquet.
     deleted_file_count - INT?
         Number of files that the function deletes.
     '''
-    deleted_file_count = 0
 
     sites_gpkg_path = os.path.join(output_folder, f"{catfim_type_name}_catfim_sites.gpkg")
-    if os.path.exists(sites_gpkg_path):
-        os.remove(sites_gpkg_path)
-        deleted_file_count += 1
-
+    sites_parquet_path = os.path.join(output_folder, f"{catfim_type_name}_catfim_sites.parquet")
     sites_csv_path = os.path.join(output_folder, f"{catfim_type_name}_catfim_sites.csv")
-    if os.path.exists(sites_csv_path):
-        os.remove(sites_csv_path)
-        deleted_file_count += 1
-
     library_gpkg_path = os.path.join(output_folder, f"{catfim_type_name}_catfim_library.gpkg")
-    if os.path.exists(library_gpkg_path):
-        os.remove(library_gpkg_path)
-        deleted_file_count += 1
-
+    library_parquet_path = os.path.join(output_folder, f"{catfim_type_name}_catfim_library.parquet")
     library_csv_path = os.path.join(output_folder, f"{catfim_type_name}_catfim_library.csv")
-    if os.path.exists(library_csv_path):
-        os.remove(library_csv_path)
-        deleted_file_count += 1
 
-    return sites_gpkg_path, sites_csv_path, library_gpkg_path, library_csv_path, deleted_file_count
+    return (
+        sites_gpkg_path,
+        sites_csv_path,
+        sites_parquet_path,
+        library_gpkg_path,
+        library_csv_path,
+        library_parquet_path,
+    )
+
+
+def __set_start_files_folders(output_folder, catfim_type_name):
+    '''
+    Removes pre-existing output files / folders except anything in the log folder.
+    We should always keep the logs folder
+
+    Arguments
+    ----------
+    output_folder - STR
+        Filepath to CatFIM run output folder
+    catfim_type_name - STR
+        Type of CatFIM we are running ('flow_based' or 'stage_based')
+
+    Returns
+    -------
+    A tuple containing:
+        sites_gpkg_path - STR
+            Filepath for final sites GPKG.
+        sites_csv_path - STR
+            Filepath for final sites CSV.
+        sites_parquet_path - STR
+            Filepath for final sites Parquet.
+        library_gpkg_path - STR
+            Filepath for final library GPKG.
+        library_csv_path - STR
+            Filepath for final library CSV.
+        library_parquet_path - STR
+            Filepath for final library Parquet.
+        deleted_file_count - INT?
+            Number of files that the function deletes.
+    '''
+    deleted_file_count = 0
+
+    filepath_tuple = get_output_filepaths(output_folder, catfim_type_name)
+
+    for filepath in filepath_tuple:
+        if os.path.exists(filepath):
+            os.remove(filepath)
+            deleted_file_count += 1
+
+    output_tuple = filepath_tuple + (deleted_file_count,)
+
+    return output_tuple
 
 
 if __name__ == '__main__':
