@@ -10,10 +10,8 @@
 # and any exceptions from run_by_branch.sh.
 # This is a key part to handling .sh exceptions.
 
-# Also.. remember.. that this file can be called explicitly, but will rarely need to be,
-# as it is usually called through a parallelizing iterator in run_unit_wb.sh
-
-# This file also has no named command line arguments, only positional args.
+# This script does not need its own trap if there are errors on this page
+# because, as mentioned, it auto goes to screen, then log rollups and usign l_echo has no value.
 
 runName=$1
 hucNumber=$2

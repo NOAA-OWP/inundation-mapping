@@ -106,6 +106,16 @@ def log_kw_search(logfile, huc_number):
                     if exit_code == "0":  # then skip. In theory not possible with regex above.
                         continue
 
+                branch_id = ""
+                # if the line contains the phrase [[BranchID: $branchId]], extract the branch id
+                # and put it in the branch_id column
+                if "[[BranchID:" in line:
+
+                    # Extract everything between "[[BranchID: " and " ]]"
+                    branch_match = re.search(r"\[\[BranchID: (\d+)\]\]", line)
+                    if branch_match:
+                        branch_id = branch_match.group(1)
+
                 # TODO: Jul 12, 2026:  using the [[BranchID: $branchId]] pattern
                 # extract the branch value and add it as a column
                 line_data = {
@@ -114,6 +124,7 @@ def log_kw_search(logfile, huc_number):
                     'line_num': str(current_line_num),
                     'text': line.strip(),
                     'log_path': logfile,
+                    'branch_id': branch_id,
                 }
                 found_lines.append(line_data)
             current_line_num += 1
@@ -136,9 +147,9 @@ def log_kw_search(logfile, huc_number):
     and one with status 1   (good)
     and one with status 12   (good)
     and one with status 123   (good)
-    and one with status 0 with somethign behind it
-    and one with status: 0 with somethign behind it
-    and one with status: 123 with somethign behind it   (good)
+    and one with status 0 with something behind it
+    and one with status: 0 with something behind it
+    and one with status: 123 with something behind it   (good)
     and one with status: 0
     and one with status: 1   (good)
     and one with status: 12   (good)
@@ -146,9 +157,9 @@ def log_kw_search(logfile, huc_number):
     and just the word status with nothing else
     status
     status 0
-    status 1   (good)
-    status 12   (good)
-    status 134   (good)
+    status 1   (no semi-colon - good)
+    status 12   (no semi-colon - good)
+    status 134   (no semi-colon - good)
     status:0
     status:1   (good)
     status: 0
