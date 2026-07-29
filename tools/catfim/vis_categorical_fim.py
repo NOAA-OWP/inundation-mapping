@@ -74,7 +74,7 @@ def read_catfim_outputs(catfim_inputs_path, catfim_outputs_path, huc):
 
     # Read in HAND output flowlines
     flowline_path = os.path.join(catfim_inputs_path, huc, 'nwm_subset_streams_levelPaths_dissolved.parquet')
-    flowline_gdf = gpd.read_file(flowline_path)
+    flowline_gdf = gpd.read_parquet(flowline_path)
 
     # Read in CatFIM outputs
     catfim_outputs_mapping_path = os.path.join(catfim_outputs_path, 'mapping')

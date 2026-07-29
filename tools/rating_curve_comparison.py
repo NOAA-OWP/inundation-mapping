@@ -825,20 +825,13 @@ def generate_rc_and_rem_plots(rc, plot_filename, recurr_data_table, branches_fol
         ######################################################################################################
         ## Read in reaches, catchment raster, and rem raster
         branch = gage_branch_dict[gage]
-        if os.path.isfile(
-            os.path.join(
-                branches_folder,
-                branch,
-                f'demDerived_reaches_split_filtered_addedAttributes_crosswalked_{branch}.parquet',
-            )
-        ):
-            reaches = gpd.read_file(
-                os.path.join(
-                    branches_folder,
-                    branch,
-                    f'demDerived_reaches_split_filtered_addedAttributes_crosswalked_{branch}.parquet',
-                )
-            )
+        branch_file = os.path.join(
+            branches_folder,
+            branch,
+            f'demDerived_reaches_split_filtered_addedAttributes_crosswalked_{branch}.parquet',
+        )
+        if os.path.isfile(branch_file):
+            reaches = gpd.read_parquet(branch_file)
             reach = reaches[reaches.HydroID == hydroid]
         with rasterio.open(
             os.path.join(
