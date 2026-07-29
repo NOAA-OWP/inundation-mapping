@@ -41,36 +41,33 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raste
         return catchment_min_dict
 
     # Open the masked gw_catchments_pixels_masked and dem_thalwegCond_masked.
-    gw_catchments_pixels_masked_object = rasterio.open(pixel_watersheds_fileName)
-    dem_thalwegCond_masked_object = rasterio.open(dem_fileName)
-    thalweg_raster_object = rasterio.open(thalweg_raster)
+    with (
+        rasterio.open(pixel_watersheds_fileName) as gw_catchments_pixels_masked_object,
+        rasterio.open(dem_fileName) as dem_thalwegCond_masked_object,
+        rasterio.open(thalweg_raster) as thalweg_raster_object,
+    ):
+        # Specify raster object metadata.
+        meta = dem_thalwegCond_masked_object.meta.copy()
+        meta['tiled'], meta['compress'] = True, 'lzw'
 
-    # Specify raster object metadata.
-    meta = dem_thalwegCond_masked_object.meta.copy()
-    meta['tiled'], meta['compress'] = True, 'lzw'
+        # -- Create catchment_min_dict -- #
+        catchment_min_dict = typed.Dict.empty(
+            types.int32, types.float32
+        )  # Initialize an empty dictionary to store the catchment minimums.
+        # Update catchment_min_dict with pixel sheds minimum.
+        for ji, window in dem_thalwegCond_masked_object.block_windows(
+            1
+        ):  # Iterate over windows, using dem_rasterio_object as template.
+            dem_window = dem_thalwegCond_masked_object.read(1, window=window).ravel()  # Define dem_window.
+            catchments_window = gw_catchments_pixels_masked_object.read(
+                1, window=window
+            ).ravel()  # Define catchments_window.
+            thalweg_window = thalweg_raster_object.read(1, window=window).ravel()  # Define cost_window.
 
-    # -- Create catchment_min_dict -- #
-    catchment_min_dict = typed.Dict.empty(
-        types.int32, types.float32
-    )  # Initialize an empty dictionary to store the catchment minimums.
-    # Update catchment_min_dict with pixel sheds minimum.
-    for ji, window in dem_thalwegCond_masked_object.block_windows(
-        1
-    ):  # Iterate over windows, using dem_rasterio_object as template.
-        dem_window = dem_thalwegCond_masked_object.read(1, window=window).ravel()  # Define dem_window.
-        catchments_window = gw_catchments_pixels_masked_object.read(
-            1, window=window
-        ).ravel()  # Define catchments_window.
-        thalweg_window = thalweg_raster_object.read(1, window=window).ravel()  # Define cost_window.
-
-        # Call numba-optimized function to update catchment_min_dict with pixel sheds minimum.
-        catchment_min_dict = make_catchment_min_dict(
-            dem_window, catchment_min_dict, catchments_window, thalweg_window
-        )
-
-    dem_thalwegCond_masked_object.close()
-    gw_catchments_pixels_masked_object.close()
-    thalweg_raster_object.close()
+            # Call numba-optimized function to update catchment_min_dict with pixel sheds minimum.
+            catchment_min_dict = make_catchment_min_dict(
+                dem_window, catchment_min_dict, catchments_window, thalweg_window
+            )
     # ------------------------------------------------------------------------------------------------------ #
 
     # --------------------------------- Produce relative elevation model ----------------------------------- #
@@ -86,31 +83,22 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raste
 
         return rem_window
 
-    # TODO: Jun 2026: Change all rasterio.open commands to better scope contol.
-    # Using either the "with" syntax, or open the file / read / explicit close
-    rem_rasterio_object = rasterio.open(
-        rem_fileName, 'w', **meta
-    )  # Open rem_rasterio_object for writing to rem_fileName.
-    pixel_catchments_rasterio_object = rasterio.open(
-        pixel_watersheds_fileName
-    )  # Open pixel_catchments_rasterio_object
-    dem_rasterio_object = rasterio.open(dem_fileName)
+    with (
+        rasterio.open(rem_fileName, 'w', **meta) as rem_rasterio_object,
+        rasterio.open(pixel_watersheds_fileName) as pixel_catchments_rasterio_object,
+        rasterio.open(dem_fileName) as dem_rasterio_object,
+    ):
+        for ji, window in dem_rasterio_object.block_windows(1):
+            dem_window = dem_rasterio_object.read(1, window=window)
+            window_shape = dem_window.shape
 
-    for ji, window in dem_rasterio_object.block_windows(1):
-        dem_window = dem_rasterio_object.read(1, window=window)
-        window_shape = dem_window.shape
+            dem_window = dem_window.ravel()
+            catchments_window = pixel_catchments_rasterio_object.read(1, window=window).ravel()
 
-        dem_window = dem_window.ravel()
-        catchments_window = pixel_catchments_rasterio_object.read(1, window=window).ravel()
+            rem_window = calculate_rem(dem_window, catchment_min_dict, catchments_window, meta['nodata'])
+            rem_window = rem_window.reshape(window_shape).astype(np.float32)
 
-        rem_window = calculate_rem(dem_window, catchment_min_dict, catchments_window, meta['nodata'])
-        rem_window = rem_window.reshape(window_shape).astype(np.float32)
-
-        rem_rasterio_object.write(rem_window, window=window, indexes=1)
-
-    dem_rasterio_object.close()
-    pixel_catchments_rasterio_object.close()
-    rem_rasterio_object.close()
+            rem_rasterio_object.write(rem_window, window=window, indexes=1)
     # ------------------------------------------------------------------------------------------------------ #
 
 

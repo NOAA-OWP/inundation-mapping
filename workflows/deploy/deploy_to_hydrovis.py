@@ -30,8 +30,17 @@ and the target being HydroVIS buckets and pathing.
 
 '''
 All deploy types can be done with aws s3 cli.  Why do we do it via python/boto3?
-    We can use multi-thread to make it faster and have more control of contents and rules.
+    - We can use multi-thread to make it faster and have more control of contents and rules.
+    - We can automate sending multiple file sets someday
 '''
+
+'''
+Why are some single files or small set files in this tool instead of just using cli?
+Easier to automate pushing multiple datasets up.
+'''
+
+# TODO: Jul 2026: Add system to ask if update all or only add new ones?
+# Right now, it is all or nothing
 
 # ============================
 # GLOBAL Vars including files / folders to be copied
@@ -48,24 +57,26 @@ HAND_VERSION = ""
 RELEASE_FIM_PUBLIC_VERSION = ""
 HAND_PREVIOUS_VERSION = ""
 
+PROJECT_DIR = os.getenv('projectDir')
+
 
 # ============================
-def deploy_to_hydrovis(deploy_type, aws_creds_file, deploy_params_file, log_path, num_jobs):
+def deploy_to_hydrovis(deploy_type, aws_creds_file, log_path, num_jobs):
     '''
-    Notes:
-        - num_jobs is used by HAND dataset uploads at this time. Maximum number is variables and depends on how fast
-          the machines network speed is.
+       Notes:
+           - num_jobs is used by HAND dataset uploads at this time. Maximum number is variables and depends on how fast
+             the machines network speed is.
 
-    Valid deploy_types
-        - hand (HAND Bed outputs)
-        - fpc  (FIM Performance Catchments)
-        - fpp  (FIM Performance Points / Polys)
-        - cffb (CatFIM Flow Based)
-        - cffc (CatFIM Flow Based Compare files)
-        - cfsb (CatFIM Stage Based)
-        - cfsc (CatFIM Stage Based Compare files)
-        - rcc  (Rating Curve Comparion Metrics (Sierra Tests))
-        - urc  (USGS Rating Curve)
+       Valid deploy_types
+           - hand (HAND Bed outputs)
+           - fpc  (FIM Performance Catchments)
+           - fpp  (FIM Performance Points / Polys)
+           - cffb (CatFIM Flow Based)
+    #       - cffc (CatFIM Flow Based Compare files) (temp disabled)
+           - cfsb (CatFIM Stage Based)
+    #        - cfsc (CatFIM Stage Based Compare files)    (temp disabled)
+           - rcc  (Rating Curve Comparion Metrics (Sierra Tests))
+           - urc  (USGS Rating Curve)
     '''
 
     all_valid_types = ['fpc', 'fpp', 'cffb', 'cffc', 'cfsb', 'cfsc', 'rcc', 'urc', 'hand']
@@ -74,6 +85,7 @@ def deploy_to_hydrovis(deploy_type, aws_creds_file, deploy_params_file, log_path
     # --------------
     # Validation. We are validating all variables in case the call came in from another py file
     # We also load a number of key variables (load env)
+    deploy_params_file = os.path.join(PROJECT_DIR, "config", "hv_deploy_params.env")
     deploy_types = __validate_input(deploy_type, all_valid_types, deploy_params_file, num_jobs)
 
     # May throw exceptions or shut the program down.
@@ -250,14 +262,15 @@ def __load_qa_dataset(deploy_types):
 
     # CatFIM Flow Compare files
     if 'cffc' in deploy_types:
-        upload_item = __get_file_to_upload_item('HV_CAT_COMPARE_FLOW_SITES')
-        files_to_upload.append(upload_item)
+        logging.warning("*** NOTE: Catfim Compare files are temporily not being sent to HV")
+        # upload_item = __get_file_to_upload_item('HV_CAT_COMPARE_FLOW_SITES')
+        # files_to_upload.append(upload_item)
 
-        upload_item = __get_file_to_upload_item('HV_CAT_COMPARE_FLOW_GAINED_COVERAGE')
-        files_to_upload.append(upload_item)
+        # upload_item = __get_file_to_upload_item('HV_CAT_COMPARE_FLOW_GAINED_COVERAGE')
+        # files_to_upload.append(upload_item)
 
-        upload_item = __get_file_to_upload_item('HV_CAT_COMPARE_FLOW_LOST_COVERAGE')
-        files_to_upload.append(upload_item)
+        # upload_item = __get_file_to_upload_item('HV_CAT_COMPARE_FLOW_LOST_COVERAGE')
+        # files_to_upload.append(upload_item)
 
     # CatFIM Stage (sites and library)
     if 'cfsb' in deploy_types:
@@ -269,16 +282,17 @@ def __load_qa_dataset(deploy_types):
 
     # CatFIM Stage Compare files
     if 'cfsc' in deploy_types:
-        upload_item = __get_file_to_upload_item('HV_CAT_COMPARE_STAGE_SITES')
-        files_to_upload.append(upload_item)
+        logging.warning("*** NOTE:  Catfim Compare files are temporily not being sent to HV")
+    #     upload_item = __get_file_to_upload_item('HV_CAT_COMPARE_STAGE_SITES')
+    #     files_to_upload.append(upload_item)
 
-        upload_item = __get_file_to_upload_item('HV_CAT_COMPARE_STAGE_GAINED_COVERAGE')
-        files_to_upload.append(upload_item)
+    #     upload_item = __get_file_to_upload_item('HV_CAT_COMPARE_STAGE_GAINED_COVERAGE')
+    #     files_to_upload.append(upload_item)
 
-        upload_item = __get_file_to_upload_item('HV_CAT_COMPARE_STAGE_LOST_COVERAGE')
-        files_to_upload.append(upload_item)
+    #     upload_item = __get_file_to_upload_item('HV_CAT_COMPARE_STAGE_LOST_COVERAGE')
+    #     files_to_upload.append(upload_item)
 
-    # -----------------------
+    # # -----------------------
     # Upload files as per arguments going to HV QA Dataset folders
 
     # this is qa datasets and there are not many files, so we will just load them one at a time.
@@ -447,12 +461,13 @@ if __name__ == '__main__':
         python /foss_fim/workflows/deploy/deploy_to_hydrovis.py
             -dt hand
             -lp '/data/workflows/deploy/
-            -dp '/data/config/deploy_params_tests.env'
 
     *** While this system does support mp, it is used only when loading HAND datasets. Also.. there is a max of how many
         connections we can make to AWS at the same time. That number is variable and depends on your machines network speed mostly.
 
     # For HV deployments...
+
+    The system uses, the git file /config/hv_deploy_params.env to know which files and pathing is required.
 
     Notes about Types:
        The type value provided tells the script which files to pull from the src EFS
@@ -507,14 +522,6 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
-        '-dp',
-        '--deploy-params-file',
-        help='OPTIONAL: Path to deploy params(config) file.\n'
-        '  Defaults to /data/config/hv_deploy_params.env',
-        default="/data/config/hv_deploy_params.env",
-    )
-
-    parser.add_argument(
         '-lp',
         '--log-path',
         help='OPTIONAL: Path to where the log file will saved.\n'
@@ -524,7 +531,7 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
-        '-j', "--num-jobs", help="OPTIONAL: Number of processes (defaults to 10)", type=int, default=10
+        '-j', "--num-jobs", help="OPTIONAL: Number of processes (defaults to 10)", type=int, default=5
     )
 
     args = parser.parse_args()

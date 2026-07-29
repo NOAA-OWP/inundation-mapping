@@ -25,6 +25,7 @@ from tools_shared_variables import (  # INPUTS_DIR,; elev_raster_ndv,
 
 import src.utils.shared_functions as sf
 from src.utils.shared_functions import FIM_Helpers as fh
+from src.utils.shared_functions import get_huc_vars
 
 
 class Benchmark(object):
@@ -143,30 +144,11 @@ class Test_Case(Benchmark):
         # Benchmark data path
         self.benchmark_dir = os.path.join(self.validation_data, self.huc)
 
-        if self.huc[:2] == '19':
-            self.mask_dict = {
-                'levees': {
-                    'path': os.getenv('input_nld_levee_protected_areas_Alaska'),
-                    'buffer': None,
-                    'operation': 'exclude',
-                },
-                'waterbodies': {
-                    # 'path': '/data/inputs/nwm_hydrofabric/nwm_lakes.gpkg',
-                    'path': os.getenv('input_nwm_lakes_Alaska'),
-                    'buffer': None,
-                    'operation': 'exclude',
-                },
-            }
-
-        else:
-            self.mask_dict = {
-                'levees': {
-                    'path': os.getenv('input_nld_levee_protected_areas'),
-                    'buffer': None,
-                    'operation': 'exclude',
-                },
-                'waterbodies': {'path': os.getenv('input_nwm_lakes'), 'buffer': None, 'operation': 'exclude'},
-            }
+        huc_vars = get_huc_vars(self.huc)
+        self.mask_dict = {
+            'levees': {'path': huc_vars['levee_protected_areas'], 'buffer': None, 'operation': 'exclude'},
+            'waterbodies': {'path': huc_vars['lakes'], 'buffer': None, 'operation': 'exclude'},
+        }
 
     @classmethod
     def list_all_test_cases(cls, hand_version, archive, benchmark_categories=[]):
