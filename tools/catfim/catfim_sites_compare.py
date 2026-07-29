@@ -940,7 +940,7 @@ def generate_spatial_difference_maps(
 # Main function for catfim_sites_compare
 def execute_catfim_version_comparison(
     path_list, output_save_filepath, keep_differences_only, generate_geopackages, debug_mode
-    ):
+):
     '''
     Inputs
     - path_list (space-delimited list)
