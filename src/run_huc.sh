@@ -262,7 +262,7 @@ if [[ "${levelpaths_exist}" == "1" ]]; then
         "${tempHucDataDir}/nwm_subset_streams_levelPaths_extended.parquet"
         "${tempHucDataDir}/flows_grid_boolean.tif"
     )
-    python3 "${srcDir}/rasterize_parquet.py" "${args[@]}"
+    python3 "${srcDir}/utils/rasterize_parquet.py" "${args[@]}"
 fi
 
 ## RASTERIZE NWM Levelpath HEADWATERS (1 & 0) ##

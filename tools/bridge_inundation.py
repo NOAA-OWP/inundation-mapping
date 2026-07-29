@@ -15,7 +15,7 @@ def bridge_risk_status(
 ) -> gpd.GeoDataFrame:
     """
     This function detect which bridge points are affected by a specified flow file. The function requires a flow file (expected to follow
-    the schema used by 'inundation_mosaic_wrapper') with data organized by 'feature_id' and 'discharge' in cms. The output includes a geopackage
+    the schema used by 'inundation_mosaic_wrapper') with data organized by 'feature_id' and 'discharge' in cms. The output includes a GeoParquet
     containing bridge points labeled as "threatened", "at risk", or "not at risk" based on forcasted discharge compared to preset discharge
     ("threshold_discharge" or "threshold_discharge75").
 
@@ -24,7 +24,7 @@ def bridge_risk_status(
                                     fim_pipeline.
         flow_file (str):      Path to flow file to be used for inundation.
                                     feature_ids in flow_file should be present in supplied HUC.
-        output (str):             Path to output geopackage.
+        output (str):             Path to output GeoParquet.
         limit_hucs (list):    Optional. If specified, only the bridges in these HUCs will be processed.
 
     Example usage:
@@ -69,13 +69,13 @@ def bridge_risk_status(
     for huc in hucs:
         print(f'Processing HUC: {huc}')
         # Construct the file path
-        gpkg_path = os.path.join(dir_path, huc, 'osm_bridge_centroids.gpkg')
+        parquet_path = os.path.join(dir_path, huc, 'osm_bridge_centroids.parquet')
         # Check if the file exists
-        if not os.path.exists(gpkg_path):
-            print(f"No GeoPackage file found in {gpkg_path}. Skipping...")
+        if not os.path.exists(parquet_path):
+            print(f"No Parquet file found in {parquet_path}. Skipping...")
             continue
-        # Open the bridge point GeoPackage for each huc
-        bri_po = gpd.read_file(gpkg_path)
+        # Open the bridge point GeoParquet for each huc
+        bri_po = gpd.read_parquet(parquet_path)
 
         # Save the origignal crs in a new column
         bri_po['original_crs'] = bri_po.crs.to_string()
@@ -142,7 +142,7 @@ if __name__ == "__main__":
         required=True,
         type=str,
     )
-    parser.add_argument("-o", "--output_dir", help="Path to geopackage output.", required=True, type=str)
+    parser.add_argument("-o", "--output_dir", help="Path to GeoParquet output.", required=True, type=str)
     parser.add_argument(
         "-u",
         "--limit_hucs",

@@ -829,14 +829,14 @@ def generate_rc_and_rem_plots(rc, plot_filename, recurr_data_table, branches_fol
             os.path.join(
                 branches_folder,
                 branch,
-                f'demDerived_reaches_split_filtered_addedAttributes_crosswalked_{branch}.gpkg',
+                f'demDerived_reaches_split_filtered_addedAttributes_crosswalked_{branch}.parquet',
             )
         ):
             reaches = gpd.read_file(
                 os.path.join(
                     branches_folder,
                     branch,
-                    f'demDerived_reaches_split_filtered_addedAttributes_crosswalked_{branch}.gpkg',
+                    f'demDerived_reaches_split_filtered_addedAttributes_crosswalked_{branch}.parquet',
                 )
             )
             reach = reaches[reaches.HydroID == hydroid]

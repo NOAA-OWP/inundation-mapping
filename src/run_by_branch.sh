@@ -80,7 +80,7 @@ args=(
     "${tempCurrentBranchDataDir}/nwm_subset_streams_levelPaths_extended_${current_branch_id}.parquet"
     "${tempCurrentBranchDataDir}/flows_grid_boolean_${current_branch_id}.tif"
 )
-python3 "${srcDir}/rasterize_parquet.py" "${args[@]}"
+python3 "${srcDir}/utils/rasterize_parquet.py" "${args[@]}"
 
 ## DEM Reconditioning - BRANCHES (NOT 0) (NWM levelpath streams) ##
 echo -e "${startDiv}Creating AGREE DEM using ${agree_DEM_buffer} meter buffer ${hucNumber} (Branches)"
@@ -154,7 +154,7 @@ args=(
     "${tempCurrentBranchDataDir}/nwm_subset_streams_levelPaths_dissolved_headwaters_${current_branch_id}.parquet"
     "${tempCurrentBranchDataDir}/headwaters_${current_branch_id}.tif"
 )
-python3 "${srcDir}/rasterize_parquet.py" "${args[@]}"
+python3 "${srcDir}/utils/rasterize_parquet.py" "${args[@]}"
 
 ## PRODUCE THE REM AND OTHER HAND FILE OUTPUTS ##
 export hucNumber current_branch_id tempCurrentBranchDataDir tempHucDataDir ndv xmin ymin xmax ymax ncols nrows

@@ -15,7 +15,7 @@ from rasterio.mask import mask
 from shapely import ops
 from shapely.geometry import Point
 
-from polygonize_raster import polygonize_raster
+from utils.polygonize_raster import polygonize_raster
 
 
 warnings.simplefilter(action='ignore', category=FutureWarning)

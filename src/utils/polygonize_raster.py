@@ -7,11 +7,12 @@ import geopandas as gpd
 import rasterio
 from rasterio.features import shapes
 from shapely.geometry import shape
-from shared_functions import to_hilbert_parquet
+
+from utils.shared_functions import to_hilbert_parquet
 
 
-def polygonize(
-    input_raster: str, output_file: str, field_name: str = None, connectivity: int = 8, quiet: bool = False
+def polygonize_raster(
+    input_raster: str, output_file: str, field_name: str, connectivity: int = 8, quiet: bool = False
 ):
     """
     Parameters
@@ -70,9 +71,7 @@ def polygonize(
         print(f"Creating GeoDataFrame and saving to {output_file}...")
 
     try:
-        # Construct the GeoDataFrame matching column schema
-        if field_name is None:
-            field_name = os.path.splitext(output_file)[0]
+        # Construct the GeoDataFrame matching your requested column schema
         gdf = gpd.GeoDataFrame({field_name: values}, geometry=geometries, crs=crs)
 
         # Save straight to Parquet bypassing missing GDAL OGR drivers
@@ -100,7 +99,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "field_name",
         nargs="?",
-        default=None,
+        default="HydroID",
         help="Name of the attribute column to create from raster values",
     )
 
@@ -117,4 +116,4 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    polygonize(**vars(args))
+    polygonize_raster(**vars(args))

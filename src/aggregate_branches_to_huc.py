@@ -256,7 +256,7 @@ class HucDirectory(object):
         self.agg_ras_elev_table.append(ras_elev_table)
 
     def aggregate_bridge_pnts(self, branch_path, branch_id):
-        bridge_filename = join(branch_path, f'osm_bridge_centroids_{branch_id}.gpkg')
+        bridge_filename = join(branch_path, f'osm_bridge_centroids_{branch_id}.parquet')
         if not os.path.isfile(bridge_filename):
             return
 
@@ -446,7 +446,7 @@ class HucDirectory(object):
                     agg_ras_elev.to_csv(ras_elev_table_file, index=False)
 
             if bridge_flag:
-                bridge_pnts_file = join(self.huc_dir_path, 'osm_bridge_centroids.gpkg')
+                bridge_pnts_file = join(self.huc_dir_path, 'osm_bridge_centroids.parquet')
                 if os.path.isfile(bridge_pnts_file):
                     os.remove(bridge_pnts_file)
 

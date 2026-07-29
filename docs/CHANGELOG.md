@@ -9,9 +9,10 @@ Bash scripts were also refactored to use bash arrays and use of explicit notatio
 
 ### Additions
 - `src/`
-    - `polygonize_raster.py`: Python script to convert from raster to vector as a replacement for the GDAL command-line `gdal_polygonize.py`
-    - `rasterize_parquet.py`: Python script to convert from vector to raster as a replacement for the GDAL command-line `gdal_rasterize.py`
     - `subset_vectors_to_branches.py`: Python script to replace GDAL command-line `ogr2ogr`
+    `utils/`
+        - `polygonize_raster.py`: Python script to convert from raster to vector as a replacement for the GDAL command-line `gdal_polygonize.py`
+        - `rasterize_parquet.py`: Python script to convert from vector to raster as a replacement for the GDAL command-line `gdal_rasterize.py`
 
 ### Changes
 #### Added new shared function to sort geodataframes by Hilbert curve before saving as geoparquet
@@ -34,11 +35,11 @@ Bash scripts were also refactored to use bash arrays and use of explicit notatio
 - `config/`
     - `deny_branch_zero.lst`, `deny_branches.lst`, `deny_unit.lst`
 - `src/`
-    - `add_crosswalk.py`, `adjust_floodplains.py` `associate_levelpaths_with_levees.py`, `derive_level_paths.py`, `filter_catchments_and_add_attributes.py`, `heal_bridges_osm.py`, `longitudinal_flow_adjustment.py`, `make_stages_and_catchlist.py`, `mask_dem.py`, `mitigate_branch_outlet_backpool.py`, `process_buildings_fimpact.py`, `process_roads_fimpact.py`, `split_flows.py`, `src_adjust_usgs_rating_trace.py`, `src_roughness_optimization.py`, `stream_branches.py`, `usgs_gage_crosswalk.py`, `usgs_gage_unit_setup.py`
+    - `add_crosswalk.py`, `adjust_floodplains.py`, `aggregate_branches_to_huc.py`, `associate_levelpaths_with_levees.py`, `derive_level_paths.py`, `filter_catchments_and_add_attributes.py`, `heal_bridges_osm.py`, `longitudinal_flow_adjustment.py`, `make_stages_and_catchlist.py`, `mask_dem.py`, `mitigate_branch_outlet_backpool.py`, `process_buildings_fimpact.py`, `process_roads_fimpact.py`, `split_flows.py`, `src_adjust_usgs_rating_trace.py`, `src_roughness_optimization.py`, `stream_branches.py`, `usgs_gage_crosswalk.py`, `usgs_gage_unit_setup.py`
  - `tools/
      - catfim/`
          - `vis_categorical_fim.py`
-     - `evaluate_crosswalk.py`
+     - `bridge_inundation.py`, `evaluate_crosswalk.py`, `rating_curve_comparison.py`
 
 #### Refactored
 - `fim_pre_processing.sh`, `fim_pipeline.sh`, `fim_process_huc.sh`, `fim_postprocessing.sh`

@@ -17,7 +17,7 @@ import pandas as pd
 import src.utils.shared_functions as sf
 import src.utils.shared_validators as val
 from data.create_vrt_file import create_vrt_file
-from src.polygonize_raster import polygonize_raster
+from src.utils.polygonize_raster import polygonize_raster
 from src.utils.shared_functions import FIM_Helpers as fh
 from src.utils.shared_functions import to_hilbert_parquet
 

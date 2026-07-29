@@ -224,7 +224,7 @@ args=(
     "HydroID"
     -q -8
 )
-python3 "${srcDir}/polygonize_raster.py" "${args[@]}"
+python3 "${srcDir}/utils/polygonize_raster.py" "${args[@]}"
 
 ## PROCESS CATCHMENTS AND MODEL STREAMS STEP 1 ##
 echo -e "${startDiv}Process catchments and model streams ${hucNumber} ${current_branch_id}"
@@ -247,7 +247,7 @@ args=(
     "${tempCurrentBranchDataDir}/gw_catchments_reaches_filtered_addedAttributes_${current_branch_id}.parquet"
     "${tempCurrentBranchDataDir}/gw_catchments_reaches_filtered_addedAttributes_${current_branch_id}.tif"
 )
-python3 "${srcDir}/rasterize_parquet.py" "${args[@]}"
+python3 "${srcDir}/utils/rasterize_parquet.py" "${args[@]}"
 
 ## MASK SLOPE TO CATCHMENTS ##
 echo -e "${startDiv}Mask to slopes to catchments ${hucNumber} ${current_branch_id}"
