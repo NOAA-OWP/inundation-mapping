@@ -316,7 +316,9 @@ def make_version_comparison_tables(
     try:
         sorted_versions = sorted(version_id_list, key=version_key)
     except ValueError:
-        print(f'Warning: Unable to sort version IDs, versions will be compared in input order (assuming first input version is oldest)')
+        print(
+            'Warning: Unable to sort version IDs, versions will be compared in input order (assuming first input version is oldest)'
+        )
         sorted_versions = version_id_list
 
     # Iterate through versions (minus the last one) to calculate the Change and Change_Description columns
@@ -474,13 +476,17 @@ def read_format_catfim_library(catfim_library_filepath):
 
     if '.gpkg' in catfim_library_filepath:
         # Read in site GPKG
-        print(f'Library file stored as GPKG, creating geometry column - {catfim_library_filepath}')  # TEMP DEBUG
+        print(
+            f'Library file stored as GPKG, creating geometry column - {catfim_library_filepath}'
+        )  # TEMP DEBUG
 
         library_gdf = gpd.read_file(catfim_library_filepath)
     
     elif '.csv' in catfim_library_filepath:
         # Read in site CSV
-        print(f'Library file stored as CSV, creating geometry column - {catfim_library_filepath}')  # TEMP DEBUG
+        print(
+            f'Library file stored as CSV, creating geometry column - {catfim_library_filepath}'
+        )  # TEMP DEBUG
 
         library_table = pd.read_csv(catfim_library_filepath)
 
@@ -688,7 +694,9 @@ def generate_spatial_difference_maps(
         try:
             sorted_versions = sorted(version_id_list, key=lambda version: list(map(int, version.split('_'))))
         except ValueError:
-            print(f'Warning: Unable to sort version IDs, versions will be compared in input order (assuming first input version is oldest)')
+            print(
+                'Warning: Unable to sort version IDs, versions will be compared in input order (assuming first input version is oldest)'
+            )
             sorted_versions = version_id_list
 
         # Iterate through versions (minus the last one) to calculate site change
@@ -799,9 +807,7 @@ def generate_spatial_difference_maps(
                             crs=removed_geom.crs,
                         )
 
-                        removed_gdf_cleaned = remove_polygon_shards(
-                            removed_gdf, minimum_area_threshold=3000
-                        )
+                        removed_gdf_cleaned = remove_polygon_shards(removed_gdf, minimum_area_threshold=3000)
 
                         # If removed_gdf_cleaned is None, skip to the next iteration
                         if removed_gdf_cleaned is None:
@@ -824,9 +830,7 @@ def generate_spatial_difference_maps(
                             },
                             crs=added_geom.crs,
                         )
-                        added_gdf_cleaned = remove_polygon_shards(
-                            added_gdf, minimum_area_threshold=3000
-                        )
+                        added_gdf_cleaned = remove_polygon_shards(added_gdf, minimum_area_threshold=3000)
 
                         # If added_gdf_cleaned is None, skip to the next iteration
                         if added_gdf_cleaned is None:
@@ -934,7 +938,9 @@ def generate_spatial_difference_maps(
 
 
 # Main function for catfim_sites_compare
-def execute_catfim_version_comparison(path_list, output_save_filepath, keep_differences_only, generate_geopackages, debug_mode):
+def execute_catfim_version_comparison(
+        path_list, output_save_filepath, keep_differences_only, generate_geopackages, debug_mode
+    ):
     '''
     Inputs
     - path_list (space-delimited list)

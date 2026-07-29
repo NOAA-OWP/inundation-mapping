@@ -607,9 +607,6 @@ def download_process_wrds(
     '''
     Run download_process_wrds.py independently. This function will becalled by the
     command line interface at the bottom of this script.
-
-
-
     '''
 
     overall_start_time = datetime.now(timezone.utc)
@@ -756,7 +753,6 @@ def download_process_wrds(
     print('Processing complete.')
     print(f"Total duration: {str(time_duration).split('.')[0]}")
     print('================================')
-
 
 
 if __name__ == '__main__':

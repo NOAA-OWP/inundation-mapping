@@ -10,6 +10,7 @@ import geopandas as gpd
 import src.utils.shared_functions as sf
 import tools.catfim.catfim_shared_functions as csf
 
+
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
@@ -188,7 +189,7 @@ def catfim_post_processing(output_folder):
         hucs_without_library_and_sites = list(set(hucs_without_sites) & set(hucs_without_library))
         if len(hucs_without_library_and_sites) > 0:
             logging.warning(
-                f"WARNING: {len(hucs_without_library_and_sites)} HUC(s) skipped due to missing sites AND library results:"
+                f"{len(hucs_without_library_and_sites)} HUC(s) skipped due to missing sites AND library results:"
             )
             logging.warning(hucs_without_library_and_sites)
 
@@ -196,7 +197,7 @@ def catfim_post_processing(output_folder):
         hucs_missing_only_sites = list(set(hucs_without_sites).difference(set(hucs_without_library)))
         if len(hucs_missing_only_sites) > 0:
             logging.warning(
-                f"WARNING: {len(hucs_missing_only_sites)} HUC(s) skipped due to missing sites file:"
+                f"{len(hucs_missing_only_sites)} HUC(s) skipped due to missing sites file:"
             )
             logging.warning(hucs_missing_only_sites)
 
@@ -204,7 +205,7 @@ def catfim_post_processing(output_folder):
         hucs_missing_only_library = list(set(hucs_without_library).difference(set(hucs_without_sites)))
         if len(hucs_missing_only_library) > 0:
             logging.warning(
-                f"WARNING: {len(hucs_missing_only_library)} HUC(s) skipped due to missing library file:"
+                f"{len(hucs_missing_only_library)} HUC(s) skipped due to missing library file:"
             )
             logging.warning(hucs_missing_only_library)
 

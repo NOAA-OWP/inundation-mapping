@@ -881,6 +881,12 @@ def run_sb_inundation(
     # For now, we will just run it single-threaded and can implement multi-
     # threading later.
 
+
+    # Set these to False initially and if at least one valid data source is found they will be changed to True
+    branch_rem_available = False
+    branch_catchments_file_available = False
+    branch_hydrotable_available = False
+
     for branch in branches:
 
         # Prepare branch-specific file paths
@@ -897,23 +903,38 @@ def run_sb_inundation(
             'gw_catchments_reaches_filtered_addedAttributes_' + branch + '.tif',
         )
         hydrotable_path = os.path.join(fim_run_dir, huc, full_branch_path, 'hydroTable_' + branch + '.csv')
+        # TODO: Switch to using the huc-level version, parquet hydrotable (instead of branch-level CSV)
 
-        # NOTE: Jan 26 sometimes, these can fail to exist if a branchf initial failed during HAND generation
+        # NOTE: Jan 26 sometimes, these can fail to exist if a branch initially failed during HAND generation
         # Do any of these ultimately change the sites gdf status / mapping columns?
         # if so.. change it here (adjusting for the actual status message in the final library gpkg) # TODO: Test this contingency?
 
         if not os.path.exists(rem_path):
-            msg = "Branch REM doesn't exist (could be bad branch)"
+            msg = "Branch REM not found (could be bad branch)"
             logging.warning(f'{msg_id_w_branch} - {msg}')
             continue
+        else:
+            # Set to true if we have at least one
+            branch_rem_available = True
+
         if not os.path.exists(catchments_path):
-            msg = "Branch catchments files don't exist (could be bad branch)"
+            msg = "Branch catchments files not found (could be bad branch)"
             logging.warning(f'{msg_id_w_branch} - {msg}')
             continue
+        else:
+            # Set to true if we have at least one
+            branch_catchments_file_available = True
+
         if not os.path.exists(hydrotable_path):
-            msg = "Branch hydrotable doesn't exist (could be bad branch)"
+            msg = "Branch hydrotable not found (could be bad branch)"
             logging.warning(f'{msg_id_w_branch} - {msg}')
             continue
+        else:
+            # Set to true if we have at least one
+            branch_hydrotable_available = True
+    
+        # If we get past these three checks at least once, it means we had at least one branch
+        # REM, catchments file, and hydrotable for the site
 
         # Use hydroTable to determine hydroid_list from site_ms_segments.
         hydrotable_df = pd.read_csv(
@@ -982,6 +1003,19 @@ def run_sb_inundation(
 
     # end of previous MP (removed Jan 2026)
     # end of branch loop
+
+    # Return a warning if we were missing data for all branches
+    if not branch_rem_available:
+        logging.warning(f'{huc_lid_cat_id} - REM not found for any branches')
+        # TODO: Should this be a reason to exit and update the site status?
+
+    if not branch_catchments_file_available:
+        logging.warning(f'{huc_lid_cat_id} - Catchments file not found for any branches')
+        # TODO: Should this be a reason to exit and update the site status?
+
+    if not branch_hydrotable_available:
+        logging.warning(f'{huc_lid_cat_id} - Hydrotable not found for any branches')
+        # TODO: Should this be a reason to exit and update the site status?
 
     # ---------------------
     # Mosaic inundation tifs for ahps_site/magnitude
@@ -1444,8 +1478,9 @@ def post_process_huc_mapping(huc, catfim_type, sites_gdf, huc_library_df, output
                 # Add the interval information
                 huc_library_df_subset['interval_stage'] = interval_stage
                 huc_library_df_subset['is_interval'] = True
-                huc_library_df_subset['stage'] = interval_stage  # overwrites the RFC stage with the interval stage
-
+                huc_library_df_subset['stage'] = (
+                    interval_stage  # overwrites the RFC stage with the interval stage
+                )
                 huc_library_interval_data_list.append(huc_library_df_subset)
 
             # Make the new interval data into a DF and append it to the huc_library_df
