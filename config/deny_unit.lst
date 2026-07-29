@@ -1,5 +1,6 @@
 # List of files for units to delete
-# Use comment to allow list the file
+##### Add a comment to the line to keep the file
+# 3d_nld_subset_levees_burned.gpkg
 agree_binary_bufgrid.tif
 agree_bufgrid.tif
 agree_bufgrid_allo.tif
@@ -9,15 +10,18 @@ agree_smogrid.tif
 agree_smogrid_allo.tif
 agree_smogrid_dist.tif
 agree_smogrid_zerod.tif
-# 3d_nld_subset_levees_burned.gpkg
+# branch_id.csv
 # branch_id.lst
 branch_polygons.gpkg
 bridge_elev_diff_meters.tif
+# buildings_fimpact.csv
+buildings_subset.gpkg
 dem_burned.tif
 dem_burned_filled.tif
 dem_meters.tif
 dem_meters_orig.tif
 dem_meters_pit_fill.tif
+DEM_Domain.parquet
 flowdir_d8_burned_filled.tif
 flows_grid_boolean.tif
 # LandSea_subset.gpkg
@@ -33,14 +37,19 @@ nwm_headwater_points_subset.gpkg
 nwm_subset_streams_levelPaths_dissolved.gpkg
 # nwm_subset_streams_levelPaths_dissolved_extended.gpkg
 nwm_subset_streams_levelPaths_dissolved_headwaters.gpkg
+nws_lid.gpkg
+# osm_bridge_centroids.gpkg
+# osm_roads_fimpact.csv
+# osm_roads_subset.gpkg
 # ras_elev_table.csv
+reformat_ras_rating_curve_points_rel_101.gpkg
 # usgs_elev_table.csv
+usgs_gages.gpkg
 # usgs_subset_gages.gpkg
+# usgs_subset_gages_0.gpkg
 # wbd.gpkg
 # wbd8_clp.gpkg
 wbd_buffered.gpkg
 wbd_buffered_streams.gpkg
-DEM_Domain.parquet
-usgs_gages.gpkg
-reformat_ras_rating_curve_points_rel_101.gpkg
-nws_lid.gpkg
+
+
