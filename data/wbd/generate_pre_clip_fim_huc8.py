@@ -19,6 +19,7 @@ from clip_vectors_to_wbd import subset_vector_layers
 from dotenv import load_dotenv
 
 from src.utils.shared_functions import FIM_Helpers as fh
+from src.utils.shared_functions import get_huc_vars
 
 
 """
@@ -63,28 +64,6 @@ projectDir = os.getenv('projectDir')
 load_dotenv(f'{srcDir}/bash_variables.env')
 load_dotenv(f'{projectDir}/config/params_template.env')
 
-# Variables from src/bash_variables.env
-DEFAULT_FIM_PROJECTION_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
-ALASKA_CRS = os.getenv('ALASKA_CRS')  # Alaska
-GUAM_CRS = os.getenv('GUAM_CRS')  # Guam
-AMERICAN_SAMOA_CRS = os.getenv('AMERICAN_SAMOA_CRS')  # American Samoa
-
-input_WBD_gdb = os.getenv('input_WBD_gdb')
-input_WBD_gdb_Alaska = os.getenv('input_WBD_gdb_Alaska')  # Alaska
-input_WBD_gdb_Guam = os.getenv('input_WBD_gdb_Guam')  # Guam
-input_WBD_gdb_AmericanSamoa = os.getenv('input_WBD_gdb_AmericanSamoa')  # American Samoa
-
-input_DEM_domain = os.getenv('input_DEM_domain')
-input_DEM_domain_Alaska = os.getenv('input_DEM_domain_Alaska')  # Alaska
-input_DEM_domain_Guam = os.getenv('input_DEM_domain_Guam')  # Guam
-input_DEM_domain_AmericanSamoa = os.getenv('input_DEM_domain_AmericanSamoa')  # American Samoa
-
-input_landsea = os.getenv('input_landsea')
-input_landsea_Alaska = os.getenv('input_landsea_Alaska')  # Alaska
-input_landsea_Guam = os.getenv('input_landsea_Guam')  # Guam
-input_landsea_AmericanSamoa = os.getenv('input_landsea_AmericanSamoa')  # American Samoa
-
-input_GL_boundaries = os.getenv('input_GL_boundaries')
 
 wbd_buffer_distance = float(os.getenv('wbd_buffer'))
 
@@ -381,38 +360,15 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir, copy_from_dir, preclipping_f
 
         # SET VARIABLES AND FILE INPUTS #
         hucUnitLength = len(huc)
-        huc2Identifier = huc[:2]
         input_NHD_WBHD_layer = f"WBDHU{hucUnitLength}"
 
-        # Check whether the HUC is in Alaska or not and assign the CRS and filenames accordingly
-        if huc2Identifier == '19':
-            huc_CRS = ALASKA_CRS
-            input_WBD_filename = input_WBD_gdb_Alaska
-            dem_domain = input_DEM_domain_Alaska
-        elif huc == '22010000':  # Guam
-            huc_CRS = GUAM_CRS
-            input_WBD_filename = input_WBD_gdb_Guam
-            dem_domain = input_DEM_domain_Guam
-        elif huc == '22030001':  # American Samoa
-            huc_CRS = AMERICAN_SAMOA_CRS
-            input_WBD_filename = input_WBD_gdb_AmericanSamoa
-            dem_domain = input_DEM_domain_AmericanSamoa
-        else:
-            huc_CRS = DEFAULT_FIM_PROJECTION_CRS
-            input_WBD_filename = input_WBD_gdb
-            dem_domain = input_DEM_domain
+        huc_vars = get_huc_vars(huc)
+        huc_CRS = huc_vars['crs']
+        input_WBD_filename = huc_vars['wbd']
+        dem_domain = huc_vars['dem_domain']
 
         # Define the landsea waterbody mask using either Great Lakes or Ocean polygon input #
-        if huc2Identifier == "04":
-            input_LANDSEA = f"{input_GL_boundaries}"
-        elif huc2Identifier == "19":
-            input_LANDSEA = input_landsea_Alaska
-        elif huc == '22010000':
-            input_LANDSEA = input_landsea_Guam
-        elif huc == '22030001':
-            input_LANDSEA = input_landsea_AmericanSamoa
-        else:
-            input_LANDSEA = input_landsea
+        input_LANDSEA = huc_vars['landsea']
 
         logging.info(f"-- {huc} : Get WBD")
 
