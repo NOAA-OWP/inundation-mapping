@@ -45,7 +45,7 @@ def unzip(zip_path, extract_to="."):
         return False
 
 
-def preprocess_dem(input_dem_zip_file, out_dem_folder, region, target_crs_number='3338'):
+def preprocess_dem(input_dem_zip_file, out_dem_folder, region, date, target_crs_number='3338'):
     """
     Preprocess ifsar DTM 5 meter to 10 meter DEM
     """
@@ -127,15 +127,6 @@ def preprocess_dem(input_dem_zip_file, out_dem_folder, region, target_crs_number
         gdal.Warp(output_mosaic, src_files_to_mosaic, options=warp_options)
         print(f"\nSuccess! Mosaic saved to {output_mosaic}")
 
-        # Clip mosaic to HUC(s), e.g.:
-        # huc=19010301; region=Juneau;
-        # gdalwarp /data/inputs/dems/ifsar_dtm/${region}/20260708/${region}_ifsar_DTM_3338.tif
-        # /data/inputs/dems/ifsar_dtm/${region}/20260708/HUC8_${huc}_dem.tif
-        # -cutline /data/inputs/wbd/HUC8_Alaska/HUC8_${huc}.gpkg
-        # -crop_to_cutline -ot Float32 -r bilinear -of "GTiff" -overwrite
-        # -co "BLOCKXSIZE=256" -co "BLOCKYSIZE=256" -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES"
-        # -tr 10 10 -tap -t_srs EPSG:3338 -cblend 6
-
         # Define variables
         if region == 'Juneau':
             hucs = ['19010301']
@@ -144,7 +135,7 @@ def preprocess_dem(input_dem_zip_file, out_dem_folder, region, target_crs_number
 
         for huc in hucs:
             # Define paths
-            dest_ds = f"/data/inputs/dems/ifsar_dtm/{region}/20260708/HUC8_{huc}_dem.tif"
+            dest_ds = f"/data/inputs/dems/ifsar_dtm/{region}/{date}/HUC8_{huc}_dem.tif"
             cutline_path = f"/data/inputs/wbd/HUC8_Alaska/HUC8_{huc}.gpkg"
 
             # Define warp options
@@ -179,7 +170,7 @@ def preprocess_dem(input_dem_zip_file, out_dem_folder, region, target_crs_number
         raise RuntimeError(f"GDAL Warp processing failed: {e}")
 
 
-def preprocess_streams(region, hucs, target_crs_number, inputs_dir, reference_fabric_file):
+def preprocess_streams(region, hucs, target_crs_number, inputs_dir, reference_fabric_file, date):
     """
     Preprocess Alaska streams for a specific region.
     """
@@ -243,8 +234,9 @@ if __name__ == "__main__":
         '-c', '--target_crs_number', type=int, required=False, default='3338', help='EPSG code'
     )
     parser.add_argument('-s', '--reference_fabric_file', type=str, help='Streams file path')
-    parser.add_argument('-d', '--input_dem_zip_file', type=str, required=True, help='Input DEM ZIP file')
+    parser.add_argument('-z', '--input_dem_zip_file', type=str, required=True, help='Input DEM ZIP file')
     parser.add_argument('-e', '--out_dem_folder', type=str, required=True, help='Out DEM folder')
+    parser.add_argument('-d', '--date', type=str, required=True, help='Date to associate with this run')
 
     args = vars(parser.parse_args())
 
@@ -257,12 +249,13 @@ if __name__ == "__main__":
     reference_fabric_file = args['reference_fabric_file']
     input_dem_zip_file = args['input_dem_zip_file']
     out_dem_folder = args['out_dem_folder']
+    date = args['date']
 
-    # preprocess_dem(input_dem_zip_file, out_dem_folder, region, target_crs_number)
+    preprocess_dem(input_dem_zip_file, out_dem_folder, region, date, target_crs_number)
 
     if region == 'Fairbanks':
         hucs = ['19080306', '19080307']
     elif region == 'Juneau':
         hucs = ['19010301']
 
-    preprocess_streams(region, hucs, target_crs_number, inputs_dir, reference_fabric_file)
+    preprocess_streams(region, hucs, target_crs_number, inputs_dir, reference_fabric_file, date)
