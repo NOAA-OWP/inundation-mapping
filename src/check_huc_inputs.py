@@ -1,121 +1,144 @@
 #!/usr/bin/env python3
-
 import argparse
 import os
-import pathlib
-from glob import glob
+import sys
+from pathlib import Path
 
 
-def __read_acceptable_file_list(full_huc_list):
-    filename_patterns = glob(full_huc_list)
-
-    accepted_hucs_set = set()
-    for filename in filename_patterns:
-        with open(filename, 'r') as huc_list_file:
-            file_lines = huc_list_file.readlines()
-            f_list = [fl.rstrip() for fl in file_lines]
-            accepted_hucs_set.update(f_list)
-
-    return accepted_hucs_set
-
-
-def __read_input_hucs(hucs):
-    huc_list = set()
-    if os.path.isfile(hucs[0]):
-        source_file_extension = pathlib.Path(hucs[0]).suffix
-
-        if source_file_extension.lower() != ".lst":
-            raise Exception("Incoming file must be in .lst format if submitting a file name and path.")
-
-        with open(hucs[0], 'r') as hucs_file:
-            file_lines = hucs_file.readlines()
-            f_list = [__clean_huc_value(fl) for fl in file_lines]
-            huc_list.update(f_list)
-    else:
-        if len(hucs) > 0:
-            for huc in hucs:
-                huc_list.add(__clean_huc_value(huc))
-        else:
-            huc_list.add(__clean_huc_value(hucs[0]))
-
-    huc_list = sorted(huc_list)
-
-    return huc_list
-
-
-def __clean_huc_value(huc):
-    # Strips the newline character plus
-    # single or double quotes (which sometimes happens)
-    huc = huc.strip().replace("\"", "")
-    huc = huc.replace("\'", "")
-    return huc
-
-
-def __check_for_membership(hucs, accepted_hucs_set, full_huc_list):
-    for huc in hucs:
-        if (type(huc) is str) and (not huc.isnumeric()):
-            huc = str(huc)
-            if "." in huc:
-                raise ValueError(
-                    "The huc(s) or huc list you provided appears invalid and contains a dot."
-                    f" Is this a bad path to a file? arg supplied is {huc}"
-                )
-            msg = f"Huc value of {huc} does not appear to be a number. "
-            msg += "It could be an incorrect value but also could be that the huc list "
-            msg += "(if you used one) is incorrect or is not unix encoded."
-            raise KeyError(msg)
-
-        if huc not in accepted_hucs_set:
-            msg = f"HUC {huc} not found in the acceptable HUC list at {full_huc_list}."
-            " Edit HUC inputs or acquire datasets & try again."
-            raise KeyError(msg)
-
-
-# Might be a file path (full_huc_list) or a list of hucs (ie 12090301 05030104)
-def check_hucs(hucs, full_huc_list, huc_list_output_file):
-    accepted_hucs = __read_acceptable_file_list(full_huc_list)
-    list_hucs = __read_input_hucs(hucs)
-    __check_for_membership(list_hucs, accepted_hucs, full_huc_list)
-
-    with open(huc_list_output_file, "w") as f:
-        for item in list_hucs:
-            f.write(f"{item}\n")
-
-    # we need to return the number of hucs being used.
-    # it is not easy to return a value to bash, except with standard out.
-    # so we will just to a print line back (Note: This means there can be no other
-    # print commands in this file, even for debugging, as bash will pick up the
-    # very first "print"
-
-    # if you want to print, you can use flush. ie) print(f"number of hucs is {len(list_hucs)}", flush=True)
-    # by returning a print line, bash will pick it up as standard output and assign it
-    # to a variable and manage it.
-    print(len(list_hucs))
-
-
-if __name__ == '__main__':
-
-    # This script helps ensure that all hucs passed in to pipeline or pre-processing are valid HUCs
-    # and are in the full_huc_list.lst file as valid and approved HUCS.
-
-    # It is ok if this throws exceptions
-
-    # parse arguments
-    parser = argparse.ArgumentParser(description='Checks input hucs for availability within inputs')
+def parse_args():
+    parser = argparse.ArgumentParser(description="Validate input HUCs against a master reference HUC list.")
     parser.add_argument(
-        '-u',
-        '--hucs',
-        help='Line-delimited file or list of HUCs to check availibility for',
+        "-u",
+        "--hucInputs",
         required=True,
-        nargs='+',
+        help="Space or comma-delimited string of HUCs OR path to a file containing HUCs.",
     )
-    parser.add_argument('-i', '--full-huc-list', help='Full HUC list file', required=True)
     parser.add_argument(
-        '-o', '--huc-list-output-file', help='The parsed and validated HUC list', required=True
+        "-i",
+        "--masterHucList",
+        required=True,
+        help="Path to master/acceptable HUC list file (e.g., full_huc_list.lst).",
     )
+    parser.add_argument(
+        "-o",
+        "--outputFile",
+        required=True,
+        help="Path to destination file where parsed valid HUCs will be written.",
+    )
+    return parser.parse_args()
 
-    # extract to dictionary
-    args = vars(parser.parse_args())
 
-    # call function
-    check_hucs(**args)
+def load_master_huc_set(master_list_path: Path) -> set:
+    """Loads acceptable HUCs from the master list file into a set for fast lookup."""
+    if not master_list_path.is_file():
+        sys.stderr.write(f"Error: Master HUC list file '{master_list_path}' does not exist.\n")
+        sys.exit(1)
+
+    master_set = set()
+    with open(master_list_path, "r") as f:
+        for line in f:
+            huc = line.strip().strip('"').strip("'")
+            if huc and not huc.startswith("#"):
+                # Zero-pad to 8 digits if numeric to handle lost leading zeroes
+                if huc.isdigit() and len(huc) < 8:
+                    huc = huc.zfill(8)
+                master_set.add(huc)
+
+    if not master_set:
+        sys.stderr.write(f"Error: Master HUC list file '{master_list_path}' is empty.\n")
+        sys.exit(1)
+
+    return master_set
+
+
+def parse_raw_huc_inputs(huc_input_arg: str) -> list:
+    """
+    Parses raw HUC input argument which can be either a file path
+    or a space/comma/newline-delimited string of HUCs.
+    """
+    input_path = Path(huc_input_arg.strip())
+
+    # Case 1: Input is a file path
+    if input_path.is_file():
+        raw_tokens = []
+        with open(input_path, "r") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#"):
+                    # Split comma/space separated lines inside the file
+                    tokens = line.replace(",", " ").split()
+                    raw_tokens.extend(tokens)
+        return raw_tokens
+
+    # Case 2: Input is a delimited string
+    cleaned_str = huc_input_arg.strip().strip('"').strip("'")
+    tokens = cleaned_str.replace(",", " ").split()
+    return tokens
+
+
+def check_hucs(huc_inputs: str, master_huc_list_path: str, output_file_path: str) -> int:
+    """
+    Core validation function.
+    Validates input HUCs, writes output file, and returns valid count.
+    """
+    master_path = Path(master_huc_list_path)
+    output_path = Path(output_file_path)
+
+    # 1. Load acceptable master set
+    master_set = load_master_huc_set(master_path)
+
+    # 2. Parse raw inputs
+    raw_hucs = parse_raw_huc_inputs(huc_inputs)
+    if not raw_hucs:
+        sys.stderr.write("Error: No HUC inputs provided.\n")
+        sys.exit(1)
+
+    # 3. Process and validate
+    valid_hucs = []
+    invalid_hucs = []
+
+    for h in raw_hucs:
+        h_clean = h.strip().strip('"').strip("'")
+        if not h_clean:
+            continue
+
+        # Zero-pad leading zero if lost during shell expansion (e.g. 5030104 -> 05030104)
+        if h_clean.isdigit() and len(h_clean) < 8:
+            h_clean = h_clean.zfill(8)
+
+        if h_clean in master_set:
+            if h_clean not in valid_hucs:
+                valid_hucs.append(h_clean)
+        else:
+            invalid_hucs.append(h_clean)
+
+    # 4. Handle validation errors
+    if invalid_hucs:
+        sys.stderr.write(
+            f"Error: The following HUC(s) were not found in master list '{master_path}':\n"
+            f"  {', '.join(invalid_hucs)}\n"
+        )
+        sys.exit(1)
+
+    if not valid_hucs:
+        sys.stderr.write("Error: Zero valid HUCs matched the master list.\n")
+        sys.exit(1)
+
+    # 5. Write validated HUC list to output destination
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, "w") as f:
+        for huc in valid_hucs:
+            f.write(f"{huc}\n")
+
+    return len(valid_hucs)
+
+
+def main():
+    args = parse_args()
+    count = check_hucs(args.hucInputs, args.masterHucList, args.outputFile)
+    # Print integer count to stdout so parent scripts can capture it
+    print(count)
+
+
+if __name__ == "__main__":
+    main()

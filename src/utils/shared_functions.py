@@ -6,7 +6,7 @@ import logging
 import os
 
 # import pathlib
-# import re
+import re
 import shutil
 
 # import sys
@@ -30,6 +30,42 @@ from tqdm import tqdm
 _LOGGER_REGISTRY = {}
 
 gp.options.io_engine = "pyogrio"
+
+
+def load_bash_variables(env_file: Path) -> dict:
+    """Parses a simple bash .env file into a python dict with basic variable expansion."""
+    env_vars = {}
+    if not env_file.is_file():
+        return env_vars
+
+    with open(env_file, "r") as f:
+        for line in f:
+            line = line.strip()
+            # Skip comments and empty lines
+            if not line or line.startswith("#"):
+                continue
+
+            # Remove leading export if present
+            if line.startswith("export "):
+                line = line[7:].strip()
+
+            if "=" in line:
+                key, val = line.split("=", 1)
+                key = key.strip()
+                val = val.strip().strip('"').strip("'")
+
+                # Perform variable expansion based on OS env + already parsed variables
+                def replacer(match):
+                    var_name = match.group(1) or match.group(2)
+                    return env_vars.get(var_name, os.getenv(var_name, ""))
+
+                val = re.sub(r"\$(\w+)|\$\{([^}]+)\}", replacer, val)
+                env_vars[key] = val
+
+                # Set environment variable so child processes inherit it as well
+                os.environ[key] = val
+
+    return env_vars
 
 
 # #################################
