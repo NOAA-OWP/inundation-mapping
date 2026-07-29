@@ -85,7 +85,19 @@ def create_aws_session(
     '''
 
     if aws_access_key_id is not None and aws_access_key_id != "":
-        # then the aws_secret_access_key must also exist
+        # then the aws_secret_access_key must also be provided
+        if aws_secret_access_key is None or aws_secret_access_key == "":
+            raise ValueError("aws_secret_access_key must be provided when aws_access_key_id is given.")
+        session = boto3.Session(
+            aws_access_key_id=aws_access_key_id,
+            aws_secret_access_key=aws_secret_access_key,
+            aws_session_token=aws_session_token,
+            region_name=aws_region,
+        )
+    elif aws_config_profile_name:
+        session = boto3.Session(profile_name=aws_config_profile_name)
+    else:
+        session = boto3.Session(region_name=aws_region) must also exist
         if aws_secret_access_key is None or aws_secret_access_key == "":
             raise ValueError(
                 "The AWS Access Key ID has been submitted but the AWS Secret Access Key"
