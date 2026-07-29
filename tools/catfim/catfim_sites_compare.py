@@ -481,7 +481,7 @@ def read_format_catfim_library(catfim_library_filepath):
         )  # TEMP DEBUG
 
         library_gdf = gpd.read_file(catfim_library_filepath)
-    
+
     elif '.csv' in catfim_library_filepath:
         # Read in site CSV
         print(
@@ -939,7 +939,7 @@ def generate_spatial_difference_maps(
 
 # Main function for catfim_sites_compare
 def execute_catfim_version_comparison(
-        path_list, output_save_filepath, keep_differences_only, generate_geopackages, debug_mode
+    path_list, output_save_filepath, keep_differences_only, generate_geopackages, debug_mode
     ):
     '''
     Inputs

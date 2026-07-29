@@ -196,17 +196,13 @@ def catfim_post_processing(output_folder):
         # Print HUCs that had library but no sites (unlikely, might indicate a bug)
         hucs_missing_only_sites = list(set(hucs_without_sites).difference(set(hucs_without_library)))
         if len(hucs_missing_only_sites) > 0:
-            logging.warning(
-                f"{len(hucs_missing_only_sites)} HUC(s) skipped due to missing sites file:"
-            )
+            logging.warning(f"{len(hucs_missing_only_sites)} HUC(s) skipped due to missing sites file:")
             logging.warning(hucs_missing_only_sites)
 
         # Print HUCs that had sites but no library (just means no sites got mapped)
         hucs_missing_only_library = list(set(hucs_without_library).difference(set(hucs_without_sites)))
         if len(hucs_missing_only_library) > 0:
-            logging.warning(
-                f"{len(hucs_missing_only_library)} HUC(s) skipped due to missing library file:"
-            )
+            logging.warning(f"{len(hucs_missing_only_library)} HUC(s) skipped due to missing library file:")
             logging.warning(hucs_missing_only_library)
 
         # ---------------------

@@ -881,7 +881,6 @@ def run_sb_inundation(
     # For now, we will just run it single-threaded and can implement multi-
     # threading later.
 
-
     # Set these to False initially and if at least one valid data source is found they will be changed to True
     branch_rem_available = False
     branch_catchments_file_available = False
@@ -932,7 +931,7 @@ def run_sb_inundation(
         else:
             # Set to true if we have at least one
             branch_hydrotable_available = True
-    
+
         # If we get past these three checks at least once, it means we had at least one branch
         # REM, catchments file, and hydrotable for the site
 
