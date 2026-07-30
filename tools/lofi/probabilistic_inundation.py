@@ -588,10 +588,11 @@ def inundate_probabilistic(
                 for d, p in zip(datasets, percentiles):
                     d.read(1, out=tmpm, window=window)
 
-                    # tmpm[tmpm > 0] = int(p) # zero otherwise
+                    # equivalent to np.where(tmpm > 0, int(p), 0)
                     np.greater(tmpm, 0, out=mask)
+                    tmpm.fill(0)
                     np.putmask(tmpm, mask, int(p))
-
+                    
                     # tmpm[tmpm == nodata] = -10000
                     np.equal(tmpm, nodata, out=mask)
                     np.putmask(tmpm, mask, -10000)
