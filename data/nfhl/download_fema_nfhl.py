@@ -10,7 +10,12 @@ from esri import ESRI_REST
 from shapely import Polygon
 
 from src.utils.shared_functions import FIM_Helpers as fh
-from src.utils.shared_functions import read_huc_file_list_or_array_of_hucs, run_with_mp, setup_mp_file_logger
+from src.utils.shared_functions import (
+    get_huc_vars,
+    read_huc_file_list_or_array_of_hucs,
+    run_with_mp,
+    setup_mp_file_logger,
+)
 
 
 def load_wbd(huc_list):
@@ -151,28 +156,16 @@ def download_nfhl(
     file_logger.info(f"Started processing HUC {task_id}")
     screen_queue.put(f"Started processing HUC {task_id}")
     try:
-        DEFAULT_FIM_PROJECTION_CRS = 5070
-        ALASKA_CRS = 3338  # alaska
-        GUAM_CRS = 6637
-        AMERICAN_SAMOA_CRS = 32702
-
-        # Select approporiate wbd and crs
-        is_alaska = huc.startswith('19')
-        is_guam = huc == '22010000'
-        is_american_samoa = huc == '22030001'
-
-        if is_alaska:
+        # Select appropriate wbd and crs
+        if huc.startswith('19'):
             wbd = wbd_alaska
-            geometryCRS = ALASKA_CRS
-        elif is_guam:
+        elif huc == '22010000':
             wbd = wbd_guam
-            geometryCRS = GUAM_CRS
-        elif is_american_samoa:
+        elif huc == '22030001':
             wbd = wbd_american_samoa
-            geometryCRS = AMERICAN_SAMOA_CRS
         else:
             wbd = wbd_conus
-            geometryCRS = DEFAULT_FIM_PROJECTION_CRS
+        geometryCRS = int(get_huc_vars(huc)['crs'].split(':')[1])
 
         if wbd is None:
             file_logger.error(f'No wbd available for huc {huc}')

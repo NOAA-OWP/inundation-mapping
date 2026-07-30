@@ -149,6 +149,8 @@ def download_all_metadata(metadata_filepath, metadata_url, search):
         with open(metadata_filepath, "wb") as p_handle:
             pickle.dump(output_meta_list, p_handle, protocol=pickle.HIGHEST_PROTOCOL)
 
+        os.chmod(metadata_filepath, 0o774)
+
         msg = f"New metadata file saved at {metadata_filepath}"
         messages.append(msg)
 
@@ -281,6 +283,7 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict, li
         with open(thresholds_filepath, 'wb') as f:
             pickle.dump(all_thresholds_df, f)
 
+        os.chmod(thresholds_filepath, 0o774)
         msg = f"Thresholds file saved at {thresholds_filepath}"
         messages.append(msg)
 
@@ -594,8 +597,6 @@ def main(
     Run download_process_wrds.py independently. This function will becalled by the
     command line interface at the bottom of this script.
 
-
-
     '''
 
     overall_start_time = datetime.now(timezone.utc)
@@ -620,8 +621,8 @@ def main(
         )
 
     # Validate output folder path
-    if not os.path.exists(output_folder):
-        raise ValueError(f'Output folder path {output_folder} does not exist. Please provide a valid path.')
+    # if not os.path.exists(output_folder):
+    #     raise ValueError(f'Output folder path {output_folder} does not exist. Please provide a valid path.')
 
     # Validate inputs
     if metadata_download == False and threshold_download == False:
@@ -663,7 +664,7 @@ def main(
     # If no metafile is provided, generate filepath and filename
     if input_metadata_file == '':
         label_with_date = label_data_file(label, lst_hucs)
-        output_metadata_filename = f'metadata{label_with_date}.pkl'
+        output_metadata_filename = f'WRDS_Metadata{label_with_date}.pkl'
         metadata_filepath = os.path.join(output_folder, output_metadata_filename)
 
     # If metadata filepath is provided, use it
@@ -718,7 +719,7 @@ def main(
         print(f'Site source table will be saved to {output_lid_source_table_filepath}')
 
         label_with_date = label_data_file(label, lst_hucs)
-        output_thresholds_filename = f'thresholds{label_with_date}.pkl'
+        output_thresholds_filename = f'WRDS_Thresholds{label_with_date}.pkl'
         thresholds_filepath = os.path.join(output_folder, output_thresholds_filename)
 
         print(f"Thresholds will be downloaded for sites in {len(huc_lid_dict)} HUCs")
@@ -773,15 +774,18 @@ if __name__ == '__main__':
         Folder where all outputs will be saved. Default is /data/inputs/wrds/
 
     -l, --label (Optional)
-        Label for to add additional info to filenames. Stucture will be metadata_<label>_yyyymmdd.pkl
-        and thresholds_<label>_yyyymmdd.pkl). Default is empty string, which will just give you
-        metadata_yyyymmdd.pkl and thresholds_yyyymmdd.pkl.
+        Label for to add additional info to filenames. Stucture will be NWM_Metadata_<label>_yyyymmdd.pkl
+        and NWM_thresholds_<label>_yyyymmdd.pkl). Default is empty string, which will just give you
+        NWM_Metadata_yyyymmdd.pkl and NWM_Thresholds_yyyymmdd.pkl.
 
     -s, --search (Optional)
         Upstream and downstream search in miles. Defaults to 5 if no number is provided.
 
     Examples
     --------
+
+    Download BOTH thresholds and metadata, full huc list, using min args and default the rest
+        python /foss_fim/data/wrds/download_process_wrds.py -m -t -w "/data/inputs/wrds"
 
     Download BOTH metadata and thresholds for specific HUCs and a custom output folder
         python /foss_fim/data/wrds/download_process_wrds.py -m -t -lh "12090301 19020301" -w '/data/catfim/emily_test'
@@ -794,6 +798,7 @@ if __name__ == '__main__':
 
     Download BOTH thresholds and metadata and specify a custom output folder, label, search distance, and HUC list
         python /foss_fim/data/wrds/download_process_wrds.py -m -t -w "/custom/output/folder" -l "my_label" -s 10 -lh "12090301 19020301"
+
 
     '''
     # Parse arguments

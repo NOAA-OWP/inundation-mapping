@@ -805,32 +805,22 @@ def find_matching_subdirectories(parent_folder1, parent_folder2):
 ########################################################################
 # Function to search and concatenate huc csvs files to a single dataframe/csv
 ########################################################################
-def search_concat_huc_csvs(directory_path, pattern, output_file_path, is_recursive=True):
+def search_concat_huc_csvs(directory_path, pattern, is_recursive=True):
     """
     Scans a directory and subdirectories for files files matching a pattern.
+
+    Taking in the directory path and scanning for all files:
 
     Args:
         directory_path (str): The root folder to start scanning.
         pattern (str): The search pattern (e.g., 'huc_*' or '*branch_ids.csv').
-        output_file_path (str): location of where to save the output csv file.
         is_recursive (bool):
     Returns:
-        Number of file found that was concatenated. Note, if no files were found
-        this will not create an empty output csv file.
+        A list of dataframes loaded from the csv's found.
     """
 
     # Create a Path object for the base directory
     search_path = Path(directory_path)
-
-    ___, extention = os.path.splitext(output_file_path)
-    if extention != ".csv":
-        raise Exception(f"output file name and path {output_file_path} does not end in .csv")
-
-    if os.path.dirname(output_file_path) == "":
-        raise Exception(
-            f"The directory path of {output_file_path} has no pathing and is just a file name."
-            " Please add full path of where you want to save the output file."
-        )
 
     if pattern == "":
         raise Exception("file search pattern has not been supplied")
@@ -845,28 +835,19 @@ def search_concat_huc_csvs(directory_path, pattern, output_file_path, is_recursi
 
     num_files_found = len(file_list)
     if num_files_found == 0:
-        return num_files_found
+        return []
 
-    dataframes = []
+    csv_df_list = []
     for file in file_list:
         try:
             df = pd.read_csv(file, dtype=str)
             if len(df) != 0:
                 # It might have just a header row but no columns, basically empty
-                dataframes.append(df)
+                csv_df_list.append(df)
         except Exception as e:
             raise Exception(f"Error reading {file.name}: {e}")
 
-    if dataframes:
-        # ignore_index=True re-indexes the rows from 0 to N
-        combined_df = pd.concat(dataframes, ignore_index=True)
-        if "huc_num" in combined_df:
-            combined_df = combined_df.sort_values(by="huc_num")
-
-        # Save to a new CSV file without writing row numbers
-        combined_df.to_csv(output_file_path, index=False)
-
-    return num_files_found
+    return csv_df_list
 
 
 # -----------------------------------------------------------
