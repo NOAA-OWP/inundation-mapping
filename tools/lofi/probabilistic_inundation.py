@@ -574,6 +574,7 @@ def inundate_probabilistic(
         datasets = [stack.enter_context(rasterio.open(file)) for file in percentile_files]
         windows = [windows for _, windows in datasets[0].block_windows()]
         profile = datasets[0].profile
+        odtype = profile.dtype
         raster_crs = datasets[0].crs
         nodata = profile['nodata']
         profile.update(dtype=np.int8, nodata=127, tiled=True, compress=profile.get('compress', 'DEFLATE'))
@@ -581,17 +582,25 @@ def inundate_probabilistic(
         out_rast = os.path.join(base_output_path, output_file_name.replace(".gpkg", ".tif"))
         with rasterio.open(out_rast, "w+", **profile) as write_rst:
             for window in windows:
-                arrays = []
+                maxx = np.zeros((window.height, window.width), dtype=odtype)
+                tmpm = np.zeros_like(maxx)
+                mask = np.empty((window.height, window.width), dtype='bool')
                 for d, p in zip(datasets, percentiles):
-                    data = d.read(1, window=window)
-                    nodata_mask = data == nodata
-                    data = np.where(data > 0, int(p), 0)
-                    data[nodata_mask] = -10000
-                    arrays.append(data)
+                    d.read(1, out=tmpm, window=window)
 
-                merged = np.max(arrays, axis=0)
-                merged[merged == -10000] = 127
-                write_rst.write(merged, window=window, indexes=1)
+                    # tmpm[tmpm > 0] = int(p) # zero otherwise
+                    np.greater(tmpm, 0, out=mask)
+                    np.putmask(tmpm, mask, int(p))
+
+                    # tmpm[tmpm == nodata] = -10000
+                    np.equal(tmpm, nodata, out=mask)
+                    np.putmask(tmpm, mask, -10000)
+
+                    np.maximum(maxx, tmpm, out=maxx)
+
+                np.equal(maxx, -10000, out=mask)
+                np.putmask(maxx, mask, 127)
+                write_rst.write(maxx, window=window, indexes=1)
 
     if output_vector is True:
 
