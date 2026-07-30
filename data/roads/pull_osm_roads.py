@@ -30,15 +30,11 @@ from overpy.exception import OverpassGatewayTimeout, OverpassTooManyRequests
 from shapely.geometry import LineString
 
 from src.utils.shared_functions import FIM_Helpers as fh
-from src.utils.shared_functions import run_with_mp, setup_mp_file_logger
+from src.utils.shared_functions import get_huc_vars, run_with_mp, setup_mp_file_logger
 
 
 srcDir = os.getenv('srcDir')
 load_dotenv(f'{srcDir}/bash_variables.env')
-DEFAULT_FIM_PROJECTION_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
-ALASKA_CRS = os.getenv('ALASKA_CRS')
-GUAM_CRS = os.getenv('GUAM_CRS')
-AMERICAN_SAMOA_CRS = os.getenv('AMERICAN_SAMOA_CRS')
 
 
 def report_road_download_status(huc_numbers, output_dir):
@@ -223,17 +219,7 @@ def pull_roads(HUC_no, huc_geom, file_logger, screen_queue, task_id):
         gdf_roads = gpd.GeoDataFrame(road_data, crs="EPSG:4326")
         gdf_roads["huc8"] = HUC_no
 
-        if str(HUC_no).startswith('19'):
-            gdf_roads = gdf_roads.to_crs(ALASKA_CRS)
-
-        elif str(HUC_no) == '22010000':
-            gdf_roads = gdf_roads.to_crs(GUAM_CRS)
-
-        elif str(HUC_no) == '22030001':
-            gdf_roads = gdf_roads.to_crs(AMERICAN_SAMOA_CRS)
-
-        else:
-            gdf_roads = gdf_roads.to_crs(DEFAULT_FIM_PROJECTION_CRS)
+        gdf_roads = gdf_roads.to_crs(get_huc_vars(HUC_no)['crs'])
 
         return gdf_roads
     else:

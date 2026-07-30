@@ -15,11 +15,11 @@ from run_test_case import Test_Case
 from shapely.validation import make_valid
 from tools_shared_functions import compute_stats_from_contingency_table
 
-import utils.fim_logger as fl
-from utils.shared_variables import VIZ_PROJECTION
+import src.utils.fim_logger as fl
+from src.utils.shared_variables import VIZ_PROJECTION
 
 
-warnings.filterwarnings("ignore", category=FutureWarning, module="gdal")
+warnings.filterwarnings("ignore", category=FutureWarning)
 gpd.options.io_engine = "pyogrio"
 
 
@@ -79,6 +79,8 @@ def assemble_hydro_alpha_for_single_huc(stats, huc8, mag, bench):
     )
 
     FLOG.trace(f"Assemble hydro for huc is {huc8} for {mag} and  {bench}")
+
+    stats_df_list = []
 
     for dicts in stats:
         tot_pop = dicts['tn'] + dicts['fn'] + dicts['fp'] + dicts['tp']
@@ -194,8 +196,14 @@ def assemble_hydro_alpha_for_single_huc(stats, huc8, mag, bench):
             ],
         )
 
-        concat_list = [in_mem_df, dict_to_df]
-        in_mem_df = pd.concat(concat_list, sort=False)
+        stats_df_list.append(dict_to_df)
+        # concat_list = [in_mem_df, dict_to_df]
+        # in_mem_df = pd.concat(concat_list, sort=False)
+
+    if len(stats_df_list) == 0:
+        raise Exception("List of stats dictionaries should not be empty")
+
+    in_mem_df = pd.concat(stats_df_list, axis=0, ignore_index=True)
 
     return in_mem_df
 
