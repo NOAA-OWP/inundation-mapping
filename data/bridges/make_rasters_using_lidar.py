@@ -119,7 +119,7 @@ def download_lidar_points(osmid, poly_geo, lidar_url, output_dir, bridges_crs, u
         logging.error(traceback.format_exc())
 
 
-def las_to_gpkg(osmid, las_path, bridges_crs):
+def las_to_gpkg(osmid, las_path, bridges_crs, ML_derived=False):
     las = laspy.read(las_path)
 
     # make x,y coordinates
@@ -129,7 +129,13 @@ def las_to_gpkg(osmid, las_path, bridges_crs):
     las_points = list(MultiPoint(x_y).geoms)
 
     # put the points in a GeoDataFrame for a more standard syntax through Geopandas
-    points_gdf = gpd.GeoDataFrame(geometry=las_points, crs=bridges_crs)
+    if ML_derived:
+        # ML-classified LAZ files are always delivered in EPSG:3857, unlike lidar LAS
+        # files (already reprojected to bridges_crs when downloaded), so reproject here.
+        points_gdf = gpd.GeoDataFrame(geometry=las_points, crs='EPSG:3857')
+        points_gdf = points_gdf.to_crs(bridges_crs)
+    else:
+        points_gdf = gpd.GeoDataFrame(geometry=las_points, crs=bridges_crs)
 
     # add other required data into gdf...here only elevation
     z_values = np.array(las.z)

@@ -37,7 +37,7 @@ def make_raster_for_osmid(
     try:
         all_gdfs = []
         for laz_path in laz_paths:
-            gdf = las_to_gpkg(osmid, laz_path, bridges_crs)
+            gdf = las_to_gpkg(osmid, laz_path, bridges_crs, ML_derived=True)
             if not gdf.empty:
                 all_gdfs.append(gdf)
 
