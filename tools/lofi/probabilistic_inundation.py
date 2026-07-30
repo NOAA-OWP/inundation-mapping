@@ -12,6 +12,7 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio
+from rasterio import features as riofeat
 import xarray as xr
 from inundate_mosaic_wrapper import produce_mosaicked_inundation
 from scipy.interpolate import PchipInterpolator
@@ -34,7 +35,7 @@ from utils.shared_functions import s3_or_local_glob
 
 
 def get_fim_probability_distributions(
-    posterior_dist: Optional[Union[str, pd.DataFrame]] = None, huc: Optional[int] = None
+    posterior_dist: Optional[pd.DataFrame] = None, huc: Optional[int] = None
 ) -> Tuple[weibull_min, weibull_min, weibull_min]:
     """
     Gets either bayesian updated distributions or default distributions for respective huc
@@ -67,13 +68,10 @@ def get_fim_probability_distributions(
         variables = ['channel_manning_roughness', 'overbank_manning_roughness', 'slope_adjustment']
         dist_params = ['c', 'scale', 'loc']
 
-        if isinstance(posterior_dist, str):
-            posterior_df = pd.read_csv(posterior_dist)
-        else:
-            posterior_df = posterior_dist
+        posterior_df = posterior_dist
 
         if huc is not None and 'huc' in posterior_df.columns:
-            posterior_df = posterior_df[posterior_df['huc'] == huc]
+            posterior_df = posterior_df[posterior_df['huc'] == int(huc)]
 
         dist = []
         posterior_df = posterior_df.set_index('parameter_name')
@@ -402,13 +400,13 @@ def get_subdivided_src(
 
 
 def inundate_probabilistic(
-    ensembles: str,
-    parameters: str,
+    ensembles: xr.Dataset,
+    parameters: pd.DataFrame,
     hydrofabric_dir: str,
     outputs_dir: str,
     huc: str,
     mosaic_prob_output_name: str,
-    posterior_dist: Optional[str] = None,
+    posterior_dist: Optional[pd.DataFrame] = None,
     day: Optional[int] = 6,
     hour: Optional[int] = 0,
     overwrite: Optional[bool] = False,
@@ -425,9 +423,9 @@ def inundate_probabilistic(
 
     Parameters
     ----------
-    ensembles: str
+    ensembles: xr.Dataset
         Path to load medium range ensembles
-    parameters: str
+    parameters: pd.DataFrame
         Path to load fit parameters to distributions
     hydrofabric_dir: str
         Directory with the hydrofabric directories
@@ -437,7 +435,7 @@ def inundate_probabilistic(
         Huc to process probabilistic FIM
     mosaic_prob_output_name: str
         Name of final mosaiced probabilistic FIM
-    posterior_dist: str = None
+    posterior_dist: [Optional[pd.DataFrame]
         Name of posterior df
     day: Optional[int], default = 6
         Days ahead to pick from reference forecast time
@@ -465,11 +463,7 @@ def inundate_probabilistic(
     if output_raster is False and output_vector is False:
         raise ValueError("Either output_raster or output_vector must be set to True")
 
-    # Load datasets
-    ensembles = xr.open_dataset(ensembles, engine="h5netcdf")
-
-    parameters_df = pd.read_parquet(parameters)
-    params_weibull = parameters_df.loc[parameters_df['distribution_name'] == 'weibull_min']
+    params_weibull = parameters.loc[parameters['distribution_name'] == 'weibull_min']
     params_weibull = params_weibull.set_index('feature_id')
 
     # Fim outputs directory
@@ -501,14 +495,13 @@ def inundate_probabilistic(
         percentile_values['25'].append(res['25'])
         percentile_values['10'].append(res['10'])
 
-    ensembles.close()
     channel_dist, obank_dist, slope_dist = get_fim_probability_distributions(
-        posterior_dist=posterior_dist, huc=huc
+        posterior_dist=posterior_dist, huc=int(huc)
     )
 
     # Make directories if they do not exist
     output_file_name = os.path.basename(mosaic_prob_output_name)
-    base_output_path = os.path.join(fim_outputs_dir, str(huc))
+    base_output_path = os.path.join(fim_outputs_dir, huc)
     src_output_path = os.path.join(base_output_path, 'srcs')
     htable_output_path = src_output_path
     flow_path = os.path.join(base_output_path, 'flows')
@@ -609,7 +602,7 @@ def inundate_probabilistic(
                 yield shape(p), v
 
         with rasterio.open(out_rast, 'r') as rst:
-            shapes = rasterio.features.shapes(rst.read(1), mask=None, transform=rst.transform)
+            shapes = riofeat.shapes(rst.read(1), mask=None, transform=rst.transform)
             gdf = gpd.GeoDataFrame(_make_geometry(shapes), columns=['geometry', 'value'], crs=raster_crs)
             gdf = gdf.set_geometry('geometry')
             gdf.to_file(out_vec)
@@ -716,26 +709,34 @@ def inundate_hucs(
 
     """
 
-    for huc in hucs:
-        inundate_probabilistic(
-            ensembles=ensembles,
-            parameters=parameters,
-            hydrofabric_dir=hydrofabric_dir,
-            outputs_dir=outputs_dir,
-            huc=huc,
-            mosaic_prob_output_name=f"{mosaic_prob_output_name[:mosaic_prob_output_name.rfind('.')]}_{huc}.gpkg",
-            posterior_dist=posterior_dist,
-            day=day,
-            hour=hour,
-            overwrite=overwrite,
-            num_jobs=num_jobs,
-            num_threads=num_threads,
-            windowed=windowed,
-            output_raster=output_raster,
-            quiet=quiet,
-            log_file=log_file,
-            output_vector=output_vector,
-        )
+    parameters_df = pd.read_csv(parameters)
+
+    if posterior_dist is not None:
+        posterior_df = pd.read_csv(posterior_dist)
+    else:
+        posterior_df = None
+
+    with xr.open_dataset(ensembles) as ensembles_ds:
+        for huc in hucs:
+            inundate_probabilistic(
+                ensembles=ensembles_ds,
+                parameters=parameters_df,
+                hydrofabric_dir=hydrofabric_dir,
+                outputs_dir=outputs_dir,
+                huc=huc,
+                mosaic_prob_output_name=f"{mosaic_prob_output_name[:mosaic_prob_output_name.rfind('.')]}_{huc}.gpkg",
+                posterior_dist=posterior_df,
+                day=day,
+                hour=hour,
+                overwrite=overwrite,
+                num_jobs=num_jobs,
+                num_threads=num_threads,
+                windowed=windowed,
+                output_raster=output_raster,
+                quiet=quiet,
+                log_file=log_file,
+                output_vector=output_vector,
+            )
 
 
 if __name__ == '__main__':
