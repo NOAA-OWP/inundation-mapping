@@ -591,16 +591,16 @@ def inundate_probabilistic(
                     # equivalent to np.where(tmpm > 0, int(p), 0)
                     np.greater(tmpm, 0, out=mask)
                     tmpm.fill(0)
-                    np.putmask(tmpm, mask, int(p))
+                    np.copyto(tmpm, int(p), where=mask)
                     
                     # tmpm[tmpm == nodata] = -10000
                     np.equal(tmpm, nodata, out=mask)
-                    np.putmask(tmpm, mask, -10000)
+                    np.copyto(tmpm, -10000, where=mask)
 
                     np.maximum(maxx, tmpm, out=maxx)
 
                 np.equal(maxx, -10000, out=mask)
-                np.putmask(maxx, mask, 127)
+                np.copyto(maxx, 127, where=mask)
                 write_rst.write(maxx, window=window, indexes=1)
 
     if output_vector is True:
