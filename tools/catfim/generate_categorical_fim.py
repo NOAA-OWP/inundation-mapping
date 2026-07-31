@@ -496,21 +496,26 @@ def process_generate_categorical_fim(
             futures_dict = [executor.submit(process_huc, **arg) for arg in task_args_list]
 
             for future in as_completed(futures_dict):
-                # if future is not None:  # we don't have anything to return at this time.
+                if future is not None:  # It is possible to get an empty future back, not sure why but I have seen it happen.
 
-                # Return whether the HUC-level processing was sucessful.
-                if not future.exception():
-                    huc, is_success = future.result()
-                    if is_success is False:
-                        failed_HUCs_list.append(huc)
-                        logging.error(f"HUC {huc} FAILED")
+                    if future.cancelled():  # for keyboard CTRL-C's generally
+                        continue
+
+                    # Return whether the HUC-level processing was sucessful.
+                    # We do not want the huc to stop other hucs so we log it and continue
+                    if not future.exception():
+                        huc, is_success = future.result()
+                        if is_success is False:
+                            failed_HUCs_list.append(huc)
+                            logging.error(f"HUC {huc} FAILED")
+                        else:
+                            sucessful_HUCs_list.append(huc)
+                            logging.info(f"HUC {huc} FINISHED")
                     else:
-                        sucessful_HUCs_list.append(huc)
-                        logging.info(f"HUC {huc} FINISHED")
-                else:
-                    logging.error(future.exception())
-                    # raise future.exception()  # Previously we would halt processing here, but
-                    # now we let it finish and try rerunning the errored HUCs one more time
+                        logging.error(future.exception())
+                        # raise future.exception()  # Previously we would halt processing here, but
+                        # now we let it finish and try rerunning the errored HUCs one more time
+                # else: do nothing
 
         # Get a list of HUCs that didn't finish
         finished_huc_list = failed_HUCs_list + sucessful_HUCs_list
@@ -521,46 +526,49 @@ def process_generate_categorical_fim(
             logging.warning(
                 f"{len(unfinished_huc_list)}/{len(valid_fim_hucs)} HUC(s) did not complete processing, possibly due to multiproc collision"
             )
-            logging.info("Re-running CatFIM HUC processing for the following unfinished HUC(s):")
-            logging.info(", ".join(unfinished_huc_list))
+            # logging.info("Re-running CatFIM HUC processing for the following unfinished HUC(s):")
+            # logging.info(", ".join(unfinished_huc_list))
 
             # Remove all finished (failed or sucessful) HUCs from the task arg list
             # Filtered list
-            task_args_list_unfinished = [d for d in task_args_list if d["huc"] in unfinished_huc_list]
+#            task_args_list_unfinished = [d for d in task_args_list if d["huc"] in unfinished_huc_list]
 
-            second_failed_HUCs_list, second_sucessful_HUCs_list = [], []
+#            second_failed_HUCs_list, second_sucessful_HUCs_list = [], []
 
-            with ProcessPoolExecutor(max_workers=number_jobs) as executor:
-                futures_dict = [executor.submit(process_huc, **arg) for arg in task_args_list_unfinished]
+            # with ProcessPoolExecutor(max_workers=number_jobs) as executor:
+            #     futures_dict = [executor.submit(process_huc, **arg) for arg in task_args_list_unfinished]
 
-                for future in as_completed(futures_dict):
-                    # if future is not None:  # we don't have anything to return at this time.
+            #     for future in as_completed(futures_dict):
+            #         if future is not None:  # It is possible to get an empty future back, not sure why but I have seen it happen.
 
-                    # Return whether the HUC-level processing was sucessful.
-                    if not future.exception():
-                        huc, is_success = future.result()
-                        if is_success is False:
-                            second_failed_HUCs_list.append(huc)
-                            logging.error(f"HUC {huc} FAILED IN PROCESS POOL RERUN")
-                        else:
-                            second_sucessful_HUCs_list.append(huc)
-                            logging.info(f"HUC {huc} FINISHED IN PROCESS POOL RERUN")
-                    else:
-                        logging.error(future.exception())
+            #             if future.cancelled():  # for keyboard CTRL-C's generally
+            #                 continue
+            #             # Return whether the HUC-level processing was sucessful.
+            #             if not future.exception():
+            #                 huc, is_success = future.result()
+            #                 if is_success is False:
+            #                     second_failed_HUCs_list.append(huc)
+            #                     logging.error(f"HUC {huc} FAILED IN PROCESS POOL RERUN")
+            #                 else:
+            #                     second_sucessful_HUCs_list.append(huc)
+            #                     logging.info(f"HUC {huc} FINISHED IN PROCESS POOL RERUN")
+            #             else:
+            #                 logging.error(future.exception())
+            #         # else: do nothing
 
-            second_finished_huc_list = second_failed_HUCs_list + second_sucessful_HUCs_list
+            # second_finished_huc_list = second_failed_HUCs_list + second_sucessful_HUCs_list
 
-            if len(second_finished_huc_list) == 0:
-                logging.warning(
-                    f"None of the {len(unfinished_huc_list)} re-run HUC(s) finished processing in the second ProcessPoolExecutor run"
-                )
-            else:
-                logging.info(
-                    f"{len(second_finished_huc_list)}/{len(unfinished_huc_list)} HUCs finished running in the second ProcessPoolExecutor run"
-                )
-                logging.info(
-                    f"Of the HUC(s) that finished, {len(second_sucessful_HUCs_list)} succeeded and {len(second_failed_HUCs_list)} finished but failed"
-                )
+            # if len(second_finished_huc_list) == 0:
+            #     logging.warning(
+            #         f"None of the {len(unfinished_huc_list)} re-run HUC(s) finished processing in the second ProcessPoolExecutor run"
+            #     )
+            # else:
+            #     logging.info(
+            #         f"{len(second_finished_huc_list)}/{len(unfinished_huc_list)} HUCs finished running in the second ProcessPoolExecutor run"
+            #     )
+            #     logging.info(
+            #         f"Of the HUC(s) that finished, {len(second_sucessful_HUCs_list)} succeeded and {len(second_failed_HUCs_list)} finished but failed"
+            #     )
 
         # End muliproc rerun
 

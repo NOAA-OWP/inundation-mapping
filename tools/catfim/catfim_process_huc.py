@@ -107,7 +107,7 @@ def process_huc(huc, output_folder):
         huc_path, output_folder = csf.validate_huc_inputs(huc, output_folder)
 
         # Create the huc folder if it does not exist
-        os.makedirs(huc_path, exist_ok=True, mode=0o777)
+        os.makedirs(huc_path, exist_ok=True, mode=0o776)
 
         overall_start_time = datetime.now(timezone.utc)
         dt_string = overall_start_time.strftime("%m/%d/%Y %H:%M:%S")

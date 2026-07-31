@@ -5,8 +5,10 @@ import glob
 import logging
 import math
 import os
+import random
 import shutil
 import sys
+import time
 import traceback
 from datetime import datetime, timezone
 
@@ -376,8 +378,14 @@ def run_fb_inundation(  # renamed from run_inundation
             verbose=False,
             log_file=None,
             output_fileNames=None,
-            multi_process=True,
+            multi_process=False,
         )
+
+        # HACK: Give rasterio files a chance in Inundate_gms time to finish closing
+        # not sure it iwill work
+        # A bit of start staggering to help not overload the MP (0.1 milliseconds to 5 secs)
+        time_delay_mms = random.randint(100, 5000) / 1000
+        time.sleep(time_delay_mms)
 
         # ---------------------
         # Mosaic inundation tifs for lid/category
