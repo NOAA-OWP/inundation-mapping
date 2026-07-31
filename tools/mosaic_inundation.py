@@ -209,9 +209,9 @@ def mosaic_by_unit(
 
         merge(inundation_maps_list, method='max', nodata=nodata, dst_path=mosaic_output)
 
-        # if mask:
-        #     fh.vprint("Masking ...", verbose)
-        #     mask_mosaic(mosaic_output, mask, outfile=mosaic_output, workers=workers)
+        if mask:
+            fh.vprint("Masking ...", verbose)
+            mask_mosaic(mosaic_output, mask, outfile=mosaic_output, workers=workers)
 
     if remove_inputs:
         fh.vprint("Removing inputs ...", verbose)
