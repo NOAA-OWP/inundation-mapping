@@ -13,6 +13,7 @@ import pandas as pd
 import rasterio
 from geopandas.tools import sjoin
 
+from utils.shared_functions import to_hilbert_parquet
 from utils.shared_variables import DOWNSTREAM_THRESHOLD, ROUGHNESS_MAX_THRESH, ROUGHNESS_MIN_THRESH
 
 
@@ -444,13 +445,10 @@ def update_rating_curve(
                 else:
                     df_nmerge['calb_coef_final'] = df_nmerge[calb_type]
 
-                ## Update the catchments polygon .gpkg with joined attribute - "src_calibrated"
+                ## Update the catchments polygon .parquet with joined attribute - "src_calibrated"
                 if os.path.isfile(catchments_poly_path):
                     try:
-                        if os.path.splitext(catchments_poly_path)[-1].lower() == '.parquet':
-                            input_catchments = gpd.read_parquet(catchments_poly_path)
-                        else:
-                            input_catchments = gpd.read_file(catchments_poly_path)
+                        input_catchments = gpd.read_parquet(catchments_poly_path)
                         ## Create new "src_calibrated" column for viz query
                         if 'src_calibrated' in input_catchments.columns:
                             input_catchments = input_catchments.drop(
@@ -469,45 +467,39 @@ def update_rating_curve(
                         )
 
                         try:
-                            output_catchments.to_file(
-                                catchments_poly_path,
-                                driver="GPKG",
-                                index=False,
-                                overwrite=True,
-                                engine='fiona',
+                            to_hilbert_parquet(
+                                output_catchments, catchments_poly_path, index=False, overwrite=True
                             )  # overwrite the previous layer
 
                         except Exception as e:
                             warning_message = (
-                                "WARNING occurred while writing to catchments gpkg "
+                                "WARNING occurred while writing to catchments GeoParquet "
                                 f"for huc: {huc} & branch id: {branch_id}"
                             )
                             print(warning_message)
                             log_text += f"{warning_message}\n"
                             log_text += f"Warning details: {e}\n"
 
-                            # Delete the original GeoPackage file
-                            if os.path.exists(catchments_poly_path):
-                                os.remove(catchments_poly_path)
+                            # Delete the original GeoParquet file
+                            # if os.path.exists(catchments_poly_path):
+                            #     os.remove(catchments_poly_path)
                             try:
                                 # Attempt to write to the file again
-                                output_catchments.to_file(
-                                    catchments_poly_path,
-                                    driver="GPKG",
-                                    index=False,
-                                    overwrite=True,
-                                    engine='fiona',
+                                to_hilbert_parquet(
+                                    output_catchments, catchments_poly_path, index=False, overwrite=True
                                 )
-                                log_text += 'Successful second attempt to write output_catchments gpkg' + '\n'
+                                log_text += (
+                                    'Successful second attempt to write output_catchments GeoParquet' + '\n'
+                                )
                             except Exception as e:
-                                second_attempt_error_message = "ERROR: Failed to write to catchments gpkg file even after deleting the original"
+                                second_attempt_error_message = "ERROR: Failed to write to catchments GeoParquet file even after deleting the original"
                                 print(second_attempt_error_message)
                                 log_text += f"{second_attempt_error_message}\n"
                                 log_text += f"Second attempt error details: {e}\n"
 
                     except Exception as e:
-                        print(f"Error reading GeoPackage file: {e}")
-                        log_text += f"Error reading GeoPackage file: {e}\n"
+                        print(f"Error reading GeoParquet file: {e}")
+                        log_text += f"Error reading GeoParquet file: {e}\n"
                         output_catchments = None
                         # re raise ex ?  # TODO: Do we want to stop processing the huc if we get an error here?
                         # If yes, we need to raise ex, make sure to write your log_text if you need to.
@@ -516,7 +508,7 @@ def update_rating_curve(
 
                 ## Optional ouputs:
                 #   1) merge_n_csv csv with all of the calculated n values
-                #   2) a catchments .gpkg with new joined attributes
+                #   2) a catchments .parquet with new joined attributes
                 if debug_outputs_option:
                     output_merge_n_csv = os.path.join(
                         fim_directory, calb_type + '_merge_vals_' + branch_id + '.csv'
@@ -524,15 +516,13 @@ def update_rating_curve(
                     df_nmerge.to_csv(output_merge_n_csv, index=False)
                     ## output new catchments polygon layer with several new attributes appended
                     if os.path.isfile(catchments_poly_path):
-                        input_catchments = gpd.read_file(catchments_poly_path)
+                        input_catchments = gpd.read_parquet(catchments_poly_path)
                         output_catchments_fileName = os.path.join(
                             os.path.split(catchments_poly_path)[0],
-                            "gw_catchments_src_adjust_" + str(branch_id) + ".gpkg",
+                            "gw_catchments_src_adjust_" + str(branch_id) + ".parquet",
                         )
                         output_catchments = input_catchments.merge(df_nmerge, how='left', on='HydroID')
-                        output_catchments.to_file(
-                            output_catchments_fileName, driver="GPKG", index=False, engine='fiona'
-                        )
+                        to_hilbert_parquet(output_catchments, output_catchments_fileName, index=False)
                         output_catchments = None
 
                 ## Merge the final ManningN dataframe to the original hydroTable

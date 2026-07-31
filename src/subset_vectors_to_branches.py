@@ -68,11 +68,7 @@ def convert_layer(input_path, output_path, crs, where_clause):
 
     print(f"Processing: {os.path.basename(input_path)} -> {os.path.basename(output_path)}")
     try:
-        # Determine the file format extension
-        ext = os.path.splitext(input_path)[-1].lower()
-
-        # Change this line inside your convert_layer function:
-        if ext == '.parquet':
+        if os.path.splitext(input_path)[-1].lower() == '.parquet':
             # Pass input_path as the second argument
             parquet_filters = parse_where_to_filters(where_clause, input_path)
             df = gpd.read_parquet(input_path, filters=parquet_filters)

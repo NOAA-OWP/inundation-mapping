@@ -37,10 +37,7 @@ def clip_wbd_to_dem_domain(dem: str, wbd_in: str, wbd_out: str, huc_level: int):
 
         # Read input files
         wbd = gpd.read_file(wbd_in, layer=layer)
-        if os.path.splitext(dem)[-1] == '.parquet':
-            dem_domain = gpd.read_parquet(dem)
-        else:
-            dem_domain = gpd.read_file(dem)
+        dem_domain = gpd.read_parquet(dem)
 
         wbd = gpd.clip(wbd, dem_domain)
 

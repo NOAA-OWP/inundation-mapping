@@ -190,7 +190,7 @@ def get_threshold_hand(fim_path, huc, branch, huc_geometries_gdf, file_logger, s
         huc,
         'branches',
         branch,
-        f'gw_catchments_reaches_filtered_addedAttributes_crosswalked_{branch}.gpkg',
+        f'gw_catchments_reaches_filtered_addedAttributes_crosswalked_{branch}.parquet',
     )
 
     with rasterio.open(hand_grid_path, 'r') as hand_grid:

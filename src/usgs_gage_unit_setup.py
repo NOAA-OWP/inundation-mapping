@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 from shapely.geometry import Point
 
+from utils.shared_functions import to_hilbert_parquet
 from utils.shared_variables import PREP_CRS
 
 
@@ -120,7 +121,10 @@ class Gage2Branch(object):
         return self.gages
 
     def write(self, out_name):
-        self.gages.to_file(out_name, driver='GPKG', index=False, engine='fiona')
+        if os.path.splitext(out_name)[-1].lower() == '.parquet':
+            to_hilbert_parquet(self.gages, out_name, index=False)
+        else:
+            self.gages.to_file(out_name, driver='GPKG', index=False, engine='fiona')
 
     @staticmethod
     def sjoin_nearest_to_nwm(pnt, lines, union):
@@ -201,9 +205,7 @@ if __name__ == '__main__':
         usgs_gage_subset.write(output_filename)
 
         # Create seperate output for branch zero
-        output_filename_zero = (
-            os.path.splitext(output_filename)[0] + '_' + bzero_id + os.path.splitext(output_filename)[-1]
-        )
+        output_filename_zero = os.path.splitext(output_filename)[0] + '_' + bzero_id + '.parquet'
         usgs_gage_subset.branch_zero(bzero_id)
         usgs_gage_subset.write(output_filename_zero)
 

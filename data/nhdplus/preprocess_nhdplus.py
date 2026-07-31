@@ -10,9 +10,9 @@ import rasterio as rio
 from osgeo import gdal
 
 from data.create_vrt_file import create_vrt_file
+from data.derive_headwaters import findHeadWaterPoints
 from data.nfhl.download_fema_nfhl import download_nfhl_wrapper
 from data.usgs.acquire_and_preprocess_3dep_dems import __polygonize
-from src.derive_headwaters import findHeadWaterPoints
 
 
 def preprocess_nhdplus(region: str, inputs_dir: str):

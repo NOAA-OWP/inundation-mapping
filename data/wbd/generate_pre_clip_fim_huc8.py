@@ -400,10 +400,7 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir, copy_from_dir, preclipping_f
 
             # make sure the HUC boundary does not extend beyond DEM
             logging.info(f"Using DEM domain source for {huc}: {dem_domain}")
-            if os.path.splitext(dem_domain)[-1] == '.parquet':
-                dem_domain_gdf = gpd.read_parquet(dem_domain)
-            else:
-                dem_domain_gdf = gpd.read_file(dem_domain, engine="pyogrio", use_arrow=True)
+            dem_domain_gdf = gpd.read_parquet(dem_domain)
             wbd = gpd.clip(wbd, dem_domain_gdf)
 
             logging.info(f"Create wbd buffer for {huc}")

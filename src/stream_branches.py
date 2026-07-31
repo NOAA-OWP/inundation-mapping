@@ -142,7 +142,7 @@ class StreamNetwork(gpd.GeoDataFrame):
         if verbose:
             print("Writing to {}".format(fileName))
 
-        if os.path.splitext(fileName)[1] == ".parquet":
+        if os.path.splitext(fileName)[-1].lower() == ".parquet":
             to_hilbert_parquet(self, fileName, index=index)
         else:
             # sets driver

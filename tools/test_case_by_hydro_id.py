@@ -279,7 +279,10 @@ def catchment_zonal_stats(benchmark_category, version, output_file_name):
             "gw_catchments_reaches_filtered_addedAttributes_crosswalked_0.gpkg",
         )
 
-        catchment_geom = gpd.read_file(catchment_gpkg)
+        if os.path.splitext(catchment_gpkg)[-1].lower() == '.parquet':
+            catchment_geom = gpd.read_parquet(catchment_gpkg)
+        else:
+            catchment_geom = gpd.read_file(catchment_gpkg)
         catchment_geom['geometry'] = catchment_geom.apply(lambda row: make_valid(row.geometry), axis=1)
 
         for agree_rast in agreement_dict:

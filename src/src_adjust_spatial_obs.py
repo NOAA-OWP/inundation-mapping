@@ -142,9 +142,9 @@ def process_points(args):
         ## Intermediate output for debugging
         if optional_outputs:
             branch_debug_pts_out_gpkg = os.path.join(
-                branch_dir, 'export_water_edge_df_' + branch_id + '.gpkg'
+                branch_dir, 'export_water_edge_df_' + branch_id + '.parquet'
             )
-            water_edge_df.to_file(branch_debug_pts_out_gpkg, driver='GPKG', index=False, engine='fiona')
+            to_hilbert_parquet(water_edge_df, branch_debug_pts_out_gpkg, index=False)
 
         # print('Processing points for HUC: ' + str(huc) + '  Branch: ' + str(branch_id))
         ## Get median HAND value for appropriate groups.
@@ -224,8 +224,6 @@ def ingest_points_layer(huc_dir, branch_jobs, debug_outputs_option, log_file):
     if debug_outputs_option:
         huc_debug_pts_out = os.path.join(huc_dir, 'debug_water_edge_df_' + huc + '.csv')
         water_edge_df.to_csv(huc_debug_pts_out)
-        huc_debug_pts_out_gpkg = os.path.join(huc_dir, 'export_water_edge_df_' + huc + '.gpkg')
-        water_edge_df.to_file(huc_debug_pts_out_gpkg, driver='GPKG', index=False, engine='fiona')
         # write parquet file using "to_hilbert_parquet() method"
         parquet_filepath = os.path.join(huc_dir, 'debug_water_edge_df_' + huc + '.parquet')
         to_hilbert_parquet(water_edge_df, parquet_filepath, index=False)
@@ -241,7 +239,7 @@ def ingest_points_layer(huc_dir, branch_jobs, debug_outputs_option, log_file):
         )
         htable_path = os.path.join(branch_dir, 'hydroTable_' + branch_id + '.csv')
         catchments_poly_path = os.path.join(
-            branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked_' + branch_id + '.gpkg'
+            branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked_' + branch_id + '.parquet'
         )
         hydroid_prefix_path = os.path.join(branch_dir, 'hydroid_prefix.txt')
 

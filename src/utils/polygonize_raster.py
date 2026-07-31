@@ -84,7 +84,7 @@ def polygonize_raster(
             print("Done successfully!")
 
     except Exception as e:
-        print(f"Error writing Parquet output: {e}", file=sys.stderr)
+        print(f"Error writing output: {e}", file=sys.stderr)
         sys.exit(1)
 
 

@@ -11,6 +11,8 @@ import pandas as pd
 import rasterio
 from rasterio import features
 
+from src.utils.shared_functions import to_hilbert_parquet
+
 
 def catchment_boundary_errors(
     hydrofabric_dir, huc, inundation_file, output, inundation_type, min_error_length
@@ -39,8 +41,8 @@ def catchment_boundary_errors(
     # Merge all catchment geopackages into one file
     catchments = gpd.GeoDataFrame()
     for d in dirs:
-        branch_catchments = gpd.read_file(
-            f"{hydrofabric_dir}/{huc}/branches/{d}/gw_catchments_reaches_filtered_addedAttributes_crosswalked_{d}.gpkg",
+        branch_catchments = gpd.read_parquet(
+            f"{hydrofabric_dir}/{huc}/branches/{d}/gw_catchments_reaches_filtered_addedAttributes_crosswalked_{d}.parquet",
             columns=["HydroID", "feature_id", "geometry"],
             engine="pyogrio",
         )
@@ -129,13 +131,13 @@ def catchment_boundary_errors(
             f'Finished processing HUC: {huc}. Number of catchment boundary issues identified: {num_catchment_boundary_lines}.'
         )
         root, ext = os.path.splitext(output)
-        output = f"{root}_{huc}{ext}"
+        output = f"{root}_{huc}.parquet"
 
         if os.path.exists(output):
             print(f"{output} already exists. Concatinating now...")
-            existing_error_lines = gpd.read_file(output, engine="pyogrio", use_arrow=True)
+            existing_error_lines = gpd.read_parquet(output)
             error_lines_final = pd.concat([existing_error_lines, error_lines_final])
-        error_lines_final.to_file(output, driver="GPKG", engine="pyogrio", index=False)
+        to_hilbert_parquet(error_lines_final, output, index=False)
         print(f"HUC: {huc} Completed in {round((timer() - huc_st)/60, 2)} minutes.")
 
 

@@ -241,7 +241,10 @@ def mask_mosaic(mosaic, polys, polys_layer=None, outfile=None, workers=4, quiet=
         raise TypeError("Pass rasterio dataset or filepath for mosaic")
 
     if isinstance(polys, str):
-        polys = gpd.read_file(polys, layer=polys_layer)
+        if os.path.splitext(polys)[-1].lower() == '.parquet':
+            polys = gpd.read_parquet(polys, layer=polys_layer)
+        else:
+            polys = gpd.read_file(polys, layer=polys_layer)
     elif isinstance(polys, gpd.GeoDataFrame):
         pass
     else:
