@@ -313,11 +313,10 @@ def get_subdivided_src(hydrofabric_dir, huc, branch, channel_manning, overbank_m
         analyze_nonmonotonic_src, slope_adj=slope_adj, channel_manning=channel_manning
     )
 
-    df_src = df_src.groupby('HydroID', group_keys=False).apply(nonmonotonic_partial)
+    df_src = df_src.groupby('HydroID', group_keys=False).apply(nonmonotonic_partial, include_groups=False)
 
     df_src = df_src[
         [
-            'HydroID',
             'Stage',
             'Bathymetry_source',
             'subdiv_applied',
@@ -336,7 +335,6 @@ def get_subdivided_src(hydrofabric_dir, huc, branch, channel_manning, overbank_m
     df_htable["discharge_cms"] = df_src['discharge_cms'].values
     df_htable['precalb_discharge_cms'] = 0
 
-    # TODO: remove operation when we eliminate subset by huc in inundation routine
     df_htable.set_index('HUC', append=True, inplace=True)
 
     return df_htable
