@@ -182,11 +182,33 @@ def process_generate_categorical_fim(
         local_vals = (
             locals()  # lst_hucs argument is used but passed via locals() so VSCode thinks it is not in use.
         )
-        valid_fim_hucs, dropped_huc_lst, nwm_meta_file, threshold_file = __validate_inputs(local_vals)
+        nwm_valid_fim_hucs, dropped_huc_lst, nwm_meta_file, threshold_file = __validate_inputs(local_vals)
+        # nwm_valid_fim_hucs.sort()
+
+
+        # TEMP HACK
+        # Aug 1, 2026
+        # Temp work around. We need to temp filter the list of HUCs to try
+        # Load up a list of hucs.
+        attempt_huc_list_file = "data/catfim/rob_tests/Attempt_List_2.csv"
+
+        attempt_huc_list_df = pd.read_csv(attempt_huc_list_file, dtype=str, header=None, names=["hucs"])
+
+        valid_fim_hucs = []
+        for ___, row in attempt_huc_list_df.iterrows():
+            huc = row['hucs']
+            if huc in nwm_valid_fim_hucs:
+                valid_fim_hucs.append(huc)
+
+        # strip dups
+        valid_fim_hucs = list(set(valid_fim_hucs))
         valid_fim_hucs.sort()
+
 
         # Note: this will handle a huc list arg of "all". If valid_fim_hucs is empty, it will thrown an exception
         # valid_fim_hucs are hucs that have valid huc folders in the fim output dir.
+
+        # TODO: Aug 1, 2026: Finish this.. its important.
         # It has not yet been compared to metadata and sites.
 
         # Make output folder
