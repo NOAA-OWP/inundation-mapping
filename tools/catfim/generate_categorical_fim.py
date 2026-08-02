@@ -190,7 +190,7 @@ def process_generate_categorical_fim(
         # Aug 1, 2026
         # Temp work around. We need to temp filter the list of HUCs to try
         # Load up a list of hucs.
-        attempt_huc_list_file = "data/catfim/rob_tests/Attempt_List_2.csv"
+        attempt_huc_list_file = "data/catfim/rob_tests/Attempt_List_3.csv"
 
         attempt_huc_list_df = pd.read_csv(attempt_huc_list_file, dtype=str, header=None, names=["hucs"])
 
