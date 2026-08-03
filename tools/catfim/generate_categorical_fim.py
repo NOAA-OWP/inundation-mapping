@@ -182,28 +182,10 @@ def process_generate_categorical_fim(
         local_vals = (
             locals()  # lst_hucs argument is used but passed via locals() so VSCode thinks it is not in use.
         )
-        nwm_valid_fim_hucs, dropped_huc_lst, nwm_meta_file, threshold_file = __validate_inputs(local_vals)
-        # nwm_valid_fim_hucs.sort()
+        # valid_fim_hucs, dropped_huc_lst, nwm_meta_file, threshold_file = __validate_inputs(local_vals)
+        # valid_fim_hucs.sort()
 
-
-        # TEMP HACK
-        # Aug 1, 2026
-        # Temp work around. We need to temp filter the list of HUCs to try
-        # Load up a list of hucs.
-        attempt_huc_list_file = "data/catfim/rob_tests/Attempt_List_3.csv"
-
-        attempt_huc_list_df = pd.read_csv(attempt_huc_list_file, dtype=str, header=None, names=["hucs"])
-
-        valid_fim_hucs = []
-        for ___, row in attempt_huc_list_df.iterrows():
-            huc = row['hucs']
-            if huc in nwm_valid_fim_hucs:
-                valid_fim_hucs.append(huc)
-
-        # strip dups
-        valid_fim_hucs = list(set(valid_fim_hucs))
-        valid_fim_hucs.sort()
-
+        adj_valid_fim_hucs, dropped_huc_lst, nwm_meta_file, threshold_file = __validate_inputs(local_vals)
 
         # Note: this will handle a huc list arg of "all". If valid_fim_hucs is empty, it will thrown an exception
         # valid_fim_hucs are hucs that have valid huc folders in the fim output dir.
@@ -362,6 +344,38 @@ def process_generate_categorical_fim(
         nwm_sites_all_gdf.to_file(
             nwm_sites_file.replace('.parquet', '.gpkg'), driver='GPKG', engine='fiona', index=False
         )
+
+        # filter out hucs that do not have nws_sites
+        nwm_huc_list = nwm_sites_all_gdf["HUC8"].unique().tolist()
+        if len(nwm_huc_list) == 0:
+            raise Exception("Should not have an empty nwm_huc_list")
+
+        # TEMP HACK
+        # Aug 1, 2026
+        # Temp work around. We need to temp filter the list of HUCs to try
+        # Load up a list of hucs.
+        # Maybe we can clean it up and add as an arg for a long term option?
+        # This needs hardening
+        attempt_huc_list_file = "data/catfim/SB-hand_4_9_20_1-huc_list_2.csv"
+        attempt_huc_list_df = pd.read_csv(attempt_huc_list_file, dtype=str, header=None, names=["hucs"])
+
+        valid_fim_hucs = []
+        for ___, row in attempt_huc_list_df.iterrows():
+            huc = row['hucs']
+            if huc in nwm_huc_list:
+                valid_fim_hucs.append(huc)
+            else:
+                logging.debug(f".... {huc} does not have any nwm sites")
+
+        # strip dups
+        valid_fim_hucs = list(set(valid_fim_hucs))
+        valid_fim_hucs.sort()
+
+        if len(valid_fim_hucs) == 0:
+            raise Exception("Comparing the loaded huc processing list to nwm site hucs,"
+                            " there are no hucs remaining to process" )
+
+        valid_fim_hucs.sort()
 
         # Save the HUC list for this CatFIM run (AWS will need this list to know what HUCs to process and iterate)
         catfim_huc_list_file = os.path.join(output_folder, "catfim_huc_list.txt")
