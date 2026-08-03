@@ -1,6 +1,14 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.x.x - 2026-07-30 - [PR#1912](https://github.com/NOAA-OWP/inundation-mapping/pull/1912)
+
+Delegate file loading to separate functions. The main computation function should assume the data is already loaded into memory.
+
+### Changes
+- `tools/lofi/probabilistic_inundation.py`: Delegate file loading to separate functions
+<br/>
+
 ## v4.9.21.2 - 2026-07-24 - [PR#1895](https://github.com/NOAA-OWP/inundation-mapping/pull/1895)
 
 Most notes embedded.
