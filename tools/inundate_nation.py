@@ -166,14 +166,17 @@ def run_inundation(args):
 
     """
 
+    # Aug 2026: Can only use a num thread values, besides, the job_number were not be used in this context
     fim_run_dir = args[0]
     huc_list = args[1]
     magnitude = args[2]
     magnitude_output_dir = args[3]
     forecast = args[4]
-    job_number = args[5]
-    thread_number = args[6]
-    precalb = args[7]
+    # job_number = args[5]
+    # thread_number = args[6]
+    # precalb = args[7]
+    thread_number = args[5]
+    precalb = args[6]
 
     # Define file paths for use in inundate().
 
@@ -190,17 +193,21 @@ def run_inundation(args):
     )
     print()
 
+    # July 2026: We no longer pass in num_workers as downstream no only uses multi-threading.
+    # Some other scripts use num_workers to have their own MP before passing into produce_mosaicked_inundation
+    # but others, just use high thread counts, such as this tool historically.
+    # See more notes in produce_mosaicked_inundation
     produce_mosaicked_inundation(
         fim_run_dir,
         huc_list,
         forecast,
-        inundation_raster=inundation_raster,
-        num_workers=job_number,
+        output_raster_path=inundation_raster,
+        # num_workers=job_number,
         num_threads=thread_number,
-        remove_intermediate=True,
+        # remove_intermediate=True,
         verbose=True,
         is_mosaic_for_branches=True,
-        gms_multi_process=True,
+        # gms_multi_process=True,
         precalb_option=precalb,
     )
 

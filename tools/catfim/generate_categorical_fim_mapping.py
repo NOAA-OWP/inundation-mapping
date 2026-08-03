@@ -367,31 +367,31 @@ def run_fb_inundation(  # renamed from run_inundation
 
         map_file = Inundate_gms(
             hydrofabric_dir=fim_run_dir,
-            forecast=magnitude_flows_csv_path,
-            num_workers=job_number_inundate,  # TODO: keep multiproc? currently defaults to 1
-            hydro_table_df=None,
+            flow_file_path=magnitude_flows_csv_path,
+            hydro_table_path=None,
             hucs=huc,
-            inundation_raster=output_extent_tif,
-            depths_raster=None,
+            inundation_raster_path=output_extent_tif,
+            depths_raster_path=None,
             verbose=False,
-            log_file=None,
-            output_fileNames=None,
-            multi_process=True,
+            inundation_results_file_path=None,
         )
+        # Jun 2026: Inundate_gms no longer offers the option of multi_process
+        # but how automatically uses MultiThread
 
         # ---------------------
         # Mosaic inundation tifs for lid/category
 
         logging.info(f"{huc} : {ahps_site} : {magnitude} - Starting to mosaic inundation")
 
+        # Aug 2026: masking system commented out. See notes at mosiac_iundation.py -> mask_mosiac function
         Mosaic_inundation(
             map_file,
             mosaic_attribute='inundation_rasters',
-            mosaic_output=output_extent_tif,
-            mask=os.path.join(fim_run_dir, huc, 'wbd.gpkg'),
+            output_mosaic_path=output_extent_tif,
+            # mask_path=os.path.join(fim_run_dir, huc, 'wbd.gpkg'),
             unit_attribute_name='huc8',
             nodata=csf.ELEV_NODATA_VALUE,
-            workers=1,
+            num_workers=1,
             remove_inputs=False,
             subset=None,
             verbose=False,

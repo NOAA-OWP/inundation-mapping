@@ -475,9 +475,6 @@ def inundate_probabilistic(
     # Fim outputs directory
     fim_outputs_dir = outputs_dir
 
-    # Masks for HUC Domain
-    mask_path = os.path.join(hydrofabric_dir, huc, 'wbd.gpkg')
-
     # Percentiles and data to add
     percentiles = {'90': 10, '75': 25, '50': 50, '25': 75, '10': 90}
     percentile_values = {'feature_id': [], '90': [], '75': [], '50': [], '25': [], '10': []}
@@ -522,6 +519,10 @@ def inundate_probabilistic(
     all_branches = s3_or_local_glob(os.path.join(hydrofabric_dir, huc, "branches", "*"))
     all_branches = list(map(os.path.basename, all_branches))
 
+    # Masks for HUC Domain
+    # Aug 2026: masking system commented out. See notes at mosiac_iundation.py -> mask_mosiac function
+    # mask_path = os.path.join(hydrofabric_dir, huc, 'wbd.gpkg')
+
     # Apply inundation map to each percentile
     for percentile, val in percentiles.items():
         channel_n = channel_dist.ppf(1 - int(percentile) / 100)
@@ -557,18 +558,27 @@ def inundate_probabilistic(
         )
         df.to_csv(flow_file, index=False)
 
+        # TODO: July 2026:  IMPORTANT
+        # Review how it wants to use jobs versus threads.
+
+        # July 2026: We no longer pass in num_workers as downstream no only uses multi-threading.
+        # Some other scripts use num_workers to have their own MP before passing into produce_mosaicked_inundation
+        # but others, just use high thread counts, such as this tool historically.
+        # See more notes in produce_mosaicked_inundation
+
+        # Aug 2026: masking system commented out. See notes at mosiac_iundation.py -> mask_mosiac function
         produce_mosaicked_inundation(
             hydrofabric_dir,
             huc,
             flow_file,
-            hydro_table_df=os.path.join(htable_output_path, htable_output_file),
-            inundation_raster=final_inundation_path,
-            mask=mask_path,
+            hydro_table_path=os.path.join(htable_output_path, htable_output_file),
+            output_raster_path=final_inundation_path,
+            # mask_path=mask_path,
             verbose=not quiet,
-            num_workers=num_jobs,
+            # num_workers=num_jobs,
             num_threads=num_threads,
             windowed=windowed,
-            log_file=log_file,
+            # log_file=log_file,
         )
 
     # percentiles

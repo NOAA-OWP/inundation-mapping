@@ -12,11 +12,14 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import scipy
-from inundation import inundate
-from mosaic_inundation import Mosaic_inundation
 from scipy.ndimage import generic_filter
-from tools_shared_functions import compute_contingency_stats_from_rasters
-from tools_shared_variables import (  # INPUTS_DIR,
+from tqdm import tqdm
+
+from src.utils.shared_functions import FIM_Helpers as fh
+from tools.inundation import inundate
+from tools.mosaic_inundation import Mosaic_inundation
+from tools.tools_shared_functions import compute_contingency_stats_from_rasters
+from tools.tools_shared_variables import (  # INPUTS_DIR,
     AHPS_BENCHMARK_CATEGORIES,
     MAGNITUDE_DICT,
     OUTPUTS_DIR,
@@ -24,9 +27,22 @@ from tools_shared_variables import (  # INPUTS_DIR,
     TEST_CASES_DIR,
     elev_raster_ndv,
 )
-from tqdm import tqdm
 
-from utils.shared_functions import FIM_Helpers as fh
+
+# NOTE: Jun 2026:  This file will likely be deprecated
+
+# NOTE: Jun 2026:  With major updates being made to inudation files, this tool will no longer
+# work and requires major updates including optimizations.
+# It was agreed that it was ok to defer as this script might not even be used anymore
+
+
+# TODO: Jun 2026: Why do we have so much duplication to run_test_cases.py
+# if we do want to keep this and not rebuild... consider rebuilding it to use our
+# standard logging system. See synthesize_test_case.py, run_test_case.py and various
+# inundation files under it.
+# At a min, review the part that calls inundation.inundate and compare to inundate_gms.py
+# But this script needs to be rebuilt anyways and call inundate_gms.py and not duplicate it here.
+# This script is now very out of date, including the need to remove FIM 3 references.
 
 
 # *******************************************************
@@ -217,7 +233,7 @@ def alpha_test(
     verbose : bool
         If True, prints out all pertinent data.
     gms_workers : int
-        Number of worker processes assigned to GMS processing.
+        Number of worker processes assigned to processing.
     '''
     try:
 
@@ -514,8 +530,8 @@ def produce_mosaicked_inundation(
         mosaic_file_path = Mosaic_inundation(
             map_file.copy(),
             mosaic_attribute=mosaic_attribute,
-            mosaic_output=mosaic_output,
-            mask=mask,
+            output_mosaic_path=mosaic_output,
+            mask_path=mask,
             unit_attribute_name=unit_attribute_name,
             nodata=elev_raster_ndv,
             remove_inputs=remove_intermediate,

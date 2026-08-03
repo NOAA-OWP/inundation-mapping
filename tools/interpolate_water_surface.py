@@ -9,7 +9,9 @@ import rasterio.mask
 from inundate_gms import Inundate_gms
 from mosaic_inundation import Mosaic_inundation
 from rasterio.fill import fillnodata
-from tools_shared_variables import elev_raster_ndv
+
+from src.utils.shared_functions import setup_file_logger
+from tools.tools_shared_variables import elev_raster_ndv
 
 
 def interpolate_wse(
@@ -94,20 +96,27 @@ def inundate_with_catchment_spillover(
     log_file=None,
     verbose=False,
 ):
+
+    log_file_path = setup_file_logger(
+        log_file_dir=hydrofabric_dir, log_file_name_prefix="inundate_water_surface"
+    )
+    print(f"Logs will be saved to {log_file_path}")
+    setup_file_logger(hydrofabric_dir, "interpolate_water_surface.log")
+
     print("Running Inundation")
-    map_file = Inundate_gms(
+    map_files_df = Inundate_gms(
         hydrofabric_dir=hydrofabric_dir,
-        forecast=flow_file,
-        num_workers=num_workers,
+        flow_file_path=flow_file,
+        num_threads=num_workers,
         hucs=hucs,
-        depths_raster=depths_raster,
+        depths_raster_path=depths_raster,
         verbose=verbose,
         log_file=log_file,
-        output_fileNames=output_fileNames,
+        inundation_results_file_path=output_fileNames,
     )
 
     print("Interpolating water surfaces for each branch")
-    for index, row in map_file.iterrows():
+    for index, row in map_files_df.iterrows():
         # Hydroconditioned DEM filename
         dem = os.path.join(
             hydrofabric_dir,
@@ -131,14 +140,15 @@ def inundate_with_catchment_spillover(
         )
 
     print("Mosaicking branches together")
+    # Aug 2026: masking system commented out. See notes at mosiac_iundation.py -> mask_mosiac function
     Mosaic_inundation(
-        map_file,
+        map_files_df,
         mosaic_attribute='depths_rasters',
-        mosaic_output=depths_raster,
-        mask=None,
+        output_mosaic_path=depths_raster,
+        # mask_path=None,
         unit_attribute_name='huc8',
         nodata=elev_raster_ndv,
-        workers=1,
+        num_workers=1,
         remove_inputs=not keep_intermediate,
         subset=None,
         verbose=verbose,

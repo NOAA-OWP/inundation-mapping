@@ -28,6 +28,8 @@ from scipy.optimize import NonlinearConstraint, differential_evolution, minimize
 from tools_shared_variables import MAGNITUDE_DICT, TEST_CASES_DIR
 
 
+# TODO: Jun 2026: There is a very large amount of reduntency with run_test_case.py. Needs review
+
 AHPS_BENCHMARK_CATEGORIES = ["usgs", "nws"]
 
 
@@ -469,6 +471,9 @@ def synthesize_test_cases(huc, fim_version, hydroTable_all, job_number_branch, b
     overwrite = True
     verbose = False
     calibrated = False
+
+    # Jun 2026: Re-eval this as it needs a form of Multi-proc, see synthesize_test_cases.py file.
+    # See below
     for test_case_class in all_test_cases:
         if test_case_class is not None:
             # print(test_case_class)
@@ -850,7 +855,13 @@ def multi_process_optimization(
             except Exception as ex:
                 failed_hucs.append(huc)
                 print(f"Failed MannN optimization for HUC {huc}: {ex}")
+                # TODO: consider changing traceback.print_exc() to
+                # logging.critical(traceback.format_exc())
+                # traceback.print_exc() goes straight to native logs if set up
+                # traceback.format_exc() returns a string that you can log, print or whatever
                 traceback.print_exc()
+
+                # TODO: Jul 2026: Do we want to shut down the processpool if it fails? or just log it?
 
     end_time = datetime.now()
     dt_string = end_time.strftime("%m/%d/%Y %H:%M:%S")
