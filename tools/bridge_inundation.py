@@ -9,13 +9,15 @@ from timeit import default_timer as timer
 import geopandas as gpd
 import pandas as pd
 
+from src.utils.shared_functions import to_hilbert_parquet
+
 
 def bridge_risk_status(
     hydrofabric_dir: str, flow_file: str, output_dir: str, limit_hucs: list = []
 ) -> gpd.GeoDataFrame:
     """
     This function detect which bridge points are affected by a specified flow file. The function requires a flow file (expected to follow
-    the schema used by 'inundation_mosaic_wrapper') with data organized by 'feature_id' and 'discharge' in cms. The output includes a GeoParquet
+    the schema used by 'inundation_mosaic_wrapper') with data organized by 'feature_id' and 'discharge' in cms. The output includes a geopackage
     containing bridge points labeled as "threatened", "at risk", or "not at risk" based on forcasted discharge compared to preset discharge
     ("threshold_discharge" or "threshold_discharge75").
 
@@ -24,14 +26,14 @@ def bridge_risk_status(
                                     fim_pipeline.
         flow_file (str):      Path to flow file to be used for inundation.
                                     feature_ids in flow_file should be present in supplied HUC.
-        output (str):             Path to output GeoParquet.
+        output (str):             Path to output GeoPackage or GeoParquet file.
         limit_hucs (list):    Optional. If specified, only the bridges in these HUCs will be processed.
 
     Example usage:
     python /foss_fim/tools/bridge_inundation.py \
         -y /data/previous_fim/fim_4_5_2_0 \
         -f /data/ble_huc_12090301_flows_100yr.csv \
-        -o /home/user/Documents/bridges/inundated_bridge_pnts.gpkg \
+        -o /home/user/Documents/bridges/inundated_bridge_pnts.parquet \
         -u 12090301 02020005
     """
 
@@ -69,13 +71,13 @@ def bridge_risk_status(
     for huc in hucs:
         print(f'Processing HUC: {huc}')
         # Construct the file path
-        parquet_path = os.path.join(dir_path, huc, 'osm_bridge_centroids.parquet')
+        gpkg_path = os.path.join(dir_path, huc, 'osm_bridge_centroids.gpkg')
         # Check if the file exists
-        if not os.path.exists(parquet_path):
-            print(f"No Parquet file found in {parquet_path}. Skipping...")
+        if not os.path.exists(gpkg_path):
+            print(f"No GeoPackage file found in {gpkg_path}. Skipping...")
             continue
-        # Open the bridge point GeoParquet for each huc
-        bri_po = gpd.read_parquet(parquet_path)
+        # Open the bridge point GeoPackage for each huc
+        bri_po = gpd.read_file(gpkg_path)
 
         # Save the origignal crs in a new column
         bri_po['original_crs'] = bri_po.crs.to_string()
@@ -118,7 +120,10 @@ def bridge_risk_status(
     bridge_out = merged_bri.loc[merged_data_max]
     bridge_out.reset_index(drop=True, inplace=True)
     bridge_out.drop('risk', axis=1, inplace=True)
-    bridge_out.to_file(output_dir, index=False, driver="GPKG", engine='fiona')
+    if os.path.splitext(output_dir)[-1].lower() == '.parquet':
+        to_hilbert_parquet(bridge_out, output_dir, index=False)
+    else:
+        bridge_out.to_file(output_dir, index=False, driver="GPKG", engine='fiona')
 
     return bridge_out
 
@@ -142,7 +147,7 @@ if __name__ == "__main__":
         required=True,
         type=str,
     )
-    parser.add_argument("-o", "--output_dir", help="Path to GeoParquet output.", required=True, type=str)
+    parser.add_argument("-o", "--output_dir", help="Path to GPKG or Parquet output.", required=True, type=str)
     parser.add_argument(
         "-u",
         "--limit_hucs",

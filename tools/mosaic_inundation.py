@@ -23,6 +23,7 @@ from shapely.geometry.polygon import Polygon
 from tqdm import tqdm
 
 from utils.shared_functions import FIM_Helpers as fh
+from utils.shared_functions import to_hilbert_parquet
 from utils.shared_variables import elev_raster_ndv
 
 
@@ -340,7 +341,10 @@ def mosaic_final_inundation_extent_to_poly(
         ]
 
         # Write polygon
-        extent_poly_diss.to_file(inundation_polygon, driver=driver, engine='fiona')
+        if os.path.splitext(inundation_polygon)[-1].lower() == '.parquet':
+            to_hilbert_parquet(extent_poly_diss, inundation_polygon)
+        else:
+            extent_poly_diss.to_file(inundation_polygon, driver=driver, engine='fiona')
 
 
 if __name__ == "__main__":
@@ -405,7 +409,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-i",
         "--inundation-polygon",
-        help="Filename of the final inundation extent polygon (optional). Default is None.",
+        help="Filename (GPKG or GeoParquet) of the final inundation extent polygon. (optional). Default is None.",
         required=False,
         default=None,
         type=str,

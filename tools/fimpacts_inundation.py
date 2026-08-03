@@ -55,13 +55,13 @@ def inundation_status(
     """
     This function detects which roads/buildings are inundated by a specified flow file and calculates flood depth.
     The function requires a flow file (expected to follow the schema used by 'inundation_mosaic_wrapper')
-    with data organized by 'feature_id' and 'discharge' in cms. The output includes a geopackage
+    with data organized by 'feature_id' and 'discharge' in cms. The output includes a geopackage or GeoParquet
     containing inundated roads with their maximum flood depth.
 
     Args:
         fim_run_dir (str):    Path to FIM outputs were written by fim_pipeline.
         flow_file (str):      Path to csv flow file to be used for inundation.
-        output_file_path (str):             Path to output geopackage file.
+        output_file_path (str):             Path to GPKG or Parquet output.
         limit_hucs (list):    Optional. If specified, only those HUCs will be processed.
         feature_type (str):   Optional. One of ['roads', 'buildings'].
     """
@@ -198,7 +198,7 @@ if __name__ == "__main__":
     # sample usage
     # python foss_fim/tools/road_inundation.py
     # -y outputs/roads/test2_05030104
-    # -o outputs/roads/test2_05030104/roads_inundation.gpkg
+    # -o outputs/roads/test2_05030104/roads_inundation.parquet
     # -f data/inputs/rating_curve/nwm_recur_flows/nwm3_17C_recurr_50_0_cms.csv
 
     # Parse arguments
@@ -216,7 +216,7 @@ if __name__ == "__main__":
         type=str,
     )
     parser.add_argument(
-        "-o", "--output_file_path", help="Path to geopackage output.", required=True, type=str
+        "-o", "--output_file_path", help="Path to GPKG or Parquet output.", required=True, type=str
     )
     parser.add_argument(
         "-u",
