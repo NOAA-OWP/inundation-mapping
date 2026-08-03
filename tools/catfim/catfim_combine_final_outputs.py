@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
 
 import argparse
+import logging
 import os
+import traceback
+from datetime import datetime, timezone
 
 import geopandas as gpd
 import pandas as pd
 
+import src.utils.shared_functions as sf
 import tools.catfim.catfim_post_processing as cpp
 import tools.catfim.catfim_shared_functions as csf
+import tools.catfim.generate_categorical_fim as gcf
 
 
 '''
@@ -21,154 +26,297 @@ The outputs are merged into new files in the primary folder with a label added t
 '''
 
 
-def merge_gpkgs(gdf1_path, gdf2_path, output_gpkg_path):
+def merge_gpkgs(gpkg_path_list, output_dir, label):
+
+    for path in gpkg_path_list:
+        if not os.path.exists(path):
+            logging.warning(f"Warning: File not found -> {path}")
+            # Remove from list if file doesn't exist
+            gpkg_path_list.remove(path)
+            continue
+            
+    # Read and concatenate all files
+    gdfs = [gpd.read_file(f) for f in gpkg_path_list]
+    merged_gdf = gpd.GeoDataFrame(pd.concat(gdfs, ignore_index=True))
 
     # Get filename without extension for the layer name
-    filename = os.path.splitext(os.path.basename(gdf1_path))[0]
+    filename = os.path.splitext(os.path.basename(gpkg_path_list[0]))[0]
+    output_gpkg_path = os.path.join(output_dir, f"{filename}_{label}.gpkg")  # TODO: is this the correct use of my label?
 
-    # Read the GeoPackages into GeoDataFrames
-    gdf1 = gpd.read_file(gdf1_path)
-    gdf2 = gpd.read_file(gdf2_path)
-
-    # Ensure both GeoDataFrames have the same Coordinate Reference System (CRS)
-    if gdf1.crs != gdf2.crs:
-        print(f"CRSs differ. Reprojecting second GeoDataFrame to match the first's CRS: {gdf1.crs}")
-        gdf2 = gdf2.to_crs(gdf1.crs)
-
-    # Concatenate the GeoDataFrames and save output
-    merged_gdf = pd.concat([gdf1, gdf2], ignore_index=True)
+    # Save merged file to output dir
     merged_gdf.to_file(output_gpkg_path, driver="GPKG", layer=filename)
-    print(f"Successfully merged GeoPackages into {output_gpkg_path} in layer {filename}")
+    logging.info(f"Successfully merged GeoPackages into {output_gpkg_path} in layer {filename}")
 
     return
 
 
-def merge_csvs(csv1_path, csv2_path, output_csv_path):
-    df1 = pd.read_csv(csv1_path)
-    df2 = pd.read_csv(csv2_path)
-    merged_df = pd.concat([df1, df2], ignore_index=True)
+def merge_csvs(csv_path_list, output_dir, label):
+
+    for path in csv_path_list:
+        if not os.path.exists(path):
+            logging.warning(f"Warning: File not found -> {path}")
+            # Remove from list if file doesn't exist
+            csv_path_list.remove(path)
+            continue
+
+    dfs = [pd.read_csv(f) for f in csv_path_list]
+    merged_df = pd.concat(dfs, ignore_index=True)
+
+    filename = os.path.splitext(os.path.basename(csv_path_list[0]))[0]
+    output_csv_path = os.path.join(output_dir, f"{filename}_{label}.csv")
+
     merged_df.to_csv(output_csv_path, index=False)
-    print(f"Successfully merged CSVs into {output_csv_path}")
+    logging.info(f"Successfully merged CSVs into {output_csv_path}")
 
     return
 
 
-def merge_geoparquets(parquet1_path, parquet2_path, output_parquet_path):
-    df1 = pd.read_parquet(parquet1_path)
-    df2 = pd.read_parquet(parquet2_path)
-    merged_df = pd.concat([df1, df2], ignore_index=True)
+def merge_geoparquets(parquet_path_list, output_dir, label):
+    for path in parquet_path_list:
+        if not os.path.exists(path):
+            logging.warning(f"Warning: File not found -> {path}")
+            # Remove from list if file doesn't exist
+            parquet_path_list.remove(path)
+            continue
+
+    dfs = [pd.read_parquet(f) for f in parquet_path_list]
+    merged_df = pd.concat(dfs, ignore_index=True)
+
+    filename = os.path.splitext(os.path.basename(parquet_path_list[0]))[0]
+    output_parquet_path = os.path.join(output_dir, f"{filename}_{label}.parquet")
+
     merged_df.to_parquet(output_parquet_path, index=False)
-    print(f"Successfully merged GeoParquets into {output_parquet_path}")
+    logging.info(f"Successfully merged GeoParquets into {output_parquet_path}")
 
     return
 
 
-def combine_final_outputs(primary_dir, secondary_dir, label):
+def validate_dirs_and_get_pathlists(input_dirs):
+    '''
 
-    print('Combining CatFIM outputs from primary and secondary directories...')
+    '''
+    logging.info("Validating input directories and getting output filepaths...")
 
-    # Confirm that the primary_dir and secondary_dir exist
-    if not os.path.exists(primary_dir):
-        raise FileNotFoundError(f"Primary directory does not exist: {primary_dir}")
+    sites_gpkg_path_list = []
+    sites_csv_path_list = []
+    sites_parquet_path_list = []
+    library_gpkg_path_list = []
+    library_csv_path_list = []
+    library_parquet_path_list = []
 
-    if not os.path.exists(secondary_dir):
-        raise FileNotFoundError(f"Secondary directory does not exist: {secondary_dir}")
+    catfim_type_first = None
+    fim_run_dir_first = None
+    past_major_interval_cap_first = None
+    search_first = None
 
-    # Confirm that primary and secondary dir both have the same values for CATIM_TYPE FIM_RUN_DIR, PAST_MAJOR_INTERVAL_CAP, and SEARCH
-    # (all found in the runtime_args.env file of the directories)
+    for dir in input_dirs:
 
-    # Get catfim_type_name from the runtime_args.env file in the primary_dir
-    csf.load_runtime_args(primary_dir)
-    catfim_type_primary = os.getenv('CATFIM_TYPE')
-    fim_run_dir_primary = os.getenv('FIM_RUN_DIR')
-    past_major_interval_cap_primary = os.getenv('PAST_MAJOR_INTERVAL_CAP')
-    search_primary = os.getenv('SEARCH')
+        # Validate input path
+        if not os.path.exists(dir):
+            msg = f"Directory does not exist: {dir}"
+            logging.error(msg)
+            raise FileNotFoundError(msg)
 
-    # Get catfim_type_name from the runtime_args.env file in the secondary_dir
-    csf.load_runtime_args(secondary_dir)
-    catfim_type_secondary = os.getenv('CATFIM_TYPE')
-    fim_run_dir_secondary = os.getenv('FIM_RUN_DIR')
-    past_major_interval_cap_secondary = os.getenv('PAST_MAJOR_INTERVAL_CAP')
-    search_secondary = os.getenv('SEARCH')
+        # Get catfim_type_name from the runtime_args.env file in the primary_dir
+        csf.load_runtime_args(dir)
+        catfim_type = os.getenv('CATFIM_TYPE')
+        fim_run_dir = os.getenv('FIM_RUN_DIR')
+        past_major_interval_cap = os.getenv('PAST_MAJOR_INTERVAL_CAP')
+        search = os.getenv('SEARCH')
 
-    # Confirm that the values are the same
-    if catfim_type_primary != catfim_type_secondary:
-        raise ValueError(
-            f"CATFIM_TYPE values differ between directories: {catfim_type_primary} vs {catfim_type_secondary}"
+        # Confirm that the values match the first dir (or set the values if it's the first dir)
+        if catfim_type_first is None:
+            catfim_type_first = catfim_type
+        else:
+            if catfim_type != catfim_type_first:
+                msg = f"CATFIM_TYPE in {dir} is {catfim_type}, which differs from the value in the first dir ({catfim_type_first})"
+                logging.error(msg)
+                raise ValueError(msg)
+
+        if fim_run_dir_first is None:
+            fim_run_dir_first = fim_run_dir
+        else:
+            if fim_run_dir != fim_run_dir_first:
+                msg = f"FIM_RUN_DIR in {dir} is {fim_run_dir}, which differs from the value in the first dir ({fim_run_dir_first})"
+                logging.error(msg)
+                raise ValueError(msg)
+
+        if past_major_interval_cap_first is None:
+            past_major_interval_cap_first = past_major_interval_cap
+        else:
+            if past_major_interval_cap != past_major_interval_cap_first:
+                msg = f"PAST_MAJOR_INTERVAL_CAP in {dir} is {past_major_interval_cap}, which differs from the value in the first dir ({past_major_interval_cap_first})"
+                logging.error(msg)
+                raise ValueError(msg)
+
+        if search_first is None:
+            search_first = search
+        else:
+            if search != search_first:
+                msg = f"SEARCH in {dir} is {search}, which differs from the value in the first dir ({search_first})"
+                logging.error(msg)
+                raise ValueError(msg)
+
+        if catfim_type == 'sb':
+            catfim_type_name = "stage_based"
+        else:
+            catfim_type_name = "flow_based"
+
+        # Get output filepaths for the directories
+        (
+            sites_gpkg_path,
+            sites_csv_path,
+            sites_parquet_path,
+            library_gpkg_path,
+            library_csv_path,
+            library_parquet_path,
+        ) = cpp.get_output_filepaths(dir, catfim_type_name)
+
+        sites_gpkg_path_list.append(sites_gpkg_path)
+        library_gpkg_path_list.append(library_gpkg_path)
+        sites_csv_path_list.append(sites_csv_path)
+        library_csv_path_list.append(library_csv_path)
+        sites_parquet_path_list.append(sites_parquet_path)
+        library_parquet_path_list.append(library_parquet_path)
+    # End loop
+
+    return (
+        sites_gpkg_path_list,
+        sites_csv_path_list,
+        sites_parquet_path_list,
+        library_gpkg_path_list,
+        library_csv_path_list,
+        library_parquet_path_list,
+    )
+
+
+def rollup_logs(input_dirs, output_dir):
+    '''
+
+    '''
+    final_log_path = os.path.join(output_dir, "ALL_LOGS_combined.log")
+
+    for dir in input_dirs:
+
+        log_folder_path = os.path.join(dir, "logs")
+
+        # Get the most recent log file in the folder
+        dir_log_file_name, num_log_files_avail = gcf.get_most_recent_log_file(log_folder_path, "ALL_LOGS_")
+
+        # Exit this process if the log file doesn't exist, because that means we didn't get very far
+        # into processing for this dir and we don't have logs to add for this HUC.
+        if dir_log_file_name is None:
+            logging.warning(f"{dir} - No logs found, skipping adding logs to final logs.")
+            continue
+
+        if num_log_files_avail > 1:
+            logging.info(
+                f"{dir} - {num_log_files_avail} logs available. Using most recent log: {dir_log_file_name}"
+            )
+
+
+        # Copy the dir log file to the final log path if it doesn't exist yet
+        if not os.path.exists(final_log_path):
+            sf.copy_file(dir_log_file_name, final_log_path)
+            logging.info(f"Copied {dir_log_file_name} to {final_log_path}")
+        else:
+            # logging.info(f"Final log file already exists: {final_log_path}")
+
+            # Append HUC .log file to gen .log file
+            log_concat_success = sf.rollup_log_files(
+                dir_log_file_name, final_log_path, remove_old_src_file=False
+            )
+
+            # Print warning if needed
+            if not log_concat_success:
+                logging.info(
+                    f'{dir} - WARNING: Unable to concat to final log: {os.path.basename(dir_log_file_name)}'
+                )
+    # End log rollup loop
+
+    return
+
+
+
+def combine_final_outputs(output_dir, input_dirs, label):
+    '''
+    
+    '''
+
+    is_logging_loaded = False
+    overall_start_time = datetime.now(timezone.utc)
+    dt_string = overall_start_time.strftime("%m/%d/%Y %H:%M:%S")
+
+    # Check if output_dir exists, make it if needed (and error out if it fails)
+    if not os.path.exists(output_dir):
+        try:
+            os.makedirs(output_dir, exist_ok=True)
+            os.chmod(output_dir, 0o777)  # 777 (rwxrwxrwx)
+            print(f"Created output directory: {output_dir}")
+        except Exception as e:
+            print(f"Failed to create output directory: {output_dir}. Error: {e}")
+            raise
+
+    log_file_path = sf.setup_file_logger(output_dir, "catfim_combine_final_outputs")
+    is_logging_loaded = True
+
+    logging.info(f"Begin combining CatFIM final outputs at {dt_string} (UTC)")
+    logging.info("")
+    print(f"Logs will be saved to {log_file_path}")
+    logging.info(f"Input directories: {input_dirs}")
+    logging.info(f"Output directory: {output_dir}")
+
+    try:
+
+        # ------
+        # Iterate through input folders. For each input folder, validate that the args match the first args, and then get a list of the filepaths
+        (
+            sites_gpkg_path_list,
+            sites_csv_path_list,
+            sites_parquet_path_list,
+            library_gpkg_path_list,
+            library_csv_path_list,
+            library_parquet_path_list,
+        ) = validate_dirs_and_get_pathlists(input_dirs)
+
+        # ------
+        # Loop through pathlists and compile the outputs
+
+        # Merge GPKGs
+        merge_gpkgs(sites_gpkg_path_list, output_dir, label)
+        merge_gpkgs(library_gpkg_path_list, output_dir, label)
+
+        # Merge CSVs
+        merge_csvs(sites_csv_path_list, output_dir, label)
+        merge_csvs(library_csv_path_list, output_dir, label)
+
+        # Merge GeoParquets
+        merge_geoparquets(sites_parquet_path_list, output_dir, label)
+        merge_geoparquets(library_parquet_path_list, output_dir, label)
+
+        # ------
+        # Roll up all the logs from the input directories into a single log file in the output directory
+        rollup_logs(input_dirs, output_dir)
+
+        # ------
+        # TODO: Could add a section where we roll up all the runtime_args.env files from the input directories into a single runtime_args.env file in the output directory
+        # -> Probably not needed for now
+
+        # TODO: Could add a section where we copy all of the folders in the huc directories into the output huc directory
+        # -> Probably not needed for now
+
+        logging.info(
+            'Successfully combined CatFIM outputs into new files in the output directory.'
         )
-    if fim_run_dir_primary != fim_run_dir_secondary:
-        raise ValueError(
-            f"FIM_RUN_DIR values differ between directories: {fim_run_dir_primary} vs {fim_run_dir_secondary}"
-        )
-    if past_major_interval_cap_primary != past_major_interval_cap_secondary:
-        raise ValueError(
-            f"PAST_MAJOR_INTERVAL_CAP values differ between directories: {past_major_interval_cap_primary} vs {past_major_interval_cap_secondary}"
-        )
-    if search_primary != search_secondary:
-        raise ValueError(f"SEARCH values differ between directories: {search_primary} vs {search_secondary}")
 
-    if catfim_type_primary == 'sb':
-        catfim_type_name = "stage_based"
-    else:
-        catfim_type_name = "flow_based"
+    except Exception as ex:
+        trace_error = traceback.format_exc()
+        err_msg = f"Critical error has occurred:. Error: {ex} Detail: {trace_error}"
 
-    # Get output filepaths for the directories
-    (
-        sites_gpkg_path_primary,
-        sites_csv_path_primary,
-        sites_parquet_path_primary,
-        library_gpkg_path_primary,
-        library_csv_path_primary,
-        library_parquet_path_primary,
-    ) = cpp.get_output_filepaths(primary_dir, catfim_type_name)
-    (
-        sites_gpkg_path_secondary,
-        sites_csv_path_secondary,
-        sites_parquet_path_secondary,
-        library_gpkg_path_secondary,
-        library_csv_path_secondary,
-        library_parquet_path_secondary,
-    ) = cpp.get_output_filepaths(secondary_dir, catfim_type_name)
-
-    # Merge GPKGs
-    merge_gpkgs(
-        sites_gpkg_path_primary,
-        sites_gpkg_path_secondary,
-        os.path.join(primary_dir, f'{catfim_type_name}_catfim_sites_{label}.gpkg'),
-    )
-    merge_gpkgs(
-        library_gpkg_path_primary,
-        library_gpkg_path_secondary,
-        os.path.join(primary_dir, f'{catfim_type_name}_catfim_library_{label}.gpkg'),
-    )
-
-    # Merge CSVs
-    merge_csvs(
-        sites_csv_path_primary,
-        sites_csv_path_secondary,
-        os.path.join(primary_dir, f'{catfim_type_name}_catfim_sites_{label}.csv'),
-    )
-    merge_csvs(
-        library_csv_path_primary,
-        library_csv_path_secondary,
-        os.path.join(primary_dir, f'{catfim_type_name}_catfim_library_{label}.csv'),
-    )
-
-    # Merge GeoParquets
-    merge_geoparquets(
-        sites_parquet_path_primary,
-        sites_parquet_path_secondary,
-        os.path.join(primary_dir, f'{catfim_type_name}_catfim_sites_{label}.parquet'),
-    )
-    merge_geoparquets(
-        library_parquet_path_primary,
-        library_parquet_path_secondary,
-        os.path.join(primary_dir, f'{catfim_type_name}_catfim_library_{label}.parquet'),
-    )
-
-    print(
-        'Successfully combined CatFIM outputs from primary and secondary directories into new files in the primary directory.'
-    )
+        if is_logging_loaded:
+            logging.critical(err_msg)
+        else:
+            print(err_msg)
 
     return
 
@@ -197,6 +345,7 @@ if __name__ == '__main__':
     # Parse arguments
     parser = argparse.ArgumentParser(description='Join CatFIM outputs from primary and secondary directories')
 
+    # TODO: Update so this can process more than two sets of outputs. So we need to specify output-dir and then have the input-dir option intake a list of filepaths.
     parser.add_argument(
         '-p',
         '--primary-dir',

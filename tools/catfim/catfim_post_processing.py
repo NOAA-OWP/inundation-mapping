@@ -302,8 +302,6 @@ def get_output_filepaths(output_folder, catfim_type_name):
         Filepath for final library CSV.
     library_parquet_path - STR
         Filepath for final library Parquet.
-    deleted_file_count - INT?
-        Number of files that the function deletes.
     '''
 
     sites_gpkg_path = os.path.join(output_folder, f"{catfim_type_name}_catfim_sites.gpkg")
