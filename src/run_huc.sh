@@ -280,7 +280,13 @@ export ncols=$ncols
 export nrows=$nrows
 
 ## PRODUCE BRANCH ZERO HAND
-$srcDir/delineate_hydros_and_produce_HAND.sh "unit"
+# ... Branch Zero HAND Production ...
+
+echo "--> Executing delineate_hydros_and_produce_HAND.py for Branch ${branch_zero_id} ($hucNumber)"
+python3 ${srcDir}/delineate_hydros_and_produce_HAND.py \
+    -l "unit" \
+    -u "${hucNumber}" \
+    -d "${tempHucDataDir}"
 
 ## CREATE USGS GAGES FILE
 ## Note: the usgs_gages.gpkg was renamed during copying into the unit folder
