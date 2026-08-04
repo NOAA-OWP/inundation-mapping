@@ -12,9 +12,9 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio
-from rasterio import features as riofeat
 import xarray as xr
 from inundate_mosaic_wrapper import produce_mosaicked_inundation
+from rasterio import features as riofeat
 from scipy.interpolate import PchipInterpolator
 from scipy.stats import (
     expon,
@@ -592,7 +592,7 @@ def inundate_probabilistic(
                     np.greater(tmpm, 0, out=mask)
                     tmpm.fill(0)
                     np.copyto(tmpm, int(p), where=mask)
-                    
+
                     # tmpm[tmpm == nodata] = -10000
                     np.equal(tmpm, nodata, out=mask)
                     np.copyto(tmpm, -10000, where=mask)
