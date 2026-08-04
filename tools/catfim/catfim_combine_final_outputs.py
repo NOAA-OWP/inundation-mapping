@@ -36,7 +36,23 @@ def merge_gpkgs(gpkg_path_list, output_dir, label):
             continue
             
     # Read and concatenate all files
-    gdfs = [gpd.read_file(f) for f in gpkg_path_list]
+    gdfs = []
+    hucs_added = set()  # Keep track of HUCs that have already been added to the merged_gdf
+    for f in gpkg_path_list:
+        # Read gpkg
+        gdf = gpd.read_file(f)
+
+        # Filter out HUCs that have already been added
+        huc_list = [huc for huc in huc_list if huc not in hucs_added]
+        gdf = gdf[gdf['huc8'].isin(huc_list)]
+
+        gdfs.append(gdf)
+
+        # Update hucs_added with the HUCs from the current gdf
+        hucs_added.update(gdf['huc8'].unique())
+
+        logging.info(f"Added {len(gdf)} rows from {f} to the merged GeoDataFrame. Total unique HUCs added so far: {len(hucs_added)}")
+
     merged_gdf = gpd.GeoDataFrame(pd.concat(gdfs, ignore_index=True))
 
     # Get filename without extension for the layer name
@@ -257,6 +273,13 @@ def combine_final_outputs(output_dir, input_dirs, label):
             print(f"Failed to create output directory: {output_dir}. Error: {e}")
             raise
 
+    # Turn input_dirs into a list and make sure there's at least two directories to combine
+    input_dirs = input_dirs.split()
+
+    if len(input_dirs) < 2:
+        msg = "At least two input directories are required to combine CatFIM outputs."
+        raise ValueError(msg)
+
     log_file_path = sf.setup_file_logger(output_dir, "catfim_combine_final_outputs")
     is_logging_loaded = True
 
@@ -327,44 +350,44 @@ if __name__ == '__main__':
 
     Arguments
     ----------
-    primary-dir (-p) - str
-        REQUIRED: Path to directory containing primary CatFIM outputs
-    secondary-dir (-s) - str
-        REQUIRED: Path to directory containing secondary CatFIM outputs (to be joined to the primary)
+    output-dir (-od) - str
+        REQUIRED: Path to directory where combined CatFIM outputs will be saved
+    input-dirs (-id) - str
+        REQUIRED: Space-delimited list of paths to directories containing CatFIM outputs (to be joined)
     label (-l) - str
-        REQUIRED: Label for the output files (to differentiate them from the original primary outputs)
+        OPTIONAL: Label for the output files (to differentiate them from the original primary outputs)
 
     Example
     -------
 
-    python /foss_fim/tools/catfim/catfim_combine_final_outputs.py -p /data/catfim/emily_test/4_9_20_1_stage_based -s /data/catfim/emily_test/guam_4_9_20_1_stage_based/ -l 'w_Guam'
+    python /foss_fim/tools/catfim/catfim_combine_final_outputs.py -od /data/catfim/emily_test/4_9_20_1_stage_based -id "/data/catfim/emily_test/guam_4_9_20_1_stage_based/ /data/catfim/emily_test/4_9_20_1_stage_based" -l 'w_Guam'
 
 
     '''
 
     # Parse arguments
-    parser = argparse.ArgumentParser(description='Join CatFIM outputs from primary and secondary directories')
+    parser = argparse.ArgumentParser(description='Join CatFIM outputs from a list of input directories')
 
-    # TODO: Update so this can process more than two sets of outputs. So we need to specify output-dir and then have the input-dir option intake a list of filepaths.
     parser.add_argument(
-        '-p',
-        '--primary-dir',
-        help='REQUIRED: Path to directory containing primary CatFIM outputs',
+        '-od',
+        '--output-dir',
+        help='REQUIRED: Path to directory where combined CatFIM outputs will be saved',
         required=True,
     )
 
     parser.add_argument(
-        '-s',
-        '--secondary-dir',
-        help='REQUIRED: Path to directory containing secondary CatFIM outputs (to be joined to the primary)',
+        '-id',
+        '--input-dirs',
+        help='REQUIRED: Space-delimited list of paths to directories containing CatFIM outputs (to be joined to the primary)',
         required=True,
     )
 
     parser.add_argument(
         '-l',
         '--label',
-        help='REQUIRED: Label for the output files (to differentiate them from the original primary outputs)',
-        required=True,
+        help='OPTIONAL: Label for the output files (to differentiate them from the original primary outputs)',
+        required=False,
+        default='combined'
     )
 
     args = vars(parser.parse_args())
