@@ -16,6 +16,11 @@ from shapely import wkt
 
 pd.options.mode.chained_assignment = None  # default='warn'
 
+# Force GDAL to use standard locking and synchronous write modes
+# helps with gpkg.to_file writes
+os.environ["GDAL_GEO_TRUNCATE_JOURNAL"] = "YES"
+os.environ["OGR_SQLITE_SYNCHRONOUS"] = "OFF"  # Speeds up network writes
+
 HV_CRS = CRS('EPSG:3857')
 
 # import utils.fim_logger as fl

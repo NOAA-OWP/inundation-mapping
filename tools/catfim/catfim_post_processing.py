@@ -13,6 +13,11 @@ import tools.catfim.catfim_shared_functions as csf
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
+# Force GDAL to use standard locking and synchronous write modes
+# helps with gpkg.to_file writes
+os.environ["GDAL_GEO_TRUNCATE_JOURNAL"] = "YES"
+os.environ["OGR_SQLITE_SYNCHRONOUS"] = "OFF"  # Speeds up network writes
+
 
 """_summary_
 

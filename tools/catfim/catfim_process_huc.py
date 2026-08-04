@@ -30,6 +30,11 @@ from tools.tools_shared_variables import (
 
 gpd.options.io_engine = "pyogrio"
 
+# Force GDAL to use standard locking and synchronous write modes
+# helps with gpkg.to_file writes
+os.environ["GDAL_GEO_TRUNCATE_JOURNAL"] = "YES"
+os.environ["OGR_SQLITE_SYNCHRONOUS"] = "OFF"  # Speeds up network writes
+
 
 """_summary_
 

@@ -37,8 +37,10 @@ appropriate NWM reaches.
 
 """
 
-gpd.options.io_engine = "pyogrio"
-
+gpd.options.io_engine = "pyogrio"# Force GDAL to use standard locking and synchronous write modes
+# helps with gpkg.to_file writes
+os.environ["GDAL_GEO_TRUNCATE_JOURNAL"] = "YES"
+os.environ["OGR_SQLITE_SYNCHRONOUS"] = "OFF"  # Speeds up network writes
 
 # Main function for CatFIM mapping processing for a HUC
 def process_mapping(
