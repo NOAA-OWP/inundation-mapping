@@ -61,7 +61,7 @@ def inundation_status(
     Args:
         fim_run_dir (str):    Path to FIM outputs were written by fim_pipeline.
         flow_file (str):      Path to csv flow file to be used for inundation.
-        output_file_path (str):             Path to GPKG or Parquet output.
+        output_file_path (str):             Path to GPKG or GeoParquet output.
         limit_hucs (list):    Optional. If specified, only those HUCs will be processed.
         feature_type (str):   Optional. One of ['roads', 'buildings'].
     """
@@ -93,8 +93,8 @@ def inundation_status(
         raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), fim_run_dir)
 
     # Check if file has .gpkg extension
-    if not output_file_path.lower().endswith('.gpkg'):
-        raise ValueError("Output file must have a .gpkg extension.")
+    if not os.path.splitext(output_file_path)[-1].lower() in ['.gpkg', '.parquet']:
+        raise ValueError("Output file must have a .gpkg or .parquet extension.")
 
     # confirm existence of output directory
     output_dir = os.path.dirname(output_file_path)

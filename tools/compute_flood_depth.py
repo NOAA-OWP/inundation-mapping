@@ -345,12 +345,12 @@ def flood_depth_main(
         fim_run_dir: Path to FIM outputs directory
         flow_file: Path to CSV flow file with 'feature_id' and 'discharge' columns
         geometry_file: Path to input geometry file (e.g., roads geopackage)
-        output_file_path: Path to output GeoPackage or GeoParquetfile
+        output_file_path: Path to output GeoPackage or GeoParquet file
         max_workers: Number of parallel workers for multiprocessing (default: 8)
     """
     # Validate output file extension
-    if not output_file_path.lower().endswith('.gpkg'):
-        raise ValueError("Output file must have a .gpkg extension.")
+    if not os.path.splitext(output_file_path)[-1].lower() in ['.gpkg', '.parquet']:
+        raise ValueError("Output file must have a .gpkg or .parquet extension.")
 
     # Create output directory if needed
     output_dir = os.path.dirname(output_file_path)
