@@ -528,8 +528,8 @@ def __process_elevations(
         src_usgs_elev_table = os.path.join(os.getenv("FIM_RUN_DIR"), huc, usgs_elev_table_file_name)
 
         if not os.path.isfile(src_usgs_elev_table):
-            msg = "HUC-level USGS elevation table missing from FIM run directory"
-            logging.error(f"{huc} - {msg}")
+            msg = "HUC-level USGS elevation table missing from FIM run directory, aborting run"
+            logging.warning(f"{huc} - {msg}")
 
             # If this happens, all sites in this HUC will fail and have this same message, so we can update them all
             sites_gdf = csf.update_line_status_or_warning("all", sites_gdf, msg, set_mapped_to_no=True)

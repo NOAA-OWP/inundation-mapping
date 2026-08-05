@@ -239,28 +239,28 @@ def process_threshold_data(
 
     huc_library_df = pd.DataFrame()
 
-    # Log an error and exit if the metadata JSON is empty
+    # Log a warning and exit if the metadata JSON is empty
     if len(metadata_json) == 0:
         msg = f'{huc} - Process Threshold Data - Metadata JSON empty, unable to process threshold data.'
-        logging.error(msg)
+        logging.warning(msg)
         return sites_gdf, huc_library_df
 
-    # Log an error and exit if the valid_lids is empty
+    # Log a warning and exit if the valid_lids is empty
     if len(valid_lids) == 0:
         msg = f'{huc} - Process Threshold Data - Valid LIDs list is empty, unable to process threshold data.'
-        logging.error(msg)
+        logging.warning(msg)
         return sites_gdf, huc_library_df
 
-    # Log an error and exit if the threshold_huc_df is empty
+    # Log a warning and exit if the threshold_huc_df is empty
     if len(threshold_huc_df) == 0:
         msg = f'{huc} - Process Threshold Data - threshold_huc_df is empty, unable to process threshold data.'
-        logging.error(msg)
+        logging.warning(msg)
         return sites_gdf, huc_library_df
 
-    # Log an error and exit if the sites_gdf is empty
+    # Log a warning and exit if the sites_gdf is empty
     if len(sites_gdf) == 0:
         msg = f'{huc} - Process Threshold Data - sites_gdf is empty, unable to process threshold data.'
-        logging.error(msg)
+        logging.warning(msg)
         return sites_gdf, huc_library_df
 
     # ================================
@@ -546,7 +546,7 @@ def __get_sb_library_data_per_lid(huc, lid, sites_gdf, lid_threshold_data):
     for magnitude_type in csf.MAGNITUDES_TYPES:
         try:
             # -------------
-            logging.info(f"{huc} : {lid} : {magnitude_type} - Building initial library rec")
+            # logging.info(f"{huc} : {lid} : {magnitude_type} - Building initial library rec")  # too verbose
 
             # Get stage value (will be float type, rounded to 2 decimal points)
             stage_value = stages[magnitude_type]
@@ -872,9 +872,9 @@ def __get_fb_discharge_and_library_data_per_lid(huc, lid, sites_gdf, lid_thresho
     for magnitude_type in csf.MAGNITUDES_TYPES:
         try:
             # -------------
-            logging.info(
-                f"{huc} : {lid} : {magnitude_type} - Building initial library rec and discharge data"
-            )
+            # logging.info(  # too verbose
+                # f"{huc} : {lid} : {magnitude_type} - Building initial library rec and discharge data"
+            # )
 
             # Get flow value (will be float type, rounded to 2 decimal points)
             flow_value = flows[magnitude_type]

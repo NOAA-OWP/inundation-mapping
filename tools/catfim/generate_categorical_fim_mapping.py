@@ -278,7 +278,7 @@ def run_fb_mapping(
                 continue
 
             logging.info(" ")
-            logging.info(f"{huc} : {ahps_site} - {magnitude}")
+            # logging.info(f"{huc} : {ahps_site} - {magnitude}")  # too verbose
 
             # Create a site/magnitude specific flows csv and drop unnecessary colunmns
             magnitude_flows_df_filtered = magnitude_flows_df[
@@ -579,7 +579,16 @@ def run_sb_mapping(
         # If no segments, write message and exit out
         if not segments or len(segments) == 0:
             msg = 'Missing NWM stream segments for site'
-            logging.warning(f"{huc} : {ahps_site} - msg")
+            logging.warning(f"{huc} : {ahps_site} - {msg}")
+            sites_gdf = csf.update_line_status_or_warning(ahps_site, sites_gdf, msg, set_mapped_to_no=True)
+            continue
+
+        # Get the site altitude and error out if it's NaN (we need it for the inundation calculations)
+        lid_altitude = huc_library_df[(huc_library_df['nws_lid'] == ahps_site)]['lid_alt_ft'].iloc[0]
+
+        if math.isnan(lid_altitude):
+            msg = f"Site altitude is nan, no inundation possible"
+            logging.warning(f"{huc} : {ahps_site} - {msg}")
             sites_gdf = csf.update_line_status_or_warning(ahps_site, sites_gdf, msg, set_mapped_to_no=True)
             continue
 
@@ -819,7 +828,7 @@ def run_sb_inundation(
     # TODO: Decide if we want to implement this ID to FB CatFIM too?
     huc_lid_cat_id = f"{huc} : {ahps_site} : {magnitude}"
 
-    logging.info(f"{huc_lid_cat_id} - Starting to create tifs")
+    # logging.info(f"{huc_lid_cat_id} - Starting to create tifs")  # too verbose
 
     # ---------------------
     # Calculate HAND stage
@@ -831,20 +840,10 @@ def run_sb_inundation(
     # Subtract HAND gage elevation from HAND WSE to get HAND stage.
     hand_stage_m = datum_adj_wse_m - lid_usgs_elev  # HAND stage in m
 
-    logging.info("datum_adj_wse = stage_val + datum_adj_ft + lid_altitude")  # TEMP DEBUG
-    logging.info(f"{datum_adj_wse} = {stage_val} + {datum_adj_ft} + {lid_altitude}")  # TEMP DEBUG
-    logging.info("hand_stage_m = datum_adj_wse_m - lid_usgs_elev")  # TEMP DEBUG
-    logging.info(f"{hand_stage_m} = {datum_adj_wse_m} - {lid_usgs_elev}")  # TEMP DEBUG
-
-    if math.isnan(lid_altitude):
-        msg = f"Site altitude is nan, no inundation possible"
-        logging.warning(f"{huc_lid_cat_id} - {msg}")
-        return hand_stage, datum_adj_wse, datum_adj_wse_m
-
-    if math.isnan(hand_stage_m):
-        msg = f"Hand stage (m) is nan after calulcations, no inundation possible"
-        logging.warning(f"{huc_lid_cat_id} - {msg}")
-        return hand_stage, datum_adj_wse, datum_adj_wse_m
+    logging.info(f"{huc_lid_cat_id} - datum_adj_wse = stage_val + datum_adj_ft + lid_altitude")  # TEMP DEBUG
+    logging.info(f"{huc_lid_cat_id} - {datum_adj_wse} = {stage_val} + {datum_adj_ft} + {lid_altitude}")  # TEMP DEBUG
+    logging.info(f"{huc_lid_cat_id} - hand_stage_m = datum_adj_wse_m - lid_usgs_elev")  # TEMP DEBUG
+    logging.info(f"{huc_lid_cat_id} - {hand_stage_m} = {datum_adj_wse_m} - {lid_usgs_elev}")  # TEMP DEBUG
 
     # Keep stage in meters if it's in Alaska (HUC starts with 19)
     if str(huc)[:2] == '19':
@@ -860,10 +859,9 @@ def run_sb_inundation(
     datum_adj_wse = round(datum_adj_wse, 2)
     datum_adj_wse_m = round(datum_adj_wse_m, 2)
 
-    logging.info(f"datum_adj_wse : {datum_adj_wse}")  # TEMP DEBUG
-    logging.info(f"datum_adj_wse_m : {datum_adj_wse_m}")  # TEMP DEBUG
-    logging.info(f"hand_stage : {hand_stage} {hand_stage_units}")  # TEMP DEBUG
-    logging.info("")  # TEMP DEBUG
+    logging.info(f"{huc_lid_cat_id} - datum_adj_wse : {datum_adj_wse}, datum_adj_wse_m : {datum_adj_wse_m}")  # TEMP DEBUG
+    logging.info(f"{huc_lid_cat_id} - hand_stage : {hand_stage} {hand_stage_units}")  # TEMP DEBUG
+    logging.info(f"{huc_lid_cat_id} - ")  # TEMP DEBUG
 
     # If hand_stage is negative, write message and exit out
     if hand_stage < 0:
@@ -1419,9 +1417,6 @@ def post_process_huc_mapping(huc, catfim_type, sites_gdf, huc_library_df, output
 
                     raise ve  # this shuts down processsing for this tif # TODO: apply elsewhere?
 
-            logging.info("EXITING BEFORE REFORMAT INUNDATION MAPS FUNCTION")  # TEMP DEBUG
-            sys.exit()  # TEMP DEBUG
-
             # Convert the inundation raster tif into a dissolved inundation multipolygon
             # TODO: Is there an optimization available here instead of processing each tif / mag at a time?
             extent_poly_diss = reformat_inundation_maps(
@@ -1586,16 +1581,8 @@ def reformat_inundation_maps(huc, nws_lid, magnitude, tif_to_process, interval_s
         with rasterio.open(tif_to_process) as src:
             image = src.read(1)
             mask = image > 0
-
-            logging.info(f"{huc} : {nws_lid} : {magnitude} - Raster Stats:")  # TEMP DEBUG
-            logging.info(f"{huc} : {nws_lid} : {magnitude} -   Min:  {image.min()}")  # TEMP DEBUG
-            logging.info(f"{huc} : {nws_lid} : {magnitude} -   Max:  {image.max()}")  # TEMP DEBUG
-            logging.info(f"{huc} : {nws_lid} : {magnitude} -   Mean: {image.mean()}")  # TEMP DEBUG
-
-            logging.info(f"{huc} : {nws_lid} : {magnitude} - Mask Stats:")  # TEMP DEBUG
-            logging.info(f"{huc} : {nws_lid} : {magnitude} -   Min:  {mask.min()}")  # TEMP DEBUG
-            logging.info(f"{huc} : {nws_lid} : {magnitude} -   Max:  {mask.max()}")  # TEMP DEBUG
-            logging.info(f"{huc} : {nws_lid} : {magnitude} -   Mean: {mask.mean()}")  # TEMP DEBUG
+            # logging.info(f"{huc} : {nws_lid} : {magnitude} - Min:  {image.min()}; Max:  {image.max()}")
+            # logging.info(f"{huc} : {nws_lid} : {magnitude} - Mean: {image.mean()}")
 
         # Aggregate shapes
         results = (
@@ -1606,10 +1593,9 @@ def reformat_inundation_maps(huc, nws_lid, magnitude, tif_to_process, interval_s
         # If no inundated shapes were created from the tifs, log a message and return
         list_results = list(results)
         if len(list_results) == 0:
-            logging.critical(
+            logging.warning(
                 f"{huc} : {nws_lid} : {magnitude} - No values above zero in inundated tif, "
-                "so zero inundated shapes were found. See GitHub issue #1491 for details."
-                # TODO: Is this GitHub issue still active? make sure error msg is up-to-date
+                "so zero inundated shapes were found."
             )
             return
 
@@ -1790,7 +1776,7 @@ def __calc_sb_intervals(non_rec_thresholds_df_site, past_major_interval_cap, huc
                 interval_recs.append([cur_magnitude_name, int_val])
                 stage_values_claimed.append(int_val)
 
-    logging.info(f"{huc_lid_id} interval recs are {interval_recs}")
+    # logging.info(f"{huc_lid_id} interval recs are {interval_recs}")  # too verbose
 
     return interval_recs
 
