@@ -1411,6 +1411,9 @@ def post_process_huc_mapping(huc, catfim_type, sites_gdf, huc_library_df, output
 
                     raise ve  # this shuts down processsing for this tif # TODO: apply elsewhere?
 
+            logging.info("EXITING BEFORE REFORMAT INUNDATION MAPS FUNCTION")  # TEMP DEBUG
+            sys.exit()  # TEMP DEBUG
+
             # Convert the inundation raster tif into a dissolved inundation multipolygon
             # TODO: Is there an optimization available here instead of processing each tif / mag at a time?
             extent_poly_diss = reformat_inundation_maps(
@@ -1575,6 +1578,16 @@ def reformat_inundation_maps(huc, nws_lid, magnitude, tif_to_process, interval_s
         with rasterio.open(tif_to_process) as src:
             image = src.read(1)
             mask = image > 0
+
+            logging.info(f"{huc} : {nws_lid} : {magnitude} - Raster Stats:")  # TEMP DEBUG
+            logging.info(f"{huc} : {nws_lid} : {magnitude} -   Min:  {image.min()}")  # TEMP DEBUG
+            logging.info(f"{huc} : {nws_lid} : {magnitude} -   Max:  {image.max()}")  # TEMP DEBUG
+            logging.info(f"{huc} : {nws_lid} : {magnitude} -   Mean: {image.mean()}")  # TEMP DEBUG
+
+            logging.info(f"{huc} : {nws_lid} : {magnitude} - Mask Stats:")  # TEMP DEBUG
+            logging.info(f"{huc} : {nws_lid} : {magnitude} -   Min:  {mask.min()}")  # TEMP DEBUG
+            logging.info(f"{huc} : {nws_lid} : {magnitude} -   Max:  {mask.max()}")  # TEMP DEBUG
+            logging.info(f"{huc} : {nws_lid} : {magnitude} -   Mean: {mask.mean()}")  # TEMP DEBUG
 
         # Aggregate shapes
         results = (
