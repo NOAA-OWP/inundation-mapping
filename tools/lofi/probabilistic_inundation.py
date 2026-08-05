@@ -182,7 +182,7 @@ def generate_streamflow_percentiles(
         return rv
 
 
-# TODO: Replace this code with LoFi Optimization PR [1912](https://github.com/NOAA-OWP/inundation-mapping/pull/1912)
+# TODO: Replace this code with LoFi Optimization PR [1912](https://github.com/NOAA-OWP/inundation-mapping/pull/1910)
 def analyze_nonmonotonic_src(srcs_df):
     """
     Check for any non-monotonically increasing discharge and enforce monotonicity.
@@ -252,7 +252,7 @@ def analyze_nonmonotonic_src(srcs_df):
     return srcs_df
 
 
-# TODO: Replace this code with LoFi Optimization PR [1912](https://github.com/NOAA-OWP/inundation-mapping/pull/1912)
+# TODO: Replace this code with LoFi Optimization PR [1912](https://github.com/NOAA-OWP/inundation-mapping/pull/1910)
 def get_subdivided_src(hydrofabric_dir, huc, branch, channel_manning, overbank_manning, slope_adj):
     """
     Method for subdividing a synthetic rating curve based on the high water threshold
