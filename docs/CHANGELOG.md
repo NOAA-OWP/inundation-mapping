@@ -36,8 +36,8 @@ Bash scripts were also refactored to use bash arrays and use of explicit notatio
     - `deny_branch_zero.lst`, `deny_branches.lst`, `deny_unit.lst`
 - `src/`
     - `add_crosswalk.py`, `adjust_floodplains.py`, `aggregate_branches_to_huc.py`, `associate_levelpaths_with_levees.py`, `derive_level_paths.py`, `filter_catchments_and_add_attributes.py`, `heal_bridges_osm.py`, `longitudinal_flow_adjustment.py`, `make_stages_and_catchlist.py`, `mask_dem.py`, `mitigate_branch_outlet_backpool.py`, `process_buildings_fimpact.py`, `process_roads_fimpact.py`, `split_flows.py`, `src_adjust_usgs_rating_trace.py`, `src_roughness_optimization.py`, `stream_branches.py`, `usgs_gage_crosswalk.py`, `usgs_gage_unit_setup.py`
- - `tools/
-     - catfim/`
+ - `tools/`
+     - `catfim/`
          - `vis_categorical_fim.py`
      - `bridge_inundation.py`, `evaluate_crosswalk.py`, `rating_curve_comparison.py`
 
@@ -45,6 +45,9 @@ Bash scripts were also refactored to use bash arrays and use of explicit notatio
 - `fim_pre_processing.sh`, `fim_pipeline.sh`, `fim_process_huc.sh`, `fim_postprocessing.sh`
 - `src/`
     - `bash_functions.env`, `calibrate_rating_curves.sh`, `process_branch.sh`
+
+#### Updated deny list
+- `config/deny_unit.lst`: Commented `buildings_subset.gpkg`
 
 <br/>
 

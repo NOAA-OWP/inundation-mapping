@@ -15,7 +15,7 @@ agree_smogrid_zerod.tif
 branch_polygons.parquet
 bridge_elev_diff_meters.tif
 # buildings_fimpact.csv
-buildings_subset.gpkg
+# buildings_subset.gpkg
 dem_burned.tif
 dem_burned_filled.tif
 dem_meters.tif
