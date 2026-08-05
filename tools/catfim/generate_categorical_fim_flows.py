@@ -237,29 +237,31 @@ def process_threshold_data(
     # ================================
     # Validate function inputs
 
+    huc_library_df = pd.DataFrame()
+
     # Log an error and exit if the metadata JSON is empty
     if len(metadata_json) == 0:
         msg = f'{huc} - Process Threshold Data - Metadata JSON empty, unable to process threshold data.'
         logging.error(msg)
-        return sites_gdf, None
+        return sites_gdf, huc_library_df
 
     # Log an error and exit if the valid_lids is empty
     if len(valid_lids) == 0:
         msg = f'{huc} - Process Threshold Data - Valid LIDs list is empty, unable to process threshold data.'
         logging.error(msg)
-        return sites_gdf, None
+        return sites_gdf, huc_library_df
 
     # Log an error and exit if the threshold_huc_df is empty
     if len(threshold_huc_df) == 0:
         msg = f'{huc} - Process Threshold Data - threshold_huc_df is empty, unable to process threshold data.'
         logging.error(msg)
-        return sites_gdf, None
+        return sites_gdf, huc_library_df
 
     # Log an error and exit if the sites_gdf is empty
     if len(sites_gdf) == 0:
         msg = f'{huc} - Process Threshold Data - sites_gdf is empty, unable to process threshold data.'
         logging.error(msg)
-        return sites_gdf, None
+        return sites_gdf, huc_library_df
 
     # ================================
     # Create filepath variables
