@@ -14,6 +14,10 @@ import tools.catfim.catfim_post_processing as cpp
 import tools.catfim.catfim_shared_functions as csf
 import tools.catfim.generate_categorical_fim as gcf
 
+# Force GDAL to use standard locking and synchronous write modes
+# helps with gpkg.to_file writes
+os.environ["GDAL_GEO_TRUNCATE_JOURNAL"] = "YES"
+os.environ["OGR_SQLITE_SYNCHRONOUS"] = "OFF"  # Speeds up network writes
 
 '''
 This tool is being used to combine the outputs of two CatFIM runs (primary and secondary) into a single set of outputs.

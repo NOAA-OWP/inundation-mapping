@@ -356,16 +356,26 @@ def process_generate_categorical_fim(
         # Load up a list of hucs.
         # Maybe we can clean it up and add as an arg for a long term option?
         # This needs hardening
-        attempt_huc_list_file = "data/catfim/SB-hand_4_9_20_1-huc_list_2.csv"
+        attempt_huc_list_file = "data/catfim/rob_tests/rob_test_list_1.csv"
         attempt_huc_list_df = pd.read_csv(attempt_huc_list_file, dtype=str, header=None, names=["hucs"])
+        attempt_huc_list = attempt_huc_list_df["hucs"].unique().tolist()
 
         valid_fim_hucs = []
-        for ___, row in attempt_huc_list_df.iterrows():
-            huc = row['hucs']
-            if huc in nwm_huc_list:
+        for huc in adj_valid_fim_hucs:
+            if huc in nwm_huc_list and huc in attempt_huc_list:
                 valid_fim_hucs.append(huc)
-            else:
+            elif huc in nwm_huc_list:
                 logging.debug(f".... {huc} does not have any nwm sites")
+            else:
+                logging.debug(f".... {huc} is not on the huc attempt list")
+
+        # NON HACK VERSION (no attempt list)- need to look into this deeper to figure out a good long answer
+        # valid_fim_hucs = []
+        # for pre_filtered_huc in adj_valid_fim_hucs:
+        #     if pre_filtered_huc in nwm_huc_list:
+        #         valid_fim_hucs.append(huc)
+        #     else:
+        #         logging.debug(f".... {huc} does not have any nwm sites")
 
         # strip dups
         valid_fim_hucs = list(set(valid_fim_hucs))
