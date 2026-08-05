@@ -1247,8 +1247,8 @@ def mosaic_sb_inundation(lid, output_mapping_dir, category_key, huc_lid_cat_id):
 
     # Exit function if there aren't any tifs to mosaic
     if len(lid_dir_list) == 0:
-        logging.error(  # TODO: Should this be an error or warning? Might want to trace further up
-            f"{huc_lid_cat_id} - No branch tifs found for category key {category_key}. Skipping mosaicking and lake masking."
+        logging.warning(
+            f"{huc_lid_cat_id} - No branch tifs found for category key {category_key}. Possibly no hydrotable or valid streamlines found. Skipping mosaicking and lake masking."
         )
         is_success = False
         return None, is_success
