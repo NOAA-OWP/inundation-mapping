@@ -356,13 +356,14 @@ def process_generate_categorical_fim(
         # Load up a list of hucs.
         # Maybe we can clean it up and add as an arg for a long term option?
         # This needs hardening
-        attempt_huc_list_file = "data/catfim/rob_tests/rob_test_list_1.csv"
-        attempt_huc_list_df = pd.read_csv(attempt_huc_list_file, dtype=str, header=None, names=["hucs"])
-        attempt_huc_list = attempt_huc_list_df["hucs"].unique().tolist()
+        # attempt_huc_list_file = "data/catfim/rob_tests/rob_test_list_1.csv"
+        # attempt_huc_list_df = pd.read_csv(attempt_huc_list_file, dtype=str, header=None, names=["hucs"])
+        # attempt_huc_list = attempt_huc_list_df["hucs"].unique().tolist()
 
         valid_fim_hucs = []
         for huc in adj_valid_fim_hucs:
-            if huc in nwm_huc_list and huc in attempt_huc_list:
+            if huc in nwm_huc_list:  # TEMP DEBUG EMILY
+            # if huc in nwm_huc_list and huc in attempt_huc_list:  # TEMP DEBUG EMILY - commenting out Rob's HUC list file thing
                 valid_fim_hucs.append(huc)
             elif huc in nwm_huc_list:
                 logging.debug(f".... {huc} does not have any nwm sites")
