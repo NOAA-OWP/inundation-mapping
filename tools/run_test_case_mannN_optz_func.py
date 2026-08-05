@@ -534,7 +534,7 @@ def produce_mosaicked_inundation(
             mask_path=mask,
             unit_attribute_name=unit_attribute_name,
             nodata=elev_raster_ndv,
-            remove_inputs=remove_intermediate,
+            remove_intermediate_files=remove_intermediate,
             verbose=verbose,
             is_mosaic_for_branches=is_mosaic_for_branches,
             inundation_polygon=inundation_polygon,

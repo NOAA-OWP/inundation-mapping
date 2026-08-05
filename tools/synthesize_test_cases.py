@@ -611,7 +611,7 @@ if __name__ == '__main__':
         default="",
     )
     parser.add_argument(
-        '-ja',
+        '-jh',
         '--job-number-alpha-tests',
         help='This number is used to manage how many jobs for huc + benchmark type can be processed at one time.'
         'Number of processes to use for HUC scale operations. Number of Alpha jobs and Batch job numbers should'

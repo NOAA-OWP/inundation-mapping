@@ -4,11 +4,11 @@
 import logging
 import os
 import traceback
-from os.path import splitext
+import warnings
+# from os.path import splitext
 from typing import List, Optional, Tuple, Union
-from warnings import warn
 
-import fiona
+# import fiona
 import geopandas as gpd
 import numpy as np
 import pandas as pd
@@ -21,7 +21,12 @@ from shapely.geometry import shape
 import src.utils.shared_functions as sf
 
 
+# from warnings import warn
+
+
 gpd.options.io_engine = "pyogrio"
+warnings.simplefilter(action='ignore', category=FutureWarning)
+logging.getLogger('numba').setLevel(logging.WARNING)
 
 
 def inundate(
@@ -775,10 +780,10 @@ def __subset_hydroTable_to_forecast(
         else typed.Dict.empty(types.int32, types.float32)
     )
 
-    print("------------------")
-    logging.info(hydro_table_branch_df.info())
-    logging.info(hydro_table_branch_df.index.names)
-    print("------------------")
+    # print("------------------")
+    # logging.info(hydro_table_branch_df.info())
+    # logging.info(hydro_table_branch_df.index.names)
+    # print("------------------")
 
     # interpolate stages
     for hid, sub_table in hydro_table_branch_df.groupby('HydroID'):

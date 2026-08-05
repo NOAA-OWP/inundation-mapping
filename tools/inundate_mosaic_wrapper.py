@@ -28,7 +28,8 @@ def produce_mosaicked_inundation(
     # appended to add branch ids, etc to create the inundation mp df for the final mosaic
     output_raster_path: str,  # The final mosaicked output raster file path
     hydro_table_path: Optional[str] = None,
-    # inundation_polygon: Optional[str] = None,  # July 2026: Not in use. The only thing using a depth raster
+    # inundation_polygon: Optional[str] = None,  # July 2026: Not in use by any scripts comign through this function.
+    # The only thing using a depth raster
     # is interpolate_water_surface.py and that jumps in a inundate_gms and not here.
     # depths_raster_path: Optional[str] = None,
     # map_filename: Optional[str] = None
@@ -45,9 +46,10 @@ def produce_mosaicked_inundation(
     # Note: You will find that you can use more threads then cpu's, so the limit does not apply.
     # num_workers: Optional[int] = 1,
     # Aug 2026: Nothing is using it but keep it for now in case someone wants it
-    # for debugging
-    remove_intermediate: Optional[bool] = True,
+    # for debugging. This is really just for branch tifs
+    remove_intermediate_files: Optional[bool] = True,
     verbose: Optional[bool] = False,
+    # unit_attribute_name which is already the value of 'huc8' and really can not be otherwise.
     is_mosaic_for_branches: Optional[bool] = False,
     num_threads: Optional[int] = 1,
     precalb_option: Optional[bool] = False,
@@ -102,12 +104,15 @@ def produce_mosaicked_inundation(
     #        The name of the processing unit
     #    num_workers : Optional[int]:
     #        Number of parallel processes to run.
-        remove_intermediate : Optional[bool], default=True
+        remove_intermediate_files : Optional[bool], default=True
             Option to keep intermediate files.
         verbose : Optional[bool], default=False
             Print verbose messages to screen. Not tested.
         is_mosaic_for_branches : Optional[Bool], default=False
-            Whether the mosaic routine is for branches
+            Whether the mosaic routine appends the huc name to the mosaic output file name.
+            Technically, it would append the unit_attribute_name which is almost always huc8.
+            This feature primarily has value when mosaicing multiple hucs as each huc
+            is mosaicked for its branches.
         num_threads : Optional[int], default=1
             Number of threads to process
         precalb_option : Optional[bool], default=False
@@ -122,7 +127,6 @@ def produce_mosaicked_inundation(
     #        Use processes for parallel processing instead of threads
     """
 
-    print("++++++++++++++++++++++++++++++++++++++++++++++++")
     logging.info("Starting produce_mosaicked_inundation")
     # print(locals())
 
@@ -190,9 +194,11 @@ def produce_mosaicked_inundation(
 
     #     map_file.to_csv(map_filename, index=False)
 
-    logging.info(f"Mosaicking extent... - [{hucs}]")
+    logging.info(f"Mosaicking extent... - {hucs}")
 
-    logging.debug(raster_paths_df)
+    # logging.debug("raster path df info")
+    # logging.debug(raster_paths_df.info())
+    # logging.debug(raster_paths_df)
 
     #     raise Exception(f"Aborting hucs = {hucs} -  just before mosiac attempt")
 
@@ -202,7 +208,7 @@ def produce_mosaicked_inundation(
     # have to keep loading the wbd.gpkg
 
     # Aug, 2026: This always became the value of "inundation_rasters" in all scenerios
-    # commented it out
+    # commented it out coming via produce_mosaicked_iundation
     # for mosaic_attribute in ["depths_rasters", "inundation_rasters"]:
     #     mosaic_output = None
     #     if mosaic_attribute == "inundation_rasters":
@@ -213,19 +219,20 @@ def produce_mosaicked_inundation(
     #             mosaic_output = depths_raster
 
     #     if mosaic_output is not None:
-
+    # Aug 2026: masking system commented out. See notes at mosiac_iundation.py -> mask_mosiac function
     mosaic_file_path = Mosaic_inundation(
         raster_paths_df.copy(),
         output_mosaic_path=output_raster_path,
-        mosaic_attribute="inundation_rasters",  # has to be inundation_rasters for this code path
+        # mosaic_attribute is the colum name in the (raster_paths_df) that has the paths to be mosiacked
+        mosaic_attribute="inundation_raster_path",
         # mask_path=mask_path,
-        unit_attribute_name="huc8",  # has to always be huc8 for this code pathing
+        # unit_attribute_name="huc8",  CAn only be huc8 right now. Defaulted it in mosaic_iundation
         nodata=nodata,
-        remove_inputs=remove_intermediate,
+        remove_intermediate_files=remove_intermediate_files,
         verbose=verbose,
         is_mosaic_for_branches=is_mosaic_for_branches,
         # inundation_polygon=inundation_polygon,
-        num_threads=num_threads,  # likely broke as part of the write_window error
+        # num_threads=num_threads,  # likely broke as part of the write_window error
     )
 
     # fh.vprint("Mosaicking complete.", verbose)

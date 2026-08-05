@@ -196,7 +196,9 @@ def run_inundation(args):
     # July 2026: We no longer pass in num_workers as downstream no only uses multi-threading.
     # Some other scripts use num_workers to have their own MP before passing into produce_mosaicked_inundation
     # but others, just use high thread counts, such as this tool historically.
-    # See more notes in produce_mosaicked_inundation
+    # See more notes in produce_mosaicked_inundation and mosaic_inundation
+    # In this case, it is processing multiple hucs at a time, so it will automatically use the
+    # output_raster_path as a base name and location, appending the huc value to each one produced
     produce_mosaicked_inundation(
         fim_run_dir,
         huc_list,
@@ -204,8 +206,10 @@ def run_inundation(args):
         output_raster_path=inundation_raster,
         # num_workers=job_number,
         num_threads=thread_number,
-        # remove_intermediate=True,
+        remove_intermediate_files=True,
         verbose=True,
+        # True because we are processing more than one HUC. This means for each huc, all of its branches
+        # are mosaicked at the HUC level.
         is_mosaic_for_branches=True,
         # gms_multi_process=True,
         precalb_option=precalb,

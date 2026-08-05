@@ -131,9 +131,9 @@ def inundate_with_catchment_spillover(
         )
         # Compute new depth rasters and overwrite
         interpolate_wse(
-            row['depths_rasters'],
+            row['depths_raster_path'],
             dem,
-            row['depths_rasters'],
+            row['depths_raster_path'],
             output_interpolated_wse=None,
             max_distance=max_distance,
             smooth_iterations=smooth_iterations,
@@ -143,13 +143,13 @@ def inundate_with_catchment_spillover(
     # Aug 2026: masking system commented out. See notes at mosiac_iundation.py -> mask_mosiac function
     Mosaic_inundation(
         map_files_df,
-        mosaic_attribute='depths_rasters',
+        mosaic_attribute='depths_raster_path',
         output_mosaic_path=depths_raster,
         # mask_path=None,
-        unit_attribute_name='huc8',
+        # unit_attribute_name='huc8',
         nodata=elev_raster_ndv,
-        num_workers=1,
-        remove_inputs=not keep_intermediate,
+        # num_workers=1,
+        remove_intermediate_files=not keep_intermediate,
         subset=None,
         verbose=verbose,
     )

@@ -386,13 +386,13 @@ def run_fb_inundation(  # renamed from run_inundation
         # Aug 2026: masking system commented out. See notes at mosiac_iundation.py -> mask_mosiac function
         Mosaic_inundation(
             map_file,
-            mosaic_attribute='inundation_rasters',
+            mosaic_attribute='inundation_rasters_path',
             output_mosaic_path=output_extent_tif,
             # mask_path=os.path.join(fim_run_dir, huc, 'wbd.gpkg'),
-            unit_attribute_name='huc8',
+            # unit_attribute_name='huc8',
             nodata=csf.ELEV_NODATA_VALUE,
-            num_workers=1,
-            remove_inputs=False,
+            # num_workers=1,
+            remove_intermediate_files=False,
             subset=None,
             verbose=False,
         )

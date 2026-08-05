@@ -22,6 +22,7 @@ from src.utils.shared_functions import (
     s3_or_local_path_exists,
 )
 
+logging.getLogger('numba').setLevel(logging.WARNING)
 
 # Commented out some args that we no longer valid or not used by any scripts
 def Inundate_gms(
