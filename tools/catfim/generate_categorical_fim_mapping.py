@@ -836,9 +836,15 @@ def run_sb_inundation(
     logging.info("hand_stage_m = datum_adj_wse_m - lid_usgs_elev")  # TEMP DEBUG
     logging.info(f"{hand_stage_m} = {datum_adj_wse_m} - {lid_usgs_elev}")  # TEMP DEBUG
 
-    # hand_stage = ( # TODO: Clean up
-    #     hand_stage_m if str(huc)[:2] == '19' else round(hand_stage_m * 1000)
-    # )  # convert to mm to match HAND if it's NOT Alaska (HUC starts with 19)
+    if math.isnan(lid_altitude):
+        msg = f"Site altitude is nan, no inundation possible"
+        logging.warning(f"{huc_lid_cat_id} - {msg}")
+        return hand_stage, datum_adj_wse, datum_adj_wse_m
+
+    if math.isnan(hand_stage_m):
+        msg = f"Hand stage (m) is nan after calulcations, no inundation possible"
+        logging.warning(f"{huc_lid_cat_id} - {msg}")
+        return hand_stage, datum_adj_wse, datum_adj_wse_m
 
     # Keep stage in meters if it's in Alaska (HUC starts with 19)
     if str(huc)[:2] == '19':
