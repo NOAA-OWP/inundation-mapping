@@ -1,24 +1,27 @@
 #!/usr/bin/env python3
 """
-Modernized delineate_hydros_and_produce_HAND.py
-------------------------------------------------
-Executes HAND/REM production by reading configuration directly from repo .env files
-(config/params_template.env and src/bash_variables.env) and taking dynamic runtime
-variables strictly via CLI arguments.
+Complete Hybrid In-Memory delineate_hydros_and_produce_HAND.py
+---------------------------------------------------------------
+Executes all HAND/REM production steps. Python sub-scripts are imported directly
+and executed in RAM. Intermediate datasets are flushed to disk strictly at TauDEM
+C++ process boundaries.
 """
 
 import argparse
 import os
 import re
-import shutil
-import subprocess
 import sys
 from pathlib import Path
 
 import numpy as np
 from osgeo import gdal, ogr
 
-from utils.gdal_cli_utils import export_vsimem_to_disk, gdal_rasterize_vector
+# Direct Python In-Memory Imports
+from accumulate_headwaters import accumulate_headwaters_in_memory
+from adjust_thalweg_lateral import adjust_thalweg_lateral_in_memory
+from make_rem import create_rem_in_memory
+from mask_dem import mask_dem_in_memory
+from unique_pixel_and_allocation import unique_pixel_allocation_in_memory
 
 
 gdal.UseExceptions()
@@ -28,14 +31,14 @@ PROJECT_ROOT = SRC_DIR.parent
 
 
 # ------------------------------------------------------------------------------
-# 1. Config Loader & Execution Helpers
+# 1. Config Loader & Memory/Disk Handlers
 # ------------------------------------------------------------------------------
 def load_config_from_env_files() -> dict:
-    """
-    Parses config/params_template.env and src/bash_variables.env directly into
-    a dictionary without relying on os.getenv or bash exports.
-    """
-    config = {}
+    config = dict(os.environ)
+    config.setdefault("projectDir", str(PROJECT_ROOT))
+    config.setdefault("srcDir", str(SRC_DIR))
+    config.setdefault("toolsDir", str(PROJECT_ROOT / "tools"))
+
     env_files = [PROJECT_ROOT / "config" / "params_template.env", SRC_DIR / "bash_variables.env"]
 
     for env_file in env_files:
@@ -51,147 +54,161 @@ def load_config_from_env_files() -> dict:
                         val = m.group(2).rsplit("#", 1)[0].strip().strip('"').strip("'")
                         config[key] = val
 
-    # Resolve internal variable interpolations (e.g., $projectDir/src -> /foss_fim/src)
-    config.setdefault("projectDir", str(PROJECT_ROOT))
-    config.setdefault("srcDir", str(SRC_DIR))
-    config.setdefault("toolsDir", str(PROJECT_ROOT / "tools"))
-
-    for _ in range(3):
+    pattern = re.compile(r'\$\{?([A-Za-z0-9_]+)\}?')
+    for _ in range(5):
+        updated = False
         for k, v in list(config.items()):
-            for var_k, var_v in config.items():
-                v = v.replace(f"${{{var_k}}}", var_v).replace(f"${var_k}", var_v)
-            config[k] = v
+            matches = pattern.findall(str(v))
+            for var_name in matches:
+                if var_name in config:
+                    new_v = v.replace(f"${{{var_name}}}", config[var_name]).replace(
+                        f"${var_name}", config[var_name]
+                    )
+                    if new_v != v:
+                        config[k] = new_v
+                        v = new_v
+                        updated = True
+        if not updated:
+            break
 
     return config
 
 
-def run_cmd(cmd: list):
-    """Executes a command-line program with strict error checking."""
-    print(f"--> [Exec] {' '.join(str(c) for c in cmd)}")
-    res = subprocess.run(cmd, capture_output=True, text=True)
-    if res.returncode != 0:
-        raise RuntimeError(
-            f"Command failed with code {res.returncode}:\n"
-            f"Command: {' '.join(str(c) for c in cmd)}\n"
-            f"STDOUT: {res.stdout}\nSTDERR: {res.stderr}"
-        )
-    return res.stdout
+def persist_dataset(ds: gdal.Dataset, dst_path: Path, srs_wkt: str = None, force: bool = True):
+    """Flushes an in-memory dataset to disk with explicit SRS preservation."""
+    if force and ds is not None:
+        dst_path = Path(dst_path)
+        dst_path.parent.mkdir(parents=True, exist_ok=True)
+
+        if srs_wkt and not ds.GetProjectionRef():
+            ds.SetProjection(srs_wkt)
+
+        driver = gdal.GetDriverByName("GTiff")
+        driver.CreateCopy(str(dst_path), ds, strict=0, options=["COMPRESS=LZW", "TILED=YES"])
 
 
 def run_python_script(script_path: Path, args: list):
-    """Executes an internal Python script using sys.executable."""
+    """Executes subprocess scripts with verbose error output."""
     if not script_path.is_file():
         raise FileNotFoundError(f"Required script missing: {script_path}")
     cmd = [sys.executable, str(script_path)] + [str(a) for a in args]
-    run_cmd(cmd)
+    print(f"--> [Subprocess Exec] {' '.join(str(c) for c in cmd)}")
+    import subprocess
+
+    p = subprocess.run(cmd, capture_output=True, text=True)
+    if p.returncode != 0:
+        print(f"\n==================== SUBPROCESS ERROR ({p.returncode}) ====================")
+        print(f"Command: {' '.join(str(c) for c in cmd)}")
+        if p.stdout:
+            print(f"\n--- STDOUT ---\n{p.stdout.strip()}")
+        if p.stderr:
+            print(f"\n--- STDERR ---\n{p.stderr.strip()}")
+        print("===================================================================\n")
+        raise RuntimeError(f"Script error ({p.returncode}) in {script_path.name}")
 
 
-# ------------------------------------------------------------------------------
-# 2. In-Memory GDAL Helpers
-# ------------------------------------------------------------------------------
-def gdal_calc_multiply(in_raster_a: Path, in_raster_b: Path, out_raster: Path, nodata_val: float):
-    ds_a = gdal.Open(str(in_raster_a))
-    ds_b = gdal.Open(str(in_raster_b))
-
+def gdal_multiply_in_memory(ds_a: gdal.Dataset, ds_b: gdal.Dataset, nodata_val: float = 0) -> gdal.Dataset:
     arr_a = ds_a.GetRasterBand(1).ReadAsArray()
     arr_b = ds_b.GetRasterBand(1).ReadAsArray()
 
     calc_res = (arr_a * arr_b).astype(np.int32)
 
-    driver = gdal.GetDriverByName("GTiff")
-    out_ds = driver.Create(
-        str(out_raster),
-        ds_a.RasterXSize,
-        ds_a.RasterYSize,
-        1,
-        gdal.GDT_Int32,
-        options=["COMPRESS=LZW", "TILED=YES", "BIGTIFF=YES"],
-    )
+    driver = gdal.GetDriverByName("MEM")
+    out_ds = driver.Create("", ds_a.RasterXSize, ds_a.RasterYSize, 1, gdal.GDT_Int32)
     out_ds.SetGeoTransform(ds_a.GetGeoTransform())
-    out_ds.SetProjection(ds_a.GetProjection())
+    out_ds.SetProjection(ds_a.GetProjectionRef())
 
     band = out_ds.GetRasterBand(1)
     band.SetNoDataValue(int(nodata_val))
     band.WriteArray(calc_res)
     out_ds.FlushCache()
 
-    ds_a = None
-    ds_b = None
-    out_ds = None
+    return out_ds
 
 
-def gdal_calc_rem_zero_mask(rem_path: Path, gw_reach_path: Path, out_path: Path, ndv_val: float):
-    ds_a = gdal.Open(str(rem_path))
-    ds_b = gdal.Open(str(gw_reach_path))
+def gdal_rem_zero_mask_in_memory(
+    rem_ds: gdal.Dataset, catch_ds: gdal.Dataset, nodata_val: float
+) -> gdal.Dataset:
+    arr_a = rem_ds.GetRasterBand(1).ReadAsArray().astype(np.float32)
+    arr_b = catch_ds.GetRasterBand(1).ReadAsArray().astype(np.float32)
 
-    arr_a = ds_a.GetRasterBand(1).ReadAsArray().astype(np.float32)
-    arr_b = ds_b.GetRasterBand(1).ReadAsArray().astype(np.float32)
-
-    ndv_float = float(ndv_val)
-
+    ndv_float = float(nodata_val)
     mask = (arr_a >= 0) & (arr_b > 0)
     calc_res = np.where(mask, arr_a, ndv_float).astype(np.float32)
 
-    driver = gdal.GetDriverByName("GTiff")
-    out_ds = driver.Create(
-        str(out_path),
-        ds_a.RasterXSize,
-        ds_a.RasterYSize,
-        1,
-        gdal.GDT_Float32,
-        options=["COMPRESS=LZW", "TILED=YES", "BIGTIFF=YES"],
-    )
-    out_ds.SetGeoTransform(ds_a.GetGeoTransform())
-    out_ds.SetProjection(ds_a.GetProjection())
+    driver = gdal.GetDriverByName("MEM")
+    out_ds = driver.Create("", rem_ds.RasterXSize, rem_ds.RasterYSize, 1, gdal.GDT_Float32)
+    out_ds.SetGeoTransform(rem_ds.GetGeoTransform())
+    out_ds.SetProjection(rem_ds.GetProjectionRef())
 
     band = out_ds.GetRasterBand(1)
     band.SetNoDataValue(ndv_float)
     band.WriteArray(calc_res)
     out_ds.FlushCache()
 
-    ds_a = None
-    ds_b = None
-    out_ds = None
+    return out_ds
 
 
-def gdal_calc_heal_hand(
-    rem_path: Path, dem_path: Path, thalweg_cond_path: Path, out_path: Path, ndv_val: float
-):
-    ds_r = gdal.Open(str(rem_path))
-    ds_d = gdal.Open(str(dem_path))
-    ds_t = gdal.Open(str(thalweg_cond_path))
+def gdal_heal_hand_in_memory(
+    rem_ds: gdal.Dataset, dem_ds: gdal.Dataset, thalweg_cond_ds: gdal.Dataset, nodata_val: float
+) -> gdal.Dataset:
+    arr_r = rem_ds.GetRasterBand(1).ReadAsArray().astype(np.float32)
+    arr_d = dem_ds.GetRasterBand(1).ReadAsArray().astype(np.float32)
+    arr_t = thalweg_cond_ds.GetRasterBand(1).ReadAsArray().astype(np.float32)
 
-    arr_r = ds_r.GetRasterBand(1).ReadAsArray().astype(np.float32)
-    arr_d = ds_d.GetRasterBand(1).ReadAsArray().astype(np.float32)
-    arr_t = ds_t.GetRasterBand(1).ReadAsArray().astype(np.float32)
-
-    ndv_float = float(ndv_val)
-
+    ndv_float = float(nodata_val)
     valid = arr_r != ndv_float
     calc_res = np.copy(arr_r)
     calc_res[valid] = arr_r[valid] + (arr_d[valid] - arr_t[valid])
 
-    driver = gdal.GetDriverByName("GTiff")
-    out_ds = driver.Create(
-        str(out_path),
-        ds_r.RasterXSize,
-        ds_r.RasterYSize,
-        1,
-        gdal.GDT_Float32,
-        options=["COMPRESS=LZW", "TILED=YES", "BIGTIFF=YES"],
-    )
-    out_ds.SetGeoTransform(ds_r.GetGeoTransform())
-    out_ds.SetProjection(ds_r.GetProjection())
+    driver = gdal.GetDriverByName("MEM")
+    out_ds = driver.Create("", rem_ds.RasterXSize, rem_ds.RasterYSize, 1, gdal.GDT_Float32)
+    out_ds.SetGeoTransform(rem_ds.GetGeoTransform())
+    out_ds.SetProjection(rem_ds.GetProjectionRef())
 
     band = out_ds.GetRasterBand(1)
     band.SetNoDataValue(ndv_float)
     band.WriteArray(calc_res)
     out_ds.FlushCache()
 
-    ds_r = None
-    ds_d = None
-    ds_t = None
-    out_ds = None
+    return out_ds
+
+
+def gdal_rasterize_vector(
+    src_vector: str,
+    template_raster: str,
+    dst_raster: str,
+    attribute: str = None,
+    burn_value: float = None,
+    init_value: float = 0,
+):
+    tmpl_ds = gdal.Open(template_raster)
+    driver = gdal.GetDriverByName("GTiff")
+    out_ds = driver.Create(
+        dst_raster,
+        tmpl_ds.RasterXSize,
+        tmpl_ds.RasterYSize,
+        1,
+        gdal.GDT_Int32 if attribute else gdal.GDT_Float32,
+        options=["COMPRESS=LZW", "TILED=YES"],
+    )
+    out_ds.SetGeoTransform(tmpl_ds.GetGeoTransform())
+    out_ds.SetProjection(tmpl_ds.GetProjectionRef())
+
+    band = out_ds.GetRasterBand(1)
+    band.Fill(init_value)
+
+    vec_ds = ogr.Open(src_vector)
+    layer = vec_ds.GetLayer()
+
+    opts = []
+    if attribute:
+        opts.append(f"ATTRIBUTE={attribute}")
+    if burn_value is not None:
+        opts.append(f"BURN={burn_value}")
+
+    gdal.RasterizeLayer(out_ds, [1], layer, options=opts)
+    out_ds.FlushCache()
 
 
 def gdal_polygonize_raster(in_raster: Path, out_gpkg: Path, layer_name: str, field_name: str):
@@ -217,7 +234,7 @@ def gdal_polygonize_raster(in_raster: Path, out_gpkg: Path, layer_name: str, fie
 
 
 # ------------------------------------------------------------------------------
-# 3. Main HAND Workflow
+# 2. Main Workflow Execution
 # ------------------------------------------------------------------------------
 def delineate_and_produce_hand(
     level: str,
@@ -227,7 +244,6 @@ def delineate_and_produce_hand(
     current_branch_id: str,
     branch_zero_id: str,
 ):
-    # Load configuration parameters directly from .env files
     cfg = load_config_from_env_files()
 
     tempHucDataDir = Path(temp_huc_dir)
@@ -239,7 +255,7 @@ def delineate_and_produce_hand(
     taudemDir = cfg.get("taudemDir", "/dependencies/taudem/bin")
     taudemDir2 = cfg.get("taudemDir2", "/dependencies/taudem_accelerated_flowDirections/taudem/build/bin")
 
-    # Parameters loaded directly from .env files
+    ndv = float(cfg.get("ndv", "-9999"))
     ncores_fd = cfg.get("ncores_fd", "1")
     ncores_gw = cfg.get("ncores_gw", "1")
     mask_leveed_area_toggle = cfg.get("mask_leveed_area_toggle", "False")
@@ -249,7 +265,6 @@ def delineate_and_produce_hand(
     max_split_distance_meters = cfg.get("max_split_distance_meters", "1500")
     slope_min = cfg.get("slope_min", "0.00001")
     lakes_buffer_dist_meters = cfg.get("lakes_buffer_dist_meters", "150")
-    ndv = cfg.get("ndv", "-9999")
     stage_min_meters = cfg.get("stage_min_meters", "0")
     stage_interval_meters = cfg.get("stage_interval_meters", "0.1")
     stage_max_meters = cfg.get("stage_max_meters", "20")
@@ -263,6 +278,7 @@ def delineate_and_produce_hand(
 
     huc2Identifier = int(huc_number[:2]) if huc_number and len(huc_number) >= 2 else 0
 
+    # Path resolution directly matching original FIM logic
     if level == "branch":
         b_arg = tempCurrentBranchDataDir / f"nwm_subset_streams_levelPaths_{current_branch_id}.gpkg"
         z_arg = tempCurrentBranchDataDir / f"nwm_catchments_proj_subset_levelPaths_{current_branch_id}.gpkg"
@@ -270,97 +286,104 @@ def delineate_and_produce_hand(
         b_arg = tempHucDataDir / "nwm_subset_streams.gpkg"
         z_arg = tempHucDataDir / "nwm_catchments_proj_subset.gpkg"
 
-    # --- 1. MASK LEVEE-PROTECTED AREAS FROM DEM ---
+    # --- 1. MASK LEVEE-PROTECTED AREAS FROM DEM (In-Memory Python) ---
+    ds_dem = gdal.Open(str(tempCurrentBranchDataDir / f"dem_meters_{current_branch_id}.tif"))
+    srs_wkt = ds_dem.GetProjectionRef()
     levee_subset = tempHucDataDir / "LeveeProtectedAreas_subset.gpkg"
+
     if mask_leveed_area_toggle == "True" and levee_subset.is_file():
-        print(f"--> Mask levee-protected areas from DEM {huc_number} {current_branch_id}")
-        run_python_script(
-            srcDir / "mask_dem.py",
-            [
-                "-dem",
-                tempCurrentBranchDataDir / f"dem_meters_{current_branch_id}.tif",
-                "-nld",
-                levee_subset,
-                "-catchments",
-                z_arg,
-                "-out",
-                tempCurrentBranchDataDir / f"dem_meters_{current_branch_id}.tif",
-                "-b",
-                branch_id_attribute,
-                "-i",
-                current_branch_id,
-                "-b0",
-                branch_zero_id,
-                "-csv",
-                tempHucDataDir / "levee_levelpaths.csv",
-                "-l",
-                levee_id_attribute,
-            ],
+        print(f"--> [Step 1] Mask levee-protected areas (In-Memory) {huc_number} {current_branch_id}")
+        ds_dem = mask_dem_in_memory(
+            dem_ds=ds_dem,
+            nld_gpkg_path=str(levee_subset),
+            catchments_gpkg_path=str(z_arg),
+            branch_id_attr=branch_id_attribute,
+            current_branch_id=current_branch_id,
+            branch_zero_id=branch_zero_id,
+            levee_id_attr=levee_id_attribute,
         )
 
-    # --- 2. D8 FLOW ACCUMULATIONS ---
-    print(f"--> D8 Flow Accumulations {huc_number} {current_branch_id}")
-    run_python_script(
-        srcDir / "accumulate_headwaters.py",
-        [
-            "-fd",
-            tempCurrentBranchDataDir / f"flowdir_d8_burned_filled_{current_branch_id}.tif",
-            "-fa",
-            tempCurrentBranchDataDir / f"flowaccum_d8_burned_filled_{current_branch_id}.tif",
-            "-wg",
-            tempCurrentBranchDataDir / f"headwaters_{current_branch_id}.tif",
-            "-stream",
-            tempCurrentBranchDataDir / f"demDerived_streamPixels_{current_branch_id}.tif",
-            "-thresh",
-            "1",
-        ],
+    # --- 2. D8 FLOW ACCUMULATIONS (In-Memory Python) ---
+    print(f"--> [Step 2] D8 Flow Accumulations (In-Memory) {huc_number} {current_branch_id}")
+    ds_flowdir = gdal.Open(
+        str(tempCurrentBranchDataDir / f"flowdir_d8_burned_filled_{current_branch_id}.tif")
+    )
+    hw_file = tempCurrentBranchDataDir / f"headwaters_{current_branch_id}.tif"
+    ds_headwaters = gdal.Open(str(hw_file)) if hw_file.is_file() else None
+    stream_file = tempCurrentBranchDataDir / f"demDerived_streamPixels_{current_branch_id}.tif"
+
+    if stream_file.is_file():
+        ds_streams = gdal.Open(str(stream_file))
+        ds_flowaccum, _ = accumulate_headwaters_in_memory(
+            flow_dir_ds=ds_flowdir,
+            headwaters_ds=ds_headwaters,
+            stream_pixels_path=str(stream_file),
+            threshold=1,
+        )
+    else:
+        ds_flowaccum, ds_streams = accumulate_headwaters_in_memory(
+            flow_dir_ds=ds_flowdir, headwaters_ds=ds_headwaters, threshold=1
+        )
+
+    # --- 3. PREPROCESSING FOR LATERAL THALWEG (In-Memory Python) ---
+    print(
+        f"--> [Step 3] Preprocessing for lateral thalweg adjustment (In-Memory) {huc_number} {current_branch_id}"
+    )
+    ds_stream_ids, ds_allo, ds_dist = unique_pixel_allocation_in_memory(stream_pixels_ds=ds_streams)
+
+    # --- 4. ADJUST THALWEG LATERAL MINIMUM (In-Memory Python) ---
+    print(f"--> [Step 4] Performing lateral thalweg adjustment (In-Memory) {huc_number} {current_branch_id}")
+    ds_dem_adj = adjust_thalweg_lateral_in_memory(
+        dem_ds=ds_dem,
+        stream_pixels_ds=ds_streams,
+        allo_ds=ds_allo,
+        dist_ds=ds_dist,
+        max_dist=50.0,
+        elev_threshold=float(thalweg_lateral_elev_threshold),
     )
 
-    # --- 3. PREPROCESSING FOR LATERAL THALWEG ADJUSTMENT ---
-    print(f"--> Preprocessing for lateral thalweg adjustment {huc_number} {current_branch_id}")
-    run_python_script(
-        srcDir / "unique_pixel_and_allocation.py",
-        [
-            "-s",
-            tempCurrentBranchDataDir / f"demDerived_streamPixels_{current_branch_id}.tif",
-            "-o",
-            tempCurrentBranchDataDir / f"demDerived_streamPixels_ids_{current_branch_id}.tif",
-        ],
+    # --- 5. MASK BURNED DEM FOR STREAMS ONLY (In-Memory GDAL) ---
+    print(f"--> [Step 5] Mask Burned DEM for Thalweg Only (In-Memory) {huc_number} {current_branch_id}")
+    ds_flows = gdal_multiply_in_memory(ds_flowdir, ds_streams, nodata_val=0)
+
+    # =========================================================================
+    # TAUDEM C++ BOUNDARY FLUSH: Flushes RAM datasets with explicit SRS
+    # =========================================================================
+    persist_dataset(ds_dem, tempCurrentBranchDataDir / f"dem_meters_{current_branch_id}.tif", srs_wkt)
+    persist_dataset(
+        ds_dem_adj, tempCurrentBranchDataDir / f"dem_lateral_thalweg_adj_{current_branch_id}.tif", srs_wkt
+    )
+    persist_dataset(
+        ds_flows,
+        tempCurrentBranchDataDir / f"flowdir_d8_burned_filled_flows_{current_branch_id}.tif",
+        srs_wkt,
+    )
+    persist_dataset(
+        ds_streams, tempCurrentBranchDataDir / f"demDerived_streamPixels_{current_branch_id}.tif", srs_wkt
+    )
+    persist_dataset(
+        ds_stream_ids,
+        tempCurrentBranchDataDir / f"demDerived_streamPixels_ids_{current_branch_id}.tif",
+        srs_wkt,
+    )
+    persist_dataset(
+        ds_allo,
+        tempCurrentBranchDataDir / f"demDerived_streamPixels_ids_{current_branch_id}_allo.tif",
+        srs_wkt,
+    )
+    persist_dataset(
+        ds_dist,
+        tempCurrentBranchDataDir / f"demDerived_streamPixels_ids_{current_branch_id}_dist.tif",
+        srs_wkt,
+    )
+    persist_dataset(
+        ds_flowaccum,
+        tempCurrentBranchDataDir / f"flowaccum_d8_burned_filled_{current_branch_id}.tif",
+        srs_wkt,
     )
 
-    # --- 4. ADJUST THALWEG MINIMUM USING LATERAL ZONAL MINIMUM ---
-    print(f"--> Performing lateral thalweg adjustment {huc_number} {current_branch_id}")
-    run_python_script(
-        srcDir / "adjust_thalweg_lateral.py",
-        [
-            "-e",
-            tempCurrentBranchDataDir / f"dem_meters_{current_branch_id}.tif",
-            "-s",
-            tempCurrentBranchDataDir / f"demDerived_streamPixels_{current_branch_id}.tif",
-            "-a",
-            tempCurrentBranchDataDir / f"demDerived_streamPixels_ids_{current_branch_id}_allo.tif",
-            "-d",
-            tempCurrentBranchDataDir / f"demDerived_streamPixels_ids_{current_branch_id}_dist.tif",
-            "-t",
-            "50",
-            "-o",
-            tempCurrentBranchDataDir / f"dem_lateral_thalweg_adj_{current_branch_id}.tif",
-            "-th",
-            thalweg_lateral_elev_threshold,
-        ],
-    )
-
-    # --- 5. MASK BURNED DEM FOR STREAMS ONLY ---
-    print(f"--> Mask Burned DEM for Thalweg Only {huc_number} {current_branch_id}")
-    gdal_calc_multiply(
-        in_raster_a=tempCurrentBranchDataDir / f"flowdir_d8_burned_filled_{current_branch_id}.tif",
-        in_raster_b=tempCurrentBranchDataDir / f"demDerived_streamPixels_{current_branch_id}.tif",
-        out_raster=tempCurrentBranchDataDir / f"flowdir_d8_burned_filled_flows_{current_branch_id}.tif",
-        nodata_val=0,
-    )
-
-    # --- 6. FLOW CONDITION STREAMS ---
-    print(f"--> Flow Condition Thalweg {huc_number} {current_branch_id}")
+    # --- 6. FLOW CONDITION STREAMS (TauDEM C++ Subprocess) ---
+    print(f"--> [Step 6] Flow Condition Thalweg {huc_number} {current_branch_id}")
     run_python_script(
         srcDir / "run_taudem_subprocess.py",
         [
@@ -376,8 +399,8 @@ def delineate_and_produce_hand(
         ],
     )
 
-    # --- 7. D8 SLOPES ---
-    print(f"--> D8 Slopes from DEM {huc_number} {current_branch_id}")
+    # --- 7. D8 SLOPES (TauDEM C++ Subprocess) ---
+    print(f"--> [Step 7] D8 Slopes from DEM {huc_number} {current_branch_id}")
     run_python_script(
         srcDir / "run_taudem_subprocess.py",
         [
@@ -393,8 +416,8 @@ def delineate_and_produce_hand(
         ],
     )
 
-    # --- 8. STREAMNET FOR REACHES ---
-    print(f"--> Stream Net for Reaches {huc_number} {current_branch_id}")
+    # --- 8. STREAMNET FOR REACHES (TauDEM C++ Subprocess) ---
+    print(f"--> [Step 8] Stream Net for Reaches {huc_number} {current_branch_id}")
     run_python_script(
         srcDir / "run_taudem_subprocess.py",
         [
@@ -423,7 +446,7 @@ def delineate_and_produce_hand(
     )
 
     # --- 9. SPLIT DERIVED REACHES ---
-    print(f"--> Split Derived Reaches {huc_number} {current_branch_id}")
+    print(f"--> [Step 9] Split Derived Reaches {huc_number} {current_branch_id}")
     run_python_script(
         srcDir / "split_flows.py",
         [
@@ -450,8 +473,8 @@ def delineate_and_produce_hand(
         ],
     )
 
-    # --- 10. GAGE WATERSHED FOR REACHES ---
-    print(f"--> Gage Watershed for Reaches {huc_number} {current_branch_id}")
+    # --- 10. GAGE WATERSHED FOR REACHES (TauDEM C++ Subprocess) ---
+    print(f"--> [Step 10] Gage Watershed for Reaches {huc_number} {current_branch_id}")
     run_python_script(
         srcDir / "run_taudem_subprocess.py",
         [
@@ -472,7 +495,7 @@ def delineate_and_produce_hand(
     )
 
     # --- 11. VECTORIZE FEATURE ID CENTROIDS ---
-    print(f"--> Vectorize Pixel Centroids {huc_number} {current_branch_id}")
+    print(f"--> [Step 11] Vectorize Pixel Centroids {huc_number} {current_branch_id}")
     run_python_script(
         srcDir / "reachID_grid_to_vector_points.py",
         [
@@ -485,8 +508,8 @@ def delineate_and_produce_hand(
         ],
     )
 
-    # --- 12. GAGE WATERSHED FOR PIXELS ---
-    print(f"--> Gage Watershed for Pixels {huc_number} {current_branch_id}")
+    # --- 12. GAGE WATERSHED FOR PIXELS (TauDEM C++ Subprocess) ---
+    print(f"--> [Step 12] Gage Watershed for Pixels {huc_number} {current_branch_id}")
     run_python_script(
         srcDir / "run_taudem_subprocess.py",
         [
@@ -507,7 +530,9 @@ def delineate_and_produce_hand(
     )
 
     # --- 13. CATCH AND MITIGATE BRANCH OUTLET BACKPOOL ERROR ---
-    print(f"--> Catching and mitigating branch outlet backpool issue {huc_number} {current_branch_id}")
+    print(
+        f"--> [Step 13] Catching and mitigating branch outlet backpool issue {huc_number} {current_branch_id}"
+    )
     run_python_script(
         srcDir / "mitigate_branch_outlet_backpool.py",
         [
@@ -533,46 +558,42 @@ def delineate_and_produce_hand(
         ],
     )
 
-    # --- 14. D8 REM ---
-    print(f"--> D8 REM {huc_number} {current_branch_id}")
-    run_python_script(
-        srcDir / "make_rem.py",
-        [
-            "-d",
-            tempCurrentBranchDataDir / f"dem_thalwegCond_{current_branch_id}.tif",
-            "-w",
-            tempCurrentBranchDataDir / f"gw_catchments_pixels_{current_branch_id}.tif",
-            "-o",
-            tempCurrentBranchDataDir / f"rem_{current_branch_id}.tif",
-            "-t",
-            tempCurrentBranchDataDir / f"demDerived_streamPixels_{current_branch_id}.tif",
-        ],
+    # --- 14. D8 REM (Direct In-Memory Python Import) ---
+    print(f"--> [Step 14] D8 REM (Direct In-Memory Import) {huc_number} {current_branch_id}")
+    ds_dem_cond = gdal.Open(str(tempCurrentBranchDataDir / f"dem_thalwegCond_{current_branch_id}.tif"))
+    ds_gw_pixels = gdal.Open(str(tempCurrentBranchDataDir / f"gw_catchments_pixels_{current_branch_id}.tif"))
+
+    ds_rem = create_rem_in_memory(
+        dem_ds=ds_dem_cond, pixel_watersheds_ds=ds_gw_pixels, thalweg_ds=ds_streams, nodata_val=ndv
     )
 
-    # --- 15. ZERO & MASK REM TO CATCHMENTS ---
-    print(f"--> Bring negative values in REM to zero and mask to catchments {huc_number} {current_branch_id}")
-    gdal_calc_rem_zero_mask(
-        rem_path=tempCurrentBranchDataDir / f"rem_{current_branch_id}.tif",
-        gw_reach_path=tempCurrentBranchDataDir / f"gw_catchments_reaches_{current_branch_id}.tif",
-        out_path=tempCurrentBranchDataDir / f"rem_zeroed_masked_{current_branch_id}.tif",
-        ndv_val=float(ndv),
+    # --- 15. ZERO & MASK REM TO CATCHMENTS (In-Memory GDAL) ---
+    print(
+        f"--> [Step 15] Bring negative values in REM to zero and mask (In-Memory) {huc_number} {current_branch_id}"
+    )
+    ds_gw_reach = gdal.Open(str(tempCurrentBranchDataDir / f"gw_catchments_reaches_{current_branch_id}.tif"))
+    ds_rem_zero = gdal_rem_zero_mask_in_memory(ds_rem, ds_gw_reach, nodata_val=ndv)
+    persist_dataset(
+        ds_rem_zero, tempCurrentBranchDataDir / f"rem_zeroed_masked_{current_branch_id}.tif", srs_wkt
     )
 
     # --- 16. RASTERIZE LANDSEA POLYGON ---
     landsea_subset = tempHucDataDir / "LandSea_subset.gpkg"
     landsea_tif = tempCurrentBranchDataDir / f"LandSea_subset_{current_branch_id}.tif"
     if landsea_subset.is_file():
-        print(f"--> Rasterize filtered/dissolved ocean/Glake polygon {huc_number} {current_branch_id}")
+        print(
+            f"--> [Step 16] Rasterize filtered/dissolved ocean/Glake polygon {huc_number} {current_branch_id}"
+        )
         gdal_rasterize_vector(
             src_vector=str(landsea_subset),
             template_raster=str(tempCurrentBranchDataDir / f"rem_{current_branch_id}.tif"),
             dst_raster=str(landsea_tif),
-            burn_value=float(ndv),
+            burn_value=ndv,
             init_value=1,
         )
 
     # --- 17. POLYGONIZE REACH WATERSHEDS ---
-    print(f"--> Polygonize Reach Watersheds {huc_number} {current_branch_id}")
+    print(f"--> [Step 17] Polygonize Reach Watersheds {huc_number} {current_branch_id}")
     gdal_polygonize_raster(
         in_raster=tempCurrentBranchDataDir / f"gw_catchments_reaches_{current_branch_id}.tif",
         out_gpkg=tempCurrentBranchDataDir / f"gw_catchments_reaches_{current_branch_id}.gpkg",
@@ -581,7 +602,7 @@ def delineate_and_produce_hand(
     )
 
     # --- 18. PROCESS CATCHMENTS AND MODEL STREAMS STEP 1 ---
-    print(f"--> Process catchments and model streams {huc_number} {current_branch_id}")
+    print(f"--> [Step 18] Process catchments and model streams {huc_number} {current_branch_id}")
     run_python_script(
         srcDir / "filter_catchments_and_add_attributes.py",
         [
@@ -602,7 +623,7 @@ def delineate_and_produce_hand(
     )
 
     # --- 19. RASTERIZE NEW CATCHMENTS AGAIN ---
-    print(f"--> Rasterize filtered catchments {huc_number} {current_branch_id}")
+    print(f"--> [Step 19] Rasterize filtered catchments {huc_number} {current_branch_id}")
     gdal_rasterize_vector(
         src_vector=str(
             tempCurrentBranchDataDir
@@ -618,17 +639,23 @@ def delineate_and_produce_hand(
     )
 
     # --- 20. MASK SLOPE TO CATCHMENTS ---
-    print(f"--> Mask slopes to catchments {huc_number} {current_branch_id}")
-    gdal_calc_multiply(
-        in_raster_a=tempCurrentBranchDataDir / f"slopes_d8_dem_meters_{current_branch_id}.tif",
-        in_raster_b=tempCurrentBranchDataDir
-        / f"gw_catchments_reaches_filtered_addedAttributes_{current_branch_id}.tif",
-        out_raster=tempCurrentBranchDataDir / f"slopes_d8_dem_meters_masked_{current_branch_id}.tif",
-        nodata_val=float(ndv),
+    print(f"--> [Step 20] Mask slopes to catchments {huc_number} {current_branch_id}")
+    ds_slopes = gdal.Open(str(tempCurrentBranchDataDir / f"slopes_d8_dem_meters_{current_branch_id}.tif"))
+    ds_catch_filt = gdal.Open(
+        str(
+            tempCurrentBranchDataDir
+            / f"gw_catchments_reaches_filtered_addedAttributes_{current_branch_id}.tif"
+        )
+    )
+    ds_slopes_masked = gdal_multiply_in_memory(ds_slopes, ds_catch_filt, nodata_val=ndv)
+    persist_dataset(
+        ds_slopes_masked,
+        tempCurrentBranchDataDir / f"slopes_d8_dem_meters_masked_{current_branch_id}.tif",
+        srs_wkt,
     )
 
     # --- 21. MAKE CATCHMENT AND STAGE FILES ---
-    print(f"--> Generate Catchment List and Stage List Files {huc_number} {current_branch_id}")
+    print(f"--> [Step 21] Generate Catchment List and Stage List Files {huc_number} {current_branch_id}")
     run_python_script(
         srcDir / "make_stages_and_catchlist.py",
         [
@@ -653,28 +680,27 @@ def delineate_and_produce_hand(
     # --- 22. MASK REM RASTER TO REMOVE OCEAN AREAS ---
     if landsea_tif.is_file():
         print(
-            f"--> Additional masking to REM raster to remove ocean/Glake areas {huc_number} {current_branch_id}"
+            f"--> [Step 22] Additional masking to REM raster to remove ocean/Glake areas {huc_number} {current_branch_id}"
         )
-        gdal_calc_multiply(
-            in_raster_a=tempCurrentBranchDataDir / f"rem_zeroed_masked_{current_branch_id}.tif",
-            in_raster_b=landsea_tif,
-            out_raster=tempCurrentBranchDataDir / f"rem_zeroed_masked_{current_branch_id}.tif",
-            nodata_val=float(ndv),
+        ds_landsea = gdal.Open(str(landsea_tif))
+        ds_rem_zero = gdal_multiply_in_memory(ds_rem_zero, ds_landsea, nodata_val=ndv)
+        persist_dataset(
+            ds_rem_zero, tempCurrentBranchDataDir / f"rem_zeroed_masked_{current_branch_id}.tif", srs_wkt
         )
 
     # --- 23. HEAL HAND (NON-BRANCH ZERO) ---
     if is_healed_hand and current_branch_id != branch_zero_id:
-        print(f"--> Healed HAND to Remove Hydro-conditioning Artifacts {huc_number} {current_branch_id}")
-        gdal_calc_heal_hand(
-            rem_path=tempCurrentBranchDataDir / f"rem_zeroed_masked_{current_branch_id}.tif",
-            dem_path=tempCurrentBranchDataDir / f"dem_meters_{current_branch_id}.tif",
-            thalweg_cond_path=tempCurrentBranchDataDir / f"dem_thalwegCond_{current_branch_id}.tif",
-            out_path=tempCurrentBranchDataDir / f"rem_zeroed_masked_{current_branch_id}.tif",
-            ndv_val=float(ndv),
+        print(
+            f"--> [Step 23] Healed HAND to Remove Hydro-conditioning Artifacts {huc_number} {current_branch_id}"
+        )
+        ds_dem_orig = gdal.Open(str(tempCurrentBranchDataDir / f"dem_meters_{current_branch_id}.tif"))
+        ds_rem_zero = gdal_heal_hand_in_memory(ds_rem_zero, ds_dem_orig, ds_dem_cond, nodata_val=ndv)
+        persist_dataset(
+            ds_rem_zero, tempCurrentBranchDataDir / f"rem_zeroed_masked_{current_branch_id}.tif", srs_wkt
         )
 
-    # --- 24. HYDRAULIC PROPERTIES ---
-    print(f"--> Sample reach averaged parameters {huc_number} {current_branch_id}")
+    # --- 24. HYDRAULIC PROPERTIES (TauDEM C++ Subprocess) ---
+    print(f"--> [Step 24] Sample reach averaged parameters {huc_number} {current_branch_id}")
     run_python_script(
         srcDir / "run_taudem_subprocess.py",
         [
@@ -698,7 +724,7 @@ def delineate_and_produce_hand(
     )
 
     # --- 25. FINALIZE CATCHMENTS AND MODEL STREAMS ---
-    print(f"--> Finalize catchments and model streams {huc_number} {current_branch_id}")
+    print(f"--> [Step 25] Finalize catchments and model streams {huc_number} {current_branch_id}")
     run_python_script(
         srcDir / "add_crosswalk.py",
         [
@@ -746,19 +772,19 @@ def delineate_and_produce_hand(
 
     # --- 26. HEAL HAND (BRANCH ZERO) ---
     if is_healed_hand and current_branch_id == branch_zero_id:
-        print(f"--> Healed HAND to Remove Hydro-conditioning Artifacts {huc_number} {current_branch_id}")
-        gdal_calc_heal_hand(
-            rem_path=tempCurrentBranchDataDir / f"rem_zeroed_masked_{current_branch_id}.tif",
-            dem_path=tempCurrentBranchDataDir / f"dem_meters_{current_branch_id}.tif",
-            thalweg_cond_path=tempCurrentBranchDataDir / f"dem_thalwegCond_{current_branch_id}.tif",
-            out_path=tempCurrentBranchDataDir / f"rem_zeroed_masked_{current_branch_id}.tif",
-            ndv_val=float(ndv),
+        print(
+            f"--> [Step 26] Healed HAND to Remove Hydro-conditioning Artifacts {huc_number} {current_branch_id}"
+        )
+        ds_dem_orig = gdal.Open(str(tempCurrentBranchDataDir / f"dem_meters_{current_branch_id}.tif"))
+        ds_rem_zero = gdal_heal_hand_in_memory(ds_rem_zero, ds_dem_orig, ds_dem_cond, nodata_val=ndv)
+        persist_dataset(
+            ds_rem_zero, tempCurrentBranchDataDir / f"rem_zeroed_masked_{current_branch_id}.tif", srs_wkt
         )
 
     # --- 27. HEAL HAND BRIDGES ---
     osm_bridges = tempHucDataDir / "osm_bridges_subset.gpkg"
     if osm_bridges.is_file():
-        print(f"--> Burn in bridges {huc_number} {current_branch_id}")
+        print(f"--> [Step 27] Burn in bridges {huc_number} {current_branch_id}")
         run_python_script(
             srcDir / "heal_bridges_osm.py",
             [
@@ -779,13 +805,11 @@ def delineate_and_produce_hand(
                 tempCurrentBranchDataDir / f"osm_bridge_centroids_{current_branch_id}.gpkg",
             ],
         )
-    else:
-        print(f"--> No applicable bridge data for {huc_number}")
 
     # --- 28. PROCESS ROADS FIMpact ---
     osm_roads = tempHucDataDir / "osm_roads_subset.gpkg"
     if osm_roads.is_file():
-        print(f"--> Process roads FIMpact {huc_number} {current_branch_id}")
+        print(f"--> [Step 28] Process roads FIMpact {huc_number} {current_branch_id}")
         run_python_script(
             srcDir / "process_roads_fimpact.py",
             [
@@ -800,13 +824,11 @@ def delineate_and_produce_hand(
                 tempCurrentBranchDataDir / f"osm_roads_fimpact_{current_branch_id}.csv",
             ],
         )
-    else:
-        print(f"--> No osm roads data for {huc_number}")
 
     # --- 29. PROCESS BUILDINGS FIMpact ---
     buildings_subset = tempHucDataDir / "buildings_subset.gpkg"
     if buildings_subset.is_file():
-        print(f"--> Process buildings FIMpact {huc_number} {current_branch_id}")
+        print(f"--> [Step 29] Process buildings FIMpact {huc_number} {current_branch_id}")
         run_python_script(
             srcDir / "process_buildings_fimpact.py",
             [
@@ -821,12 +843,10 @@ def delineate_and_produce_hand(
                 tempCurrentBranchDataDir / f"buildings_fimpact_{current_branch_id}.csv",
             ],
         )
-    else:
-        print(f"--> No buildings data for {huc_number}")
 
     # --- 30. EVALUATE CROSSWALK ---
     if current_branch_id == branch_zero_id and evaluate_crosswalk == "1":
-        print(f"--> Evaluate crosswalk {huc_number} {current_branch_id}")
+        print(f"--> [Step 30] Evaluate crosswalk {huc_number} {current_branch_id}")
         run_python_script(
             toolsDir / "evaluate_crosswalk.py",
             [
@@ -848,25 +868,21 @@ def delineate_and_produce_hand(
 
     # --- 31. CONVERSION TO INT16 ---
     if huc2Identifier == 19:
-        print("--> Skipping Int16 Conversion for Alaska HUC")
+        print("--> [Step 31] Skipping Int16 Conversion for Alaska HUC")
     else:
-        print(f"--> Convert GW Catchments and REM to Int16 {huc_number} {current_branch_id}")
+        print(f"--> [Step 31] Convert GW Catchments and REM to Int16 {huc_number} {current_branch_id}")
         run_python_script(toolsDir / "convert_to_int16.py", ["-b", tempCurrentBranchDataDir])
 
     print(f"=== [SUCCESS] Completed delineate_hydros_and_produce_HAND for HUC {huc_number} ===")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Delineate hydros and produce HAND/REM reading configs directly from .env files."
-    )
+    parser = argparse.ArgumentParser(description="Full 31-step Hybrid In-Memory Delineate hydros workflow.")
     parser.add_argument("-l", "--level", type=str, required=True, help="Processing level (unit or branch)")
     parser.add_argument("-u", "--huc-number", type=str, required=True, help="HUC number string")
+    parser.add_argument("-d", "--temp-huc-dir", type=str, required=True, help="Path to HUC temp directory")
     parser.add_argument(
-        "-d", "--temp-huc-dir", type=str, required=True, help="Path to HUC temporary directory"
-    )
-    parser.add_argument(
-        "-b", "--temp-branch-dir", type=str, required=True, help="Path to current branch temporary directory"
+        "-b", "--temp-branch-dir", type=str, required=True, help="Path to branch temp directory"
     )
     parser.add_argument("-cb", "--current-branch-id", type=str, required=True, help="Current branch ID")
     parser.add_argument("-b0", "--branch-zero-id", type=str, required=True, help="Branch zero ID")

@@ -1,102 +1,76 @@
 #!/usr/bin/env python3
+"""
+unique_pixel_and_allocation.py
+------------------------------
+Generates unique ID grid, allocation grid, and Euclidean distance grid for stream pixels.
+Supports direct in-memory dataset calls as well as standalone CLI execution.
+"""
 
 import argparse
-import os
 
 import numpy as np
-import rasterio
-import whitebox
+from osgeo import gdal
+from scipy.ndimage import distance_transform_edt
 
 
-# Set wbt envs
-wbt = whitebox.WhiteboxTools()
-wbt.set_whitebox_dir(os.environ.get("WBT_PATH"))  # need to set path prior to setting verbose mode
-wbt.set_verbose_mode(False)
+gdal.UseExceptions()
 
 
-def stream_pixel_zones(stream_pixels, unique_stream_pixels):
-    '''
-    This function will assign a unique ID for each stream pixel and writes to file. It then uses this raster to run GRASS r.grow.distance tool to create the allocation and proximity rasters required to complete the lateral thalweg conditioning.
+def unique_pixel_allocation_in_memory(
+    stream_pixels_ds: gdal.Dataset,
+) -> tuple[gdal.Dataset, gdal.Dataset, gdal.Dataset]:
+    """Generates unique IDs, allocation, and Euclidean distance grids in RAM."""
+    stream_arr = stream_pixels_ds.GetRasterBand(1).ReadAsArray()
 
-    Parameters
-    ----------
-    stream_pixels : STR
-        Path to stream raster with value of 1. For example, demDerived_streamPixels.tif.
-    unique_stream_pixels : STR
-        Output path of raster containing unique ids for each stream pixel.
+    unique_ids = np.zeros_like(stream_arr, dtype=np.int32)
+    stream_indices = np.where(stream_arr > 0)
+    unique_ids[stream_indices] = np.arange(1, len(stream_indices[0]) + 1)
 
-    Returns
-    -------
-    distance_grid : STR
-        Path to output proximity raster (in meters).
-    allocation_grid : STR
-        Path to output allocation raster.
+    dist_arr, indices = distance_transform_edt(unique_ids == 0, return_indices=True)
+    allo_arr = unique_ids[indices[0], indices[1]]
 
-    '''
+    driver = gdal.GetDriverByName("MEM")
+    cols, rows = stream_pixels_ds.RasterXSize, stream_pixels_ds.RasterYSize
+    gt = stream_pixels_ds.GetGeoTransform()
+    proj = stream_pixels_ds.GetProjection()
 
-    workspace = os.path.dirname(unique_stream_pixels)
-    base = os.path.basename(unique_stream_pixels)
-    distance_grid = os.path.join(workspace, os.path.splitext(base)[0] + '_dist.tif')
-    allocation_grid = os.path.join(workspace, os.path.splitext(base)[0] + '_allo.tif')
+    ids_ds = driver.Create("", cols, rows, 1, gdal.GDT_Int32)
+    ids_ds.SetGeoTransform(gt)
+    ids_ds.SetProjection(proj)
+    ids_ds.GetRasterBand(1).WriteArray(unique_ids)
 
-    # Import stream pixel raster
-    with rasterio.open(stream_pixels) as temp:
-        streams_profile = temp.profile
-        streams = temp.read(1)
+    allo_ds = driver.Create("", cols, rows, 1, gdal.GDT_Int32)
+    allo_ds.SetGeoTransform(gt)
+    allo_ds.SetProjection(proj)
+    allo_ds.GetRasterBand(1).WriteArray(allo_arr)
 
-    # Create array that matches shape of streams raster with unique values for each cell. Dataype is float64.
-    unique_vals = np.arange(streams.size, dtype='float64').reshape(*streams.shape)
+    dist_ds = driver.Create("", cols, rows, 1, gdal.GDT_Float32)
+    dist_ds.SetGeoTransform(gt)
+    dist_ds.SetProjection(proj)
+    dist_ds.GetRasterBand(1).WriteArray(dist_arr.astype(np.float32))
 
-    # At streams return the unique array value otherwise return 0 values
-    stream_pixel_values = np.where(streams == 1, unique_vals, 0)
-
-    del streams, unique_vals
-
-    # Reassign dtype to be float64 (needs to be float64)
-    streams_profile.update(dtype='float64')
-
-    # Output to raster
-    with rasterio.Env():
-        with rasterio.open(unique_stream_pixels, 'w', **streams_profile) as raster:
-            raster.write(stream_pixel_values, 1)
-
-    # Compute allocation and proximity grids.
-    wbt.euclidean_distance(stream_pixels, distance_grid)
-    wbt.euclidean_allocation(unique_stream_pixels, allocation_grid)
-
-    with rasterio.open(allocation_grid) as allocation_ds:
-        allocation = allocation_ds.read(1)
-        allocation_profile = allocation_ds.profile
-
-    # Add stream channel ids
-    allocation = np.where(allocation > 0, allocation, stream_pixel_values)
-
-    del stream_pixel_values
-
-    with rasterio.open(allocation_grid, 'w', **allocation_profile) as allocation_ds:
-        allocation_ds.write(allocation, 1)
-
-    del allocation
-
-    return distance_grid, allocation_grid
+    return ids_ds, allo_ds, dist_ds
 
 
-if __name__ == '__main__':
-    # Parse arguments
+def main():
     parser = argparse.ArgumentParser(
-        description='Produce unique stream pixel values and allocation/proximity grids'
+        description="Generate unique IDs and allocation grids for stream pixels."
     )
-    parser.add_argument('-s', '--stream', help='raster to perform r.grow.distance', required=True)
-    parser.add_argument(
-        '-o', '--out', help='output raster of unique ids for each stream pixel', required=True
-    )
+    parser.add_argument("-s", "--stream-pixels", required=True, help="Input stream pixels raster path")
+    parser.add_argument("-o", "--output-ids", required=True, help="Output stream pixel IDs raster path")
 
-    # Extract to dictionary and assign to variables.
-    args = vars(parser.parse_args())
+    args = parser.parse_args()
 
-    # Rename variable inputs
-    stream_pixels = args['stream']
-    unique_stream_pixels = args['out']
+    s_ds = gdal.Open(args.stream_pixels)
+    ids_ds, allo_ds, dist_ds = unique_pixel_allocation_in_memory(s_ds)
 
-    # Run stream_pixel_zones
-    stream_pixel_zones(stream_pixels, unique_stream_pixels)
+    driver = gdal.GetDriverByName("GTiff")
+    driver.CreateCopy(args.output_ids, ids_ds, options=["COMPRESS=LZW", "TILED=YES"])
+
+    out_base = str(args.output_ids).replace(".tif", "")
+    driver.CreateCopy(f"{out_base}_allo.tif", allo_ds, options=["COMPRESS=LZW", "TILED=YES"])
+    driver.CreateCopy(f"{out_base}_dist.tif", dist_ds, options=["COMPRESS=LZW", "TILED=YES"])
+
+
+if __name__ == "__main__":
+    main()

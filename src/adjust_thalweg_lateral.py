@@ -1,175 +1,94 @@
 #!/usr/bin/env python3
-
+"""
+adjust_thalweg_lateral.py
+-------------------------
+Adjusts stream thalweg elevations based on lateral minimum zonal statistics.
+Supports direct in-memory dataset calls as well as standalone CLI execution.
+"""
 
 import argparse
 
 import numpy as np
-import rasterio
-from numba import njit, typed, types
+from osgeo import gdal
 
 
-def adjust_thalweg_laterally(
-    elevation_raster,
-    stream_raster,
-    allocation_raster,
-    cost_distance_raster,
-    cost_distance_tolerance,
-    dem_lateral_thalweg_adj,
-    lateral_elevation_threshold,
-):
-    # ------------------------------------ Get catchment_min_dict ----------------------------------------- #
-    # The following algorithm searches for the zonal minimum elevation in each pixel catchment
-    @njit
-    def make_zone_min_dict(elevation_window, zone_min_dict, zone_window, cost_window, cost_tolerance, ndv):
-        for i, elev_m in enumerate(zone_window):
-            # If the zone really exists in the dictionary, compare elevation values.
-            i = int(i)
-            elev_m = types.int32(elev_m)
-
-            if cost_window[i] <= cost_tolerance:
-                if elevation_window[i] > 0:  # Don't allow bad elevation values
-                    if elev_m in zone_min_dict:
-                        # If the elevation_window's elevation value is less than the zone_min_dict min,
-                        # update the zone_min_dict min.
-                        if elevation_window[i] < zone_min_dict[elev_m]:
-                            zone_min_dict[elev_m] = elevation_window[i]
-                    else:
-                        zone_min_dict[elev_m] = elevation_window[i]
-
-        return zone_min_dict
-
-    # ------------------------------------ Assign zonal min to thalweg ------------------------------------ #
-    @njit
-    def minimize_thalweg_elevation(dem_window, zone_min_dict, zone_window, thalweg_window):
-        # Copy elevation values into new array that will store the minimized elevation values.
-        dem_window_to_return = np.empty_like(dem_window)
-        dem_window_to_return[:] = dem_window
-
-        for i, elev_m in enumerate(zone_window):
-            i = int(i)
-            elev_m = types.int32(elev_m)
-            thalweg_cell = thalweg_window[i]  # From flows_grid_boolean.tif (0s and 1s)
-            if thalweg_cell == 1:  # Make sure thalweg cells are checked.
-                if elev_m in zone_min_dict:
-                    zone_min_elevation = zone_min_dict[elev_m]
-                    dem_thalweg_elevation = dem_window[i]
-
-                    elevation_difference = dem_thalweg_elevation - zone_min_elevation
-
-                    if (zone_min_elevation < dem_thalweg_elevation) and (
-                        elevation_difference <= lateral_elevation_threshold
-                    ):
-                        dem_window_to_return[i] = zone_min_elevation
-
-        return dem_window_to_return
-
-    # Open files.
-    with (
-        rasterio.open(elevation_raster) as elevation_raster_object,
-        rasterio.open(allocation_raster) as allocation_zone_raster_object,
-    ):
-        with rasterio.open(cost_distance_raster) as cost_distance_raster_object:
-            meta = elevation_raster_object.meta.copy()
-            meta['tiled'], meta['compress'] = True, 'lzw'
-            ndv = meta['nodata']
-
-            # -- Create zone_min_dict -- #
-            zone_min_dict = typed.Dict.empty(
-                types.int32, types.float32
-            )  # Initialize an empty dictionary to store the catchment minimums
-            # Update catchment_min_dict with pixel sheds minimum.
-            for ji, window in elevation_raster_object.block_windows(
-                1
-            ):  # Iterate over windows, using elevation_raster_object as template
-                elevation_window = elevation_raster_object.read(
-                    1, window=window
-                ).ravel()  # Define elevation_window
-                zone_window = allocation_zone_raster_object.read(
-                    1, window=window
-                ).ravel()  # Define zone_window
-                cost_window = cost_distance_raster_object.read(1, window=window).ravel()  # Define cost_window
-
-                # Call numba-optimized function to update catchment_min_dict with pixel sheds minimum.
-                zone_min_dict = make_zone_min_dict(
-                    elevation_window,
-                    zone_min_dict,
-                    zone_window,
-                    cost_window,
-                    int(cost_distance_tolerance),
-                    ndv,
-                )
-
-                del elevation_window, zone_window, cost_window
-
-            # --------------------------------------------------------------------------------------------- #
-
-        # Specify raster object metadata.
-        with (
-            rasterio.open(stream_raster) as thalweg_object,
-            rasterio.open(dem_lateral_thalweg_adj, 'w', **meta) as dem_lateral_thalweg_adj_object,
-        ):
-            for ji, window in elevation_raster_object.block_windows(
-                1
-            ):  # Iterate over windows, using dem_rasterio_object as template
-                dem_window = elevation_raster_object.read(1, window=window)  # Define dem_window
-                window_shape = dem_window.shape
-                dem_window = dem_window.ravel()
-
-                zone_window = allocation_zone_raster_object.read(
-                    1, window=window
-                ).ravel()  # Define catchments_window
-                thalweg_window = thalweg_object.read(1, window=window).ravel()  # Define thalweg_window
-
-                # Call numba-optimized function to reassign thalweg cell values to catchment minimum value.
-                minimized_dem_window = minimize_thalweg_elevation(
-                    dem_window, zone_min_dict, zone_window, thalweg_window
-                )
-                minimized_dem_window = minimized_dem_window.reshape(window_shape).astype(np.float32)
-
-                dem_lateral_thalweg_adj_object.write(minimized_dem_window, window=window, indexes=1)
-
-                del dem_window, zone_window, thalweg_window, minimized_dem_window
+gdal.UseExceptions()
 
 
-if __name__ == '__main__':
-    # Parse arguments.
-    parser = argparse.ArgumentParser(
-        description='Adjusts the elevation of the thalweg to the lateral zonal minimum.'
-    )
-    parser.add_argument('-e', '--elevation_raster', help='Raster of elevation.', required=True)
-    parser.add_argument(
-        '-s', '--stream_raster', help='Raster of thalweg pixels (0=No Thalweg, 1=Thalweg)', required=True
-    )
-    parser.add_argument(
-        '-a', '--allocation_raster', help='Raster of thalweg allocation zones.', required=True
-    )
-    parser.add_argument(
-        '-d',
-        '--cost_distance_raster',
-        help='Raster of cost distances for the allocation raster.',
-        required=True,
-    )
-    parser.add_argument(
-        '-t',
-        '--cost_distance_tolerance',
-        help='Tolerance in meters to use when searching for zonal minimum.',
-        required=True,
-    )
-    parser.add_argument(
-        '-o',
-        '--dem_lateral_thalweg_adj',
-        help='Output elevation raster with adjusted thalweg.',
-        required=True,
-    )
-    parser.add_argument(
-        '-th',
-        '--lateral_elevation_threshold',
-        help='Maximum difference between current thalweg elevation and lowest lateral elevation in meters.',
-        required=True,
-        type=int,
+def adjust_thalweg_lateral_in_memory(
+    dem_ds: gdal.Dataset,
+    stream_pixels_ds: gdal.Dataset,
+    allo_ds: gdal.Dataset,
+    dist_ds: gdal.Dataset,
+    max_dist: float = 50.0,
+    elev_threshold: float = 2.0,
+) -> gdal.Dataset:
+    """Adjusts stream thalweg elevations based on lateral minimum zonal stats in RAM."""
+    dem_arr = dem_ds.GetRasterBand(1).ReadAsArray().astype(np.float32)
+    stream_arr = stream_pixels_ds.GetRasterBand(1).ReadAsArray()
+    allo_arr = allo_ds.GetRasterBand(1).ReadAsArray()
+    dist_arr = dist_ds.GetRasterBand(1).ReadAsArray()
+
+    adjusted_dem = np.copy(dem_arr)
+    valid_mask = (dist_arr <= max_dist) & (allo_arr > 0)
+
+    unique_allocations = np.unique(allo_arr[valid_mask])
+    for alloc_id in unique_allocations:
+        zone_mask = (allo_arr == alloc_id) & (dist_arr <= max_dist)
+        min_elev = np.min(dem_arr[zone_mask])
+
+        stream_mask = (allo_arr == alloc_id) & (stream_arr > 0)
+        if np.any(stream_mask):
+            current_elev = dem_arr[stream_mask]
+            if np.abs(current_elev - min_elev) <= elev_threshold:
+                adjusted_dem[stream_mask] = min_elev
+
+    driver = gdal.GetDriverByName("MEM")
+    out_ds = driver.Create("", dem_ds.RasterXSize, dem_ds.RasterYSize, 1, gdal.GDT_Float32)
+    out_ds.SetGeoTransform(dem_ds.GetGeoTransform())
+    out_ds.SetProjection(dem_ds.GetProjection())
+
+    nodata = dem_ds.GetRasterBand(1).GetNoDataValue()
+    if nodata is None:
+        nodata = -9999.0
+
+    band = out_ds.GetRasterBand(1)
+    band.SetNoDataValue(float(nodata))
+    band.WriteArray(adjusted_dem)
+    out_ds.FlushCache()
+
+    return out_ds
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Adjust thalweg lateral minimum elevation.")
+    parser.add_argument("-e", "--dem", required=True, help="Input DEM raster path")
+    parser.add_argument("-s", "--stream-pixels", required=True, help="Input stream pixels raster path")
+    parser.add_argument("-a", "--allocation", required=True, help="Input stream allocation raster path")
+    parser.add_argument("-d", "--distance", required=True, help="Input distance raster path")
+    parser.add_argument("-t", "--max-dist", type=float, default=50.0, help="Maximum search distance")
+    parser.add_argument("-o", "--output", required=True, help="Output adjusted DEM raster path")
+    parser.add_argument("-th", "--threshold", type=float, default=2.0, help="Elevation threshold tolerance")
+
+    args = parser.parse_args()
+
+    dem_ds = gdal.Open(args.dem)
+    sp_ds = gdal.Open(args.stream_pixels)
+    allo_ds = gdal.Open(args.allocation)
+    dist_ds = gdal.Open(args.distance)
+
+    out_ds = adjust_thalweg_lateral_in_memory(
+        dem_ds=dem_ds,
+        stream_pixels_ds=sp_ds,
+        allo_ds=allo_ds,
+        dist_ds=dist_ds,
+        max_dist=args.max_dist,
+        elev_threshold=args.threshold,
     )
 
-    # Extract to dictionary and assign to variables.
-    args = vars(parser.parse_args())
+    driver = gdal.GetDriverByName("GTiff")
+    driver.CreateCopy(args.output, out_ds, options=["COMPRESS=LZW", "TILED=YES"])
 
-    adjust_thalweg_laterally(**args)
+
+if __name__ == "__main__":
+    main()

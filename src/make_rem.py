@@ -1,129 +1,82 @@
 #!/usr/bin/env python3
+"""
+make_rem.py
+-----------
+Calculates Relative Elevation Model (REM / HAND) using GDAL in-memory datasets.
+Supports direct in-memory dataset calls as well as standalone CLI execution.
+"""
 
 import argparse
 
 import numpy as np
-import rasterio
-from numba import njit, typed, types
+from osgeo import gdal
 
 
-def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raster):
-    """
-    Calculates REM/HAND/Detrended DEM
-
-    Parameters
-    ----------
-    dem_fileName : str
-        File name of pit filled DEM raster.
-    pixel_watersheds_fileName : str
-        File name of stream pixel watersheds raster.
-    rem_fileName : str
-        File name of output relative elevation raster.
-
-    """
-
-    # --------------------------------- Get catchment_min_dict --------------------------------------------- #
-    # The following creates a dictionary of the catchment ids (key) and
-    # their elevation along the thalweg (value).
-
-    @njit
-    def make_catchment_min_dict(flat_dem, catchment_min_dict, flat_catchments, thalweg_window):
-        for i, cm in enumerate(flat_catchments):
-            if thalweg_window[i] == 1:  # Only allow reference elevation to be within thalweg.
-                # If the catchment really exists in the dictionary, compare elevation values.
-                if cm in catchment_min_dict:
-                    if flat_dem[i] < catchment_min_dict[cm]:
-                        # If the flat_dem's elevation value is less than the catchment_min_dict min,
-                        # update the catchment_min_dict min.
-                        catchment_min_dict[cm] = flat_dem[i]
-                else:
-                    catchment_min_dict[cm] = flat_dem[i]
-        return catchment_min_dict
-
-    # Open the masked gw_catchments_pixels_masked and dem_thalwegCond_masked.
-    with (
-        rasterio.open(pixel_watersheds_fileName) as gw_catchments_pixels_masked_object,
-        rasterio.open(dem_fileName) as dem_thalwegCond_masked_object,
-        rasterio.open(thalweg_raster) as thalweg_raster_object,
-    ):
-        # Specify raster object metadata.
-        meta = dem_thalwegCond_masked_object.meta.copy()
-        meta['tiled'], meta['compress'] = True, 'lzw'
-
-        # -- Create catchment_min_dict -- #
-        catchment_min_dict = typed.Dict.empty(
-            types.int32, types.float32
-        )  # Initialize an empty dictionary to store the catchment minimums.
-        # Update catchment_min_dict with pixel sheds minimum.
-        for ji, window in dem_thalwegCond_masked_object.block_windows(
-            1
-        ):  # Iterate over windows, using dem_rasterio_object as template.
-            dem_window = dem_thalwegCond_masked_object.read(1, window=window).ravel()  # Define dem_window.
-            catchments_window = gw_catchments_pixels_masked_object.read(
-                1, window=window
-            ).ravel()  # Define catchments_window.
-            thalweg_window = thalweg_raster_object.read(1, window=window).ravel()  # Define cost_window.
-
-            # Call numba-optimized function to update catchment_min_dict with pixel sheds minimum.
-            catchment_min_dict = make_catchment_min_dict(
-                dem_window, catchment_min_dict, catchments_window, thalweg_window
-            )
-    # ------------------------------------------------------------------------------------------------------ #
-
-    # --------------------------------- Produce relative elevation model ----------------------------------- #
-    @njit
-    def calculate_rem(flat_dem, catchmentMinDict, flat_catchments, ndv):
-        rem_window = np.zeros(len(flat_dem), dtype=np.float32)
-        for i, cm in enumerate(flat_catchments):
-            if cm in catchmentMinDict:
-                if catchmentMinDict[cm] == ndv or flat_dem[i] == ndv:
-                    rem_window[i] = ndv
-                else:
-                    rem_window[i] = flat_dem[i] - catchmentMinDict[cm]
-
-        return rem_window
-
-    with (
-        rasterio.open(rem_fileName, 'w', **meta) as rem_rasterio_object,
-        rasterio.open(pixel_watersheds_fileName) as pixel_catchments_rasterio_object,
-        rasterio.open(dem_fileName) as dem_rasterio_object,
-    ):
-        for ji, window in dem_rasterio_object.block_windows(1):
-            dem_window = dem_rasterio_object.read(1, window=window)
-            window_shape = dem_window.shape
-
-            dem_window = dem_window.ravel()
-            catchments_window = pixel_catchments_rasterio_object.read(1, window=window).ravel()
-
-            rem_window = calculate_rem(dem_window, catchment_min_dict, catchments_window, meta['nodata'])
-            rem_window = rem_window.reshape(window_shape).astype(np.float32)
-
-            rem_rasterio_object.write(rem_window, window=window, indexes=1)
-    # ------------------------------------------------------------------------------------------------------ #
+gdal.UseExceptions()
 
 
-if __name__ == '__main__':
-    # parse arguments
-    parser = argparse.ArgumentParser(description='Relative elevation from pixel based watersheds')
-    parser.add_argument('-d', '--dem', help='DEM to use within project path', required=True)
-    parser.add_argument(
-        '-w', '--watersheds', help='Pixel based watersheds raster to use within project path', required=True
-    )
-    parser.add_argument(
-        '-t',
-        '--thalweg-raster',
-        help='A binary raster representing the thalweg. 1 for thalweg, 0 for non-thalweg.',
-        required=True,
-    )
-    parser.add_argument('-o', '--rem', help='Output REM raster', required=True)
+def create_rem_in_memory(
+    dem_ds: gdal.Dataset,
+    pixel_watersheds_ds: gdal.Dataset,
+    thalweg_ds: gdal.Dataset,
+    nodata_val: float = -9999.0,
+) -> gdal.Dataset:
+    """Calculates REM (HAND) directly in RAM from GDAL Datasets."""
+    dem_arr = dem_ds.GetRasterBand(1).ReadAsArray().astype(np.float32)
+    catch_arr = pixel_watersheds_ds.GetRasterBand(1).ReadAsArray().astype(np.int32)
+    thalweg_arr = thalweg_ds.GetRasterBand(1).ReadAsArray().astype(np.float32)
 
-    # extract to dictionary
-    args = vars(parser.parse_args())
+    thalweg_elevs = np.where(thalweg_arr > 0, dem_arr, np.nan)
+    unique_ids = np.unique(catch_arr)
+    unique_ids = unique_ids[unique_ids > 0]
 
-    # rename variable inputs
-    dem_fileName = args['dem']
-    pixel_watersheds_fileName = args['watersheds']
-    rem_fileName = args['rem']
-    thalweg_raster = args['thalweg_raster']
+    stream_elev_map = np.full_like(dem_arr, fill_value=np.nan, dtype=np.float32)
 
-    rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raster)
+    for uid in unique_ids:
+        mask = catch_arr == uid
+        t_elevs = thalweg_elevs[mask]
+        valid_t = t_elevs[~np.isnan(t_elevs)]
+        if len(valid_t) > 0:
+            stream_elev_map[mask] = np.min(valid_t)
+
+    rem_arr = dem_arr - stream_elev_map
+    rem_arr[np.isnan(stream_elev_map) | (dem_arr == nodata_val)] = nodata_val
+
+    driver = gdal.GetDriverByName("MEM")
+    out_ds = driver.Create("", dem_ds.RasterXSize, dem_ds.RasterYSize, 1, gdal.GDT_Float32)
+    out_ds.SetGeoTransform(dem_ds.GetGeoTransform())
+    out_ds.SetProjection(dem_ds.GetProjection())
+
+    band = out_ds.GetRasterBand(1)
+    band.SetNoDataValue(float(nodata_val))
+    band.WriteArray(rem_arr)
+    out_ds.FlushCache()
+
+    return out_ds
+
+
+def rel_dem(dem_path: str, pixel_watersheds_path: str, out_rem_path: str, thalweg_path: str):
+    """File-based CLI wrapper for backward compatibility."""
+    dem_ds = gdal.Open(dem_path)
+    pw_ds = gdal.Open(pixel_watersheds_path)
+    th_ds = gdal.Open(thalweg_path)
+
+    rem_ds = create_rem_in_memory(dem_ds, pw_ds, th_ds)
+
+    driver = gdal.GetDriverByName("GTiff")
+    driver.CreateCopy(out_rem_path, rem_ds, options=["COMPRESS=LZW", "TILED=YES"])
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Create Relative Elevation Model (REM / HAND)")
+    parser.add_argument("-d", "--dem", required=True, help="DEM raster path")
+    parser.add_argument("-w", "--watersheds", required=True, help="Pixel watersheds raster path")
+    parser.add_argument("-o", "--output", required=True, help="Output REM raster path")
+    parser.add_argument("-t", "--thalweg", required=True, help="Thalweg stream raster path")
+
+    args = parser.parse_args()
+    rel_dem(args.dem, args.watersheds, args.output, args.thalweg)
+
+
+if __name__ == "__main__":
+    main()

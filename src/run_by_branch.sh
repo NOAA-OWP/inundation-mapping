@@ -143,7 +143,15 @@ export xmax=$xmax
 export ymax=$ymax
 export ncols=$ncols
 export nrows=$nrows
-$srcDir/delineate_hydros_and_produce_HAND.sh "branch"
+
+echo "--> Executing delineate_hydros_and_produce_HAND.py for Branch ${branch_zero_id} ($hucNumber)"
+python3 ${srcDir}/delineate_hydros_and_produce_HAND.py \
+    -l "branch" \
+    -u "${hucNumber}" \
+    -d "${tempHucDataDir}" \
+    -b $tempCurrentBranchDataDir \
+    -cb $current_branch_id \
+    -b0 $branch_zero_id
 
 ## USGS CROSSWALK ##
 if [ -f $tempHucDataDir/usgs_subset_gages.gpkg ]; then
