@@ -24,7 +24,6 @@ import geopandas as gp
 import numpy as np
 import pandas as pd
 from fsspec.core import url_to_fs
-from hilbertcurve.hilbertcurve import HilbertCurve
 from tqdm import tqdm
 
 
@@ -58,33 +57,7 @@ def to_hilbert_parquet(
         gdf.to_parquet(output_path, **to_parquet_kwargs)
         return
 
-    # 1. Derive representative points (avoids geographic CRS centroid warnings)
-    rep_points = gdf.geometry.representative_point()
-    minx, miny, maxx, maxy = gdf.total_bounds
-
-    x_span = (maxx - minx) if maxx != minx else 1.0
-    y_span = (maxy - miny) if maxy != miny else 1.0
-    max_val = (1 << p) - 1
-
-    # 2. Rescale coordinates to integer arrays (using .to_numpy() to avoid index misalignment)
-    norm_x = ((rep_points.x.to_numpy() - minx) / x_span * max_val).clip(0, max_val).astype(int)
-    norm_y = ((rep_points.y.to_numpy() - miny) / y_span * max_val).clip(0, max_val).astype(int)
-
-    # 3. Compute Hilbert distances
-    hc = HilbertCurve(p=p, n=2)
-    # Combine coordinates safely into a list of list/tuple points
-    coords = np.column_stack((norm_x, norm_y)).tolist()
-    distances = hc.distances_from_points(coords)
-
-    # 4. Sort and export
-    sorted_gdf = (
-        gdf.assign(_hilbert_dist=distances)
-        .sort_values("_hilbert_dist")
-        .drop(columns=["_hilbert_dist"])
-        .reset_index(drop=True)
-    )
-
-    sorted_gdf.to_parquet(output_path, **to_parquet_kwargs)
+    gdf.sort_values(by="geometry").to_parquet(output_path, **to_parquet_kwargs)
 
 
 # #################################
