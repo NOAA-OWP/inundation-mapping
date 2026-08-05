@@ -71,13 +71,13 @@ def bridge_risk_status(
     for huc in hucs:
         print(f'Processing HUC: {huc}')
         # Construct the file path
-        gpkg_path = os.path.join(dir_path, huc, 'osm_bridge_centroids.gpkg')
+        gpkg_path = os.path.join(dir_path, huc, 'osm_bridge_centroids.parquet')
         # Check if the file exists
         if not os.path.exists(gpkg_path):
             print(f"No GeoPackage file found in {gpkg_path}. Skipping...")
             continue
         # Open the bridge point GeoPackage for each huc
-        bri_po = gpd.read_file(gpkg_path)
+        bri_po = gpd.read_parquet(gpkg_path)
 
         # Save the origignal crs in a new column
         bri_po['original_crs'] = bri_po.crs.to_string()
