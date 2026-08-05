@@ -342,7 +342,7 @@ def process_generate_categorical_fim(
 
         # Save a GPKG version for debugging (not shared with the HUCs)
         nwm_sites_all_gdf.to_file(
-            nwm_sites_file.replace('.parquet', '.gpkg'), driver='GPKG', engine='fiona', index=False
+            nwm_sites_file.replace('.parquet', '.gpkg'), driver='GPKG', engine='fiona', index=False, layer_options={"OVERWRITE": "YES"}
         )
 
         # filter out hucs that do not have nws_sites

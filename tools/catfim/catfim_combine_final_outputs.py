@@ -64,7 +64,7 @@ def merge_gpkgs(gpkg_path_list, output_dir, label):
     output_gpkg_path = os.path.join(output_dir, f"{filename}_{label}.gpkg")  # TODO: is this the correct use of my label?
 
     # Save merged file to output dir
-    merged_gdf.to_file(output_gpkg_path, driver="GPKG", layer=filename)
+    merged_gdf.to_file(output_gpkg_path, driver="GPKG", layer=filename, layer_options={"OVERWRITE": "YES"})
     logging.info(f"Successfully merged GeoPackages into {output_gpkg_path} in layer {filename}")
 
     return

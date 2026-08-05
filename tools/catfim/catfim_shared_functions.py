@@ -700,7 +700,7 @@ def finalize_sites_mapping_status(
 
     # Save updated sites GDF
     logging.info(f"{huc_function_tag} Saving updated HUC sites GDF to {sites_post_mapping_file_path}")
-    sites_gdf.to_file(sites_post_mapping_file_path, driver='GPKG', engine="fiona", index=False)
+    sites_gdf.to_file(sites_post_mapping_file_path, driver='GPKG', engine="fiona", index=False, layer_options={"OVERWRITE": "YES"})
 
     # ------------------------------------
     # Process HUC library if it is available
