@@ -269,9 +269,9 @@ def process_threshold_data(
     segments_file_path = os.path.join(huc_path, "features_segments.csv")
 
     # ================================
-    # Load the flows dataframe based on the HUC
+    # Load the flows geodataframe based on the HUC
 
-    nwm_flows_region_df = gpd.read_file(sf.get_huc_vars(huc)['streams'])
+    nwm_flows_region_df = gpd.read_file(sf.get_huc_vars(huc)['streams'], engine='fiona')
 
     # Note: CONUS + Hawaii + Puerto Rico falls through to get_huc_vars' 'else' case, which might be
     # slow to load as it is 1.8 GiB.

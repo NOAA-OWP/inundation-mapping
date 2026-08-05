@@ -335,7 +335,7 @@ def mask_out_lakes(input_array, huc, raster_src, fim_run_dir):
         return input_array, mask_status
     else:
         # Read in the lakes shapefile
-        preclip_lakes_gdf = gpd.read_file(preclip_lakes_path)
+        preclip_lakes_gdf = gpd.read_file(preclip_lakes_path, engine='fiona')
 
         # Create a binary raster using the shapefile geometry
         lake_mask = geometry_mask(

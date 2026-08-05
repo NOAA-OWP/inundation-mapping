@@ -150,7 +150,7 @@ def compile_catfim_sites(sorted_path_list):
 
         if '.gpkg' in sites_filepath:
             # Read in site GPKG
-            sites_df = gpd.read_file(sites_filepath)
+            sites_df = gpd.read_file(sites_filepath, engine='fiona')
         elif '.csv' in sites_filepath:
             # Read in site CSV
             sites_df = pd.read_csv(sites_filepath)
@@ -485,7 +485,7 @@ def read_format_catfim_library(catfim_library_filepath):
             f'Library file stored as GPKG, creating geometry column - {catfim_library_filepath}'
         )  # TEMP DEBUG
 
-        library_gdf = gpd.read_file(catfim_library_filepath)
+        library_gdf = gpd.read_file(catfim_library_filepath, engine='fiona')
 
     elif '.csv' in catfim_library_filepath:
         # Read in site CSV
