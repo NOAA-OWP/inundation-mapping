@@ -842,9 +842,7 @@ def run_sb_inundation(
     hand_stage_m = datum_adj_wse_m - lid_usgs_elev  # HAND stage in m
 
     logging.info(f"{huc_lid_cat_id} - datum_adj_wse = stage_val + datum_adj_ft + lid_altitude")  # TEMP DEBUG
-    logging.info(
-        f"{huc_lid_cat_id} - {datum_adj_wse} = {stage_val} + {datum_adj_ft} + {lid_altitude}"
-    )
+    logging.info(f"{huc_lid_cat_id} - {datum_adj_wse} = {stage_val} + {datum_adj_ft} + {lid_altitude}")
     logging.info(f"{huc_lid_cat_id} - hand_stage_m = datum_adj_wse_m - lid_usgs_elev")  # TEMP DEBUG
     logging.info(f"{huc_lid_cat_id} - {hand_stage_m} = {datum_adj_wse_m} - {lid_usgs_elev}")  # TEMP DEBUG
 

@@ -14,6 +14,7 @@ import tools.catfim.catfim_post_processing as cpp
 import tools.catfim.catfim_shared_functions as csf
 import tools.catfim.generate_categorical_fim as gcf
 
+
 # Force GDAL to use standard locking and synchronous write modes
 # helps with gpkg.to_file writes
 os.environ["GDAL_GEO_TRUNCATE_JOURNAL"] = "YES"
@@ -47,6 +48,7 @@ def merge_gpkgs(gpkg_path_list, output_dir, label):
         gdf = gpd.read_file(f)
 
         # Filter out HUCs that have already been added
+        huc_list = []
         huc_list = [huc for huc in huc_list if huc not in hucs_added]
         gdf = gdf[gdf['huc8'].isin(huc_list)]
 
