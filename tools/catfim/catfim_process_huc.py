@@ -208,7 +208,12 @@ def process_huc(huc, output_folder):
             # Save sites to a file checkpoint (Yes.. to the master copy)
             logging.info(f"{huc} - Saving sites, pre flow and mapping, at {sites_pre_mapping_file_path}")
             sites_gdf.to_file(
-                sites_pre_mapping_file_path, driver='GPKG', crs=VIZ_PROJECTION, engine="fiona", index=False, layer_options={"OVERWRITE": "YES"}
+                sites_pre_mapping_file_path,
+                driver='GPKG',
+                crs=VIZ_PROJECTION,
+                engine="fiona",
+                index=False,
+                layer_options={"OVERWRITE": "YES"},
             )
 
             logging.info(f"{huc} - {len(valid_nwm_lids)} sites remaining after validation: {valid_nwm_lids}")
@@ -250,7 +255,12 @@ def process_huc(huc, output_folder):
                 f"{huc} - Saving sites data post threshold processing at {sites_pre_mapping_file_path}"
             )
             sites_gdf.to_file(
-                sites_pre_mapping_file_path, driver='GPKG', crs=VIZ_PROJECTION, engine="fiona", index=False, layer_options={"OVERWRITE": "YES"}
+                sites_pre_mapping_file_path,
+                driver='GPKG',
+                crs=VIZ_PROJECTION,
+                engine="fiona",
+                index=False,
+                layer_options={"OVERWRITE": "YES"},
             )
 
             # CatFIM Reorg. Note (Jan 26): We no longer need attribute files or the attribute folder.

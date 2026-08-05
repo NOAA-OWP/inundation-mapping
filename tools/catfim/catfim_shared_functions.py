@@ -11,6 +11,7 @@ import geopandas as gpd
 import pandas as pd
 from dotenv import load_dotenv
 
+
 # Force GDAL to use standard locking and synchronous write modes
 # helps with gpkg.to_file writes
 os.environ["GDAL_GEO_TRUNCATE_JOURNAL"] = "YES"
@@ -700,7 +701,13 @@ def finalize_sites_mapping_status(
 
     # Save updated sites GDF
     logging.info(f"{huc_function_tag} Saving updated HUC sites GDF to {sites_post_mapping_file_path}")
-    sites_gdf.to_file(sites_post_mapping_file_path, driver='GPKG', engine="fiona", index=False, layer_options={"OVERWRITE": "YES"})
+    sites_gdf.to_file(
+        sites_post_mapping_file_path,
+        driver='GPKG',
+        engine="fiona",
+        index=False,
+        layer_options={"OVERWRITE": "YES"},
+    )
 
     # ------------------------------------
     # Process HUC library if it is available

@@ -342,7 +342,11 @@ def process_generate_categorical_fim(
 
         # Save a GPKG version for debugging (not shared with the HUCs)
         nwm_sites_all_gdf.to_file(
-            nwm_sites_file.replace('.parquet', '.gpkg'), driver='GPKG', engine='fiona', index=False, layer_options={"OVERWRITE": "YES"}
+            nwm_sites_file.replace('.parquet', '.gpkg'),
+            driver='GPKG',
+            engine='fiona',
+            index=False,
+            layer_options={"OVERWRITE": "YES"},
         )
 
         # filter out hucs that do not have nws_sites
@@ -363,7 +367,7 @@ def process_generate_categorical_fim(
         valid_fim_hucs = []
         for huc in adj_valid_fim_hucs:
             if huc in nwm_huc_list:  # TEMP DEBUG EMILY
-            # if huc in nwm_huc_list and huc in attempt_huc_list:  # TEMP DEBUG EMILY - commenting out Rob's HUC list file thing
+                # if huc in nwm_huc_list and huc in attempt_huc_list:  # TEMP DEBUG EMILY - commenting out Rob's HUC list file thing
                 valid_fim_hucs.append(huc)
             elif huc in nwm_huc_list:
                 logging.debug(f".... {huc} does not have any nwm sites")
@@ -383,8 +387,10 @@ def process_generate_categorical_fim(
         valid_fim_hucs.sort()
 
         if len(valid_fim_hucs) == 0:
-            raise Exception("Comparing the loaded huc processing list to nwm site hucs,"
-                            " there are no hucs remaining to process" )
+            raise Exception(
+                "Comparing the loaded huc processing list to nwm site hucs,"
+                " there are no hucs remaining to process"
+            )
 
         valid_fim_hucs.sort()
 

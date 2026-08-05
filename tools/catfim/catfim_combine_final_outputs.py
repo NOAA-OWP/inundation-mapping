@@ -38,7 +38,7 @@ def merge_gpkgs(gpkg_path_list, output_dir, label):
             # Remove from list if file doesn't exist
             gpkg_path_list.remove(path)
             continue
-            
+
     # Read and concatenate all files
     gdfs = []
     hucs_added = set()  # Keep track of HUCs that have already been added to the merged_gdf
@@ -55,13 +55,16 @@ def merge_gpkgs(gpkg_path_list, output_dir, label):
         # Update hucs_added with the HUCs from the current gdf
         hucs_added.update(gdf['huc8'].unique())
 
-        logging.info(f"Added {len(gdf)} rows from {f} to the merged GeoDataFrame. Total unique HUCs added so far: {len(hucs_added)}")
+        logging.info(
+            f"Added {len(gdf)} rows from {f} to the merged GeoDataFrame. Total unique HUCs added so far: {len(hucs_added)}"
+        )
 
     merged_gdf = gpd.GeoDataFrame(pd.concat(gdfs, ignore_index=True))
 
     # Get filename without extension for the layer name
     filename = os.path.splitext(os.path.basename(gpkg_path_list[0]))[0]
-    output_gpkg_path = os.path.join(output_dir, f"{filename}_{label}.gpkg")  # TODO: is this the correct use of my label?
+    output_gpkg_path = os.path.join(output_dir, f"{filename}_{label}.gpkg")
+    # TODO: is this the correct use of my label?
 
     # Save merged file to output dir
     merged_gdf.to_file(output_gpkg_path, driver="GPKG", layer=filename, layer_options={"OVERWRITE": "YES"})
@@ -112,9 +115,7 @@ def merge_geoparquets(parquet_path_list, output_dir, label):
 
 
 def validate_dirs_and_get_pathlists(input_dirs):
-    '''
 
-    '''
     logging.info("Validating input directories and getting output filepaths...")
 
     sites_gpkg_path_list = []
@@ -211,9 +212,7 @@ def validate_dirs_and_get_pathlists(input_dirs):
 
 
 def rollup_logs(input_dirs, output_dir):
-    '''
 
-    '''
     final_log_path = os.path.join(output_dir, "ALL_LOGS_combined.log")
 
     for dir in input_dirs:
@@ -233,7 +232,6 @@ def rollup_logs(input_dirs, output_dir):
             logging.info(
                 f"{dir} - {num_log_files_avail} logs available. Using most recent log: {dir_log_file_name}"
             )
-
 
         # Copy the dir log file to the final log path if it doesn't exist yet
         if not os.path.exists(final_log_path):
@@ -257,11 +255,7 @@ def rollup_logs(input_dirs, output_dir):
     return
 
 
-
 def combine_final_outputs(output_dir, input_dirs, label):
-    '''
-    
-    '''
 
     is_logging_loaded = False
     overall_start_time = datetime.now(timezone.utc)
@@ -332,9 +326,7 @@ def combine_final_outputs(output_dir, input_dirs, label):
         # TODO: Could add a section where we copy all of the folders in the huc directories into the output huc directory
         # -> Probably not needed for now
 
-        logging.info(
-            'Successfully combined CatFIM outputs into new files in the output directory.'
-        )
+        logging.info('Successfully combined CatFIM outputs into new files in the output directory.')
 
     except Exception as ex:
         trace_error = traceback.format_exc()
@@ -391,7 +383,7 @@ if __name__ == '__main__':
         '--label',
         help='OPTIONAL: Label for the output files (to differentiate them from the original primary outputs)',
         required=False,
-        default='combined'
+        default='combined',
     )
 
     args = vars(parser.parse_args())

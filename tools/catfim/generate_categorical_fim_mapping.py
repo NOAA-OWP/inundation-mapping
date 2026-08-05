@@ -37,10 +37,11 @@ appropriate NWM reaches.
 
 """
 
-gpd.options.io_engine = "pyogrio"# Force GDAL to use standard locking and synchronous write modes
+gpd.options.io_engine = "pyogrio"  # Force GDAL to use standard locking and synchronous write modes
 # helps with gpkg.to_file writes
 os.environ["GDAL_GEO_TRUNCATE_JOURNAL"] = "YES"
 os.environ["OGR_SQLITE_SYNCHRONOUS"] = "OFF"  # Speeds up network writes
+
 
 # Main function for CatFIM mapping processing for a HUC
 def process_mapping(
@@ -587,7 +588,7 @@ def run_sb_mapping(
         lid_altitude = huc_library_df[(huc_library_df['nws_lid'] == ahps_site)]['lid_alt_ft'].iloc[0]
 
         if math.isnan(lid_altitude):
-            msg = f"Site altitude is nan, no inundation possible"
+            msg = "Site altitude is nan, no inundation possible"
             logging.warning(f"{huc} : {ahps_site} - {msg}")
             sites_gdf = csf.update_line_status_or_warning(ahps_site, sites_gdf, msg, set_mapped_to_no=True)
             continue
@@ -841,7 +842,9 @@ def run_sb_inundation(
     hand_stage_m = datum_adj_wse_m - lid_usgs_elev  # HAND stage in m
 
     logging.info(f"{huc_lid_cat_id} - datum_adj_wse = stage_val + datum_adj_ft + lid_altitude")  # TEMP DEBUG
-    logging.info(f"{huc_lid_cat_id} - {datum_adj_wse} = {stage_val} + {datum_adj_ft} + {lid_altitude}")  # TEMP DEBUG
+    logging.info(
+        f"{huc_lid_cat_id} - {datum_adj_wse} = {stage_val} + {datum_adj_ft} + {lid_altitude}"
+    )
     logging.info(f"{huc_lid_cat_id} - hand_stage_m = datum_adj_wse_m - lid_usgs_elev")  # TEMP DEBUG
     logging.info(f"{huc_lid_cat_id} - {hand_stage_m} = {datum_adj_wse_m} - {lid_usgs_elev}")  # TEMP DEBUG
 
@@ -859,7 +862,9 @@ def run_sb_inundation(
     datum_adj_wse = round(datum_adj_wse, 2)
     datum_adj_wse_m = round(datum_adj_wse_m, 2)
 
-    logging.info(f"{huc_lid_cat_id} - datum_adj_wse : {datum_adj_wse}, datum_adj_wse_m : {datum_adj_wse_m}")  # TEMP DEBUG
+    logging.info(
+        f"{huc_lid_cat_id} - datum_adj_wse : {datum_adj_wse}, datum_adj_wse_m : {datum_adj_wse_m}"
+    )  # TEMP DEBUG
     logging.info(f"{huc_lid_cat_id} - hand_stage : {hand_stage} {hand_stage_units}")  # TEMP DEBUG
     logging.info(f"{huc_lid_cat_id} - ")  # TEMP DEBUG
 
@@ -1910,7 +1915,13 @@ def __save_huc_outputs_post_mapping(
     else:
         # Save HUC library as GPKG (CSV will be saved later, so we don't have to update both down the line)
         logging.info(f"{huc} - Mapping - Saving HUC library to {library_post_mapping_file_path}")
-        huc_library_gdf.to_file(library_post_mapping_file_path, driver='GPKG', engine="fiona", index=False, layer_options={"OVERWRITE": "YES"})
+        huc_library_gdf.to_file(
+            library_post_mapping_file_path,
+            driver='GPKG',
+            engine="fiona",
+            index=False,
+            layer_options={"OVERWRITE": "YES"},
+        )
 
     # ---------------------------
     # Save HUC sites GDF if it exists, otherwise log its absense
@@ -1925,7 +1936,13 @@ def __save_huc_outputs_post_mapping(
     else:
         # Save HUC sites as GPKG (CSV will be saved later, so we don't have to update both down the line)
         logging.info(f"{huc} - Mapping - Saving HUC sites GDF to {sites_post_mapping_file_path}")
-        sites_gdf.to_file(sites_post_mapping_file_path, driver='GPKG', engine="fiona", index=False, layer_options={"OVERWRITE": "YES"})
+        sites_gdf.to_file(
+            sites_post_mapping_file_path,
+            driver='GPKG',
+            engine="fiona",
+            index=False,
+            layer_options={"OVERWRITE": "YES"},
+        )
 
     return
 

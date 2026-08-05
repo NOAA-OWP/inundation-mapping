@@ -13,6 +13,7 @@ import tools.catfim.catfim_shared_functions as csf
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
+
 # Force GDAL to use standard locking and synchronous write modes
 # helps with gpkg.to_file writes
 os.environ["GDAL_GEO_TRUNCATE_JOURNAL"] = "YES"
@@ -223,7 +224,13 @@ def catfim_post_processing(output_folder):
             compiled_sites_gdf.rename(columns={'nws_lid': 'ahps_lid'}, inplace=True)
 
             # Save the compiled GeoDataFrames to GeoPackage files
-            compiled_sites_gdf.to_file(sites_gpkg_path, driver='GPKG', engine='fiona', index=False, layer_options={"OVERWRITE": "YES"})
+            compiled_sites_gdf.to_file(
+                sites_gpkg_path,
+                driver='GPKG',
+                engine='fiona',
+                index=False,
+                layer_options={"OVERWRITE": "YES"},
+            )
             logging.info(f"Saved sites GeoPackage to {sites_gpkg_path}")
 
             # Save the GeoDataFrames to GeoParquet files
@@ -244,7 +251,13 @@ def catfim_post_processing(output_folder):
             compiled_library_gdf = gpd.pd.concat(compiled_library_gdf_list, ignore_index=True)
             compiled_library_gdf.rename(columns={'nws_lid': 'ahps_lid'}, inplace=True)
 
-            compiled_library_gdf.to_file(library_gpkg_path, driver='GPKG', engine='fiona', index=False, layer_options={"OVERWRITE": "YES"})
+            compiled_library_gdf.to_file(
+                library_gpkg_path,
+                driver='GPKG',
+                engine='fiona',
+                index=False,
+                layer_options={"OVERWRITE": "YES"},
+            )
             logging.info(f"Saved library GeoPackage to {library_gpkg_path}")
 
             # Save the GeoDataFrames to GeoParquet files
