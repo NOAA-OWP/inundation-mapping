@@ -1,6 +1,14 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.x.x - 2026-08-06 - [PR#1917](https://github.com/NOAA-OWP/inundation-mapping/pull/1917)
+
+This PR fixes a bug in `reset_htable_src.py` where the old calibration columns were not being cleared. Previously, when reset_htable_src.py was executed, the script reset discharge_cms to its original geometric values but did not remove existing calibration columns, such as precalb_discharge_cms.
+
+### Changes
+- `src/reset_htable_src.py`: Updated the reset logic to check for the presence of calibration columns (precalb_discharge_cms, calb_coef_*, calb_applied, etc.) and set their values back to default empty states.
+<br/>
+
 ## v4.9.21.2 - 2026-07-24 - [PR#1895](https://github.com/NOAA-OWP/inundation-mapping/pull/1895)
 
 Most notes embedded.
