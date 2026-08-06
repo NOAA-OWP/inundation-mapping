@@ -16,8 +16,7 @@ Bash scripts were also refactored to use bash arrays and use of explicit notatio
 
 ### Changes
 #### Added new shared function to sort geodataframes by Hilbert curve before saving as geoparquet
-- `src/utils/shared_functions.py`: Added `to_hilbert_parquet` to sort by Hilbert curve before saving as geoparquet
-- `Pipfile` and `Pipfile.lock`: Added `hilbertcurve` Python package required for `to_hilbert_parquet`
+- `sitecustomize.py`: Added sort by Hilbert curve before saving as geoparquet. Also adds capability to forward files ending in '.parquet' or 'driver="Parquet"' from `to_file()` to `to_parquet()`.
 ##### The files below previously wrote parquet files but were modified to use `to_hilbert_parquet`
 - `data/`
     - `buildings/get_fema_buildings.py` and `make_buildings_parts_per_huc.py`
