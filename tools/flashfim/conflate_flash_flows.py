@@ -88,7 +88,7 @@ def flash_flow_conflation(model, huc_flows, output, timestep, min_order):
 
     for r_min, r_max in ranges:
         # reclass = np.where(np.logical_and(band > r_min, band < r_max), band, np.nan)
-        band[(band <= r_min) & (band >= r_max)] = np.nan
+        band[(band <= r_min) | (band >= r_max)] = np.nan
 
         # Raster Stats Using all touched cells within the buffer
         raster_stats_buf = zonal_stats(
