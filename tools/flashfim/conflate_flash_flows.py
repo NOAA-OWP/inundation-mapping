@@ -19,11 +19,14 @@ def smooth_level_path(lp_order_flows):
     lp_order_flows = lp_order_flows.sort_values(by="hydroseq")
     # Select any id that the minimum value is less than 5% of the median of three upstream to three downstream
     lp_order_flows['median'] = lp_order_flows['discharge'].rolling(7, min_periods=1, center=True).median()
-    lp_order_flows['threshold'] = lp_order_flows['discharge'] < (lp_order_flows['median'] * 0.05)
+    # lp_order_flows['threshold'] = lp_order_flows['discharge'] < (lp_order_flows['median'] * 0.05)
 
-    lp_order_flows.loc[lp_order_flows['threshold'] == True, 'discharge'] = np.nan
+    # lp_order_flows.loc[lp_order_flows['threshold'] == True, 'discharge'] = np.nan
+    threshold =  lp_order_flows['discharge'] < (lp_order_flows['median'] * 0.05)
+    lp_order_flows.loc[threshold, 'discharge'] = np.nan
+    
     lp_order_flows['discharge'] = (
-        lp_order_flows['discharge'].interpolate(method='linear').drop(columns="threshold")
+        lp_order_flows['discharge'].interpolate(method='linear')
     )
     lp_order_flows = lp_order_flows.drop(columns=["threshold"])
 
@@ -86,14 +89,15 @@ def flash_flow_conflation(model, huc_flows, output, timestep, min_order):
         huc_flows_buffer = huc_flows_buffer.to_crs(src.crs)
 
     for r_min, r_max in ranges:
-        reclass = np.where(np.logical_and(band > r_min, band < r_max), band, np.nan)
+        # reclass = np.where(np.logical_and(band > r_min, band < r_max), band, np.nan)
+        band[(band <= r_min) & (band >= r_max)] = np.nan
 
         # Raster Stats Using all touched cells within the buffer
         raster_stats_buf = zonal_stats(
             huc_flows_buffer,
-            reclass,
+            band,
             affine=affine,
-            stats=["mean", "sum", "count"],
+            stats=["mean", "count"],
             all_touched=True,
             geojson_out=True,
         )
