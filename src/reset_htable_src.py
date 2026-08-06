@@ -142,24 +142,17 @@ def process_branch(sub_branch_path, branch, huc_id):
     input_hydro_table['subdiv_discharge_cms'] = pd.NA
 
     # Reset calibration columns to default states
-    if 'precalb_discharge_cms' in input_hydro_table.columns:
-        input_hydro_table['precalb_discharge_cms'] = pd.NA
-    if 'calb_coef_usgs' in input_hydro_table.columns:
-        input_hydro_table['calb_coef_usgs'] = pd.NA
-    if 'calb_coef_spatial' in input_hydro_table.columns:
-        input_hydro_table['calb_coef_spatial'] = pd.NA
-    if 'calb_coef_ras2fim' in input_hydro_table.columns:
-        input_hydro_table['calb_coef_ras2fim'] = pd.NA
-    if 'calb_coef_final' in input_hydro_table.columns:
-        input_hydro_table['calb_coef_final'] = pd.NA
+    na_cols = [
+        'precalb_discharge_cms', 'calb_coef_usgs', 'calb_coef_spatial',
+        'calb_coef_ras2fim', 'calb_coef_final', 'last_updated', 'submitter',
+        'obs_source'
+    ]
+    for col in na_cols:
+        if col in input_hydro_table.columns:
+            input_hydro_table[col] = pd.NA
+
     if 'calb_applied' in input_hydro_table.columns:
         input_hydro_table['calb_applied'] = False
-    if 'last_updated' in input_hydro_table.columns:
-        input_hydro_table['last_updated'] = pd.NA
-    if 'submitter' in input_hydro_table.columns:
-        input_hydro_table['submitter'] = pd.NA
-    if 'obs_source' in input_hydro_table.columns:
-        input_hydro_table['obs_source'] = pd.NA
 
     input_hydro_table.drop(columns=['Discharge (m3s-1)'], inplace=True)
 
