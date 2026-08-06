@@ -3,6 +3,7 @@
 import argparse
 import logging
 import os
+import shutil
 import traceback
 from datetime import datetime, timezone
 
@@ -21,116 +22,112 @@ os.environ["GDAL_GEO_TRUNCATE_JOURNAL"] = "YES"
 os.environ["OGR_SQLITE_SYNCHRONOUS"] = "OFF"  # Speeds up network writes
 
 '''
-This tool is being used to combine the outputs of two CatFIM runs (primary and secondary) into a single set of outputs.
+This tool is being used to combine the outputs of multiple CatFIM runs into a single set of outputs.
 
-The primary and secondary directories must have the same values for CATFIM_TYPE, FIM_RUN_DIR, PAST_MAJOR_INTERVAL_CAP,
+The CatFIM directories must have the same values for CATFIM_TYPE, FIM_RUN_DIR, PAST_MAJOR_INTERVAL_CAP,
 and SEARCH (all found in the runtime_args.env file of the directories).
 
-The outputs are merged into new files in the primary folder with a label added to the filename.
+The outputs are merged into new files in the output directory with a label added to the filename.
 
 '''
 
 
-def merge_gpkgs(gpkg_path_list, output_dir, label):
+def merge_gpkgs(gpkg_path_list):
+    '''
+    Arguments
+    ---------
+    gpkg_path_list - list of str
+        List of paths to the GeoPackage files to be merged
 
+    Returns
+    -------
+    gdfs - list of GeoDataFrames
+        List of GeoDataFrames read from the GeoPackage files, with duplicate HUCs removed
+    '''
+    # Get rid of any paths that don't exist and log a warning
     for path in gpkg_path_list:
         if not os.path.exists(path):
             logging.warning(f"Warning: File not found -> {path}")
-            # Remove from list if file doesn't exist
-            gpkg_path_list.remove(path)
+            gpkg_path_list.remove(path)  # Remove from list if file doesn't exist
             continue
 
     # Read and concatenate all files
     gdfs = []
     hucs_added = set()  # Keep track of HUCs that have already been added to the merged_gdf
     for f in gpkg_path_list:
+        logging.info(f"Reading GPKG: {f}")
+
         # Read gpkg
         gdf = gpd.read_file(f)
 
-        # Filter out HUCs that have already been added
-        huc_list = []
-        huc_list = [huc for huc in huc_list if huc not in hucs_added]
-        gdf = gdf[gdf['huc8'].isin(huc_list)]
+        huc_list = gdf['huc8'].unique()
+        logging.info(f"Found {len(huc_list)} unique HUCs")
 
+        # Get the list of HUCs that are in the HUC list and not already in hucs_added
+        huc_list_filtered = [huc for huc in huc_list if huc not in hucs_added]
+
+        # Log the duplicate HUCs that are being skipped
+        duplicate_hucs = set(gdf['huc8'].unique()) - set(huc_list_filtered)
+        if duplicate_hucs:
+            logging.warning(f"Skipping {len(duplicate_hucs)} duplicate HUCs (already merged from previous GPKGs):")
+            logging.warning(duplicate_hucs)
+
+        # Filter out HUCs that have already been added
+        gdf = gdf[gdf['huc8'].isin(huc_list_filtered)]
         gdfs.append(gdf)
 
         # Update hucs_added with the HUCs from the current gdf
-        hucs_added.update(gdf['huc8'].unique())
+        hucs_added.update(huc_list_filtered)
+        logging.info(f"Added {len(gdf)} rows to the merged GeoDataFrame.")
+        logging.info(f"Total unique HUCs added so far: {len(hucs_added)}")
 
-        logging.info(
-            f"Added {len(gdf)} rows from {f} to the merged GeoDataFrame. Total unique HUCs added so far: {len(hucs_added)}"
-        )
+    logging.info("")
+    logging.info(f"Compiled GDFs for {len(hucs_added)} total unique HUCs")
+    logging.info("")
 
-    merged_gdf = gpd.GeoDataFrame(pd.concat(gdfs, ignore_index=True))
-
-    # Get filename without extension for the layer name
-    filename = os.path.splitext(os.path.basename(gpkg_path_list[0]))[0]
-    output_gpkg_path = os.path.join(output_dir, f"{filename}_{label}.gpkg")
-    # TODO: is this the correct use of my label?
-
-    # Save merged file to output dir
-    merged_gdf.to_file(output_gpkg_path, driver="GPKG", layer=filename, layer_options={"OVERWRITE": "YES"})
-    logging.info(f"Successfully merged GeoPackages into {output_gpkg_path} in layer {filename}")
-
-    return
-
-
-def merge_csvs(csv_path_list, output_dir, label):
-
-    for path in csv_path_list:
-        if not os.path.exists(path):
-            logging.warning(f"Warning: File not found -> {path}")
-            # Remove from list if file doesn't exist
-            csv_path_list.remove(path)
-            continue
-
-    dfs = [pd.read_csv(f) for f in csv_path_list]
-    merged_df = pd.concat(dfs, ignore_index=True)
-
-    filename = os.path.splitext(os.path.basename(csv_path_list[0]))[0]
-    output_csv_path = os.path.join(output_dir, f"{filename}_{label}.csv")
-
-    merged_df.to_csv(output_csv_path, index=False)
-    logging.info(f"Successfully merged CSVs into {output_csv_path}")
-
-    return
-
-
-def merge_geoparquets(parquet_path_list, output_dir, label):
-    for path in parquet_path_list:
-        if not os.path.exists(path):
-            logging.warning(f"Warning: File not found -> {path}")
-            # Remove from list if file doesn't exist
-            parquet_path_list.remove(path)
-            continue
-
-    dfs = [pd.read_parquet(f) for f in parquet_path_list]
-    merged_df = pd.concat(dfs, ignore_index=True)
-
-    filename = os.path.splitext(os.path.basename(parquet_path_list[0]))[0]
-    output_parquet_path = os.path.join(output_dir, f"{filename}_{label}.parquet")
-
-    merged_df.to_parquet(output_parquet_path, index=False)
-    logging.info(f"Successfully merged GeoParquets into {output_parquet_path}")
-
-    return
+    return gdfs
 
 
 def validate_dirs_and_get_pathlists(input_dirs):
+    '''
+    Validate input filepaths and get path lists for sites and library GPKGs.
 
+    Arguments
+    ---------
+    input_dirs - list of str
+        List of paths to directories containing CatFIM outputs (to be joined)
+
+    Returns
+    -------
+    sites_gpkg_path_list - list of str
+        List of paths to the sites GeoPackage files in the input directories
+    library_gpkg_path_list - list of str
+        List of paths to the library GeoPackage files in the input directories
+    '''
+    logging.info("")
     logging.info("Validating input directories and getting output filepaths...")
 
-    sites_gpkg_path_list = []
-    sites_csv_path_list = []
-    sites_parquet_path_list = []
-    library_gpkg_path_list = []
-    library_csv_path_list = []
-    library_parquet_path_list = []
+    sites_gpkg_path_list, library_gpkg_path_list = [], []
+    catfim_type_first, fim_run_dir_first, past_major_interval_cap_first, search_first = None, None, None, None
 
-    catfim_type_first = None
-    fim_run_dir_first = None
-    past_major_interval_cap_first = None
-    search_first = None
+    # Get the args from the first dir
+    first_dir = input_dirs[0]
+
+    # Get catfim_type_name from the runtime_args.env file in the primary_dir
+    csf.load_runtime_args(first_dir)
+    catfim_type_first = os.getenv('CATFIM_TYPE')
+    fim_run_dir_first = os.getenv('FIM_RUN_DIR')
+    past_major_interval_cap_first = os.getenv('PAST_MAJOR_INTERVAL_CAP')
+    search_first = os.getenv('SEARCH')
+
+    # Print args from first dir
+    logging.info("")
+    logging.info(f"Getting runtime args from first directory: {first_dir}")
+    logging.info(f"CATFIM_TYPE: {catfim_type_first}")
+    logging.info(f"FIM_RUN_DIR: {fim_run_dir_first}")
+    logging.info(f"PAST_MAJOR_INTERVAL_CAP: {past_major_interval_cap_first}")
+    logging.info(f"SEARCH: {search_first}")
+    logging.info("")
 
     for dir in input_dirs:
 
@@ -147,38 +144,26 @@ def validate_dirs_and_get_pathlists(input_dirs):
         past_major_interval_cap = os.getenv('PAST_MAJOR_INTERVAL_CAP')
         search = os.getenv('SEARCH')
 
-        # Confirm that the values match the first dir (or set the values if it's the first dir)
-        if catfim_type_first is None:
-            catfim_type_first = catfim_type
-        else:
-            if catfim_type != catfim_type_first:
-                msg = f"CATFIM_TYPE in {dir} is {catfim_type}, which differs from the value in the first dir ({catfim_type_first})"
-                logging.error(msg)
-                raise ValueError(msg)
+        # Confirm that the values match the first dir
+        if catfim_type_first != catfim_type:
+            msg = f"CATFIM_TYPE in {dir} is {catfim_type}, which differs from value in first dir ({catfim_type_first})"
+            logging.error(msg)
+            raise ValueError(msg)
 
-        if fim_run_dir_first is None:
-            fim_run_dir_first = fim_run_dir
-        else:
-            if fim_run_dir != fim_run_dir_first:
-                msg = f"FIM_RUN_DIR in {dir} is {fim_run_dir}, which differs from the value in the first dir ({fim_run_dir_first})"
-                logging.error(msg)
-                raise ValueError(msg)
+        if fim_run_dir_first != fim_run_dir:
+            msg = f"FIM_RUN_DIR in {dir} is {fim_run_dir}, which differs from value in first dir ({fim_run_dir_first})"
+            logging.error(msg)
+            raise ValueError(msg)
 
-        if past_major_interval_cap_first is None:
-            past_major_interval_cap_first = past_major_interval_cap
-        else:
-            if past_major_interval_cap != past_major_interval_cap_first:
-                msg = f"PAST_MAJOR_INTERVAL_CAP in {dir} is {past_major_interval_cap}, which differs from the value in the first dir ({past_major_interval_cap_first})"
-                logging.error(msg)
-                raise ValueError(msg)
+        if past_major_interval_cap_first != past_major_interval_cap:
+            msg = f"PAST_MAJOR_INTERVAL_CAP in {dir} is {past_major_interval_cap}, which differs from value in first dir ({past_major_interval_cap_first})"
+            logging.error(msg)
+            raise ValueError(msg)
 
-        if search_first is None:
-            search_first = search
-        else:
-            if search != search_first:
-                msg = f"SEARCH in {dir} is {search}, which differs from the value in the first dir ({search_first})"
-                logging.error(msg)
-                raise ValueError(msg)
+        if search_first != search:
+            msg = f"SEARCH in {dir} is {search}, which differs from value in first dir ({search_first})"
+            logging.error(msg)
+            raise ValueError(msg)
 
         if catfim_type == 'sb':
             catfim_type_name = "stage_based"
@@ -195,69 +180,143 @@ def validate_dirs_and_get_pathlists(input_dirs):
             library_parquet_path,
         ) = cpp.get_output_filepaths(dir, catfim_type_name)
 
+        # TODO: Currently this is just working with gpkgs but we could switch to parquets if that helps with memory/processing
         sites_gpkg_path_list.append(sites_gpkg_path)
         library_gpkg_path_list.append(library_gpkg_path)
-        sites_csv_path_list.append(sites_csv_path)
-        library_csv_path_list.append(library_csv_path)
-        sites_parquet_path_list.append(sites_parquet_path)
-        library_parquet_path_list.append(library_parquet_path)
-    # End loop
 
-    return (
-        sites_gpkg_path_list,
-        sites_csv_path_list,
-        sites_parquet_path_list,
-        library_gpkg_path_list,
-        library_csv_path_list,
-        library_parquet_path_list,
-    )
+    logging.info(f"Compiled {len(sites_gpkg_path_list)} sites gpkg filepaths and {len(library_gpkg_path_list)} library gpkg filepaths")
+
+    return sites_gpkg_path_list, library_gpkg_path_list
 
 
 def rollup_logs(input_dirs, output_dir):
+    '''
+    Combine final output logs from the input dirs.
 
-    final_log_path = os.path.join(output_dir, "ALL_LOGS_combined.log")
+    Arguments
+    ---------
+    output_dir - str
+        Path to the output directory where the compiled files will be saved
+    input_dirs - str
+        Space-delimited list of paths to directories containing CatFIM outputs (to be joined)
+
+    '''
+    logging.info("Compiling final logs...")
+    final_log_path = os.path.join(output_dir, f"ALL_LOGS_combined_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.log")
 
     for dir in input_dirs:
-
+        logging.info(f"Processing logs for {os.path.basename(dir)}")
         log_folder_path = os.path.join(dir, "logs")
 
         # Get the most recent log file in the folder
         dir_log_file_name, num_log_files_avail = gcf.get_most_recent_log_file(log_folder_path, "ALL_LOGS_")
 
-        # Exit this process if the log file doesn't exist, because that means we didn't get very far
-        # into processing for this dir and we don't have logs to add for this HUC.
         if dir_log_file_name is None:
             logging.warning(f"{dir} - No logs found, skipping adding logs to final logs.")
             continue
 
         if num_log_files_avail > 1:
             logging.info(
-                f"{dir} - {num_log_files_avail} logs available. Using most recent log: {dir_log_file_name}"
+                f"{num_log_files_avail} logs available. Using most recent log: {dir_log_file_name}"
             )
 
-        # Copy the dir log file to the final log path if it doesn't exist yet
-        if not os.path.exists(final_log_path):
-            sf.copy_file(dir_log_file_name, final_log_path)
-            logging.info(f"Copied {dir_log_file_name} to {final_log_path}")
-        else:
-            # logging.info(f"Final log file already exists: {final_log_path}")
+        dir_log_file_path = os.path.join(log_folder_path, dir_log_file_name)
 
-            # Append HUC .log file to gen .log file
-            log_concat_success = sf.rollup_log_files(
-                dir_log_file_name, final_log_path, remove_old_src_file=False
-            )
+        # Make the warning and errors filenames too
+        gen_logs_path_list = gcf.make_logs_path_list(dir_log_file_path)
+        final_logs_path_list = gcf.make_logs_path_list(final_log_path)
 
-            # Print warning if needed
-            if not log_concat_success:
-                logging.info(
-                    f'{dir} - WARNING: Unable to concat to final log: {os.path.basename(dir_log_file_name)}'
+        for path, final_path in zip(gen_logs_path_list, final_logs_path_list):
+
+            if not os.path.exists(final_path):
+                # Copy the dir log file to the final log path if it doesn't exist yet
+                shutil.copyfile(path, final_path)
+                logging.info(f"  Copied {os.path.basename(path)} to {os.path.basename(final_path)}")
+            else:
+                # If final log exists, append HUC .log file to gen .log file
+                log_concat_success = sf.rollup_log_files(
+                    path, final_path, remove_old_src_file=False
                 )
-    # End log rollup loop
+                logging.info(f"  Copying {os.path.basename(path)} into {os.path.basename(final_path)}")
+
+                if not log_concat_success:
+                    logging.warning(
+                        f'Unable to concat to final log for {dir} (Log: {os.path.basename(path)})'
+                    )
+    logging.info("Finished rolling up final logs")
+
+    return
+
+    
+def save_compiled_outputs(gdfs, gpkg_path_list, output_dir, label, file_type):
+    '''
+    Save the compiled GDFs as output CSVs, GPKGs, and parquets.
+
+    Arguments
+    ---------
+    gdfs - list of GeoDataFrames
+        List of GeoDataFrames to be saved
+    gpkg_path_list - list of str
+        List of paths to the original GeoPackage files (used to derive the output filename)
+    output_dir - str
+        Path to the output directory where the compiled files will be saved
+    label - str
+        Label to be added to the output filenames
+    file_type - str
+        Type of file being saved (e.g., 'sites' or 'library') for logging and file naming
+    '''
+
+    # Get filename without extension for the layer name
+    filename = os.path.splitext(os.path.basename(gpkg_path_list[0]))[0]
+
+    # Make filenames
+    # TODO: Makes these kinda wonky filenames. Could fix, but also it might be ok
+    # ex. flow_based_catfim_library_test1_library.csv (says library twice)
+    merged_sites_gpkg_path = os.path.join(output_dir, f"{filename}_{label}_{file_type}.gpkg")
+    merged_sites_parquet_path = os.path.join(output_dir, f"{filename}_{label}_{file_type}.parquet")
+    merged_sites_csv_path = os.path.join(output_dir, f"{filename}_{label}_{file_type}.csv")
+
+    # Concatenate sites GeoDataFrames into one GDF and update LID column name
+    compiled_sites_gdf = gpd.pd.concat(gdfs, ignore_index=True)
+    compiled_sites_gdf.rename(columns={'nws_lid': 'ahps_lid'}, inplace=True)
+
+    # Save the compiled GeoDataFrames to GeoPackage files
+    compiled_sites_gdf.to_file(
+        merged_sites_gpkg_path,
+        driver='GPKG',
+        engine='fiona',
+        index=False,
+        layer_options={"OVERWRITE": "YES"},
+    )
+    logging.info(f"Saved {file_type} GeoPackage to {merged_sites_gpkg_path}")
+
+    # Save the GeoDataFrames to GeoParquet files
+    compiled_sites_gdf.to_parquet(merged_sites_parquet_path, index=False)
+    logging.info(f"Saved {file_type} GeoParquet to {merged_sites_parquet_path}")
+
+    # Drop geometry column and save the csv versions
+    compiled_sites_df = compiled_sites_gdf.drop(columns=['geometry'])
+    compiled_sites_df.to_csv(merged_sites_csv_path, index=False)
+    logging.info(f"Saved {file_type} CSV to {merged_sites_csv_path}")
+    logging.info("")
 
     return
 
 
 def combine_final_outputs(output_dir, input_dirs, label):
+    '''
+    Main function.
+
+    Arguments
+    ---------
+    output_dir - str
+        Path to the output directory where the compiled files will be saved
+    input_dirs - str
+        Space-delimited list of paths to directories containing CatFIM outputs (to be joined)
+    label - str
+        Label to be added to the output filenames
+
+    '''
 
     is_logging_loaded = False
     overall_start_time = datetime.now(timezone.utc)
@@ -280,42 +339,42 @@ def combine_final_outputs(output_dir, input_dirs, label):
         msg = "At least two input directories are required to combine CatFIM outputs."
         raise ValueError(msg)
 
-    log_file_path = sf.setup_file_logger(output_dir, "catfim_combine_final_outputs")
+    log_file_path = sf.setup_file_logger(output_dir, "combine_final_outputs")
     is_logging_loaded = True
 
+    print('\n==================================================================\n')
     logging.info(f"Begin combining CatFIM final outputs at {dt_string} (UTC)")
     logging.info("")
     print(f"Logs will be saved to {log_file_path}")
-    logging.info(f"Input directories: {input_dirs}")
-    logging.info(f"Output directory: {output_dir}")
+    logging.info("Input directories:")
+    for dir in input_dirs:
+        logging.info(f" {dir}")
+    logging.info("Output directory:")
+    logging.info(f" {output_dir}")
 
     try:
 
         # ------
-        # Iterate through input folders. For each input folder, validate that the args match the first args, and then get a list of the filepaths
-        (
-            sites_gpkg_path_list,
-            sites_csv_path_list,
-            sites_parquet_path_list,
-            library_gpkg_path_list,
-            library_csv_path_list,
-            library_parquet_path_list,
-        ) = validate_dirs_and_get_pathlists(input_dirs)
+        # Iterate through input folders.
+        # For each input folder, validate that the args match the first args, and then get a list of the filepaths
+        sites_gpkg_path_list, library_gpkg_path_list = validate_dirs_and_get_pathlists(input_dirs)
 
         # ------
-        # Loop through pathlists and compile the outputs
+        # Loop through pathlists and get a list of the GDFs
+        gdfs_sites = merge_gpkgs(sites_gpkg_path_list)
+        gdfs_library = merge_gpkgs(library_gpkg_path_list)
 
-        # Merge GPKGs
-        merge_gpkgs(sites_gpkg_path_list, output_dir, label)
-        merge_gpkgs(library_gpkg_path_list, output_dir, label)
+        # ------
+        # Save output CSV, Parquet, and GPKG files for the sites
+        if len(gdfs_sites) > 0:
+            save_compiled_outputs(gdfs_sites, sites_gpkg_path_list, output_dir, label, 'sites')
+        else:
+            logging.warning("No sites GeoDataFrames were found to combine.")
 
-        # Merge CSVs
-        merge_csvs(sites_csv_path_list, output_dir, label)
-        merge_csvs(library_csv_path_list, output_dir, label)
-
-        # Merge GeoParquets
-        merge_geoparquets(sites_parquet_path_list, output_dir, label)
-        merge_geoparquets(library_parquet_path_list, output_dir, label)
+        if len(gdfs_library) > 0:
+            save_compiled_outputs(gdfs_library, library_gpkg_path_list, output_dir, label, 'library')
+        else:
+            logging.warning("No library GeoDataFrames were found to combine.")
 
         # ------
         # Roll up all the logs from the input directories into a single log file in the output directory
@@ -328,7 +387,9 @@ def combine_final_outputs(output_dir, input_dirs, label):
         # TODO: Could add a section where we copy all of the folders in the huc directories into the output huc directory
         # -> Probably not needed for now
 
+        logging.info("")
         logging.info('Successfully combined CatFIM outputs into new files in the output directory.')
+        print('\n==================================================================\n')
 
     except Exception as ex:
         trace_error = traceback.format_exc()
@@ -358,8 +419,7 @@ if __name__ == '__main__':
     Example
     -------
 
-    python /foss_fim/tools/catfim/catfim_combine_final_outputs.py -od /data/catfim/emily_test/4_9_20_1_stage_based -id "/data/catfim/emily_test/guam_4_9_20_1_stage_based/ /data/catfim/emily_test/4_9_20_1_stage_based" -l 'w_Guam'
-
+    python /foss_fim/tools/catfim/catfim_combine_final_outputs.py -t /data/catfim/emily_test/4_9_20_1_stage_based -i "/data/catfim/emily_test/guam_4_9_20_1_stage_based/ /data/catfim/emily_test/4_9_20_1_stage_based" -l 'w_Guam'
 
     '''
 
@@ -367,14 +427,14 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Join CatFIM outputs from a list of input directories')
 
     parser.add_argument(
-        '-od',
+        '-t',
         '--output-dir',
         help='REQUIRED: Path to directory where combined CatFIM outputs will be saved',
         required=True,
     )
 
     parser.add_argument(
-        '-id',
+        '-i',
         '--input-dirs',
         help='REQUIRED: Space-delimited list of paths to directories containing CatFIM outputs (to be joined to the primary)',
         required=True,
