@@ -127,7 +127,11 @@ def produce_mosaicked_inundation(
     #        Use processes for parallel processing instead of threads
     """
 
-    logging.info("Starting produce_mosaicked_inundation")
+    if verbose:
+        logging.info(f"Starting produce_mosaicked_inundation based on flow file of {flow_file_path}")
+    else:
+        logging.debug(f"Starting produce_mosaicked_inundation based on flow file of {flow_file_path}")
+
     # print(locals())
 
     # Check that inundation_raster or depths_raster is supplied
@@ -194,7 +198,10 @@ def produce_mosaicked_inundation(
 
     #     map_file.to_csv(map_filename, index=False)
 
-    logging.info(f"Mosaicking extent... - {hucs}")
+    if verbose:
+        logging.info(f"Mosaicking extent... - {hucs}")
+    else:
+        logging.debug(f"Mosaicking extent... - {hucs}")
 
     # logging.debug("raster path df info")
     # logging.debug(raster_paths_df.info())

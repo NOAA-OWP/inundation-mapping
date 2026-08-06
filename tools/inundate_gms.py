@@ -22,7 +22,9 @@ from src.utils.shared_functions import (
     s3_or_local_path_exists,
 )
 
+
 logging.getLogger('numba').setLevel(logging.WARNING)
+
 
 # Commented out some args that we no longer valid or not used by any scripts
 def Inundate_gms(
@@ -208,12 +210,13 @@ def Inundate_gms(
                         raise future.exception()  # re-raise it
 
                     if future.result() is not None:
-                        inun_data_list.append(future.result())
+                        val = future.result()
+                        if val is not None:  # dict object
+                            inun_data_list.append(val)
 
                 except Exception as exc:
 
                     context = f"{sys._getframe().f_code.co_name} -- {future_id}"
-                    logging.critical("++++++++++++++++++++++++++++++++++++++++++++++++")
                     logging.critical(f"Error: {context} : {exc}")
                     logging.critical("Thread pool shutting down")
 
@@ -235,7 +238,6 @@ def Inundate_gms(
                 pbar.update(1)
 
     except Exception as ex:
-        logging.critical("++++++++++++++++++++++++++++++++++++++++++++++++")
         # Yes.. I don't really have a good identifier to help with context, but this is better than nothing
         # We do not want to add the list of hucs as it might be huge, depending on what scripts is calling
         # this.
@@ -396,14 +398,36 @@ def __inundate_gms_generator(
         huc = str(row[0])
         branch_id = str(row[1])
 
+        # logging.info(f"Calc paths for {huc} - {branch_id}")
+
         huc_dir = os.path.join(hydrofabric_dir, huc)
         branch_dir = os.path.join(huc_dir, "branches", branch_id)
 
         rem_file_name = f"rem_zeroed_masked_{branch_id}.tif"
         rem_branch_path = os.path.join(branch_dir, rem_file_name)
 
+        if not os.path.exists(rem_branch_path):
+            logging.warning(
+                f"{rem_branch_path} file missing. This really should not happened. Research required (bad branch?)"
+            )
+            continue
+
         catchments_file_name = f"gw_catchments_reaches_filtered_addedAttributes_{branch_id}.tif"
         catchments_branch_path = os.path.join(branch_dir, catchments_file_name)
+
+        if not os.path.exists(catchments_branch_path):
+            logging.warning(
+                f"{catchments_branch_path} file missing. This really should not happened. Research required (bad branch?)"
+            )
+            continue
+
+        # With maskign being invalid, we do not need the poly
+        # xwalked_file_name = f"gw_catchments_reaches_filtered_addedAttributes_crosswalked_{branch_id}.gpkg"
+        # catchment_poly_path = os.path.join(branch_dir, xwalked_file_name)
+
+        # if not os.path.exists(catchment_poly_path):
+        #    logging.warning(f"{catchments_branch_path} file missing. This really should not happened. Research required (bad branch?)")
+        #    continue
 
         # if isinstance(hydro_table_path, pd.DataFrame):
         #     hydro_table_all = hydro_table_path.set_index(["HUC", "feature_id", "HydroID"], inplace=False)
@@ -472,6 +496,7 @@ def __inundate_gms_generator(
             # Earlier FIM4 versions only have branch level hydrotables
             # hydro_table_branch_df = os.path.join(branch_dir, f"hydroTable_{branch_id}.csv")
 
+        # Aug 2026: No longer used in light of masking and other changes.
         xwalked_file_name = f"gw_catchments_reaches_filtered_addedAttributes_crosswalked_{branch_id}.gpkg"
         catchment_poly_path = os.path.join(branch_dir, xwalked_file_name)
 
@@ -479,14 +504,16 @@ def __inundate_gms_generator(
         # Some other functions that call in here already added a huc, so only add it if not yet there
 
         if (inundation_raster_path is not None) and (huc not in inundation_raster_path):
-            inundation_raster_path = fh.append_id_to_file_name(inundation_raster_path, [huc, branch_id])
+            branch_inundation_raster_path = fh.append_id_to_file_name(
+                inundation_raster_path, [huc, branch_id]
+            )
         else:
-            inundation_raster_path = fh.append_id_to_file_name(inundation_raster_path, branch_id)
+            branch_inundation_raster_path = fh.append_id_to_file_name(inundation_raster_path, branch_id)
 
         if (depths_raster_path is not None) and (huc not in depths_raster_path):
-            depths_raster_path = fh.append_id_to_file_name(depths_raster_path, [huc, branch_id])
+            branch_depths_raster_path = fh.append_id_to_file_name(depths_raster_path, [huc, branch_id])
         else:
-            depths_raster_path = fh.append_id_to_file_name(depths_raster_path, branch_id)
+            branch_depths_raster_path = fh.append_id_to_file_name(depths_raster_path, branch_id)
 
         # identifiers
         # identifiers = (huc, branch_id)
@@ -497,17 +524,19 @@ def __inundate_gms_generator(
             "branch_id": branch_id,
             "rem_branch_path": rem_branch_path,
             "catchments_branch_path": catchments_branch_path,
-            "catchment_poly_path": catchment_poly_path,
+            # "catchment_poly_path": catchment_poly_path,
             "hydro_table_branch_df": hydro_table_branch_df,
             "forecast_file_path": forecast_file_path,
+            # with mask hardcoded "filter" and nothing but inundate_gms calling inundate, this has no value
+            # PS. inundate really not be called directly. It relys on a bunch of things being done in this file.
             #            "mask_type": "filter",
-            #             "hucs": None,
+            #             "hucs": None,  (Replace with single huc manditory value)
             #             "hucs_layerName": None,
             #             "subset_hucs": None,
             #             "num_workers": 1,
             #             "aggregate": False,
-            "inundation_raster_path": inundation_raster_path,
-            "depths_raster_path": depths_raster_path,
+            "inundation_raster_path": branch_inundation_raster_path,
+            "depths_raster_path": branch_depths_raster_path,
             "verbose": verbose,
             "precalb_option": precalb_option,
             "windowed": windowed,

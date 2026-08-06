@@ -278,7 +278,6 @@ def Mosaic_inundation(
         #     logging.debug(f"Skipping removing interium raster files ... [{output_mosaic_path}]")
 
     except Exception as ex:
-        logging.critical("++++++++++++++++++++++++++++++++++++++++++++++++")
         logging.critical(f"Critical Error while creating a mosaic for {output_mosaic_path}")
         logging.critical(traceback.format_exc())
         raise ex

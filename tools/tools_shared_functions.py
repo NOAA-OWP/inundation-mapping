@@ -674,93 +674,102 @@ def get_stats_table_from_binary_rasters(
         # TODO: Jun 2026: As benchmark file is a heavily used file in alpha testing, we should look into
         # adjustments to be open/closed as quick as possible.
         # rioxarray and rasterio use lazyloaded and can keep a file open.
-        benchmark_raster = rxr.open_rasterio(benchmark_raster_path)
-        cell_area = np.abs(np.prod(benchmark_raster.rio.resolution()))
-        benchmark_raster.data = xr.where(
-            benchmark_raster == benchmark_raster.rio.nodata, 10, benchmark_raster
-        )
-        benchmark_raster = benchmark_raster.rio.write_nodata(10)
 
-        candidate_raster = rxr.open_rasterio(candidate_raster_path)
-        candidate_raster.data = xr.where(
-            (candidate_raster != candidate_raster.rio.nodata) & (candidate_raster >= 0), 1, candidate_raster
-        )
-        candidate_raster.data = xr.where(
-            (candidate_raster != candidate_raster.rio.nodata) & (candidate_raster < 0), 0, candidate_raster
-        )
-        candidate_raster.data = xr.where(
-            candidate_raster == candidate_raster.rio.nodata, 10, candidate_raster
-        )
-        candidate_raster = candidate_raster.rio.write_nodata(10)
+        with (
+            rxr.open_rasterio(benchmark_raster_path) as benchmark_raster,
+            rxr.open_rasterio(candidate_raster_path) as candidate_raster,
+        ):
+            cell_area = np.abs(np.prod(benchmark_raster.rio.resolution()))
+            benchmark_raster.data = xr.where(
+                benchmark_raster == benchmark_raster.rio.nodata, 10, benchmark_raster
+            )
+            benchmark_raster = benchmark_raster.rio.write_nodata(10)
 
-        pairing_dictionary = {
-            (0, 0): 0,
-            (0, 1): 1,
-            (0, 10): 10,
-            (1, 0): 2,
-            (1, 1): 3,
-            (1, 10): 5,
-            (4, 0): 4,
-            (4, 1): 4,
-            (4, 10): 10,
-            (10, 0): 10,
-            (10, 1): 10,
-            (10, 10): 10,
-        }
+            candidate_raster.data = xr.where(
+                (candidate_raster != candidate_raster.rio.nodata) & (candidate_raster >= 0),
+                1,
+                candidate_raster,
+            )
+            candidate_raster.data = xr.where(
+                (candidate_raster != candidate_raster.rio.nodata) & (candidate_raster < 0),
+                0,
+                candidate_raster,
+            )
+            candidate_raster.data = xr.where(
+                candidate_raster == candidate_raster.rio.nodata, 10, candidate_raster
+            )
+            candidate_raster = candidate_raster.rio.write_nodata(10)
 
-        # Loop through exclusion masks and mask the agreement_array.
-        all_masks_df = None
-        if mask_dict != {}:
-            for poly_layer in mask_dict:
-                operation = mask_dict[poly_layer]['operation']
+            pairing_dictionary = {
+                (0, 0): 0,
+                (0, 1): 1,
+                (0, 10): 10,
+                (1, 0): 2,
+                (1, 1): 3,
+                (1, 10): 5,
+                (4, 0): 4,
+                (4, 1): 4,
+                (4, 10): 10,
+                (10, 0): 10,
+                (10, 1): 10,
+                (10, 10): 10,
+            }
 
-                if operation == 'exclude':
-                    poly_path = mask_dict[poly_layer]['path']
-                    buffer_val = (
-                        0 if mask_dict[poly_layer]['buffer'] is None else mask_dict[poly_layer]['buffer']
-                    )
+            # Loop through exclusion masks and mask the agreement_array.
+            all_masks_df = None
+            if mask_dict != {}:
+                for poly_layer in mask_dict:
+                    operation = mask_dict[poly_layer]['operation']
 
-                    # Read mask bounds with candidate boundary box
-                    # NOTE: Jun 2026: our gpd is using pyogrio which auto uses pyarrow as a memory
-                    # cache. Sometimes, if a file collision hits showing things like
-                    # OSError: database disk image is malformed, you can bypass pyarrow. It will slow it
-                    # down fractionlly, but should help with the file collisions.
-                    # Adding use_arrow=False forces pyogrio to use Numpy arrays (so careful on python package
-                    # versioning. (see Dockerfile, numpy version reload to lower versions. TBD))
-                    poly_all = gpd.read_file(poly_path, bbox=candidate_raster.rio.bounds(), use_arrow=False)
+                    if operation == 'exclude':
+                        poly_path = mask_dict[poly_layer]['path']
+                        buffer_val = (
+                            0 if mask_dict[poly_layer]['buffer'] is None else mask_dict[poly_layer]['buffer']
+                        )
 
-                    # Make sure features are present in bounding box area before projecting.
-                    # Continue to next layer if features are absent.
-                    if poly_all.empty:
-                        del poly_all
-                        continue
+                        # Read mask bounds with candidate boundary box
+                        # NOTE: Jun 2026: our gpd is using pyogrio which auto uses pyarrow as a memory
+                        # cache. Sometimes, if a file collision hits showing things like
+                        # OSError: database disk image is malformed, you can bypass pyarrow. It will slow it
+                        # down fractionlly, but should help with the file collisions.
+                        # Adding use_arrow=False forces pyogrio to use Numpy arrays (so careful on python package
+                        # versioning. (see Dockerfile, numpy version reload to lower versions. TBD))
+                        poly_all = gpd.read_file(
+                            poly_path, bbox=candidate_raster.rio.bounds(), use_arrow=False
+                        )
 
-                    # Project layer to reference crs.
-                    poly_all_proj = poly_all.to_crs(candidate_raster.rio.crs)
+                        # Make sure features are present in bounding box area before projecting.
+                        # Continue to next layer if features are absent.
+                        if poly_all.empty:
+                            del poly_all
+                            continue
 
-                    # Buffer if buffer val exists
-                    poly_all_proj = poly_all_proj.buffer(buffer_val) if buffer_val != 0 else poly_all_proj
+                        # Project layer to reference crs.
+                        poly_all_proj = poly_all.to_crs(candidate_raster.rio.crs)
 
-                    if all_masks_df is not None and not all_masks_df.empty:
-                        all_masks_df = pd.concat([all_masks_df, poly_all_proj])
-                    else:
-                        all_masks_df = poly_all_proj
+                        # Buffer if buffer val exists
+                        poly_all_proj = poly_all_proj.buffer(buffer_val) if buffer_val != 0 else poly_all_proj
 
-                    del poly_all, poly_all_proj
+                        if all_masks_df is not None and not all_masks_df.empty:
+                            all_masks_df = pd.concat([all_masks_df, poly_all_proj])
+                        else:
+                            all_masks_df = poly_all_proj
 
-        stats_table_dictionary = {}  # Initialize empty dictionary.
+                        del poly_all, poly_all_proj
 
-        c_aligned, b_aligned = candidate_raster.gval.homogenize(benchmark_raster, target_map="candidate")
+            stats_table_dictionary = {}  # Initialize empty dictionary.
+
+            c_aligned, b_aligned = candidate_raster.gval.homogenize(benchmark_raster, target_map="candidate")
 
         # Jun 2026: Note: raster.close is the most important to releaseing memory
         # calling del after it has little value as it just releases the pointer but it is still
         # in memory. And never, ever call gc.collect()
-        if candidate_raster is not None:
-            candidate_raster.close()
-            del candidate_raster
-        if benchmark_raster is not None:
-            benchmark_raster.close()
-            del benchmark_raster  # really don't need del, it does not do much
+        # if candidate_raster is not None:
+        #     candidate_raster.close()
+        #     del candidate_raster
+        # if benchmark_raster is not None:
+        #     benchmark_raster.close()
+        #     del benchmark_raster  # really don't need del, it does not do much
 
         agreement_map = c_aligned.gval.compute_agreement_map(
             b_aligned, comparison_function='pairing_dict', pairing_dict=pairing_dictionary
