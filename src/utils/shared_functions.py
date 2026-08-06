@@ -34,11 +34,7 @@ gp.options.io_engine = "pyogrio"
 
 
 def to_hilbert_parquet(
-    gdf: gp.GeoDataFrame,
-    output_path: Union[str, Path],
-    p: int = 16,
-    overwrite: bool = True,
-    **to_parquet_kwargs,
+    gdf: gp.GeoDataFrame, output_path: Union[str, Path], overwrite: bool = True, **to_parquet_kwargs
 ) -> None:
     """
     Exports a GeoDataFrame to GeoParquet sorted by a 2D Hilbert curve.
