@@ -22,12 +22,10 @@ def smooth_level_path(lp_order_flows):
     # lp_order_flows['threshold'] = lp_order_flows['discharge'] < (lp_order_flows['median'] * 0.05)
 
     # lp_order_flows.loc[lp_order_flows['threshold'] == True, 'discharge'] = np.nan
-    threshold =  lp_order_flows['discharge'] < (lp_order_flows['median'] * 0.05)
+    threshold = lp_order_flows['discharge'] < (lp_order_flows['median'] * 0.05)
     lp_order_flows.loc[threshold, 'discharge'] = np.nan
-    
-    lp_order_flows['discharge'] = (
-        lp_order_flows['discharge'].interpolate(method='linear')
-    )
+
+    lp_order_flows['discharge'] = lp_order_flows['discharge'].interpolate(method='linear')
     lp_order_flows = lp_order_flows.drop(columns=["threshold"])
 
     return lp_order_flows
@@ -94,12 +92,7 @@ def flash_flow_conflation(model, huc_flows, output, timestep, min_order):
 
         # Raster Stats Using all touched cells within the buffer
         raster_stats_buf = zonal_stats(
-            huc_flows_buffer,
-            band,
-            affine=affine,
-            stats=["mean", "count"],
-            all_touched=True,
-            geojson_out=True,
+            huc_flows_buffer, band, affine=affine, stats=["mean", "count"], all_touched=True, geojson_out=True
         )
 
         rsb_df = gpd.GeoDataFrame.from_features(raster_stats_buf)[["flowpath_id", "mean", "count"]].astype(
