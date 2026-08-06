@@ -183,7 +183,6 @@ def process_generate_categorical_fim(
             locals()  # lst_hucs argument is used but passed via locals() so VSCode thinks it is not in use.
         )
         # valid_fim_hucs, dropped_huc_lst, nwm_meta_file, threshold_file = __validate_inputs(local_vals)
-        # valid_fim_hucs.sort()
 
         adj_valid_fim_hucs, dropped_huc_lst, nwm_meta_file, threshold_file = __validate_inputs(local_vals)
 
@@ -349,11 +348,17 @@ def process_generate_categorical_fim(
             layer_options={"OVERWRITE": "YES"},
         )
 
-        # filter out hucs that do not have nws_sites
+        # Filter out hucs that do not have nws_sites
         nwm_huc_list = nwm_sites_all_gdf["HUC8"].unique().tolist()
         if len(nwm_huc_list) == 0:
             raise Exception("Should not have an empty nwm_huc_list")
 
+        valid_fim_hucs = []
+        for huc in adj_valid_fim_hucs:
+            if huc in nwm_huc_list:
+                valid_fim_hucs.append(huc)
+
+        # TODO: Clean up
         # TEMP HACK
         # Aug 1, 2026
         # Temp work around. We need to temp filter the list of HUCs to try
@@ -364,15 +369,14 @@ def process_generate_categorical_fim(
         # attempt_huc_list_df = pd.read_csv(attempt_huc_list_file, dtype=str, header=None, names=["hucs"])
         # attempt_huc_list = attempt_huc_list_df["hucs"].unique().tolist()
 
-        valid_fim_hucs = []
-        for huc in adj_valid_fim_hucs:
-            if huc in nwm_huc_list:  # TEMP DEBUG EMILY
-                # if huc in nwm_huc_list and huc in attempt_huc_list:  # TEMP DEBUG EMILY - commenting out Rob's HUC list file thing
-                valid_fim_hucs.append(huc)
-            elif huc in nwm_huc_list:
-                logging.debug(f".... {huc} does not have any nwm sites")
-            else:
-                logging.debug(f".... {huc} is not on the huc attempt list")
+        # valid_fim_hucs = []
+        # for huc in adj_valid_fim_hucs:
+            # if huc in nwm_huc_list and huc in attempt_huc_list:  # TEMP DEBUG EMILY - commenting out Rob's HUC list file thing
+                # valid_fim_hucs.append(huc)
+            # elif huc in nwm_huc_list:
+            #     logging.debug(f".... {huc} does not have any nwm sites")
+            # else:
+            #     logging.debug(f".... {huc} is not on the huc attempt list")
 
         # NON HACK VERSION (no attempt list)- need to look into this deeper to figure out a good long answer
         # valid_fim_hucs = []
@@ -382,7 +386,7 @@ def process_generate_categorical_fim(
         #     else:
         #         logging.debug(f".... {huc} does not have any nwm sites")
 
-        # strip dups
+        # Remove duplicate hucs and sort
         valid_fim_hucs = list(set(valid_fim_hucs))
         valid_fim_hucs.sort()
 
@@ -391,8 +395,6 @@ def process_generate_categorical_fim(
                 "Comparing the loaded huc processing list to nwm site hucs,"
                 " there are no hucs remaining to process"
             )
-
-        valid_fim_hucs.sort()
 
         # Save the HUC list for this CatFIM run (AWS will need this list to know what HUCs to process and iterate)
         catfim_huc_list_file = os.path.join(output_folder, "catfim_huc_list.txt")
@@ -408,6 +410,7 @@ def process_generate_categorical_fim(
 
         # ================================
         # Download thresholds (if specified)
+        # TODO: Phase out the option to hit the WRDS API because we are now going to be only getting them from the files
 
         if get_new_threshold_data == True:
             section_start_dt = datetime.now(timezone.utc)
@@ -577,10 +580,11 @@ def process_generate_categorical_fim(
         unfinished_huc_list = list(set(valid_fim_hucs) - set(finished_huc_list))
 
         if len(unfinished_huc_list) > 0:
-
             logging.warning(
                 f"{len(unfinished_huc_list)}/{len(valid_fim_hucs)} HUC(s) did not complete processing, possibly due to multiproc collision"
             )
+
+            # TODO: Clean up if needed
             # logging.info("Re-running CatFIM HUC processing for the following unfinished HUC(s):")
             # logging.info(", ".join(unfinished_huc_list))
 
@@ -625,7 +629,7 @@ def process_generate_categorical_fim(
         #         f"Of the HUC(s) that finished, {len(second_sucessful_HUCs_list)} succeeded and {len(second_failed_HUCs_list)} finished but failed"
         #     )
 
-        # End muliproc rerun
+        # End multiproc rerun
 
         logging.info("Completed CatFIM HUC multiprocessing!")
         logging.info(f"{sf.calculate_duration_msg(section_start_dt)}")
@@ -1159,7 +1163,27 @@ def __validate_inputs(received_locals_dict):
 
     lst_hucs = lst_hucs.split()
     dropped_huc_lst = []
+
+    # If lst_huc is provided...
     if 'all' not in lst_hucs:
+
+        # If lst_hucs is a filepath, check if the file exists and has a .txt extension
+        if os.path.isfile(lst_hucs[0]) and lst_hucs[0].endswith('.txt'):
+            with open(lst_hucs[0], 'r') as f:
+                # Overwrites the lst_hucs variable with the list of HUCs from the file
+                lst_hucs = [line.strip() for line in f.readlines()]
+
+        # Return an error if the lst_hucs is a filepath but does not exist or does not have a .txt extension
+        elif os.path.isfile(lst_hucs[0]) and not lst_hucs[0].endswith('.txt'):
+            raise Exception(
+                f"The provided HUC list file {lst_hucs[0]} does not have a .txt extension. Please provide a valid .txt file."
+            )
+        # Return an errorif the lst_hucs is a filepath but does not exist
+        elif not os.path.isfile(lst_hucs[0]) and lst_hucs[0].startswith('/'):
+            raise Exception(
+                f"The provided HUC list file {lst_hucs[0]} does not exist. Please provide a valid .txt file."
+            )
+
         valid_fim_hucs = [x for x in fim_hucs if x in lst_hucs]
         dropped_huc_lst = list((set(lst_hucs).difference(valid_fim_hucs)))
     else:
@@ -1352,7 +1376,7 @@ if __name__ == '__main__':
         OPTIONAL: Upstream and downstream search in miles. How far up and downstream do you want to go? Defaults to 5.
 
     lst_hucs (-lh) - str
-        OPTIONAL: Space-delimited list of HUCs to produce CatFIM for. Defaults to all HUCs',
+        OPTIONAL: Space-delimited list or filepath to a textfile containing a list of HUCs to produce CatFIM for. Defaults to all HUCs',
 
     past_major_interval_cap (-mc) - int
         OPTIONAL: Stage-Based Only. How many feet past major do you want to go for the interval FIMs?
@@ -1460,7 +1484,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '-lh',
         '--lst-hucs',
-        help='OPTIONAL: Space-delimited list of HUCs to produce CatFIM for. Defaults to all HUCs.',
+        help='OPTIONAL: Space-delimited list or filepath to a textfile containing a list of HUCs to produce CatFIM for.'
+        ' Defaults to all HUCs.',
         required=False,
         default='all',
     )
