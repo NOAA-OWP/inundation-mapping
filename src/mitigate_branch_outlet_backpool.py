@@ -16,7 +16,6 @@ from shapely import ops
 from shapely.geometry import Point
 
 from utils.polygonize_raster import polygonize_raster
-from utils.shared_functions import to_hilbert_parquet
 
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -520,7 +519,7 @@ def mitigate_branch_outlet_backpool(
                         if isfile(split_points_filename):
                             remove(split_points_filename)
 
-                        to_hilbert_parquet(output_flows, split_flows_filename, index=False)
+                        output_flows.to_file(split_flows_filename, index=False)
                         split_points_filtered_geom.to_file(split_points_filename, index=False)
 
                         del output_flows, split_points_filtered_geom

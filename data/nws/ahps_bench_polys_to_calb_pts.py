@@ -8,8 +8,6 @@ import sys
 import geopandas as gpd
 import pandas as pd
 
-from src.utils.shared_functions import to_hilbert_parquet
-
 
 def find_max_elevation(interpolated_flows_path, attributes_path, df_poly_search, data_source):
     """
@@ -573,7 +571,7 @@ def process_shapefile_to_points_with_sampling(
         # parquet_path = os.path.join(output_dir, f"{shapefile_filename}_vertices.parquet")
 
         # Export points to Parquet
-        # to_hilbert_parquet(gdf_points, parquet_path)
+        # gdf_points.to_file(parquet_path)
         # logging.info(f"Points from {shapefile_path} saved to {parquet_path}")
 
         # Return the list
@@ -760,8 +758,8 @@ def process_directory(root_dir, data_source, manual_search_override, output_dir)
                 # Define the output Parquet file path using the 8-digit subdirectory name
                 parquet_path = os.path.join(output_dir, f"{huc_dir}.parquet")
 
-                # Export the accumulated points to a Parquet file
-                to_hilbert_parquet(all_points, parquet_path)
+                # Export the accumulated points to file
+                all_points.to_file(parquet_path)
                 print(parquet_path)
                 logging.info(f"Points from all files in subdirectory {subdir} saved to {parquet_path}")
                 # Clear GeoDataFrame after each file to free memory

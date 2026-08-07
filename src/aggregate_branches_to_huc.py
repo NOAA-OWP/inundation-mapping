@@ -16,7 +16,7 @@ import pandas as pd
 from dotenv import load_dotenv
 
 from heal_bridges_osm import flow_lookup, flows_from_hydrotable
-from utils.shared_functions import get_huc_vars, to_hilbert_parquet
+from utils.shared_functions import get_huc_vars
 
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -472,7 +472,7 @@ class HucDirectory(object):
                     # Set the CRS if it is not already set
                     if bridge_pnts.crs is None:
                         bridge_pnts.set_crs(get_huc_vars(huc_id)['crs'], inplace=True)
-                    to_hilbert_parquet(bridge_pnts, bridge_pnts_file, index=False)
+                    bridge_pnts.to_file(bridge_pnts_file, index=False)
 
             if road_flag:
                 roads_fimpact_file = join(self.huc_dir_path, 'osm_roads_fimpact.csv')

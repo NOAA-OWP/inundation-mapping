@@ -7,7 +7,6 @@ import geopandas as gpd
 import numpy as np
 
 from utils.fim_enums import FIM_exit_codes
-from utils.shared_functions import to_hilbert_parquet
 from utils.shared_variables import FIM_ID
 
 
@@ -89,8 +88,8 @@ def filter_catchments_and_add_attributes(
 
         if not output_catchments.empty:
             try:
-                to_hilbert_parquet(output_catchments, output_catchments_filename, index=False)
-                to_hilbert_parquet(output_flows_filtered, output_flows_filename, index=False)
+                output_catchments.to_file(output_catchments_filename, index=False)
+                output_flows_filtered.to_file(output_flows_filename, index=False)
             except ValueError:
                 # this is not an exception, but a custom exit code that can be trapped
                 print("There are no flowlines in the HUC after stream order filtering.")

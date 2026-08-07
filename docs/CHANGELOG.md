@@ -17,14 +17,6 @@ Bash scripts were also refactored to use bash arrays and use of explicit notatio
 ### Changes
 #### Added new shared function to sort geodataframes by Hilbert curve before saving as geoparquet
 - `sitecustomize.py`: Added sort by Hilbert curve before saving as geoparquet. Also adds capability to forward files ending in '.parquet' or 'driver="Parquet"' from `to_file()` to `to_parquet()`.
-##### The files below previously wrote parquet files but were modified to use `to_hilbert_parquet`
-- `data/`
-    - `buildings/get_fema_buildings.py` and `make_buildings_parts_per_huc.py`
-    - `nws/ahps_bench_polys_to_calb_pts.py` and `merge_nws_usgs_point_parquet.py`
-    - `slope/sword_slope_create_parquet_qc.py`
-    - `usgs/acquire_and_preprocess_3dep_dems.py` and `write_parquet_from_calib_pts.py`
-- `src/src_adjust_spatial_obs.py`
-- `tools/catfim/generate_categorical_fim.py`
 
 #### Changed to use geoparquet instead of geopackages and refactored
 - `src/`

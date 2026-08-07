@@ -19,7 +19,6 @@ import src.utils.shared_validators as val
 from data.create_vrt_file import create_vrt_file
 from src.utils.polygonize_raster import polygonize_raster
 from src.utils.shared_functions import FIM_Helpers as fh
-from src.utils.shared_functions import to_hilbert_parquet
 
 
 gpd.options.io_engine = "pyogrio"
@@ -526,7 +525,7 @@ def __polygonize(target_output_folder_path, file_logger):
 
     dem_parquets['DN'] = 1
     dem_dissolved = dem_parquets.dissolve(by='DN')
-    to_hilbert_parquet(dem_dissolved, dem_domain_file)
+    dem_dissolved.to_file(dem_domain_file)
 
     if not os.path.exists(dem_domain_file):
         sf.l_print(f" - Polygonizing -- {dem_domain_file} - Failed", file_logger, "error")

@@ -12,7 +12,7 @@ from numpy import unique
 from rasterstats import zonal_stats
 
 from utils.fim_enums import FIM_exit_codes
-from utils.shared_functions import getDriver, to_hilbert_parquet
+from utils.shared_functions import getDriver
 from utils.shared_variables import FIM_ID
 
 
@@ -463,7 +463,7 @@ def add_crosswalk(
         output_src_json[str(hid)] = {'q_list': q_list, 'stage_list': stage_list}
 
     # write out
-    to_hilbert_parquet(output_catchments, output_catchments_fileName, index=False)
+    output_catchments.to_file(output_catchments_fileName, index=False)
 
     # HACK
     # July 2026: At this point, a good handful of other tools that are not in the pipeline are looking for the .gpkg version.
@@ -477,7 +477,7 @@ def add_crosswalk(
         engine='fiona',
     )
 
-    to_hilbert_parquet(output_flows, output_flows_fileName, index=False)
+    output_flows.to_file(output_flows_fileName, index=False)
     output_src.to_csv(output_src_fileName, index=False)
     output_crosswalk.to_csv(output_crosswalk_fileName, index=False)
     output_hydro_table.to_csv(output_hydro_table_fileName, index=False)
