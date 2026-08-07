@@ -444,7 +444,8 @@ def run_fb_inundation(  # renamed from run_inundation
         branch_tifs = glob.glob(output_extent_branch_tif)
 
         for tif_file in branch_tifs:
-            os.remove(tif_file)
+            if os.path.exists(tif_file):
+                os.remove(tif_file)
 
     # TODO: Decide humm... do we keep the try catch here? do we even want one?
     # what do we want to do if a site, mag fails... dump the entire tool or
@@ -1318,7 +1319,8 @@ def mosaic_sb_inundation(lid, output_mapping_dir, category_key, huc_lid_cat_id):
 
     branch_tifs = glob.glob(f"{output_mapping_dir}/{lid}_{category_key}_extent_*.tif")
     for tif_file in branch_tifs:
-        os.remove(tif_file)
+        if os.path.exists(tif_file):
+            os.remove(tif_file)
 
     is_success = True
 
