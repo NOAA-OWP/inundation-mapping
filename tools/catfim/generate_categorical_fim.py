@@ -15,12 +15,10 @@ from dotenv import load_dotenv
 import data.wrds.download_process_wrds as dpw
 import src.utils.shared_functions as sf
 import tools.catfim.catfim_shared_functions as csf
-from src.utils.shared_functions import to_hilbert_parquet
 from src.utils.shared_variables import VIZ_PROJECTION
 from tools.catfim.catfim_post_processing import catfim_post_processing
 from tools.catfim.catfim_process_huc import process_huc
 from tools.tools_shared_functions import aggregate_wbd_hucs
-
 
 """
 Orchestration script for CatFIM preprocessing and workflow coordination.
@@ -336,7 +334,7 @@ def process_generate_categorical_fim(
         nwm_sites_all_gdf = nwm_sites_all_gdf.to_crs(VIZ_PROJECTION)
 
         # Save a parquet version for quick loading in each HUC and 1/10th of the size
-        to_hilbert_parquet(nwm_sites_all_gdf, nwm_sites_file)
+        nwm_sites_all_gdf.to_file(nwm_sites_file)
 
         # Save a GPKG version for debugging (not shared with the HUCs)
         nwm_sites_all_gdf.to_file(

@@ -11,8 +11,6 @@ import pandas as pd
 import rasterio
 from rasterio import features
 
-from src.utils.shared_functions import to_hilbert_parquet
-
 
 def catchment_boundary_errors(
     hydrofabric_dir, huc, inundation_file, output, inundation_type, min_error_length
@@ -137,7 +135,7 @@ def catchment_boundary_errors(
             print(f"{output} already exists. Concatinating now...")
             existing_error_lines = gpd.read_parquet(output)
             error_lines_final = pd.concat([existing_error_lines, error_lines_final])
-        to_hilbert_parquet(error_lines_final, output, index=False)
+        error_lines_final.to_file(output, index=False)
         print(f"HUC: {huc} Completed in {round((timer() - huc_st)/60, 2)} minutes.")
 
 

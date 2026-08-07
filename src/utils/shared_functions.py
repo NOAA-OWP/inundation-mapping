@@ -26,34 +26,10 @@ import pandas as pd
 from fsspec.core import url_to_fs
 from tqdm import tqdm
 
-
 # Registry: name -> path
 _LOGGER_REGISTRY = {}
 
 gp.options.io_engine = "pyogrio"
-
-
-def to_hilbert_parquet(
-    gdf: gp.GeoDataFrame, output_path: Union[str, Path], overwrite: bool = True, **to_parquet_kwargs
-) -> None:
-    """
-    Exports a GeoDataFrame to GeoParquet sorted by a 2D Hilbert curve.
-    Accepts any standard parameters supported by `geopandas.to_parquet()`.
-    """
-
-    path = Path(output_path)
-
-    if path.exists():
-        if overwrite:
-            path.unlink()  # Delete existing file first if overwrite=True
-        else:
-            raise FileExistsError(f"File {path} already exists and overwrite=False.")
-
-    if gdf.empty:
-        gdf.to_parquet(output_path, **to_parquet_kwargs)
-        return
-
-    gdf.sort_values(by="geometry").to_parquet(output_path, **to_parquet_kwargs)
 
 
 # #################################

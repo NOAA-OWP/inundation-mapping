@@ -7,8 +7,7 @@ import geopandas as gpd
 import pandas as pd
 from shapely.geometry import box
 
-from utils.shared_functions import getDriver, to_hilbert_parquet
-
+from utils.shared_functions import getDriver
 
 gpd.options.io_engine = "pyogrio"
 
@@ -38,12 +37,7 @@ def find_hucs_of_bounding_boxes(
     bounding_boxes = bounding_boxes.to_crs(wbd_proj)
 
     if bounding_boxes_outfile is not None:
-        if os.path.splitext(bounding_boxes_outfile)[-1].lower() == '.parquet':
-            to_hilbert_parquet(bounding_boxes, bounding_boxes_outfile, index=False)
-        else:
-            bounding_boxes.to_file(
-                bounding_boxes_outfile, driver=getDriver(bounding_boxes_outfile), index=False, engine='fiona'
-            )
+        bounding_boxes.to_file(bounding_boxes_outfile, index=False)
 
     wbdcol_name = 'HUC' + wbd_layer[-1]
 

@@ -11,9 +11,7 @@ import numpy as np
 import pandas as pd
 from shapely.geometry import Point
 
-from utils.shared_functions import to_hilbert_parquet
 from utils.shared_variables import PREP_CRS
-
 
 gpd.options.io_engine = "pyogrio"
 
@@ -121,10 +119,7 @@ class Gage2Branch(object):
         return self.gages
 
     def write(self, out_name):
-        if os.path.splitext(out_name)[-1].lower() == '.parquet':
-            to_hilbert_parquet(self.gages, out_name, index=False)
-        else:
-            self.gages.to_file(out_name, driver='GPKG', index=False, engine='fiona')
+        self.gages.to_file(out_name, index=False)
 
     @staticmethod
     def sjoin_nearest_to_nwm(pnt, lines, union):

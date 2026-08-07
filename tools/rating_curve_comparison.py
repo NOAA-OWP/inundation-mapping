@@ -26,9 +26,6 @@ from rasterio import plot as rioplot
 from shapely.geometry import Polygon
 from tools_shared_functions import filter_usgs_by_acceptance_criteria
 
-from src.utils.shared_functions import to_hilbert_parquet
-
-
 gpd.options.io_engine = "pyogrio"
 
 
@@ -1114,10 +1111,7 @@ def create_static_gpkg(output_dir, output_gpkg, agg_recurr_stats_table, gages_gp
 
     # Write to file
     output_file = join(output_dir, output_gpkg)
-    if os.path.splitext(output_file)[-1].lower() == '.parquet':
-        to_hilbert_parquet(usgs_gages, output_file, index=False)
-    else:
-        usgs_gages.to_file(output_file, driver='GPKG', index=False, engine='fiona')
+    usgs_gages.to_file(output_file, index=False)
 
     # Create figure
     usgs_gages.replace(np.inf, np.nan, inplace=True)  # replace inf with nan for plotting

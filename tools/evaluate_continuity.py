@@ -8,9 +8,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from src.utils.shared_functions import to_hilbert_parquet
-
-
 gpd.options.io_engine = "pyogrio"
 
 
@@ -116,10 +113,7 @@ def evaluate_continuity(
         fig.savefig(plot_file)
 
     if stream_network_outfile is not None:
-        if os.path.splitext(stream_network_outfile)[-1].lower() == '.parquet':
-            to_hilbert_parquet(stream_network, stream_network_outfile, index=False)
-        else:
-            stream_network.to_file(stream_network_outfile, index=False, driver='GPKG', engine='fiona')
+        stream_network.to_file(stream_network_outfile, index=False)
 
     return stream_network
 

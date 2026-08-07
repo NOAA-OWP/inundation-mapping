@@ -21,9 +21,7 @@ from shapely.strtree import STRtree
 from tqdm import tqdm
 
 from utils.fim_enums import FIM_exit_codes
-from utils.shared_functions import to_hilbert_parquet
 from utils.shared_variables import PREP_CRS
-
 
 gpd.options.io_engine = "pyogrio"
 
@@ -142,14 +140,7 @@ class StreamNetwork(gpd.GeoDataFrame):
         if verbose:
             print("Writing to {}".format(fileName))
 
-        if os.path.splitext(fileName)[-1].lower() == ".parquet":
-            to_hilbert_parquet(self, fileName, index=index)
-        else:
-            # sets driver
-            driverDictionary = {".gpkg": "GPKG", ".geojson": "GeoJSON", ".shp": "ESRI Shapefile"}
-            driver = driverDictionary[splitext(fileName)[1]]
-
-            self.to_file(fileName, driver=driver, layer=layer, index=index, engine='fiona')
+        self.to_file(fileName, layer=layer, index=index)
 
     def set_index_fim(self, reach_id_attribute, drop=True):
         branch_id_attribute = self.branch_id_attribute

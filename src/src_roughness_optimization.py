@@ -13,9 +13,7 @@ import pandas as pd
 import rasterio
 from geopandas.tools import sjoin
 
-from utils.shared_functions import to_hilbert_parquet
 from utils.shared_variables import DOWNSTREAM_THRESHOLD, ROUGHNESS_MAX_THRESH, ROUGHNESS_MIN_THRESH
-
 
 gpd.options.io_engine = "pyogrio"
 
@@ -467,8 +465,8 @@ def update_rating_curve(
                         )
 
                         try:
-                            to_hilbert_parquet(
-                                output_catchments, catchments_poly_path, index=False, overwrite=True
+                            output_catchments.to_file(
+                                catchments_poly_path, index=False, overwrite=True
                             )  # overwrite the previous layer
 
                         except Exception as e:
@@ -485,9 +483,7 @@ def update_rating_curve(
                             #     os.remove(catchments_poly_path)
                             try:
                                 # Attempt to write to the file again
-                                to_hilbert_parquet(
-                                    output_catchments, catchments_poly_path, index=False, overwrite=True
-                                )
+                                output_catchments.to_file(catchments_poly_path, index=False, overwrite=True)
                                 log_text += (
                                     'Successful second attempt to write output_catchments GeoParquet' + '\n'
                                 )
@@ -522,7 +518,7 @@ def update_rating_curve(
                             "gw_catchments_src_adjust_" + str(branch_id) + ".parquet",
                         )
                         output_catchments = input_catchments.merge(df_nmerge, how='left', on='HydroID')
-                        to_hilbert_parquet(output_catchments, output_catchments_fileName, index=False)
+                        output_catchments.to_file(output_catchments_fileName, index=False)
                         output_catchments = None
 
                 ## Merge the final ManningN dataframe to the original hydroTable

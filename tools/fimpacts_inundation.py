@@ -10,8 +10,6 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 
-from src.utils.shared_functions import to_hilbert_parquet
-
 
 def stage_lookup(flows, discharge_array, stage_array):
     return np.interp(flows, discharge_array, stage_array)
@@ -188,10 +186,7 @@ def inundation_status(
 
     fimpact_gdfs = fimpact_gdfs.loc[fimpact_gdfs.groupby([feature_config['join_id']])['flood_depth'].idxmax()]
 
-    if os.path.splitext(output_file_path)[-1].lower() == '.parquet':
-        to_hilbert_parquet(fimpact_gdfs, output_file_path)
-    else:
-        fimpact_gdfs.to_file(output_file_path, driver="GPKG", engine='fiona')
+    fimpact_gdfs.to_file(output_file_path)
 
 
 if __name__ == "__main__":
