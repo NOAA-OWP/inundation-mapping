@@ -9,10 +9,10 @@ import geopandas as gpd
 
 import src.utils.shared_functions as sf
 import tools.catfim.catfim_shared_functions as csf
+from fiona.errors import DriverError
 
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
-
 
 # Force GDAL to use standard locking and synchronous write modes
 # helps with gpkg.to_file writes
@@ -134,7 +134,18 @@ def catfim_post_processing(output_folder):
         hucs_without_sites, hucs_without_library = [], []
         compiled_sites_gdf_list, compiled_library_gdf_list = [], []
 
-        for huc in huc_list:
+        # Put HUCs in order so we can track where we're at in processing
+        huc_list.sort()
+
+        section_start_time = datetime.now(timezone.utc)
+
+        for i, huc in enumerate(huc_list, start=1):
+            # Update progress every n HUCs
+            if i % 200 == 0:
+                duration_msg = sf.calculate_duration_msg(section_start_time)
+                logging.info(f"Processed {i}/{len(huc_list)} HUCs... - {duration_msg}")
+                section_start_time = datetime.now(timezone.utc)  # reset segment timer
+
             huc_path = os.path.join(huc_parent_folder_path, huc)
 
             # Create filepath variables
@@ -145,8 +156,7 @@ def catfim_post_processing(output_folder):
 
             # Sites
             try:
-                with open(sites_post_mapping_file_path, 'r'):
-                    huc_sites_gdf = gpd.read_file(sites_post_mapping_file_path, engine='fiona')
+                huc_sites_gdf = gpd.read_file(sites_post_mapping_file_path, engine='fiona')
 
                 # Reformat output columns (should already be done, but just in case)
                 huc_sites_gdf = csf.rename_output_columns(huc_sites_gdf, csf.COLUMN_RENAME_DICT)
@@ -156,13 +166,12 @@ def catfim_post_processing(output_folder):
 
                 compiled_sites_gdf_list.append(huc_sites_gdf)
 
-            except FileNotFoundError:
+            except DriverError:
                 hucs_without_sites.append(huc)
 
             # Library
             try:
-                with open(library_post_mapping_file_path, 'r'):
-                    huc_library_gdf = gpd.read_file(library_post_mapping_file_path, engine='fiona')
+                huc_library_gdf = gpd.read_file(library_post_mapping_file_path, engine='fiona')
 
                 # Reformat output columns (should already be done, but just in case)
                 huc_library_gdf = csf.rename_output_columns(huc_library_gdf, csf.COLUMN_RENAME_DICT)
@@ -172,7 +181,7 @@ def catfim_post_processing(output_folder):
 
                 compiled_library_gdf_list.append(huc_library_gdf)
 
-            except FileNotFoundError:
+            except DriverError:
                 hucs_without_library.append(huc)
         # End huc loop
 
