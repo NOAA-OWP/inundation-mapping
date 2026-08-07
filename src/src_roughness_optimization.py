@@ -15,6 +15,7 @@ from geopandas.tools import sjoin
 
 from utils.shared_variables import DOWNSTREAM_THRESHOLD, ROUGHNESS_MAX_THRESH, ROUGHNESS_MIN_THRESH
 
+
 gpd.options.io_engine = "pyogrio"
 
 
@@ -479,8 +480,8 @@ def update_rating_curve(
                             log_text += f"Warning details: {e}\n"
 
                             # Delete the original GeoParquet file
-                            # if os.path.exists(catchments_poly_path):
-                            #     os.remove(catchments_poly_path)
+                            if os.path.exists(catchments_poly_path):
+                                os.remove(catchments_poly_path)
                             try:
                                 # Attempt to write to the file again
                                 output_catchments.to_file(catchments_poly_path, index=False, overwrite=True)
@@ -490,8 +491,9 @@ def update_rating_curve(
                             except Exception as e:
                                 second_attempt_error_message = "ERROR: Failed to write to catchments GeoParquet file even after deleting the original"
                                 print(second_attempt_error_message)
-                                log_text += f"{second_attempt_error_message}\n"
-                                log_text += f"Second attempt error details: {e}\n"
+                                print(f"{second_attempt_error_message}\n")
+                                print(f"Second attempt error details: {e}\n")
+                                sys.exit(1)
 
                     except Exception as e:
                         print(f"Error reading GeoParquet file: {e}")
