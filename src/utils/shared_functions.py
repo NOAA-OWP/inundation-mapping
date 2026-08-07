@@ -26,6 +26,7 @@ import pandas as pd
 from fsspec.core import url_to_fs
 from tqdm import tqdm
 
+
 # Registry: name -> path
 _LOGGER_REGISTRY = {}
 
