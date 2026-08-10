@@ -476,8 +476,8 @@ def update_rating_curve(
                                 f"for huc: {huc} & branch id: {branch_id}"
                             )
                             print(warning_message)
-                            log_text += f"{warning_message}\n"
-                            log_text += f"Warning details: {e}\n"
+                            print(f"{warning_message}\n")
+                            print(f"Warning details: {e}\n")
 
                             # Delete the original GeoParquet file
                             if os.path.exists(catchments_poly_path):

@@ -3,20 +3,27 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v4.9.x.x - 2026-06-15 - [PR#1862](https://github.com/NOAA-OWP/inundation-mapping/pull/1862)
 
-Fixes SQLite errors caused by geopackage file handling by the OS (introduced in #1805) by using geoparquet files (sorted by Hilbert curve) created by Python instead of system GDAL commands. Three new files replace the three GDAL command-line programs `gdal_polygonize.py`, `gdal_rasterize.py`, and `ogr2ogr`. In a couple of intermediate cases where GDAL was called directly and does not accept geoparquet input files, shapefiles were used instead of geopackages.
+Fixes SQLite errors caused by geopackage file handling by the OS (introduced in #1805) by using GeoParquet files (sorted by Hilbert curve) created by Python instead of system GDAL commands. Writing to GeoParquet is simplified by adding the capability to `to_file()`. Three new files replace the three GDAL command-line programs `gdal_polygonize.py`, `gdal_rasterize.py`, and `ogr2ogr`. In a couple of intermediate cases where GDAL was called directly and does not accept geoparquet input files, shapefiles were used instead of geopackages.
 
 Bash scripts were also refactored to use bash arrays and use of explicit notation including curly braces around environment variables, quotes around arguments, and double brackets around conditional blocks.
 
 ### Additions
+- `sitecustomize.py`: Redefines geopandas.to_parquet() to automatically sort by Hilbert curve, then adds that functionality to geopandas.to_file() so that GeoParquet files can be written with `to_file()` ignoring certain keyword argumens such as `layer`, and `overwrite` and sets `driver='fiona'` as the default for Geopackage (.gpkg) files. Also specifies the use of `spawn` to force clean process spawning for multiprocessing and prevent segmentation faults.
 - `src/`
-    - `subset_vectors_to_branches.py`: Python script to replace GDAL command-line `ogr2ogr`
-    `utils/`
-        - `polygonize_raster.py`: Python script to convert from raster to vector as a replacement for the GDAL command-line `gdal_polygonize.py`
-        - `rasterize_parquet.py`: Python script to convert from vector to raster as a replacement for the GDAL command-line `gdal_rasterize.py`
+    - `subset_vectors_to_branches.py`: Replaces GDAL command-line `ogr2ogr`
+    - `utils/`
+        - `polygonize_raster.py`: Converts from raster to vector as a replacement for the GDAL command-line `gdal_polygonize.py`
+        - `rasterize_parquet.py`: Converts from vector to raster as a replacement for the GDAL command-line `gdal_rasterize.py`
 
 ### Changes
-#### Added new shared function to sort geodataframes by Hilbert curve before saving as geoparquet
-- `sitecustomize.py`: Added sort by Hilbert curve before saving as geoparquet. Also adds capability to forward files ending in '.parquet' or 'driver="Parquet"' from `to_file()` to `to_parquet()`.
+##### The files below previously wrote GeoParquet files but were modified to use the new `to_file()`.
+- `data/`
+    - `buildings/get_fema_buildings.py` and `make_buildings_parts_per_huc.py`
+    - `nws/ahps_bench_polys_to_calb_pts.py` and `merge_nws_usgs_point_parquet.py`
+    - `slope/sword_slope_create_parquet_qc.py`
+    - `usgs/acquire_and_preprocess_3dep_dems.py` and `write_parquet_from_calib_pts.py`
+- `src/src_adjust_spatial_obs.py`
+- `tools/catfim/generate_categorical_fim.py`
 
 #### Changed to use geoparquet instead of geopackages and refactored
 - `src/`
@@ -26,9 +33,9 @@ Bash scripts were also refactored to use bash arrays and use of explicit notatio
 - `config/`
     - `deny_branch_zero.lst`, `deny_branches.lst`, `deny_unit.lst`
 - `src/`
-    - `add_crosswalk.py`, `adjust_floodplains.py`, `aggregate_branches_to_huc.py`, `associate_levelpaths_with_levees.py`, `derive_level_paths.py`, `filter_catchments_and_add_attributes.py`, `heal_bridges_osm.py`, `longitudinal_flow_adjustment.py`, `make_stages_and_catchlist.py`, `mask_dem.py`, `mitigate_branch_outlet_backpool.py`, `process_buildings_fimpact.py`, `process_roads_fimpact.py`, `split_flows.py`, `src_adjust_usgs_rating_trace.py`, `src_roughness_optimization.py`, `stream_branches.py`, `usgs_gage_crosswalk.py`, `usgs_gage_unit_setup.py`
- - `tools/`
-     - `catfim/`
+    - `add_crosswalk.py`, `adjust_floodplains.py`, `aggregate_branches_to_huc.py`, `associate_levelpaths_with_levees.py`, `derive_level_paths.py`, `filter_catchments_and_add_attributes.py`, `heal_bridges_osm.py`, `longitudinal_flow_adjustment.py`, `make_stages_and_catchlist.py`, `mask_dem.py`, `mitigate_branch_outlet_backpool.py`, `process_buildings_fimpact.py`, `process_roads_fimpact.py`, `split_flows.py`, `src_adjust_ras2fim_rating.py`, `src_adjust_spatial_obs.py`, `src_adjust_usgs_rating_trace.py`, `src_roughness_optimization.py`, `stream_branches.py`, `usgs_gage_crosswalk.py`, `usgs_gage_unit_setup.py`
+ - `tools/
+     - catfim/`
          - `vis_categorical_fim.py`
      - `bridge_inundation.py`, `evaluate_crosswalk.py`, `rating_curve_comparison.py`
 
@@ -36,9 +43,6 @@ Bash scripts were also refactored to use bash arrays and use of explicit notatio
 - `fim_pre_processing.sh`, `fim_pipeline.sh`, `fim_process_huc.sh`, `fim_postprocessing.sh`
 - `src/`
     - `bash_functions.env`, `calibrate_rating_curves.sh`, `process_branch.sh`
-
-#### Updated deny list
-- `config/deny_unit.lst`: Commented `buildings_subset.gpkg`
 
 <br/>
 
