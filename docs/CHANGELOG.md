@@ -44,6 +44,9 @@ Bash scripts were also refactored to use bash arrays and use of explicit notatio
 - `src/`
     - `bash_functions.env`, `calibrate_rating_curves.sh`, `process_branch.sh`
 
+#### Updated deny list
+- `config/deny_unit.lst`: Commented `buildings_subset.gpkg`
+
 <br/>
 
 ## v4.9.21.2 - 2026-07-24 - [PR#1895](https://github.com/NOAA-OWP/inundation-mapping/pull/1895)
