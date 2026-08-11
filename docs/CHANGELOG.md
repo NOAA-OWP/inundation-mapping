@@ -16,7 +16,7 @@ Bash scripts were also refactored to use bash arrays and use of explicit notatio
         - `rasterize_parquet.py`: Converts from vector to raster as a replacement for the GDAL command-line `gdal_rasterize.py`
 
 ### Changes
-##### The files below previously wrote GeoParquet files but were modified to use the new `to_file()`.
+##### The files below previously wrote GeoParquet files using `to_parquet()` but were modified to use the new `to_file()`.
 - `data/`
     - `buildings/get_fema_buildings.py` and `make_buildings_parts_per_huc.py`
     - `nws/ahps_bench_polys_to_calb_pts.py` and `merge_nws_usgs_point_parquet.py`
