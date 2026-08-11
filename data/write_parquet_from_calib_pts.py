@@ -10,6 +10,8 @@ from multiprocessing import Pool
 import geopandas as gpd
 from dotenv import load_dotenv
 
+from src.utils.io import write_geodataframe
+
 
 gpd.options.io_engine = "pyogrio"
 
@@ -172,7 +174,7 @@ def create_single_huc_gdf_and_write_parquet_file(args):
 
     # Set filepath and write file
     parquet_filepath = os.path.join(output_dir, f'{huc}.parquet')
-    huc_gdf.to_file(parquet_filepath, index=False)
+    write_geodataframe(huc_gdf, parquet_filepath, index=False)
 
     logging.info(f'HUC # {huc} calibration points written to file: \n' f' \t {output_dir}/{huc}.parquet')
 

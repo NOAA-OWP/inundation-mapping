@@ -13,6 +13,7 @@ import rasterio
 from dotenv import load_dotenv
 
 from src_roughness_optimization import update_rating_curve
+from utils.io import write_geodataframe
 from utils.shared_variables import (
     DEFAULT_FIM_PROJECTION_CRS,
     DOWNSTREAM_THRESHOLD,
@@ -143,7 +144,7 @@ def process_points(args):
             branch_debug_pts_out_gpkg = os.path.join(
                 branch_dir, 'export_water_edge_df_' + branch_id + '.parquet'
             )
-            water_edge_df.to_file(branch_debug_pts_out_gpkg, index=False)
+            write_geodataframe(water_edge_df, branch_debug_pts_out_gpkg, index=False)
 
         # print('Processing points for HUC: ' + str(huc) + '  Branch: ' + str(branch_id))
         ## Get median HAND value for appropriate groups.
@@ -225,7 +226,7 @@ def ingest_points_layer(huc_dir, branch_jobs, debug_outputs_option, log_file):
         water_edge_df.to_csv(huc_debug_pts_out)
         # write file
         parquet_filepath = os.path.join(huc_dir, 'debug_water_edge_df_' + huc + '.parquet')
-        water_edge_df.to_file(parquet_filepath, index=False)
+        write_geodataframe(water_edge_df, parquet_filepath, index=False)
 
     procs_list = []
     huc_branches_dir = os.path.join(huc_dir, 'branches')

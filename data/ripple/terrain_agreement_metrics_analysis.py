@@ -14,6 +14,8 @@ import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
 
+from src.utils.io import write_geodataframe
+
 
 # import matplotlib.pyplot as plt
 
@@ -133,7 +135,7 @@ def merge_nwm_streams_with_ripples(metrix_dir, ripple_model_name):
                 metrix_dir, ripple_model_name, f'ripple_reaches_order_sourcemodels_{huc}.gpkg'
             )
             if not os.path.exists(path_ripple_reaches):
-                ripple_reaches_gdf.to_file(path_ripple_reaches, driver="GPKG")
+                write_geodataframe(ripple_reaches_gdf, path_ripple_reaches)
 
     return log_text
 
@@ -212,7 +214,7 @@ def merge_ripple_reaches_sourcemodels_with_metrix_db(metrix_dir, ripple_model_na
                 path_ripple_collection, f'ripple_reaches_order_source_models_metrix_{huc}.gpkg'
             )
             if not os.path.exists(path_ripple_reaches_metrix):
-                ripple_reaches_metrix_gdf.to_file(path_ripple_reaches_metrix)
+                write_geodataframe(ripple_reaches_metrix_gdf, path_ripple_reaches_metrix)
 
             # Covariance of metrics
             corr_columns = [
@@ -346,7 +348,7 @@ def create_ripple_STREAMS_gdf_csv(metrix_dir):
         # Save the gdf
         path_streams_metrix = os.path.join(metrix_dir, ripple_models[rmi], f'streams_metrix_{huc}.gpkg')
         if not os.path.exists(path_streams_metrix):
-            metrix_streams_gdf.to_file(path_streams_metrix)
+            write_geodataframe(metrix_streams_gdf, path_streams_metrix)
 
         metrix_streams_conus_gpkg_ls.append(metrix_streams_gdf)
 
@@ -374,7 +376,7 @@ def create_ripple_STREAMS_gdf_csv(metrix_dir):
 
     path_metrix_streams_conus_gpkg = os.path.join(metrix_dir, 'metrix_streams_ripple_submodels_conus.gpkg')
     if not os.path.exists(path_metrix_streams_conus_gpkg):
-        metrix_streams_conus_gpkg.to_file(path_metrix_streams_conus_gpkg, index=False)
+        write_geodataframe(metrix_streams_conus_gpkg, path_metrix_streams_conus_gpkg, index=False)
 
     # Save stream matrix conus wise in csv formats
     metrix_streams_conus = pd.concat(metrix_streams_conus_ls, axis=0, ignore_index=True)

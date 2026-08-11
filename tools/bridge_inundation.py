@@ -9,6 +9,8 @@ from timeit import default_timer as timer
 import geopandas as gpd
 import pandas as pd
 
+from src.utils.io import write_geodataframe
+
 
 def bridge_risk_status(
     hydrofabric_dir: str, flow_file: str, output_dir: str, limit_hucs: list = []
@@ -118,7 +120,7 @@ def bridge_risk_status(
     bridge_out = merged_bri.loc[merged_data_max]
     bridge_out.reset_index(drop=True, inplace=True)
     bridge_out.drop('risk', axis=1, inplace=True)
-    bridge_out.to_file(output_dir, index=False)
+    write_geodataframe(bridge_out, output_dir, index=False)
 
     return bridge_out
 

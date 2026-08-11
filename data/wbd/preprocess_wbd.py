@@ -6,6 +6,7 @@ from pathlib import Path
 
 import geopandas as gpd
 
+from utils.io import write_geodataframe
 from utils.shared_variables import DEFAULT_FIM_PROJECTION_CRS
 
 
@@ -42,7 +43,7 @@ def clip_wbd_to_dem_domain(dem: str, wbd_in: str, wbd_out: str, huc_level: int):
         wbd = gpd.clip(wbd, dem_domain)
 
         # Write output file
-        wbd.to_file(wbd_out, layer=layer, crs=DEFAULT_FIM_PROJECTION_CRS, driver='GPKG', engine='fiona')
+        write_geodataframe(wbd, wbd_out, layer=layer, crs=DEFAULT_FIM_PROJECTION_CRS, driver='GPKG')
 
 
 if __name__ == '__main__':

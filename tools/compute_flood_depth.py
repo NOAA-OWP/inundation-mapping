@@ -49,6 +49,7 @@ from rasterstats import zonal_stats
 
 from src.heal_bridges_osm import flow_lookup
 from src.process_roads_fimpact import min_hand_excluding_zero
+from src.utils.io import write_geodataframe
 from src.utils.shared_functions import run_with_mp, setup_mp_file_logger
 from tools.road_inundation import stage_lookup
 
@@ -451,7 +452,7 @@ def flood_depth_main(
     final_result_gdf = add_imperial_units(final_result_gdf)
 
     # Save output
-    final_result_gdf.to_file(output_file_path)
+    write_geodataframe(final_result_gdf, output_file_path)
 
     print(f'Flood depth analysis completed. Output saved to: {output_file_path}')
     file_logger.info(f'Flood depth analysis completed. Output saved to: {output_file_path}')

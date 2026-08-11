@@ -10,6 +10,8 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 
+from src.utils.io import write_geodataframe
+
 
 def stage_lookup(flows, discharge_array, stage_array):
     return np.interp(flows, discharge_array, stage_array)
@@ -186,7 +188,7 @@ def inundation_status(
 
     fimpact_gdfs = fimpact_gdfs.loc[fimpact_gdfs.groupby([feature_config['join_id']])['flood_depth'].idxmax()]
 
-    fimpact_gdfs.to_file(output_file_path)
+    write_geodataframe(fimpact_gdfs, output_file_path)
 
 
 if __name__ == "__main__":

@@ -15,6 +15,7 @@ from rasterio.mask import mask
 from shapely import ops
 from shapely.geometry import Point
 
+from utils.io import write_geodataframe
 from utils.polygonize_raster import polygonize_raster
 
 
@@ -519,8 +520,8 @@ def mitigate_branch_outlet_backpool(
                         if isfile(split_points_filename):
                             remove(split_points_filename)
 
-                        output_flows.to_file(split_flows_filename, index=False)
-                        split_points_filtered_geom.to_file(split_points_filename, index=False)
+                        write_geodataframe(output_flows, split_flows_filename, index=False)
+                        write_geodataframe(split_points_filtered_geom, split_points_filename, index=False)
 
                         del output_flows, split_points_filtered_geom
 

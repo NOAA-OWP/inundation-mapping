@@ -10,6 +10,7 @@ import pandas as pd
 from dotenv import load_dotenv
 from tools_shared_functions import aggregate_wbd_hucs, get_metadata
 
+from src.utils.io import write_geodataframe
 from src.utils.shared_functions import FIM_Helpers as fh
 from utils.shared_variables import PREP_PROJECTION
 
@@ -160,7 +161,7 @@ def generate_nws_lid(workspace, env_file, keep_blank_nwm):
     # ---
     # Reset index and save output files
     nws_lid_gdf.reset_index(drop=True)
-    nws_lid_gdf.to_file(out_filepath, driver='GPKG', engine='fiona')
+    write_geodataframe(nws_lid_gdf, out_filepath)
     print(f"Saved GPKG to {out_filepath}")
 
     # Save a CSV for QC purposes

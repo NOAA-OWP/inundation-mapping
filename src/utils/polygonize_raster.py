@@ -8,6 +8,8 @@ import rasterio
 from rasterio.features import shapes
 from shapely.geometry import shape
 
+from utils.io import write_geodataframe
+
 
 def polygonize_raster(
     input_raster: str, output_file: str, field_name: str, connectivity: int = 8, quiet: bool = False
@@ -73,7 +75,7 @@ def polygonize_raster(
         gdf = gpd.GeoDataFrame({field_name: values}, geometry=geometries, crs=crs)
 
         # Save straight to Parquet bypassing missing GDAL OGR drivers
-        gdf.to_file(output_file, index=False)
+        write_geodataframe(gdf, output_file, index=False)
 
         if not quiet:
             print("Done successfully!")

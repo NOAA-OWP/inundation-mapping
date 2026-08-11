@@ -8,6 +8,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+from src.utils.io import write_geodataframe
+
 
 gpd.options.io_engine = "pyogrio"
 
@@ -114,7 +116,7 @@ def evaluate_continuity(
         fig.savefig(plot_file)
 
     if stream_network_outfile is not None:
-        stream_network.to_file(stream_network_outfile, index=False)
+        write_geodataframe(stream_network, stream_network_outfile, index=False)
 
     return stream_network
 

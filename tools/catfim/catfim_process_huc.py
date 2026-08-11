@@ -18,6 +18,7 @@ from dotenv import load_dotenv
 
 import src.utils.shared_functions as sf
 import tools.catfim.catfim_shared_functions as csf
+from src.utils.io import write_geodataframe
 from src.utils.shared_variables import VIZ_PROJECTION
 from tools.tools_shared_functions import correct_datum_typos, ngvd_to_navd_ft
 from tools.tools_shared_variables import (
@@ -202,9 +203,7 @@ def process_huc(huc, output_folder):
 
             # Save sites to a file checkpoint (Yes.. to the master copy)
             logging.info(f"{huc} - Saving sites, pre flow and mapping, at {sites_pre_mapping_file_path}")
-            sites_gdf.to_file(
-                sites_pre_mapping_file_path, driver='GPKG', crs=VIZ_PROJECTION, engine="fiona", index=False
-            )
+            write_geodataframe(sites_gdf, sites_pre_mapping_file_path, crs=VIZ_PROJECTION, index=False)
 
             logging.info(f"{huc} - {len(valid_nwm_lids)} sites remaining after validation: {valid_nwm_lids}")
             print("")
@@ -244,9 +243,7 @@ def process_huc(huc, output_folder):
             logging.info(
                 f"{huc} - Saving sites data post threshold processing at {sites_pre_mapping_file_path}"
             )
-            sites_gdf.to_file(
-                sites_pre_mapping_file_path, driver='GPKG', crs=VIZ_PROJECTION, engine="fiona", index=False
-            )
+            write_geodataframe(sites_gdf, sites_pre_mapping_file_path, crs=VIZ_PROJECTION, index=False)
 
             # CatFIM Reorg. Note (Jan 26): We no longer need attribute files or the attribute folder.
             #    The data in those files were mostly duplicate data from the sites_gdf
@@ -354,12 +351,8 @@ def process_huc(huc, output_folder):
                     logging.info(
                         f"{huc} - Saving sites data post-elevation processing at {sites_pre_mapping_file_path}"
                     )
-                    sites_gdf.to_file(
-                        sites_pre_mapping_file_path,
-                        driver='GPKG',
-                        crs=VIZ_PROJECTION,
-                        engine="fiona",
-                        index=False,
+                    write_geodataframe(
+                        sites_gdf, sites_pre_mapping_file_path, crs=VIZ_PROJECTION, index=False
                     )
 
                     if len(huc_library_df) > 0:

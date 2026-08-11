@@ -22,6 +22,7 @@ from shapely.geometry.multipolygon import MultiPolygon
 from shapely.geometry.polygon import Polygon
 from tqdm import tqdm
 
+from utils.io import write_geodataframe
 from utils.shared_functions import FIM_Helpers as fh
 from utils.shared_variables import elev_raster_ndv
 
@@ -340,7 +341,7 @@ def mosaic_final_inundation_extent_to_poly(
         ]
 
         # Write polygon
-        extent_poly_diss.to_file(inundation_polygon)
+        write_geodataframe(extent_poly_diss, inundation_polygon)
 
 
 if __name__ == "__main__":

@@ -21,6 +21,7 @@ from shapely.strtree import STRtree
 from tqdm import tqdm
 
 from utils.fim_enums import FIM_exit_codes
+from utils.io import write_geodataframe
 from utils.shared_variables import PREP_CRS
 
 
@@ -141,7 +142,7 @@ class StreamNetwork(gpd.GeoDataFrame):
         if verbose:
             print("Writing to {}".format(fileName))
 
-        self.to_file(fileName, layer=layer, index=index)
+        write_geodataframe(self, fileName, layer=layer, index=index)
 
     def set_index_fim(self, reach_id_attribute, drop=True):
         branch_id_attribute = self.branch_id_attribute

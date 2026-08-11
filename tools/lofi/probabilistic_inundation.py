@@ -30,6 +30,7 @@ from scipy.stats import (
 from shapely.geometry import shape
 from tqdm import tqdm
 
+from utils.io import write_geodataframe
 from utils.shared_functions import s3_or_local_glob
 
 
@@ -612,7 +613,7 @@ def inundate_probabilistic(
             shapes = rasterio.features.shapes(rst.read(1), mask=None, transform=rst.transform)
             gdf = gpd.GeoDataFrame(_make_geometry(shapes), columns=['geometry', 'value'], crs=raster_crs)
             gdf = gdf.set_geometry('geometry')
-            gdf.to_file(out_vec)
+            write_geodataframe(gdf, out_vec)
 
     for file in percentile_files:
         os.remove(file)

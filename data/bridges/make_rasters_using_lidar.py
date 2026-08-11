@@ -25,6 +25,8 @@ from scipy.spatial import KDTree
 from shapely.geometry import MultiPoint, Point
 from tqdm import tqdm
 
+from src.utils.io import write_geodataframe
+
 
 PDAL_CLI_PATH = os.environ.get("PDAL_CLI_PATH", "pdal")
 PDAL_ENV_ROOT = os.environ.get("PDAL_ENV_ROOT")
@@ -299,7 +301,7 @@ def write_modified_bridge_file(OSM_bridge_lines_gdf, modified_bridge_dir, huc_ou
     OSM_bridge_lines_gdf['has_lidar_tif'] = OSM_bridge_lines_gdf['osmid'].apply(
         lambda x: 'Y' if str(x) in created_tif_ids else 'N'
     )
-    OSM_bridge_lines_gdf.to_file(output_bridge_path)
+    write_geodataframe(OSM_bridge_lines_gdf, output_bridge_path)
 
 
 def make_rasters_in_parallel(
@@ -444,14 +446,14 @@ def process_single_bridge_file(
         text = 'generating footprints of available lidar datasets'
         logging.info(text)
         entwine_footprints_gdf = base_entwine_footprints_gdf.to_crs(bridges_crs)
-        # entwine_footprints_gdf.to_file(os.path.join(output_dir, 'entwine_footprints.gpkg'))
+        # write_geodataframe(entwine_footprints_gdf, os.path.join(output_dir, 'entwine_footprints.gpkg'))
 
         # intersect with lidar urls
         text = 'Identify USGS/Entwine lidar URLs for intersecting with each bridge polygon'
         logging.info(text)
         OSM_polygons_gdf = gpd.overlay(OSM_polygons_gdf, entwine_footprints_gdf, how='intersection')
 
-        OSM_polygons_gdf.to_file(os.path.join(output_dir, 'buffered_bridges.gpkg'))
+        write_geodataframe(OSM_polygons_gdf, os.path.join(output_dir, 'buffered_bridges.gpkg'))
 
         text = f'download last-return lidar points within each bridge polygon from the identified URLs using {job_number_lidar} processors'
         logging.info(text)

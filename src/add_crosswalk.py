@@ -12,6 +12,7 @@ from numpy import unique
 from rasterstats import zonal_stats
 
 from utils.fim_enums import FIM_exit_codes
+from utils.io import write_geodataframe
 from utils.shared_functions import getDriver
 from utils.shared_variables import FIM_ID
 
@@ -463,21 +464,16 @@ def add_crosswalk(
         output_src_json[str(hid)] = {'q_list': q_list, 'stage_list': stage_list}
 
     # write out
-    output_catchments.to_file(output_catchments_fileName, index=False)
+    write_geodataframe(output_catchments, output_catchments_fileName, index=False)
 
     # HACK
     # July 2026: At this point, a good handful of other tools that are not in the pipeline are looking for the .gpkg version.
     # A search in the code for the phrase 'gw_catchments_reaches_filtered_addedAttribute' shows a large number of tools and scripts
     # that use the .tif or .gpkg. Not all are identified here but a card will be created to search and fix them.
     output_catchments_fileName_gpkg = os.path.splitext(output_catchments_fileName)[0] + '.gpkg'
-    output_catchments.to_file(
-        output_catchments_fileName_gpkg,
-        driver=getDriver(output_catchments_fileName_gpkg),
-        index=False,
-        engine='fiona',
-    )
+    write_geodataframe(output_catchments, output_catchments_fileName_gpkg, index=False)
 
-    output_flows.to_file(output_flows_fileName, index=False)
+    write_geodataframe(output_flows, output_flows_fileName, index=False)
     output_src.to_csv(output_src_fileName, index=False)
     output_crosswalk.to_csv(output_crosswalk_fileName, index=False)
     output_hydro_table.to_csv(output_hydro_table_fileName, index=False)

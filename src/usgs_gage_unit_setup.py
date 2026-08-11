@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 from shapely.geometry import Point
 
+from utils.io import write_geodataframe
 from utils.shared_variables import PREP_CRS
 
 
@@ -120,7 +121,7 @@ class Gage2Branch(object):
         return self.gages
 
     def write(self, out_name):
-        self.gages.to_file(out_name, index=False)
+        write_geodataframe(self.gages, out_name, index=False)
 
     @staticmethod
     def sjoin_nearest_to_nwm(pnt, lines, union):

@@ -16,6 +16,7 @@ from natsort import natsorted
 from tools_shared_functions import aggregate_wbd_hucs, get_metadata
 from tools_shared_variables import BAD_SITES, DISCARD_AHPS_QUERY
 
+from src.utils.io import write_geodataframe
 from src.utils.shared_variables import VIZ_PROJECTION
 
 
@@ -927,7 +928,7 @@ def eval_plots(
             # Project to VIZ projection and write to file  (the csv is for HV, the gpkg is for debugging)
             joined = joined.to_crs(VIZ_PROJECTION)
             points_file_name = os.path.join(output_eval_folder, 'fim_performance_points.gpkg')
-            joined.to_file(points_file_name, driver="GPKG", engine='fiona')
+            write_geodataframe(joined, points_file_name)
             joined.to_csv(points_file_name.replace(".gpkg", ".csv"))
             print(f"FIM Performance Points file(s) at {points_file_name}")
         else:
@@ -989,7 +990,7 @@ def eval_plots(
             wbd_with_metrics = wbd_with_metrics.to_crs(VIZ_PROJECTION)
             # Write out to file (the csv is for HV, the gpkg is for debugging)
             wbd_with_metrics_file_name = os.path.join(output_eval_folder, 'fim_performance_polys.gpkg')
-            wbd_with_metrics.to_file(wbd_with_metrics_file_name, driver="GPKG", engine='fiona')
+            write_geodataframe(wbd_with_metrics, wbd_with_metrics_file_name)
             wbd_with_metrics.to_csv(wbd_with_metrics_file_name.replace(".gpkg", ".csv"))
             print(f"FIM Performance Polys file(s) at {wbd_with_metrics_file_name}")
         else:

@@ -8,6 +8,8 @@ import sys
 import geopandas as gpd
 import pandas as pd
 
+from src.utils.io import write_geodataframe
+
 
 def find_max_elevation(interpolated_flows_path, attributes_path, df_poly_search, data_source):
     """
@@ -563,7 +565,7 @@ def process_shapefile_to_points_with_sampling(
 
             # Export buffer polygons to GeoPackage
             # buffer_gpkg_path = os.path.join(output_dir, 'buffer_polygons.gpkg')
-            # buffer_polygons.to_file(buffer_gpkg_path, driver="GPKG")
+            # write_geodataframe(buffer_polygons, buffer_gpkg_path)
             # logging.info(f"Buffer polygons saved to {buffer_gpkg_path}")
 
         # Define the output Parquet file path
@@ -571,7 +573,7 @@ def process_shapefile_to_points_with_sampling(
         # parquet_path = os.path.join(output_dir, f"{shapefile_filename}_vertices.parquet")
 
         # Export points to Parquet
-        # gdf_points.to_file(parquet_path)
+        # write_geodataframe(gdf_points, parquet_path)
         # logging.info(f"Points from {shapefile_path} saved to {parquet_path}")
 
         # Return the list
@@ -759,7 +761,7 @@ def process_directory(root_dir, data_source, manual_search_override, output_dir)
                 parquet_path = os.path.join(output_dir, f"{huc_dir}.parquet")
 
                 # Export the accumulated points to file
-                all_points.to_file(parquet_path)
+                write_geodataframe(all_points, parquet_path)
                 print(parquet_path)
                 logging.info(f"Points from all files in subdirectory {subdir} saved to {parquet_path}")
                 # Clear GeoDataFrame after each file to free memory

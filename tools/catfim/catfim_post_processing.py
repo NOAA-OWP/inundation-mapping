@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 
 import src.utils.shared_functions as sf
 import tools.catfim.catfim_shared_functions as csf
+from src.utils.io import write_geodataframe
 
 
 """_summary_
@@ -213,7 +214,7 @@ def catfim_post_processing(output_folder):
             compiled_sites_gdf.rename(columns={'nws_lid': 'ahps_lid'}, inplace=True)
 
             # Save the compiled GeoDataFrames to GeoPackage files
-            compiled_sites_gdf.to_file(sites_gpkg_path, driver='GPKG', engine='fiona', index=False)
+            write_geodataframe(compiled_sites_gdf, sites_gpkg_path, index=False)
             logging.info(f"Saved sites GeoPackage to {sites_gpkg_path}")
 
             # Drop geometry column and save the csv versions
@@ -230,7 +231,7 @@ def catfim_post_processing(output_folder):
             compiled_library_gdf = gpd.pd.concat(compiled_library_gdf_list, ignore_index=True)
             compiled_library_gdf.rename(columns={'nws_lid': 'ahps_lid'}, inplace=True)
 
-            compiled_library_gdf.to_file(library_gpkg_path, driver='GPKG', engine='fiona', index=False)
+            write_geodataframe(compiled_library_gdf, library_gpkg_path, index=False)
             logging.info(f"Saved library GeoPackage to {library_gpkg_path}")
 
             compiled_library_df = compiled_library_gdf.drop(columns=['geometry'])

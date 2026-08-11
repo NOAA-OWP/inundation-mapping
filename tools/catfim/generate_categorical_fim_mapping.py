@@ -21,6 +21,7 @@ from shapely.geometry.polygon import Polygon
 
 import src.utils.shared_functions as sf
 import tools.catfim.catfim_shared_functions as csf
+from src.utils.io import write_geodataframe
 from src.utils.shared_variables import VIZ_PROJECTION
 from tools.inundate_gms import Inundate_gms
 from tools.mosaic_inundation import Mosaic_inundation
@@ -1850,7 +1851,7 @@ def __save_huc_outputs_post_mapping(
     else:
         # Save HUC library as GPKG (CSV will be saved later, so we don't have to update both down the line)
         logging.info(f"{huc} - Mapping - Saving HUC library to {library_post_mapping_file_path}")
-        huc_library_gdf.to_file(library_post_mapping_file_path, driver='GPKG', engine="fiona", index=False)
+        write_geodataframe(huc_library_gdf, library_post_mapping_file_path, index=False)
 
     # ---------------------------
     # Save HUC sites GDF if it exists, otherwise log its absense
@@ -1865,7 +1866,7 @@ def __save_huc_outputs_post_mapping(
     else:
         # Save HUC sites as GPKG (CSV will be saved later, so we don't have to update both down the line)
         logging.info(f"{huc} - Mapping - Saving HUC sites GDF to {sites_post_mapping_file_path}")
-        sites_gdf.to_file(sites_post_mapping_file_path, driver='GPKG', engine="fiona", index=False)
+        write_geodataframe(sites_gdf, sites_post_mapping_file_path, index=False)
 
     return
 
