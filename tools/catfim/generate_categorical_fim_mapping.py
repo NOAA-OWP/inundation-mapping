@@ -373,7 +373,7 @@ def run_fb_inundation(  # renamed from run_inundation
             inundation_raster_path=output_extent_tif,
             depths_raster_path=None,
             verbose=False,
-            inundation_results_file_path=None,
+            inundation_mapping_file_path=None,
         )
         # Jun 2026: Inundate_gms no longer offers the option of multi_process
         # but how automatically uses MultiThread

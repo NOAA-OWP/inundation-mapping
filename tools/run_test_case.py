@@ -4,7 +4,7 @@ import logging
 import os
 import random
 import re
-import shutil
+# import shutil
 import time
 import traceback
 from datetime import datetime, timezone
@@ -228,6 +228,7 @@ class Test_Case(Benchmark):
         time.sleep(random.randint(0, 30))
 
         start_time = datetime.now(timezone.utc)
+
         try:
             if log_folder != "":
                 # Each logger get the name of fim_logger but each are in a ProcessPoolExecutor
@@ -247,8 +248,7 @@ class Test_Case(Benchmark):
                 logging.info(f">>>>>>>>>> Started Alpha Test for {self.test_id}")
             else:
                 logging.debug("")  # helps find the sections in the logs
-                logging.debug(">>>>>>>>>>>>>>>>>>>>>")
-                logging.debug(f"Started Alpha Test for {self.test_id}")
+                logging.debug(f">>>>>>>>>> Started Alpha Test for {self.test_id}")
 
             if not overwrite and os.path.isdir(self.test_case_dir):
                 logging.warning(
@@ -325,9 +325,8 @@ class Test_Case(Benchmark):
                     f" Duration: {sf.calculate_duration_msg(start_time)}"
                 )
             else:
-                logging.debug(">>>>>>>>>>>>>>>>>>>>>")
                 logging.debug(
-                    f"Completed Alpha Test for {self.test_id}:"
+                    f">>>>>>>>>> Completed Alpha Test for {self.test_id}:"
                     f" Duration: {sf.calculate_duration_msg(start_time)}"
                 )
             # we are about to exit this child logger. The logger does not automatically
@@ -352,7 +351,7 @@ class Test_Case(Benchmark):
          lid : str
              lid of the current benchmark site. For non-AHPS sites, this should be an empty string ('').
         '''
-        logging.debug(f"Preparing file paths for {self.test_case_dir} - ({self.huc})")
+        logging.debug(f"Preparing file paths for {self.test_case_dir} - ({self.huc}) - ({magnitude}0")
 
         test_case_out_dir = os.path.join(self.test_case_dir, magnitude)
         inundation_prefix = lid + '_' if lid else ''
@@ -380,6 +379,9 @@ class Test_Case(Benchmark):
             mask_dict_indiv.update({lid: {'path': domain, 'buffer': None, 'operation': 'include'}})
         # Check to make sure all relevant files exist
 
+        # Save the mapping for huc, forecast to branch that were used in the final inundation rollup tif.
+        inundation_mapping_file_path = predicted_raster_path.replace(".tif", ".csv")
+
         logging.debug(f"benchmark_rast is {benchmark_rast} and benchmark_flows is {benchmark_flows}")
         if (
             not os.path.isfile(benchmark_rast)
@@ -399,6 +401,7 @@ class Test_Case(Benchmark):
             flow_file_path=benchmark_flows,
             output_raster_path=predicted_raster_path,
             # mask_path=os.path.join(self.fim_huc_dir, "wbd.gpkg"),
+            inundation_mapping_file_path=inundation_mapping_file_path,
             verbose=verbose,
             num_threads=branch_workers,
             # num_workers=gms_workers,
@@ -456,10 +459,11 @@ class Test_Case(Benchmark):
 
     def clean_ahps_outputs(self, magnitude_directory):
         '''Cleans up `total_area` files from an input AHPS magnitude directory.'''
-        output_file_list = [os.path.join(magnitude_directory, of) for of in os.listdir(magnitude_directory)]
-        for output_file in output_file_list:
-            if "total_area" in output_file:
-                os.remove(output_file)
+        if os.path.exists(magnitude_directory):
+            output_file_list = [os.path.join(magnitude_directory, of) for of in os.listdir(magnitude_directory)]
+            for output_file in output_file_list:
+                if "total_area" in output_file:
+                    os.remove(output_file)
 
     def get_current_agreements(self):
         '''Returns a list of all agreement rasters currently existing for the test_case.'''

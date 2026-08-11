@@ -57,6 +57,7 @@ def produce_mosaicked_inundation(
     # log_file: Optional[str] = None,  # each calling script should have its own logging now
     nodata: Optional[int] = elev_raster_ndv,
     # gms_multi_process: Optional[bool] = False,
+    mosaic_attribute: Optional[str] = "inundation_raster_paths",
 ):
     """
         # Jun 2026: Many of the args above either do not apply anymore, where never used or errored based on
@@ -128,125 +129,140 @@ def produce_mosaicked_inundation(
     """
 
     if verbose:
-        logging.info(f"Starting produce_mosaicked_inundation based on flow file of {flow_file_path}")
+        logging.info("Starting produce_mosaicked_inundation for huc(s)"
+                     f" {hucs} based on forecast of {flow_file_path}")
     else:
-        logging.debug(f"Starting produce_mosaicked_inundation based on flow file of {flow_file_path}")
+        logging.debug("Starting produce_mosaicked_inundation for huc(s)"
+                      f" {hucs} based on forecast of {flow_file_path}")
 
     # print(locals())
 
-    # Check that inundation_raster or depths_raster is supplied
-    if not output_raster_path:
-        raise ValueError("Must supply an output nundation_raster file path")
+    try:
+        # Check that inundation_raster or depths_raster is supplied
+        if not output_raster_path:
+            raise ValueError("Must supply an output nundation_raster file path")
 
-    # Pre-create the folder paths that the inundation raster will need
-    raster_path_dir = os.path.dirname(output_raster_path)
-    os.makedirs(raster_path_dir, exist_ok=True)
+        # Pre-create the folder paths that the inundation raster will need
+        raster_path_dir = os.path.dirname(output_raster_path)
+        os.makedirs(raster_path_dir, exist_ok=True)
 
-    # Check that hydrofabric_dir exists -- July 2026: Does S3 even work? It is not being used anywhere
-    if not s3_or_local_path_exists(hydrofabric_dir):
-        raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), hydrofabric_dir)
+        # Check that hydrofabric_dir exists -- July 2026: Does S3 even work? It is not being used anywhere
+        if not s3_or_local_path_exists(hydrofabric_dir):
+            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), hydrofabric_dir)
 
-    # If the "hucs" argument is really one huc, convert it to a list
-    if type(hucs) is str:
-        hucs = [hucs]
+        # If the "hucs" argument is really one huc, convert it to a list
+        if type(hucs) is str:
+            hucs = [hucs]
 
-    # Check that huc folder exists in the hydrofabric_dir.
-    for huc in hucs:
-        if not s3_or_local_path_exists(os.path.join(hydrofabric_dir, huc)):
-            raise FileNotFoundError(
-                (errno.ENOENT, os.strerror(errno.ENOENT), os.path.join(hydrofabric_dir, huc))
+        # Check that huc folder exists in the hydrofabric_dir.
+        for huc in hucs:
+            if not s3_or_local_path_exists(os.path.join(hydrofabric_dir, huc)):
+                raise FileNotFoundError(
+                    (errno.ENOENT, os.strerror(errno.ENOENT), os.path.join(hydrofabric_dir, huc))
+                )
+
+        # Check that flow file exists
+        if not isinstance(flow_file_path, pd.DataFrame) and not os.path.exists(flow_file_path):
+            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), flow_file_path)
+
+        # Jun 2026: Now that we are using threads, the cpu limits are no longer appliable
+        # We mostly want to watch the network performance monitor to set a good value here
+        # Check job numbers and raise error if necessary
+        # total_cpus_available = os.cpu_count() - 1
+        # if num_workers > total_cpus_available:
+        #     raise ValueError(
+        #         "The number of workers (-w), {}, "
+        #         "exceeds your machine's available CPU count minus one ({}). "
+        #         "Please lower the num_workers.".format(num_workers, total_cpus_available)
+        #     )
+
+        # Call Inundate_gms
+        # inundation_raster_path is used as a base file name for processing per branch
+        raster_paths_df = Inundate_gms(
+            hydrofabric_dir=hydrofabric_dir,
+            forecast_file_path=flow_file_path,
+            hydro_table_path=hydro_table_path,
+            num_threads=num_threads,
+            hucs=hucs,
+            inundation_raster_path=output_raster_path,
+            # depth_rasters - Not used any a scripts from here, only used via apps directly calling inundate_gms.py
+            # depths_raster_path=depths_raster,
+            verbose=verbose,
+            precalb_option=precalb_option,
+            windowed=windowed,
+            # log_file=log_file,
+            # multi_process=gms_multi_process,
+            inundation_mapping_file_path=inundation_mapping_file_path,
+        )
+
+        # Write map file if designated (resolved in inundate_gms (was duplicate))
+        # if map_filename is not None:
+        #     if not os.path.isdir(os.path.dirname(map_filename)):
+        #         os.makedirs(os.path.dirname(map_filename))
+
+        #     map_file.to_csv(map_filename, index=False)
+
+        if verbose:
+            logging.info(f"Mosaicking extent... - {hucs} based on forecast of {flow_file_path}")
+        else:
+            logging.debug(f"Mosaicking extent... - {hucs} based on forecast of {flow_file_path}")
+
+        # logging.debug("raster path df info")
+        # logging.debug(raster_paths_df.info())
+        # logging.debug(raster_paths_df)
+
+        #     raise Exception(f"Aborting hucs = {hucs} -  just before mosiac attempt")
+
+        # Call Mosaic_inundation
+        # All tools passed in either the entire large wbd.gpkg or the value of None
+        # so masking had no value and is being disabled. Should speed it up not to
+        # have to keep loading the wbd.gpkg
+
+        # Aug, 2026: This always became the value of "inundation_rasters" in all scenerios
+        # commented it out coming via produce_mosaicked_iundation
+        # for mosaic_attribute in ["depths_rasters", "inundation_rasters"]:
+        #     mosaic_output = None
+        #     if mosaic_attribute == "inundation_rasters":
+        #         if inundation_raster is not None:
+        #             mosaic_output = inundation_raster
+        #     elif mosaic_attribute == "depths_rasters":
+        #         if depths_raster is not None:
+        #             mosaic_output = depths_raster
+
+        if raster_paths_df is not None:
+            # Aug 2026: masking system commented out. See notes at mosiac_iundation.py -> mask_mosiac function
+            mosaic_file_path = Mosaic_inundation(
+                raster_paths_df.copy(),
+                output_mosaic_path=output_raster_path,
+                # mosaic_attribute is the colum name in the (raster_paths_df) that has the paths to be mosiacked
+                mosaic_attribute=mosaic_attribute,
+                # mask_path=mask_path,
+                # unit_attribute_name="huc8",  CAn only be huc8 right now. Defaulted it in mosaic_iundation
+                nodata=nodata,
+                remove_intermediate_files=remove_intermediate_files,
+                verbose=verbose,
+                is_mosaic_for_branches=is_mosaic_for_branches,
+                # inundation_polygon=inundation_polygon,
+                # num_threads=num_threads,  # likely broke as part of the write_window error
             )
-
-    # Check that flow file exists
-    if not isinstance(flow_file_path, pd.DataFrame) and not os.path.exists(flow_file_path):
-        raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), flow_file_path)
-
-    # Jun 2026: Now that we are using threads, the cpu limits are no longer appliable
-    # We mostly want to watch the network performance monitor to set a good value here
-    # Check job numbers and raise error if necessary
-    # total_cpus_available = os.cpu_count() - 1
-    # if num_workers > total_cpus_available:
-    #     raise ValueError(
-    #         "The number of workers (-w), {}, "
-    #         "exceeds your machine's available CPU count minus one ({}). "
-    #         "Please lower the num_workers.".format(num_workers, total_cpus_available)
-    #     )
-
-    # Call Inundate_gms
-    # inundation_raster_path is used as a base file name for processing per branch
-    raster_paths_df = Inundate_gms(
-        hydrofabric_dir=hydrofabric_dir,
-        forecast_file_path=flow_file_path,
-        hydro_table_path=hydro_table_path,
-        num_threads=num_threads,
-        hucs=hucs,
-        inundation_raster_path=output_raster_path,
-        # depth_rasters - Not used any a scripts from here, only used via apps directly calling inundate_gms.py
-        # depths_raster_path=depths_raster,
-        verbose=verbose,
-        precalb_option=precalb_option,
-        windowed=windowed,
-        # log_file=log_file,
-        # multi_process=gms_multi_process,
-        inundation_results_file_path=inundation_mapping_file_path,
-    )
-
-    # Write map file if designated (resolved in inundate_gms (was duplicate))
-    # if map_filename is not None:
-    #     if not os.path.isdir(os.path.dirname(map_filename)):
-    #         os.makedirs(os.path.dirname(map_filename))
-
-    #     map_file.to_csv(map_filename, index=False)
-
-    if verbose:
-        logging.info(f"Mosaicking extent... - {hucs}")
-    else:
-        logging.debug(f"Mosaicking extent... - {hucs}")
-
-    # logging.debug("raster path df info")
-    # logging.debug(raster_paths_df.info())
-    # logging.debug(raster_paths_df)
-
-    #     raise Exception(f"Aborting hucs = {hucs} -  just before mosiac attempt")
-
-    # Call Mosaic_inundation
-    # All tools passed in either the entire large wbd.gpkg or the value of None
-    # so masking had no value and is being disabled. Should speed it up not to
-    # have to keep loading the wbd.gpkg
-
-    # Aug, 2026: This always became the value of "inundation_rasters" in all scenerios
-    # commented it out coming via produce_mosaicked_iundation
-    # for mosaic_attribute in ["depths_rasters", "inundation_rasters"]:
-    #     mosaic_output = None
-    #     if mosaic_attribute == "inundation_rasters":
-    #         if inundation_raster is not None:
-    #             mosaic_output = inundation_raster
-    #     elif mosaic_attribute == "depths_rasters":
-    #         if depths_raster is not None:
-    #             mosaic_output = depths_raster
-
-    #     if mosaic_output is not None:
-    # Aug 2026: masking system commented out. See notes at mosiac_iundation.py -> mask_mosiac function
-    mosaic_file_path = Mosaic_inundation(
-        raster_paths_df.copy(),
-        output_mosaic_path=output_raster_path,
-        # mosaic_attribute is the colum name in the (raster_paths_df) that has the paths to be mosiacked
-        mosaic_attribute="inundation_raster_path",
-        # mask_path=mask_path,
-        # unit_attribute_name="huc8",  CAn only be huc8 right now. Defaulted it in mosaic_iundation
-        nodata=nodata,
-        remove_intermediate_files=remove_intermediate_files,
-        verbose=verbose,
-        is_mosaic_for_branches=is_mosaic_for_branches,
-        # inundation_polygon=inundation_polygon,
-        # num_threads=num_threads,  # likely broke as part of the write_window error
-    )
-
-    # fh.vprint("Mosaicking complete.", verbose)
-    if verbose:
-        logging.info("Mosaicking complete.")
-    else:
-        logging.debug("Mosaicking complete.")
+            # fh.vprint("Mosaicking complete.", verbose)
+            msg = f"Mosaicking complete for huc(s) {hucs} based on forecast of {flow_file_path}"
+            if verbose:
+                logging.info(msg)
+            else:
+                logging.debug(msg)
+        else:
+            msg = f"Mosaicking skipped for uc(s) {hucs} based on forecast of {flow_file_path}."
+            " No files inundated based on the flow data."
+            if verbose:
+                logging.info(msg)
+            else:
+                logging.debug(msg)
+            
+    except Exception as ex:
+        logging.critical(f"An exception has been caught for huc(s) {hucs}  based on forecast of {flow_file_path}"
+                         f" : details = {ex}")
+        raise ex
 
     return mosaic_file_path
 

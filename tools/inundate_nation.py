@@ -213,6 +213,7 @@ def run_inundation(args):
         is_mosaic_for_branches=True,
         # gms_multi_process=True,
         precalb_option=precalb,
+        mosaic_attribute="inundation_raster_paths",
     )
 
 

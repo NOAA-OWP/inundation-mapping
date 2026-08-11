@@ -131,6 +131,7 @@ def inundate(
     # else:
     #     logging.debug(f"Start Inundating for {huc} - {branch_id}")
 
+
     if not os.path.isfile(rem_branch_path):
         raise Exception(f"[{huc}:{branch_id}] - Rem file of {rem_branch_path} does not exist")
 
@@ -174,14 +175,20 @@ def inundate(
 
     if not os.path.exists(rem_branch_path):
         raise ValueError(f"[{huc}:{branch_id}] - {rem_branch_path} does not exist")
-    is_inundation_raster = False
+    #is_inundation_raster = False
 
     if not os.path.exists(catchments_branch_path):
         raise ValueError(f"[{huc}:{branch_id}] - {catchments_branch_path} does not exist")
-    is_inundation_raster = True
+
+    is_inundation_raster = False if not inundation_raster_path else True
 
     depth_rst = None  # Manages orphaned opened rasters
     inundation_rst = None  # Manages orphaned opened rasters
+
+    # logging.debug("+++++++++++++++++")
+    # logging.debug(f"Starting inundate for {inundation_raster_path}") 
+
+    # inun_data = None
 
     try:
 
@@ -203,14 +210,19 @@ def inundate(
             # else... we use it as int32
             is_int_16 = inundation_profile['dtype'] == 'int16'
 
+            # logging.debug(f"len of hydro_table_branch_df is {len(hydro_table_branch_df)} for {inundation_raster_path}")
+
             # catchment stages dictionary
             catchment_stages_dict = __subset_hydroTable_to_forecast(
                 hydro_table_branch_df, forecast_file_path, is_int_16, precalb_option
             )
 
-            if len(catchment_stages_dict) == 0:
-                logging.warning(f"[{huc}:{branch_id}] - There are no catchment stage records to process")
-                return inun_data  # Empty
+            # TODO: Aug 2026: Did this really come back as len 0 every time? research required.
+            # logging.debug(f"[{inundation_raster_path}] - Number of catchments in dict ar {len(catchment_stages_dict)}")
+
+            # if len(catchment_stages_dict) == 0:
+            #     logging.debug(f"[{huc}:{branch_id}] - There are no catchment stage records to process")
+            #     return inun_data  # Empty
 
             # this could have failed sometims as the catchment_stages_dict was defined in the __subset_hydro...
             # if src_table is not None:
@@ -226,10 +238,11 @@ def inundate(
                 depths_profile.update(driver='GTiff', blockxsize=256, blockysize=256, tiled=True)
                 depth_rst = rasterio.open(depths_raster_path, "w+", **depths_profile)
                 nodata = (
-                    np.int16(depths_profile['nodata']) if is_int_16 else np.int32(depths_profile['nodata'])
+                    np.int16(depths_profile['nodata'])
+                    if is_int_16
+                    else np.int32(depths_profile['nodata'])
                 )
-
-            if is_inundation_raster:
+            else:  
                 inundation_profile.update(
                     driver='GTiff', blockxsize=256, blockysize=256, tiled=True, nodata=0
                 )
@@ -265,8 +278,6 @@ def inundate(
             depth_rasters = []
             # inundation_polys = []
 
-            # Temporarily incurring serial processing
-            # July 2026: How could there every be more than one returned?
             for wg in window_gen:
                 future = __inundate_in_huc(**wg)
                 inundation_rasters += [future[0]]
@@ -275,18 +286,21 @@ def inundate(
 
             # return inundation_rasters, depth_rasters, inundation_polys
             # inundation.py.__inundate_in_huc never returned a poly, it was hardcoded to None
+            # TODO: Aug 2026: This is loose as this becomes the column names needed in mosaic_inundation
             inun_data = {
                 "huc8": huc,
                 "branchID": branch_id,
-                "inundation_raster_path": inundation_raster_path,
-                "depths_raster_path": depths_raster_path,
+                "inundation_raster_paths": inundation_raster_path,
+                "depths_raster_paths": depths_raster_path,
                 # "inundation_polygons": inundation_polys_file_name,  # no longer applicable
             }
+
         return inun_data
 
     except Exception as ex:
-        logger.critical(f"[{huc}:{branch_id}] - Critical Error while inundating for {forecast_file_path}")
-        logger.critical(traceback.format_exc())
+        logger.critical(f"[{huc}:{branch_id}] - Critical Error while inundating for {forecast_file_path}."
+                        f" Details = {ex}")
+        # logger.critical(traceback.format_exc())
         raise ex  # yes, re-raise
     finally:
         if inundation_rst is not None:
@@ -352,14 +366,17 @@ def __inundate_in_huc(
 
     """
 
-    if depths_raster_path is not None:
-        logging.debug(f"inundating for Depth raster of {depths_raster_path}")
-    else:
-        logging.debug(f"inundating for iundation raster of {inundation_raster_path}")
+    # if depths_raster_path is not None:
+    #     logging.debug(f"inundating for Depth raster of {depths_raster_path}")
+    # else:
+    #     logging.debug(f"inundating for iundation raster of {inundation_raster_path}")
 
     # verbose print
     # if hucCode is not None:
     #     __vprint("Inundating {} ...".format(hucCode), not verbose)
+
+    # logging.debug(f"catchment_stages_dict count inside __inundate is {len(catchment_stages_dict)} for {inundation_raster_path}")
+
 
     rem, catchments = __go_fast_mapping(
         rem_array,
@@ -372,11 +389,11 @@ def __inundate_in_huc(
     )
 
     if depths_raster_path is not None:
-        logging.debug(f"Writing depths_  to {inundation_raster_path}")
+        # logging.debug(f"Writing depths_  to {inundation_raster_path}")
         depth_rst.write(rem, window=window, indexes=1)
 
     if inundation_raster_path is not None:
-        logging.debug(f"Writing inundation_rst  to {inundation_raster_path}")
+        # logging.debug(f"Writing inundation_rst  to {inundation_raster_path}")
         inundation_rst.write(catchments, window=window, indexes=1)
 
     # return inundation_raster_path, depths_raster_path, None
@@ -470,7 +487,7 @@ def __make_windows_generator(
     # depth_rst: Optional[str] = None,
     depth_rst: rasterio.io.DatasetReader = None,
     depths_raster_path: str = None,
-    inundation_rst: Optional[str] = None,
+    inundation_rst: rasterio.io.DatasetReader = None,
     inundation_nodata: Optional[int] = None,
     inundation_raster_path: str = None,
     min_value: int = 30,

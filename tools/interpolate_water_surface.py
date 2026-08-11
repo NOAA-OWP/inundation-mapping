@@ -112,7 +112,7 @@ def inundate_with_catchment_spillover(
         depths_raster_path=depths_raster,
         verbose=verbose,
         log_file=log_file,
-        inundation_results_file_path=output_fileNames,
+        inundation_mapping_file_path=output_fileNames,
     )
 
     print("Interpolating water surfaces for each branch")
@@ -143,7 +143,7 @@ def inundate_with_catchment_spillover(
     # Aug 2026: masking system commented out. See notes at mosiac_iundation.py -> mask_mosiac function
     Mosaic_inundation(
         map_files_df,
-        mosaic_attribute='depths_raster_path',
+        mosaic_attribute='depths_raster_paths',
         output_mosaic_path=depths_raster,
         # mask_path=None,
         # unit_attribute_name='huc8',

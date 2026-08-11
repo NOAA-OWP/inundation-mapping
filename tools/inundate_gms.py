@@ -43,7 +43,7 @@ def Inundate_gms(
     # output_fileNames (renaming it) was not be used by any scripts, but
     # will open the option to save the dataframe of huc8, branchs and raster paths in case
     # something wants it later. Renamed from output_fileNames to inundation_results_file_path
-    inundation_results_file_path: Optional[str] = None,
+    inundation_mapping_file_path: Optional[str] = None,
     precalb_option: Optional[bool] = False,
     windowed: Optional[bool] = False,
     # multi_process: Optional[bool] = False,
@@ -51,10 +51,12 @@ def Inundate_gms(
 ) -> pd.DataFrame:
     """
 
+    # TODO: Aug 2026:  Finish Docstrings
+
     hydrofabric_dir : str
         Directory with flood inundation mapping outputs
-    forecast: Union[str, pd.DataFrame]
-        Data with streamflow associated with feature id
+    forecast_file_path: str
+        path to the forecast file
     num_workers: Optional[int], default = 1
         Number of threads to useNumber of processes to run in parallel
     hydro_table_df: Optional[Union[str, pd.DataFrame]], default = None
@@ -87,9 +89,15 @@ def Inundate_gms(
 
     """
 
-    # print("++++++++++++++++++++++++++++++++++++++++++++++++")
-    # print("+++ starting iundate_gms")
-    # print(locals())
+    if verbose and show_progress_bar:
+        logging.info(
+            f"--- Starting Inundate_gms for {forecast_file_path} based on {hydrofabric_dir} with {num_threads} workers"
+        )
+    else:
+        logging.debug(f"--- Starting Inundate_gms for {forecast_file_path} based on {hydrofabric_dir}")
+
+    # Temp debugging
+    # logging.debug(locals())
 
     # input handling
     if isinstance(hucs, list):
@@ -109,12 +117,6 @@ def Inundate_gms(
     if not os.path.exists(forecast_file_path):
         raise ValueError(f"forecast file does not exist [{hucs}]")
 
-    if verbose and show_progress_bar:
-        logging.info(
-            f"--- Starting Inundate_gms for {forecast_file_path} based on {hydrofabric_dir} with {num_threads} workers"
-        )
-    else:
-        logging.debug(f"--- Starting Inundate_gms for {forecast_file_path} based on {hydrofabric_dir}")
 
     # June 2026:
     # Most scripts that call this function use an ProcessPoolExecutor. When it first starts, they all hit this
@@ -133,22 +135,20 @@ def Inundate_gms(
     #             f.write("HUC8,BranchID,Exception")
 
     # load fim inputs (hand level)
-    hucs_branches = pd.read_csv(
+    hucs_branches_df = pd.read_csv(
         os.path.join(hydrofabric_dir, "fim_inputs.csv"), header=None, dtype={0: str, 1: str}
     )
 
     hucs = set(hucs)
-    huc_indices = hucs_branches.loc[:, 0].isin(hucs)
-    hucs_branches = hucs_branches.loc[huc_indices, :]
-
-    # -----------------------------------
-    # get number of branches
-    # number_of_branches = len(hucs_branches)
+    huc_indices = hucs_branches_df.loc[:, 0].isin(hucs)
+    hucs_branches_df = hucs_branches_df.loc[huc_indices, :]
+    # the df has two columns: huc and branches (unnamed)
+    hucs_branches_df = hucs_branches_df.sort_values(by=hucs_branches_df.columns[1])
 
     # make inundate generator
     # Aug 2026: Theadprocesspools no longer like lazy loaded generator
     inundate_input_args = __inundate_gms_generator(
-        hucs_branches,
+        hucs_branches_df,
         hydrofabric_dir,
         inundation_raster_path,
         depths_raster_path,
@@ -158,10 +158,6 @@ def Inundate_gms(
         windowed=windowed,
         precalb_option=precalb_option,
     )
-
-    # print(".........................................")
-    # print("and branches are...")
-    # print(hucs_branches)
 
     # # start up process pool
     # # better results with Process pool
@@ -174,6 +170,7 @@ def Inundate_gms(
     # processpoolexecutor, which is why this is a ThreadPoolExecutor
 
     inun_data_list = []  # list of dictionaries
+    raster_paths_df = pd.DataFrame()  # Empty initializer
 
     try:
         # We could upgrade to creating an event and queue system passed into each thread to stop
@@ -196,12 +193,13 @@ def Inundate_gms(
 
                 # creating a future_id, will use huc-branchid
                 future_id = f"{inp['huc']}-{inp['branch_id']}"
+                # logging.debug(f"calc index is {future_id}")
                 futures[future] = future_id
 
             for future in as_completed(futures):
 
                 future_id = futures[future]  # huc-branchid ie) 12090301-1700000043
-                # logging.debug(f"index {idx}: {hucCode} - {branch_id}")
+                # logging.debug(f"future : {future_id}")
                 try:
                     if future.cancelled():  # for keyboard CTRL-C's generally
                         continue
@@ -210,9 +208,7 @@ def Inundate_gms(
                         raise future.exception()  # re-raise it
 
                     if future.result() is not None:
-                        val = future.result()
-                        if val is not None:  # dict object
-                            inun_data_list.append(val)
+                        inun_data_list.append(future.result())
 
                 except Exception as exc:
 
@@ -237,29 +233,33 @@ def Inundate_gms(
             if pbar and show_progress_bar:
                 pbar.update(1)
 
+        # logging.debug(f"inud_data_list count is {len(inun_data_list)} for {hucs} and {forecast_file_path}")
+
     except Exception as ex:
         # Yes.. I don't really have a good identifier to help with context, but this is better than nothing
         # We do not want to add the list of hucs as it might be huge, depending on what scripts is calling
         # this.
-        logging.critical(f"Error while inundating based on {forecast_file_path}")
-        logging.critical(traceback.format_exc())
+        logging.critical(f"Error while inundating based on {forecast_file_path}: Details = {ex}")
+        # logging.critical(traceback.format_exc())
         # Note: you can not use sys.exit in ProcessPools.
         raise ex  # yes.. reraise, so we can shut inudation down.
 
     # make filename dataframe
+
     if len(inun_data_list) != 0:
         raster_paths_df = pd.DataFrame(inun_data_list)
 
-        if inundation_results_file_path is not None and inundation_results_file_path != "":
-            if not os.path.isdir(os.path.dirname(inundation_results_file_path)):
-                os.makedirs(os.path.dirname(inundation_results_file_path))
+        if inundation_mapping_file_path is not None and inundation_mapping_file_path != "":
+            if not os.path.isdir(os.path.dirname(inundation_mapping_file_path)):
+                os.makedirs(os.path.dirname(inundation_mapping_file_path))
 
-            raster_paths_df.to_csv(inundation_results_file_path, index=False)
-            logging.info(f"Inundation raster mapping data saved to {inundation_results_file_path}")
+            raster_paths_df.to_csv(inundation_mapping_file_path, index=False)
+            if verbose:
+                logging.info(f"Inundation raster mapping data saved to {inundation_mapping_file_path}")
+            else:
+                logging.debug(f"Inundation raster mapping data saved to {inundation_mapping_file_path}")
 
-        return raster_paths_df
-    else:
-        return None
+    return raster_paths_df
 
     # collect output filenames
     # inundation_raster_fileNames = [None] * number_of_branches
@@ -407,7 +407,7 @@ def __inundate_gms_generator(
         rem_branch_path = os.path.join(branch_dir, rem_file_name)
 
         if not os.path.exists(rem_branch_path):
-            logging.warning(
+            logging.debug(
                 f"{rem_branch_path} file missing. This really should not happened. Research required (bad branch?)"
             )
             continue

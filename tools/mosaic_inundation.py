@@ -53,7 +53,7 @@ def Mosaic_inundation(
     output_mosaic_path: str,  # can not be empty
     # mask_path: Optional[str] = None,
     # mosaic_attribute is the colum name in the (raster_paths_df) that has the paths to be mosiacked
-    mosaic_attribute: Optional[str] = "inundation_raster_path",
+    mosaic_attribute: Optional[str] = "inundation_raster_paths",  # or depths_rasters_paths
     # Aug 2026: has to be huc8, unless significant inundation system upgrade, but left in for now
     unit_attribute_name: Optional[str] = "huc8",
     nodata: Optional[int] = elev_raster_ndv,
@@ -120,21 +120,23 @@ def Mosaic_inundation(
     """
 
     # mosaic_attribute is the column name from the incoming raster dataframe
-    if mosaic_attribute not in ("inundation_raster_path", "depths_raster_path"):
+    # logging.debug(f"mosaic_attribute is {mosaic_attribute} or {output_mosaic_path}")
+    if mosaic_attribute not in ("inundation_raster_paths", "depths_raster_paths"):
         raise ValueError(
-            "mosaic_attribute arg is the name of the column in the incoming raster dataframe."
-            " which has to be either inundation_raster_path or depths_raster_path depending which you are mosaicking"
+            "mosaic_attribute arg needs to the value of inundation_raster_paths or depths_raster_paths."
+            " It needs to be the column name of the file paths that are being mosaicked."
+            " Note: This will be made more flexible down the road to allow fully dynamic column names."
         )
 
     if not output_mosaic_path:
         raise ValueError("output mosiac raster path can not be empty")
 
-    msg = f"Starting mosaic for {output_mosaic_path}. Note: if this includes multiple HUC being processed"
-    " this file path will be used as a base file name and path and append the huc value to each huc output file."
-    if verbose:
-        logging.info(msg)
-    else:
-        logging.debug(msg)
+    # msg = f"Starting mosaic for {output_mosaic_path}. Note: if this includes multiple HUC being processed"
+    # " this file path will be used as a base file name and path and append the huc value to each huc output file."
+    # if verbose:
+    #     logging.info(msg)
+    # else:
+    #     logging.debug(msg)
 
     # if not os.path.isdir(os.path.dirname(output_mosaic_path)):
     os.makedirs(os.path.dirname(output_mosaic_path), exist_ok=True)
@@ -278,8 +280,8 @@ def Mosaic_inundation(
         #     logging.debug(f"Skipping removing interium raster files ... [{output_mosaic_path}]")
 
     except Exception as ex:
-        logging.critical(f"Critical Error while creating a mosaic for {output_mosaic_path}")
-        logging.critical(traceback.format_exc())
+        logging.critical(f"Critical Error while creating a mosaic for {output_mosaic_path}: Details = {ex}")
+        # logging.critical(traceback.format_exc())
         raise ex
 
     # Return file name and path of the final mosaic output file.

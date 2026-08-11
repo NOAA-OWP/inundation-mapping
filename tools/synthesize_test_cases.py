@@ -4,13 +4,14 @@ import argparse
 import csv
 import json
 import logging
+import multiprocessing
 import os
 import re
 import time
 import traceback
 from concurrent.futures import ProcessPoolExecutor, as_completed, wait
 from datetime import datetime, timezone
-from multiprocessing import Pool
+# from multiprocessing import Pool
 
 import pandas as pd
 from run_test_case import Test_Case
@@ -183,19 +184,22 @@ def synthesize_test_cases(
         # If a task or imported module retains state, memory can grow over time. Recycling workers periodically helps
         # prevent that growth from accumulating across many alpha-test jobs.
 
-        max_tasks_per_child = (
-            10  # This is critical to help recycle memory. Do not go very high, 5 to 10 is good.
-        )
+        # max_tasks_per_child = (
+        #     10  # This is critical to help recycle memory. Do not go very high, 5 to 10 is good.
+        # )
         # 20 is too high. 1 is too low as it will keep recycling and not be efficient.
 
         # In inundate_gms.py, there is a threadpoolexecutor.
         # Note: rasterio opened files are never truly thread safe. But, most of our tools are processed
         # one branch at a time. Except synthesize_test_cases which has its own processpool so there could
         # be collisions there, but it has a random sleep timer to help (in run_alpha_test)
+        has_errors = False
         num_successful_tests = 0
+        ctx = multiprocessing.get_context("fork")
         with ProcessPoolExecutor(
-            max_workers=job_number_alpha_tests, max_tasks_per_child=max_tasks_per_child
+            max_workers=job_number_alpha_tests, mp_context=ctx
         ) as executor:
+            # max_workers=job_number_alpha_tests, max_tasks_per_child=max_tasks_per_child,  # can not use with fork            
             # Loop through all test cases, build the alpha test arguments, and submit them to the process pool
             executor_dict = {}
 
@@ -231,6 +235,8 @@ def synthesize_test_cases(
 
                 for future in as_completed(executor_dict):
 
+                    test_id = executor_dict[future]
+
                     # for future in tqdm(
                     #     as_completed(executor_dict), total=len(executor_dict),
                     #     desc=f"Running alpha test cases with {job_number_alpha_tests} workers"
@@ -239,6 +245,8 @@ def synthesize_test_cases(
                         if future.cancelled():  # for keyboard CTRL-C's generally
                             continue
                         if future.exception():  # Just reraise as is
+                            has_errors = True
+                            logging.critical(f"An exception has been returned by future: {test_id}")
                             raise future.exception()
                         # We do not use the result at this time
                     num_successful_tests += 1
@@ -272,8 +280,8 @@ def synthesize_test_cases(
                 pbar.close()  # finish flushing it from Stdout. It will not be perfect,
                 # but it will be close enough to the actual progress.
 
-        if num_successful_tests == 0:
-            logging.warning("Skipping creating metrics file as there was not successful alpha tests")
+        if num_successful_tests == 0 or has_errors:
+            logging.warning("Skipping creating metrics file as there were at least one failed alpha tests")
         else:
             # Do aggregate_metrics.
             logging.info("Creating master metrics CSV...")
