@@ -20,7 +20,7 @@ import rasterio
 # from geocube.api.core import make_geocube
 from rasterio.features import shapes
 from rasterio.merge import merge
-from shapely.geometry import box
+# from shapely.geometry import box
 from shapely.geometry.multipolygon import MultiPolygon
 from shapely.geometry.polygon import Polygon
 from tqdm import tqdm
@@ -537,6 +537,11 @@ def mosaic_final_inundation_extent_to_poly(
         # Write polygon
         # extent_poly_diss.to_file(inundation_polygon, driver=driver, engine='fiona')
         extent_poly_diss.to_file(inundation_polygon, driver=driver)
+    # Aug 2026: Manually force the GC (Garbage collector) to release memory so it does it quicker.
+    # With Pyhton 3.12, new GDAL and rasterio, as it is slower now to release memory
+    # and with our MP and MT, it is taking longer. This cleans up all objects faster.
+    # Clean up memory immediately instead of waiting on the OS
+    force_garbage_collection()
 
 
 if __name__ == "__main__":
