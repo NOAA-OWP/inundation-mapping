@@ -3,7 +3,9 @@ from pathlib import Path
 import geopandas as gpd
 
 
-def write_geodataframe(gdf: gpd.GeoDataFrame, filename, *args, **kwargs) -> None:
+def write_geodataframe(
+    gdf: gpd.GeoDataFrame, filename: str | Path, *args, ignore_index: bool = False, **kwargs
+) -> None:
     """Write a GeoDataFrame using the appropriate GeoPandas I/O method."""
 
     filepath = Path(filename) if isinstance(filename, (str, Path)) else None
@@ -22,14 +24,18 @@ def write_geodataframe(gdf: gpd.GeoDataFrame, filename, *args, **kwargs) -> None
 
         parquet_kwargs = {k: v for k, v in kwargs.items() if k not in EXCLUDED_PARQUET_KWARGS}
 
+        # Set GeoParquet & PyArrow writing options
+        parquet_kwargs.setdefault("write_covering_bbox", True)
+        parquet_kwargs.setdefault("compression", "zstd")
+        parquet_kwargs.setdefault("write_page_index", True)
+        parquet_kwargs.setdefault("write_page_checksum", True)
+
         if not gdf.empty and gdf.active_geometry_name is not None and not gdf.geometry.is_empty.all():
             # Sort spatially on Hilbert curve
             gdf = gdf.sort_values(by="geometry", ascending=True)
 
             if gdf.index.name is None:
                 gdf = gdf.reset_index(drop=True)
-            else:
-                gdf = gdf.reset_index()
 
         # Any write error is surfaced to the caller.
         gdf.to_parquet(filename, **parquet_kwargs)
