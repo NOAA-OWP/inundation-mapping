@@ -25,10 +25,9 @@ from shapely.geometry.multipolygon import MultiPolygon
 from shapely.geometry.polygon import Polygon
 from tqdm import tqdm
 
-from src.utils.shared_functions import FIM_Helpers as fh
-from src.utils.shared_functions import force_garbage_collection
+from src.utils.shared_functions import (FIM_Helpers as fh, force_garbage_collection)
 from src.utils.shared_variables import elev_raster_ndv
-
+from tools.tools_shared_functions import set_dynamic_gdal_cache
 
 # import rioxarray as rxr
 # import xarray as xr
@@ -47,7 +46,8 @@ from src.utils.shared_variables import elev_raster_ndv
 # It will not crash or throw errors if the file is larger than 512 MB
 # gdal_env = rasterio.Env(GDAL_CACHEMAX=536870912)  # 512 MB in bytes
 # gdal_env.enter()  # Activates it for the entire script lifetime
-os.environ["GDAL_CACHEMAX"] = "268435456"  # 256 MB in bytes
+# os.environ["GDAL_CACHEMAX"] = "512"  # MB
+
 
 # Set rasterio logger to only show errors, not warnings
 logging.getLogger('rasterio').setLevel(logging.ERROR)
@@ -74,6 +74,7 @@ def Mosaic_inundation(
     unit_attribute_name: Optional[str] = "huc8",
     nodata: Optional[int] = elev_raster_ndv,
     # num_threads: Optional[int] = 1,  # dropped because of masking system drop
+    num_parent_workers: Optional[int] = 1,   # Used only for memory allocation management (see notes below)
     remove_intermediate_files: Optional[bool] = True,
     # subset: Optional[str] = None,  # has no validity consider inundation arch.
     verbose: Optional[bool] = True,
@@ -90,37 +91,40 @@ def Mosaic_inundation(
 
         Mosaic inundation extents or depths
 
-
         Notes about raster_data arg: The raster_data coming in must be one of two things:
             1) A dataframe with the column names of "huc8", ("inundation_raster_path" or "depths_raster_path")
             2) A csv with headers same columns
             If extra column in, they will be ignored.
             This system can use which ever of the two pathing columns but not both at the same time.
 
-
             Parameters
             ----------
             raster_data : Union[str, pd.DataFrame]
                 Either the path or dataframe of the files processed previously in inundation
-            mosaic_attribute: str
-                Attribute to mosaic the map files
             output_mosaic_path: str
                 Name of final mosaicked inundation file
+            mosaic_attribute: str
+                Attribute to mosaic the map files
     #       mask_path: Optional[str], default = None
     #           Name of file to inclusively mask final output file
             unit_attribute_name: Optional[str], default = None
-                Processing unit to mosaic inundation
+                Processing unit to mosaic inundation  # technicallyi not needed anymore
             nodata: Optional[int], default = elev_raster_ndv
                 Value to represent nodata
     #        num_threads: Optional[int], default = 1
-    #            Number of parallel processes to use
+    #            Number of parallel processes to use - no longer used
+            num_parent_workers : int
+                Number of worker processes assigned to original parent number of jobs
+                for processpool or threadpool if applicable. Used in conjuction with the number
+                of branch workers for memory allocation only.
             remove_intermediate_files: Optional[bool], default = False
                 Whether to remove intermediate input files
     #       subset: Optional[str], default = None
     #           Path to file for subsetting inundation files
             verbose: Optional[bool], default = True
                 Quiet output
-            add_huc_to_mosaic_file_name: Optional[bool] = False,
+            is_mosaic_for_branches: Optional[bool] = False,
+                This is not a good name, add_huc_to_mosaic_file_name would likely be a better name
                 Whether to append branch name after output  # usually just appends the huc number to the file name
     #        inundation_polygon: Optional[str], default = None
     #            File path for inundation polygon
@@ -133,6 +137,14 @@ def Mosaic_inundation(
         #
 
     """
+
+    # ++++++++++++++++++++
+    # Must control gdal memory. See notes in the function
+    # Note: We are not using the num_workers other than for this calc
+    # We set the  child workers to one as there is no child MT / MP in here.
+    set_dynamic_gdal_cache(num_parent_workers, 1)
+    # ++++++++++++++++++++
+
 
     # mosaic_attribute is the column name from the incoming raster dataframe
     # logging.debug(f"mosaic_attribute is {mosaic_attribute} or {output_mosaic_path}")

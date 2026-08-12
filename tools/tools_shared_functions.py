@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
 
+# TODO: Aug 2026: Considering the volume of imports, consider moving some into specific functions
+# to handle system wide load values. Any call made to any function here loads all of these
+# Note: Rasterio now has a quasi-memory leak with python 3.12 and newer versions. It is not a true
+# Memory leak but is much slower to put in the python GC (garbage collection) and can result in growing
+# memory usage. One way to manage this is to put that import inside the fuction it needs.
+# Note: Some of the imports are already inside key functions.
 # import csv
 import datetime as dt
 
@@ -8,6 +14,7 @@ import json
 import logging
 import os
 import pathlib
+import psutil
 import time
 import traceback
 import warnings
@@ -2247,26 +2254,68 @@ def calculate_metrics_from_agreement_raster(agreement_raster):
 
 
 # evaluation metric fucntions
-
-
+# TODO: Jun 2026: Does not appear to be in use. Consider removing it. Deprecated ??
 def csi(TP, FP, FN, TN=None):
     '''Critical Success Index'''
 
     return TP / (FP + FN + TP)
 
-
+# TODO: Jun 2026: Does not appear to be in use. Consider removing it. Deprecated ??
 def tpr(TP, FP, FN, TN=None):
     '''True Positive Rate'''
-
     return TP / (TP + FN)
 
-
+# TODO: Jun 2026: Does not appear to be in use. Consider removing it. Deprecated ??
 def far(TP, FP, FN, TN=None):
     '''False Alarm Rate'''
 
     return FP / (TP + FP)
 
-
+# TODO: Jun 2026: Does not appear to be in use. Consider removing it. Deprecated ??
 def mcc(TP, FP, FN, TN=None):
     '''Matthew's Correlation Coefficient'''
     return (TP * TN - FP * FN) / np.sqrt((TP + FP) * (TP + FN) * (TN + FP) * (TN + FN))
+
+
+##########################
+'''
+Aug 2026:
+  As python 3.12, gdal and other packages were upgraded, gdal handles memory different
+  and can be slower to add memory to python GC (garbage collection).
+  This can trigger a quasi-memory leak of memory growing as it can not be released fast enough.
+
+  This function can be used for calcs with MP and MT's or even both.
+  but is designed to be plugged it inside the child workers.
+
+  Notes:
+    - MP will share this gdal cach max value for all objects and MT's inside it.
+    - Combined gdal calls like rasterio which includes sharing inside MT's.
+    - This helps manage memory used with gdal related packages such as rasterio,
+      geopandas, xarray/rioxarray, fiona, and others via dependencies like gval
+    - When a object is called, it will not limit or error if the max is hit but will simply
+      help manage the memory and release it quicker.
+'''
+def set_dynamic_gdal_cache(num_parent_workers=1, num_child_workers=1):
+
+    from osgeo import gdal  # Yes.. function level.
+
+    # Get total system memory in bytes
+    total_memory_bytes = psutil.virtual_memory().total
+    
+    # Convert bytes to Megabytes (1 MB = 1024 * 1024 bytes)
+    total_memory_mb = total_memory_bytes // (1024 * 1024)
+
+    # Add a memory buffer for the OS and misc other python packages in the script other items
+    # (max 70% of available). Remember, docker, VScode, terminals, RDP Connections all share
+    # this memory.
+    total_memory_mb = total_memory_bytes // (1024 * 1024)
+    max_memory_allowed = total_memory_mb * 0.70
+
+    # Now share it between parent and child workers.
+    # (per parent and child combined)
+    num_workers_used = num_parent_workers * num_child_workers
+    max_memory_used_per_job = int(max_memory_allowed / num_workers_used)
+    
+    # 4. Apply to GDAL for the current Python process (in MB)
+    gdal.SetConfigOption("GDAL_CACHEMAX", str(max_memory_used_per_job))
+    # print(f"GDAL_CACHEMAX set to: {max_memory_used_per_job} MB")
