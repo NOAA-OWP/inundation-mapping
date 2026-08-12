@@ -226,6 +226,7 @@ def create_bool_rasters(args):
     print("Calculating boolean inundate raster: " + rasfile)
     p = in_raster_dir + os.sep + rasfile
 
+    # TODO: Aug 2026: Might need to upgrade this to adde memoryfile wrappers. Tbd
     with rasterio.open(p) as raster:
         profile = raster.profile
         array = raster.read()

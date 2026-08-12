@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import ctypes
+import gc
 import glob
 import inspect
 import logging
@@ -36,13 +38,9 @@ gp.options.io_engine = "pyogrio"
 # #################################
 class hydroTableHasOnlyLakes(Exception):
     """Raised when a Hydro-Table only has lakes"""
-
     pass
-
-
 class NoForecastFound(Exception):
     """Raised when no forecast is available for a given Hydro-Table"""
-
     pass
 
 
@@ -1183,6 +1181,24 @@ def calculate_duration_msg(start_dt):
     time_fmt = f"Duration: {total_hours:02d} hours {total_mins:02d} mins {seconds:02d} secs"
 
     return time_fmt
+
+
+# This can be used to help release memory, especially rasterio objects. When a rasterio object, and a few
+# other types, goes out of scope, it does not instantenously release memory. It puts in into the python
+# GC (garbage collection), which is queued. With larger apps with MP and MT, this can get backed up
+# and trigger increasing memory usage. The memory can slowly keep climbing and crash the server.
+def force_garbage_collection():
+  # 1. Clear Python's internal garbage collector
+  gc.collect()
+
+  # 2. Force the glibc allocator to release memory back to the OS
+  try:
+    _libc = ctypes.CDLL('libc.so.6')
+    _libc.malloc_trim(0)
+  except (OSError, AttributeError):
+    # Fails safely if on Windows, macOS, or using a non-glibc distribution (like Alpine)
+    pass
+
 
 
 # #####################################

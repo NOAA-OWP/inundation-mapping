@@ -4,7 +4,7 @@
 import argparse
 import logging
 import os
-import traceback
+# import traceback
 import warnings
 
 # from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -15,8 +15,8 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio
-import rioxarray as rxr
-import xarray as xr
+#import rioxarray as rxr
+# import xarray as xr
 
 # from geocube.api.core import make_geocube
 from rasterio.features import shapes
@@ -26,12 +26,24 @@ from shapely.geometry.multipolygon import MultiPolygon
 from shapely.geometry.polygon import Polygon
 from tqdm import tqdm
 
-from src.utils.shared_functions import FIM_Helpers as fh
+from src.utils.shared_functions import (FIM_Helpers as fh, force_garbage_collection)
 from src.utils.shared_variables import elev_raster_ndv
 
 
-gpd.options.io_engine = "pyogrio"
+# gpd.options.io_engine = "pyogrio"
 
+# Note: Aug 2026:
+# By default, gdal defaults to 5% of avaialble ram PER process and can add up very quickly.
+# Research confirmed that with python 3.12 and the gdal and rasterio upgrades, it did change
+# how it uses memory and can have leaks with large geotiffs. Later we can look into rasterio MemoryFile
+# which is excellent for rasterio memory control but it takes a lot of coding changes.
+# In the meantime, we are going to slow down the memory max. We will have to be careful with
+# total jobs and branch worker numbers.
+# Instantiate the environment globally
+# It will not crash or throw errors if the file is larger than 512 MB
+# gdal_env = rasterio.Env(GDAL_CACHEMAX=536870912)  # 512 MB in bytes
+# gdal_env.enter()  # Activates it for the entire script lifetime
+os.environ["GDAL_CACHEMAX"] = "536870912"  # 512 MB in bytes
 
 # Set rasterio logger to only show errors, not warnings
 logging.getLogger('rasterio').setLevel(logging.ERROR)
@@ -283,6 +295,12 @@ def Mosaic_inundation(
         logging.critical(f"Critical Error while creating a mosaic for {output_mosaic_path}: Details = {ex}")
         # logging.critical(traceback.format_exc())
         raise ex
+    finally:
+        # Aug 2026: Manually force the GC (Garbage collector) to release memory so it does it quicker.
+        # With Pyhton 3.12, new GDAL and rasterio, as it is slower now to release memory
+        # and with our MP and MT, it is taking longer. This cleans up all objects faster.
+        # Clean up memory immediately instead of waiting on the OS
+        force_garbage_collection()
 
     # Return file name and path of the final mosaic output file.
     # Might be empty.
@@ -507,7 +525,8 @@ def mosaic_final_inundation_extent_to_poly(
         ]
 
         # Write polygon
-        extent_poly_diss.to_file(inundation_polygon, driver=driver, engine='fiona')
+        # extent_poly_diss.to_file(inundation_polygon, driver=driver, engine='fiona')
+        extent_poly_diss.to_file(inundation_polygon, driver=driver)
 
 
 if __name__ == "__main__":

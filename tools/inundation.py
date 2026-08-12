@@ -3,7 +3,7 @@
 # import argparse
 import logging
 import os
-import traceback
+# import traceback
 import warnings
 
 # from os.path import splitext
@@ -16,13 +16,13 @@ import pandas as pd
 import rasterio
 import xarray as xr
 from numba import njit, typed, types
-from rasterio.mask import mask
+# from rasterio.mask import mask
 from shapely.geometry import shape
 
-import src.utils.shared_functions as sf
+from src.utils.shared_functions import (NoForecastFound, hydroTableHasOnlyLakes, force_garbage_collection)
 
 
-gpd.options.io_engine = "pyogrio"
+# gpd.options.io_engine = "pyogrio"
 warnings.simplefilter(action='ignore', category=FutureWarning)
 logging.getLogger('numba').setLevel(logging.WARNING)
 
@@ -182,16 +182,17 @@ def inundate(
 
     is_inundation_raster = False if not inundation_raster_path else True
 
+    # The "with" command helps but we can all del to help release it faster as the memory
+    # is not auto released after the "with"
     depth_rst = None  # Manages orphaned opened rasters
     inundation_rst = None  # Manages orphaned opened rasters
 
     # logging.debug("+++++++++++++++++")
     # logging.debug(f"Starting inundate for {inundation_raster_path}") 
 
-    # inun_data = None
+    inun_data = None
 
     try:
-
         with (
             rasterio.open(rem_branch_path) as rem_rst,
             rasterio.open(catchments_branch_path) as catchments_rst,
@@ -233,6 +234,8 @@ def inundate(
 
             # Hummm... does depth no data even make sense?
             nodata = 0
+            depth_rst = None
+            inundation_rst = None
             if not is_inundation_raster:
                 # Aug 2026: Not.. previously.. it assumed all depth profiles were int16 so may not have worked with oConus
                 depths_profile.update(driver='GTiff', blockxsize=256, blockysize=256, tiled=True)
@@ -303,15 +306,24 @@ def inundate(
         # logger.critical(traceback.format_exc())
         raise ex  # yes, re-raise
     finally:
+        # They might be already in a with statement but putting a del helps remove them sooner
         if inundation_rst is not None:
             inundation_rst.close()
+            del inundation_rst
         if depth_rst is not None:
             depth_rst.close()
+            del depth_rst
 
         # Closes the temp attachment to the logging handlers from outside the MT
         # Forces the logging handlers to flush before continuing and leaving late console messages
         for handler in logger.handlers:
             handler.flush()
+
+        # Aug 2026: Manually force the GC (Garbage collector) to release memory so it does it quicker.
+        # With Pyhton 3.12, new GDAL and rasterio, as it is slower now to release memory
+        # and with our MP and MT, it is taking longer. This cleans up all objects faster.
+        # Clean up memory immediately instead of waiting on the OS
+        force_garbage_collection()
 
 
 def __inundate_in_huc(
@@ -759,7 +771,7 @@ def __subset_hydroTable_to_forecast(
 
     # raises error if hydroTable is empty due to all segments being lakes
     if hydro_table_branch_df.empty:
-        raise sf.hydroTableHasOnlyLakes("All stream segments in HUC are within lake boundaries.")
+        raise hydroTableHasOnlyLakes("All stream segments in HUC are within lake boundaries.")
 
     # if isinstance(forecast_file_path, str):
     # TODO: AUG 2026: We really do not need to keep reloading the forecast file over and over, just preload it
@@ -817,7 +829,7 @@ def __subset_hydroTable_to_forecast(
         hydro_table_branch_df = hydro_table_branch_df.join(forecast_file_path, on=['feature_id'], how='inner')
         hydro_table_branch_df = hydro_table_branch_df.reset_index()
     except AttributeError:
-        raise sf.NoForecastFound("No forecast value found for the passed feature_ids in the Hydro-Table")
+        raise NoForecastFound("No forecast value found for the passed feature_ids in the Hydro-Table")
     except Exception as ex:
         raise ex  # yes. just re-raise... in theory, in why catch and rethrow? readability.
 

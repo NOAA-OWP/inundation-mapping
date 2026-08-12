@@ -6,7 +6,7 @@ import os
 import random
 import sys
 import time
-import traceback
+# import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Optional, Tuple, Union
 
@@ -18,12 +18,26 @@ from src.utils.shared_functions import FIM_Helpers as fh
 from src.utils.shared_functions import (
     NoForecastFound,
     hydroTableHasOnlyLakes,
-    s3_or_local_isfile,
-    s3_or_local_path_exists,
+    # s3_or_local_isfile,
+    s3_or_local_path_exists
 )
 
-
 logging.getLogger('numba').setLevel(logging.WARNING)
+
+# Note: Aug 2026:
+# The thread pool calls rasterio a very large number of times. Setting a gdal controle here
+# will auto inherit in each thread.
+# By default, gdal defaults to 5% of avaialble ram PER process and can add up very quickly.
+# Research confirmed that with python 3.12 and the gdal and rasterio upgrades, it did change
+# how it uses memory and can have leaks with large geotiffs. Later we can look into rasterio MemoryFile
+# which is excellent for rasterio memory control but it takes a lot of coding changes.
+# In the meantime, we are going to slow down the memory max. We will have to be careful with
+# total jobs and branch worker numbers.
+# Instantiate the environment globally
+# It will not crash or throw errors if the file is larger than 512 MB
+# gdal_env = rasterio.Env(GDAL_CACHEMAX=536870912)  # 512 MB in bytes
+# gdal_env.enter()  # Activates it for the entire script lifetime
+os.environ["GDAL_CACHEMAX"] = "536870912"  # 512 MB in bytes
 
 
 # Commented out some args that we no longer valid or not used by any scripts
@@ -205,7 +219,13 @@ def Inundate_gms(
                         continue
 
                     if future.exception() is not None:
-                        raise future.exception()  # re-raise it
+                        fe = future.exception()
+                        if isinstance(fe, NoForecastFound):
+                            logging.warning(f"{future_id} does not have any forecast data")
+                        elif isinstance(fe, hydroTableHasOnlyLakes):  # Aug 2026: Is this even possible?
+                            logging.warning(f"{future_id} - hydrotable only has lakes")
+                        else:
+                            raise fe  # re-raise it
 
                     if future.result() is not None:
                         inun_data_list.append(future.result())
@@ -261,92 +281,93 @@ def Inundate_gms(
 
     return raster_paths_df
 
-    # collect output filenames
-    # inundation_raster_fileNames = [None] * number_of_branches
+    '''
+    collect output filenames
+    inundation_raster_fileNames = [None] * number_of_branches
 
-    # # inundation.py.__inundate_in_huc never returned a poly, it was hardcoded to None
-    # inundation_polygon_fileNames = [None] * number_of_branches
-    # depths_raster_fileNames = [None] * number_of_branches
-    # hucCodes = [None] * number_of_branches
-    # branch_ids = [None] * number_of_branches
-
-    # # Note: rasterio opened files are never truly thread safe. But, most of our tools are processed
-    # # one branch at a time. Except synthesize_test_cases which has its own processpool so there could
-    # # be collisions there, but it has a random sleep timer to help.
-
-    # executor_generator = {executor.submit(inundate, **inp): ids for inp, ids in inundate_input_generator}
-    # idx = 0
-    # for future in tqdm(
-    #     as_completed(executor_generator),
-    #     total=len(executor_generator),
-    #     desc=f"Inundating branches with {num_threads} workers",
-    #     disable=(not verbose),
-    # ):
-    #     hucCode, branch_id = executor_generator[future]
-
-    #     try:
-    #         future.result()
-
-    #     except NoForecastFound as exc:
-    #         if log_file is not None:
-    #             print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=open(log_file, "a"))
-    #         elif verbose:
-    #             print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
-
-    #     except hydroTableHasOnlyLakes as exc:
-    #         if log_file is not None:
-    #             print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=open(log_file, "a"))
-    #         elif verbose:
-    #             print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
-
-    #     except Exception as exc:
-    #         traceback.print_exc(file=sys.stdout)
-    #         if log_file is not None:
-    #             print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=open(log_file, "a"))
-    #         else:
-    #             print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
-    #     else:
-    #         hucCodes[idx] = hucCode
-    #         branch_ids[idx] = branch_id
-
-    #         try:
-    #             inundation_raster_fileNames[idx] = future.result()[0][0]
-    #         except TypeError:
-    #             pass
-
-    #         try:
-    #             depths_raster_fileNames[idx] = future.result()[1][0]
-    #         except TypeError:
-    #             pass
-
-    #         # inundation.py.__inundate_in_huc never returned a poly, it was hardcoded to None
-    #         # try:
-    #         #     inundation_polygon_fileNames[idx] = future.result()[2][0]
-    #         # except TypeError:
-    #         #     pass
-
-    #         idx += 1
-
-    # # power down pool
-    # executor.shutdown(wait=True)
-
-    # make filename dataframe
     # inundation.py.__inundate_in_huc never returned a poly, it was hardcoded to None
-    # output_fileNames_df = pd.DataFrame(
-    #     {
-    #         "huc8": hucCodes,
-    #         "branchID": branch_ids,
-    #         "inundation_rasters": inundation_raster_fileNames,
-    #         "depths_rasters": depths_raster_fileNames,
-    #         # "inundation_polygons": inundation_polygon_fileNames,
-    #     }
-    # )
+    inundation_polygon_fileNames = [None] * number_of_branches
+    depths_raster_fileNames = [None] * number_of_branches
+    hucCodes = [None] * number_of_branches
+    branch_ids = [None] * number_of_branches
 
-    # if output_fileNames is not None:
-    #     output_fileNames_df.to_csv(output_fileNames, index=False)
+    # Note: rasterio opened files are never truly thread safe. But, most of our tools are processed
+    # one branch at a time. Except synthesize_test_cases which has its own processpool so there could
+    # be collisions there, but it has a random sleep timer to help.
 
-    # return output_fileNames_df
+    executor_generator = {executor.submit(inundate, **inp): ids for inp, ids in inundate_input_generator}
+    idx = 0
+    for future in tqdm(
+        as_completed(executor_generator),
+        total=len(executor_generator),
+        desc=f"Inundating branches with {num_threads} workers",
+        disable=(not verbose),
+    ):
+        hucCode, branch_id = executor_generator[future]
 
+        try:
+            future.result()
+
+        except NoForecastFound as exc:
+            if log_file is not None:
+                print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=open(log_file, "a"))
+            elif verbose:
+                print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
+
+        except hydroTableHasOnlyLakes as exc:
+            if log_file is not None:
+                print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=open(log_file, "a"))
+            elif verbose:
+                print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
+
+        except Exception as exc:
+            traceback.print_exc(file=sys.stdout)
+            if log_file is not None:
+                print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=open(log_file, "a"))
+            else:
+                print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
+        else:
+            hucCodes[idx] = hucCode
+            branch_ids[idx] = branch_id
+
+            try:
+                inundation_raster_fileNames[idx] = future.result()[0][0]
+            except TypeError:
+                pass
+
+            try:
+                depths_raster_fileNames[idx] = future.result()[1][0]
+            except TypeError:
+                pass
+
+            # inundation.py.__inundate_in_huc never returned a poly, it was hardcoded to None
+            # try:
+            #     inundation_polygon_fileNames[idx] = future.result()[2][0]
+            # except TypeError:
+            #     pass
+
+            idx += 1
+
+    # power down pool
+    executor.shutdown(wait=True)
+
+    make filename dataframe
+    inundation.py.__inundate_in_huc never returned a poly, it was hardcoded to None
+    output_fileNames_df = pd.DataFrame(
+        {
+            "huc8": hucCodes,
+            "branchID": branch_ids,
+            "inundation_rasters": inundation_raster_fileNames,
+            "depths_rasters": depths_raster_fileNames,
+            # "inundation_polygons": inundation_polygon_fileNames,
+        }
+    )
+
+    if output_fileNames is not None:
+        output_fileNames_df.to_csv(output_fileNames, index=False)
+
+    return output_fileNames_df
+    '''
 
 # July 2026: No longer a true generator as our adjusted Threadpool does not like lazy loading anymore
 def __inundate_gms_generator(

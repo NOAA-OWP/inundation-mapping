@@ -104,6 +104,14 @@ def synthesize_test_cases(
     logging.debug("***************************************************")
     print("")
 
+
+    if job_number_alpha_tests > 0:
+        msg = "Aug 2026: Due to new python, gdal and rasterio versions, the script risks crashing when"
+        " job numbers are higher than 10. Your job number has been overridden to 10"
+        logging.info(msg)
+        print("")
+        job_number_alpha_tests = 10
+
     # check job numbers
     # Jun 2026: Now that we have threading, we can have combo of huc/bench * branches that is much higher
     # as branches are used for multi-theading which has much higher capacity
@@ -184,9 +192,9 @@ def synthesize_test_cases(
         # If a task or imported module retains state, memory can grow over time. Recycling workers periodically helps
         # prevent that growth from accumulating across many alpha-test jobs.
 
-        # max_tasks_per_child = (
-        #     10  # This is critical to help recycle memory. Do not go very high, 5 to 10 is good.
-        # )
+        max_tasks_per_child = (
+            10  # This is critical to help recycle memory. Do not go very high, 5 to 10 is good.
+        )
         # 20 is too high. 1 is too low as it will keep recycling and not be efficient.
 
         # In inundate_gms.py, there is a threadpoolexecutor.
@@ -195,11 +203,9 @@ def synthesize_test_cases(
         # be collisions there, but it has a random sleep timer to help (in run_alpha_test)
         has_errors = False
         num_successful_tests = 0
-        ctx = multiprocessing.get_context("fork")
         with ProcessPoolExecutor(
-            max_workers=job_number_alpha_tests, mp_context=ctx
+            max_workers=job_number_alpha_tests, max_tasks_per_child=max_tasks_per_child,
         ) as executor:
-            # max_workers=job_number_alpha_tests, max_tasks_per_child=max_tasks_per_child,  # can not use with fork            
             # Loop through all test cases, build the alpha test arguments, and submit them to the process pool
             executor_dict = {}
 
