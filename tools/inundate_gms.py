@@ -6,6 +6,7 @@ import os
 import random
 import sys
 import time
+
 # import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Optional, Tuple, Union
@@ -15,12 +16,12 @@ from inundation import inundate
 from tqdm import tqdm
 
 from src.utils.shared_functions import FIM_Helpers as fh
-from src.utils.shared_functions import (
+from src.utils.shared_functions import (  # s3_or_local_isfile,
     NoForecastFound,
     hydroTableHasOnlyLakes,
-    # s3_or_local_isfile,
-    s3_or_local_path_exists
+    s3_or_local_path_exists,
 )
+
 
 logging.getLogger('numba').setLevel(logging.WARNING)
 
@@ -37,7 +38,7 @@ logging.getLogger('numba').setLevel(logging.WARNING)
 # It will not crash or throw errors if the file is larger than 512 MB
 # gdal_env = rasterio.Env(GDAL_CACHEMAX=536870912)  # 512 MB in bytes
 # gdal_env.enter()  # Activates it for the entire script lifetime
-os.environ["GDAL_CACHEMAX"] = "536870912"  # 512 MB in bytes
+os.environ["GDAL_CACHEMAX"] = "268435456"  # 256 MB in bytes
 
 
 # Commented out some args that we no longer valid or not used by any scripts
@@ -130,7 +131,6 @@ def Inundate_gms(
 
     if not os.path.exists(forecast_file_path):
         raise ValueError(f"forecast file does not exist [{hucs}]")
-
 
     # June 2026:
     # Most scripts that call this function use an ProcessPoolExecutor. When it first starts, they all hit this
@@ -229,6 +229,13 @@ def Inundate_gms(
 
                     if future.result() is not None:
                         inun_data_list.append(future.result())
+
+                except KeyboardInterrupt as ki:
+                    # Ctrl-C, just continue and shut down, no errors, warnings.
+                    logging.error("Keyboard Interrupt (likely Ctrl-C)")
+                    pbar.close()  # aborts the progress bar
+                    executor.shutdown(wait=True, cancel_futures=True)  # yes.. need wait True for MT
+                    raise ki
 
                 except Exception as exc:
 
@@ -368,6 +375,7 @@ def Inundate_gms(
 
     return output_fileNames_df
     '''
+
 
 # July 2026: No longer a true generator as our adjusted Threadpool does not like lazy loading anymore
 def __inundate_gms_generator(
@@ -518,8 +526,8 @@ def __inundate_gms_generator(
             # hydro_table_branch_df = os.path.join(branch_dir, f"hydroTable_{branch_id}.csv")
 
         # Aug 2026: No longer used in light of masking and other changes.
-        xwalked_file_name = f"gw_catchments_reaches_filtered_addedAttributes_crosswalked_{branch_id}.gpkg"
-        catchment_poly_path = os.path.join(branch_dir, xwalked_file_name)
+        # xwalked_file_name = f"gw_catchments_reaches_filtered_addedAttributes_crosswalked_{branch_id}.gpkg"
+        # catchment_poly_path = os.path.join(branch_dir, xwalked_file_name)
 
         # branch output
         # Some other functions that call in here already added a huc, so only add it if not yet there

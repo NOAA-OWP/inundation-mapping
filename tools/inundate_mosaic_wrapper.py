@@ -129,11 +129,15 @@ def produce_mosaicked_inundation(
     """
 
     if verbose:
-        logging.info("Starting produce_mosaicked_inundation for huc(s)"
-                     f" {hucs} based on forecast of {flow_file_path}")
+        logging.info(
+            "Starting produce_mosaicked_inundation for huc(s)"
+            f" {hucs} based on forecast of {flow_file_path}"
+        )
     else:
-        logging.debug("Starting produce_mosaicked_inundation for huc(s)"
-                      f" {hucs} based on forecast of {flow_file_path}")
+        logging.debug(
+            "Starting produce_mosaicked_inundation for huc(s)"
+            f" {hucs} based on forecast of {flow_file_path}"
+        )
 
     # print(locals())
 
@@ -258,10 +262,12 @@ def produce_mosaicked_inundation(
                 logging.info(msg)
             else:
                 logging.debug(msg)
-            
+
     except Exception as ex:
-        logging.critical(f"An exception has been caught for huc(s) {hucs}  based on forecast of {flow_file_path}"
-                         f" : details = {ex}")
+        logging.critical(
+            f"An exception has been caught for huc(s) {hucs}  based on forecast of {flow_file_path}"
+            f" : details = {ex}"
+        )
         raise ex
 
     return mosaic_file_path

@@ -4,6 +4,7 @@
 import argparse
 import logging
 import os
+
 # import traceback
 import warnings
 
@@ -15,8 +16,6 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio
-#import rioxarray as rxr
-# import xarray as xr
 
 # from geocube.api.core import make_geocube
 from rasterio.features import shapes
@@ -26,8 +25,13 @@ from shapely.geometry.multipolygon import MultiPolygon
 from shapely.geometry.polygon import Polygon
 from tqdm import tqdm
 
-from src.utils.shared_functions import (FIM_Helpers as fh, force_garbage_collection)
+from src.utils.shared_functions import FIM_Helpers as fh
+from src.utils.shared_functions import force_garbage_collection
 from src.utils.shared_variables import elev_raster_ndv
+
+
+# import rioxarray as rxr
+# import xarray as xr
 
 
 # gpd.options.io_engine = "pyogrio"
@@ -43,7 +47,7 @@ from src.utils.shared_variables import elev_raster_ndv
 # It will not crash or throw errors if the file is larger than 512 MB
 # gdal_env = rasterio.Env(GDAL_CACHEMAX=536870912)  # 512 MB in bytes
 # gdal_env.enter()  # Activates it for the entire script lifetime
-os.environ["GDAL_CACHEMAX"] = "536870912"  # 512 MB in bytes
+os.environ["GDAL_CACHEMAX"] = "268435456"  # 256 MB in bytes
 
 # Set rasterio logger to only show errors, not warnings
 logging.getLogger('rasterio').setLevel(logging.ERROR)
@@ -280,8 +284,14 @@ def Mosaic_inundation(
                 # farther up the chain that assumed this file was here or something. Or colliding via
                 # a parent MP or MT having the same huc nummbers. Ones like alpha testing do submit workers
                 # that have dup HUCs but differnt paths, usually just a subfolder for magnitude.
+                # Sometimes it can come up as true on the if tests but by the time it gets to the remove line
+                # it is already gone and gives an FileNotFoundError. No idea how that is possible, but
+                # it is rare and can not be replicated reliably.
                 if os.path.exists(remove_file):
-                    os.remove(remove_file)
+                    try:
+                        os.remove(remove_file)
+                    except FileNotFoundError:
+                        continue
                 else:
                     logging.warning(
                         f"Somehow {remove_file} did not to be removed."

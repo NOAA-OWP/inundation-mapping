@@ -4,14 +4,12 @@ import argparse
 import csv
 import json
 import logging
-import multiprocessing
 import os
 import re
 import time
 import traceback
 from concurrent.futures import ProcessPoolExecutor, as_completed, wait
 from datetime import datetime, timezone
-# from multiprocessing import Pool
 
 import pandas as pd
 from run_test_case import Test_Case
@@ -25,7 +23,12 @@ from tools_shared_variables import (
 from tqdm import tqdm
 
 import src.utils.shared_functions as sf
-from src.utils.shared_functions import FIM_Helpers as fh
+
+
+# from multiprocessing import Pool
+
+
+# from src.utils.shared_functions import FIM_Helpers as fh
 
 
 # NOTE: Jun 2026: Now that we are fully using prev_metrics_csv
@@ -104,10 +107,9 @@ def synthesize_test_cases(
     logging.debug("***************************************************")
     print("")
 
-
-    if job_number_alpha_tests > 0:
+    if job_number_alpha_tests > 10:
         msg = "Aug 2026: Due to new python, gdal and rasterio versions, the script risks crashing when"
-        " job numbers are higher than 10. Your job number has been overridden to 10"
+        " job numbers are higher than 10. Your job number has been overridden to 10."
         logging.info(msg)
         print("")
         job_number_alpha_tests = 10
@@ -204,7 +206,7 @@ def synthesize_test_cases(
         has_errors = False
         num_successful_tests = 0
         with ProcessPoolExecutor(
-            max_workers=job_number_alpha_tests, max_tasks_per_child=max_tasks_per_child,
+            max_workers=job_number_alpha_tests, max_tasks_per_child=max_tasks_per_child
         ) as executor:
             # Loop through all test cases, build the alpha test arguments, and submit them to the process pool
             executor_dict = {}
@@ -261,7 +263,15 @@ def synthesize_test_cases(
                     # helps release the memory faster
                     del executor_dict[future]
 
+            except KeyboardInterrupt:
+                has_errors = True
+                # Ctrl-C, just continue and shut down, no errors, warnings.
+                logging.error("Keyboard Interrupt (likely Ctrl-C)")
+                pbar.close()  # aborts the progress bar
+                executor.shutdown(wait=True, cancel_futures=True)  # yes.. need wait True for MT
+
             except Exception as ex:
+                has_errors = True
                 # this covers fails in the original call to test_case_class.alpha_test such as
                 # bad definition.
                 logging.critical("++++++++++++++++++++++++++++++++++++++++++++++++")
@@ -287,7 +297,10 @@ def synthesize_test_cases(
                 # but it will be close enough to the actual progress.
 
         if num_successful_tests == 0 or has_errors:
-            logging.warning("Skipping creating metrics file as there were at least one failed alpha tests")
+            logging.warning(
+                "Skipping creating metrics file as there were at least one failed"
+                " alpha tests or the program was system aborted."
+            )
         else:
             # Do aggregate_metrics.
             logging.info("Creating master metrics CSV...")

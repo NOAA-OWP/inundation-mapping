@@ -4,6 +4,7 @@ import logging
 import os
 import random
 import re
+
 # import shutil
 import time
 import traceback
@@ -11,10 +12,6 @@ from datetime import datetime, timezone
 
 # import pandas as pd
 from inundate_mosaic_wrapper import produce_mosaicked_inundation
-
-# from inundation import inundate
-# from mosaic_inundation import Mosaic_inundation
-from tools_shared_functions import compute_contingency_stats_from_rasters
 from tools_shared_variables import (  # INPUTS_DIR,; elev_raster_ndv,
     AHPS_BENCHMARK_CATEGORIES,
     MAGNITUDE_DICT,
@@ -26,6 +23,16 @@ from tools_shared_variables import (  # INPUTS_DIR,; elev_raster_ndv,
 import src.utils.shared_functions as sf
 from src.utils.shared_functions import FIM_Helpers as fh
 from src.utils.shared_functions import get_huc_vars
+
+
+# from inundation import inundate
+# from mosaic_inundation import Mosaic_inundation
+
+# Aug 2026: compute_contingency_stats_from_rasters calls soem gval items
+# and there is evidence that their may be some new memory leaks with this newer
+# gdal and rasterio. In the interium, Gemini suggests copying this directly into
+# the function to limit its scope and help with memory control.
+# from tools_shared_functions import compute_contingency_stats_from_rasters
 
 
 class Benchmark(object):
@@ -341,6 +348,13 @@ class Test_Case(Benchmark):
                 logger.removeHandler(handler)
 
     def _inundate_and_compute(self, magnitude, lid, precalb_option, branch_workers=1, verbose=False):
+
+        # Aug 2026: compute_contingency_stats_from_rasters calls some gval items
+        # and there is evidence that their may be some new memory leaks with this newer
+        # gdal and rasterio. In the interium, Gemini suggests copying this directly into
+        # the function to limit its scope and help with memory control.
+        from tools_shared_functions import compute_contingency_stats_from_rasters
+
         '''Method for inundating and computing contingency rasters as part of the alpha_test.
         Used by both the alpha_test() and composite() methods.
 
@@ -460,7 +474,9 @@ class Test_Case(Benchmark):
     def clean_ahps_outputs(self, magnitude_directory):
         '''Cleans up `total_area` files from an input AHPS magnitude directory.'''
         if os.path.exists(magnitude_directory):
-            output_file_list = [os.path.join(magnitude_directory, of) for of in os.listdir(magnitude_directory)]
+            output_file_list = [
+                os.path.join(magnitude_directory, of) for of in os.listdir(magnitude_directory)
+            ]
             for output_file in output_file_list:
                 if "total_area" in output_file:
                     os.remove(output_file)

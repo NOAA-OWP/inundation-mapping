@@ -38,9 +38,13 @@ gp.options.io_engine = "pyogrio"
 # #################################
 class hydroTableHasOnlyLakes(Exception):
     """Raised when a Hydro-Table only has lakes"""
+
     pass
+
+
 class NoForecastFound(Exception):
     """Raised when no forecast is available for a given Hydro-Table"""
+
     pass
 
 
@@ -1188,17 +1192,16 @@ def calculate_duration_msg(start_dt):
 # GC (garbage collection), which is queued. With larger apps with MP and MT, this can get backed up
 # and trigger increasing memory usage. The memory can slowly keep climbing and crash the server.
 def force_garbage_collection():
-  # 1. Clear Python's internal garbage collector
-  gc.collect()
+    # 1. Clear Python's internal garbage collector
+    gc.collect()
 
-  # 2. Force the glibc allocator to release memory back to the OS
-  try:
-    _libc = ctypes.CDLL('libc.so.6')
-    _libc.malloc_trim(0)
-  except (OSError, AttributeError):
-    # Fails safely if on Windows, macOS, or using a non-glibc distribution (like Alpine)
-    pass
-
+    # 2. Force the glibc allocator to release memory back to the OS
+    try:
+        _libc = ctypes.CDLL('libc.so.6')
+        _libc.malloc_trim(0)
+    except (OSError, AttributeError):
+        # Fails safely if on Windows, macOS, or using a non-glibc distribution (like Alpine)
+        pass
 
 
 # #####################################

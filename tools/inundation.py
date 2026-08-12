@@ -3,6 +3,7 @@
 # import argparse
 import logging
 import os
+
 # import traceback
 import warnings
 
@@ -16,10 +17,11 @@ import pandas as pd
 import rasterio
 import xarray as xr
 from numba import njit, typed, types
+
 # from rasterio.mask import mask
 from shapely.geometry import shape
 
-from src.utils.shared_functions import (NoForecastFound, hydroTableHasOnlyLakes, force_garbage_collection)
+from src.utils.shared_functions import NoForecastFound, force_garbage_collection, hydroTableHasOnlyLakes
 
 
 # gpd.options.io_engine = "pyogrio"
@@ -131,7 +133,6 @@ def inundate(
     # else:
     #     logging.debug(f"Start Inundating for {huc} - {branch_id}")
 
-
     if not os.path.isfile(rem_branch_path):
         raise Exception(f"[{huc}:{branch_id}] - Rem file of {rem_branch_path} does not exist")
 
@@ -175,7 +176,7 @@ def inundate(
 
     if not os.path.exists(rem_branch_path):
         raise ValueError(f"[{huc}:{branch_id}] - {rem_branch_path} does not exist")
-    #is_inundation_raster = False
+    # is_inundation_raster = False
 
     if not os.path.exists(catchments_branch_path):
         raise ValueError(f"[{huc}:{branch_id}] - {catchments_branch_path} does not exist")
@@ -188,7 +189,7 @@ def inundate(
     inundation_rst = None  # Manages orphaned opened rasters
 
     # logging.debug("+++++++++++++++++")
-    # logging.debug(f"Starting inundate for {inundation_raster_path}") 
+    # logging.debug(f"Starting inundate for {inundation_raster_path}")
 
     inun_data = None
 
@@ -241,11 +242,9 @@ def inundate(
                 depths_profile.update(driver='GTiff', blockxsize=256, blockysize=256, tiled=True)
                 depth_rst = rasterio.open(depths_raster_path, "w+", **depths_profile)
                 nodata = (
-                    np.int16(depths_profile['nodata'])
-                    if is_int_16
-                    else np.int32(depths_profile['nodata'])
+                    np.int16(depths_profile['nodata']) if is_int_16 else np.int32(depths_profile['nodata'])
                 )
-            else:  
+            else:
                 inundation_profile.update(
                     driver='GTiff', blockxsize=256, blockysize=256, tiled=True, nodata=0
                 )
@@ -301,8 +300,10 @@ def inundate(
         return inun_data
 
     except Exception as ex:
-        logger.critical(f"[{huc}:{branch_id}] - Critical Error while inundating for {forecast_file_path}."
-                        f" Details = {ex}")
+        logger.critical(
+            f"[{huc}:{branch_id}] - Critical Error while inundating for {forecast_file_path}."
+            f" Details = {ex}"
+        )
         # logger.critical(traceback.format_exc())
         raise ex  # yes, re-raise
     finally:
@@ -388,7 +389,6 @@ def __inundate_in_huc(
     #     __vprint("Inundating {} ...".format(hucCode), not verbose)
 
     # logging.debug(f"catchment_stages_dict count inside __inundate is {len(catchment_stages_dict)} for {inundation_raster_path}")
-
 
     rem, catchments = __go_fast_mapping(
         rem_array,
