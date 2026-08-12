@@ -44,7 +44,7 @@ def produce_mosaicked_inundation(
     # There are only threads from here downstream. MP no longer available. It is the user's responsility if they
     # use MP before getting here (not all do) to ensure over usign system resources.
     # Note: You will find that you can use more threads then cpu's, so the limit does not apply.
-    # num_workers: Optional[int] = 1,
+    # num_workers: Optional[int] = 1, Also see notes for new arg below called num_parent_workers.
     # Aug 2026: Nothing is using it but keep it for now in case someone wants it
     # for debugging. This is really just for branch tifs
     remove_intermediate_files: Optional[bool] = True,
@@ -52,6 +52,7 @@ def produce_mosaicked_inundation(
     # unit_attribute_name which is already the value of 'huc8' and really can not be otherwise.
     is_mosaic_for_branches: Optional[bool] = False,
     num_threads: Optional[int] = 1,
+    num_parent_workers: Optional[int] = 1,   # Used only for memory allocation management (see notes below)
     precalb_option: Optional[bool] = False,
     windowed: Optional[bool] = False,
     # log_file: Optional[str] = None,  # each calling script should have its own logging now
@@ -116,6 +117,10 @@ def produce_mosaicked_inundation(
             is mosaicked for its branches.
         num_threads : Optional[int], default=1
             Number of threads to process
+        num_parent_workers : int
+            Number of worker processes assigned to original parent number of jobs
+            for processpool or threadpool if applicable. Used in conjuction with the number
+            of branch workers for memory allocation only.
         precalb_option : Optional[bool], default=False
             Whether to use precalb discharge in hydrotable. If True, will use precalb_discharge_cms column
         windowed : Optional[bool], default=False
@@ -187,6 +192,7 @@ def produce_mosaicked_inundation(
             forecast_file_path=flow_file_path,
             hydro_table_path=hydro_table_path,
             num_threads=num_threads,
+            num_parent_workers=num_parent_workers,
             hucs=hucs,
             inundation_raster_path=output_raster_path,
             # depth_rasters - Not used any a scripts from here, only used via apps directly calling inundate_gms.py

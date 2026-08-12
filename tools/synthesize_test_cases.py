@@ -4,6 +4,7 @@ import argparse
 import csv
 import json
 import logging
+import multiprocessing
 import os
 import re
 import time
@@ -24,12 +25,9 @@ from tqdm import tqdm
 
 import src.utils.shared_functions as sf
 
-
 # from multiprocessing import Pool
 
-
 # from src.utils.shared_functions import FIM_Helpers as fh
-
 
 # NOTE: Jun 2026: Now that we are fully using prev_metrics_csv
 # many args are no longer relavent.
@@ -107,12 +105,12 @@ def synthesize_test_cases(
     logging.debug("***************************************************")
     print("")
 
-    if job_number_alpha_tests > 10:
-        msg = "Aug 2026: Due to new python, gdal and rasterio versions, the script risks crashing when"
-        " job numbers are higher than 10. Your job number has been overridden to 10."
-        logging.info(msg)
-        print("")
-        job_number_alpha_tests = 10
+    # if job_number_alpha_tests > 10:
+    #     msg = "Aug 2026: Due to new python, gdal and rasterio versions, the script risks crashing when"
+    #     " job numbers are higher than 10. Your job number has been overridden to 10."
+    #     logging.info(msg)
+    #     print("")
+    #     job_number_alpha_tests = 10
 
     # check job numbers
     # Jun 2026: Now that we have threading, we can have combo of huc/bench * branches that is much higher
@@ -194,20 +192,27 @@ def synthesize_test_cases(
         # If a task or imported module retains state, memory can grow over time. Recycling workers periodically helps
         # prevent that growth from accumulating across many alpha-test jobs.
 
-        max_tasks_per_child = (
-            10  # This is critical to help recycle memory. Do not go very high, 5 to 10 is good.
-        )
+        # max_tasks_per_child = (
+        #     10  # This is critical to help recycle memory. Do not go very high, 5 to 10 is good.
+        # )
         # 20 is too high. 1 is too low as it will keep recycling and not be efficient.
 
         # In inundate_gms.py, there is a threadpoolexecutor.
         # Note: rasterio opened files are never truly thread safe. But, most of our tools are processed
         # one branch at a time. Except synthesize_test_cases which has its own processpool so there could
         # be collisions there, but it has a random sleep timer to help (in run_alpha_test)
+
+        # 1. Explicitly set the start method to fork
+        # (Must be called before any pool is created)
+        multiprocessing.set_start_method('spawn', force=True)
+
         has_errors = False
         num_successful_tests = 0
-        with ProcessPoolExecutor(
-            max_workers=job_number_alpha_tests, max_tasks_per_child=max_tasks_per_child
-        ) as executor:
+        # with ProcessPoolExecutor(
+        #     max_workers=job_number_alpha_tests, max_tasks_per_child=max_tasks_per_child
+        # ) as executor:
+        with ProcessPoolExecutor(max_workers=job_number_alpha_tests) as executor:
+
             # Loop through all test cases, build the alpha test arguments, and submit them to the process pool
             executor_dict = {}
 
@@ -223,6 +228,8 @@ def synthesize_test_cases(
                     alpha_test_args = {
                         'overwrite': overwrite,
                         'verbose': verbose,
+                        # num_parent_workers - Used only for memory allocation management, not MT's
+                        'num_parent_workers': job_number_alpha_tests,
                         'branch_workers': job_number_branch,
                         'precalb_option': precalb_option,
                         'log_folder': log_folder,
@@ -277,7 +284,7 @@ def synthesize_test_cases(
                 logging.critical("++++++++++++++++++++++++++++++++++++++++++++++++")
                 logging.critical(f"*** Error: {ex}")
                 logging.critical(traceback.format_exc())
-                # pbar.close()
+                pbar.close()
                 # Note: Even though we use the "wait" flag, most WIP processes can not be
                 # aborted when using ProcessPool
                 executor.shutdown(
@@ -291,9 +298,11 @@ def synthesize_test_cases(
                 # Granted.. putting it in "finally" will mean we get the logs a bit out of order
                 # but all errors and criticals are in the logs at least twice, so look at
                 # the last error messages and it will have context
-                logging.debug(f"Merging child log files into parent logs. {log_file_path} - {mp_log_prefix}")
+                print("++++++++++++")
+                logging.info(f"Merging child log files into parent logs. {log_file_path} - {mp_log_prefix}")
+                print("This can take a bit, hang in there.")
                 sf.merge_child_logs_into_parent_log(log_file_path, mp_log_prefix)
-                pbar.close()  # finish flushing it from Stdout. It will not be perfect,
+                
                 # but it will be close enough to the actual progress.
 
         if num_successful_tests == 0 or has_errors:

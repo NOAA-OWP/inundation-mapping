@@ -20,8 +20,9 @@ from src.utils.shared_functions import (  # s3_or_local_isfile,
     NoForecastFound,
     hydroTableHasOnlyLakes,
     s3_or_local_path_exists,
+    force_garbage_collection,
 )
-
+from tools.tools_shared_functions import set_dynamic_gdal_cache
 
 logging.getLogger('numba').setLevel(logging.WARNING)
 
@@ -38,14 +39,16 @@ logging.getLogger('numba').setLevel(logging.WARNING)
 # It will not crash or throw errors if the file is larger than 512 MB
 # gdal_env = rasterio.Env(GDAL_CACHEMAX=536870912)  # 512 MB in bytes
 # gdal_env.enter()  # Activates it for the entire script lifetime
-os.environ["GDAL_CACHEMAX"] = "268435456"  # 256 MB in bytes
-
+# And will be shared by all threads
+# Humm... if this is inside a processpool, each have their own max
+# os.environ["GDAL_CACHEMAX"] = "128"  # MB and rasterio will auto inherit
 
 # Commented out some args that we no longer valid or not used by any scripts
 def Inundate_gms(
     hydrofabric_dir: str,
     forecast_file_path: str,
     hucs: List[str],  # Not optional, but can be a list of one huc
+    num_parent_workers: Optional[int] = 1,  # Used only for memory allocation management, not MT's (see notes below)
     num_threads: Optional[int] = 1,
     # Most use a path to HUC HT, interpolates leaves it empty, no one sends in a dataframe
     hydro_table_path: Optional[str] = None,
@@ -72,30 +75,36 @@ def Inundate_gms(
         Directory with flood inundation mapping outputs
     forecast_file_path: str
         path to the forecast file
-    num_workers: Optional[int], default = 1
-        Number of threads to useNumber of processes to run in parallel
-    hydro_table_df: Optional[Union[str, pd.DataFrame]], default = None
-        Hydro table path or DataFrame
     hucs: List[str]]
         List of hucs to process GMS
-    inundation_raster : str
+#    num_workers: Optional[int], default = 1
+#        Number of threads to useNumber of processes to run in parallel
+    num_threads : Optional[int], default=1
+        Number of threads to process
+    num_parent_workers : int
+        Number of worker processes assigned to original parent number of jobs
+        for processpool or threadpool if applicable. Used in conjuction with the number
+        of branch workers for memory allocation only.
+    hydro_table_path: Optional[str], default = None
+        Hydro table path. Can be none and it will calc path down the road
+    inundation_raster_path : str
         Name of inundation extent raster
-    inundation_polygon: Optional[str], default = None
-        Name of inundation polygon vector
-    depths_raster : str
+#    inundation_polygon: Optional[str], default = None
+#        Name of inundation polygon vector
+    depths_raster_path : str
         Name of depth raster
     verbose: Optional[bool], default = False
         Whether to silence output or not
-    log_file: Optional[str], default = None
-        Name of file to log output
-    inundation_results_file_path: Optional[str], default = None
+#    log_file: Optional[str], default = None
+#        Name of file to log output
+    inundation_mapping_file_path: Optional[str], default = None
         Name of file to output filenames from inundation routine
     precalb_option: Optional[bool], default = False
         Whether to use precalb discharge in hydrotable
     windowed: Optional[bool], default = False
         Whether to use window memory optimization
-    multi_process: Optional[bool], default = False
-        Whether to use process pool, otherwise use thread pool
+    show_progress_bar: Optional[bool], default = False
+        Do you want the tqdm progress bar to be shown?
 
     Returns
     -------
@@ -103,6 +112,12 @@ def Inundate_gms(
         Output filenames from inundation routine
 
     """
+
+    # ++++++++++++++++++++
+    # Must control gdal memory. See notes in the function
+    # Note: We are not using the num_workers other than for this calc
+    set_dynamic_gdal_cache(num_parent_workers, num_threads)
+    # ++++++++++++++++++++
 
     if verbose and show_progress_bar:
         logging.info(
@@ -131,13 +146,6 @@ def Inundate_gms(
 
     if not os.path.exists(forecast_file_path):
         raise ValueError(f"forecast file does not exist [{hucs}]")
-
-    # June 2026:
-    # Most scripts that call this function use an ProcessPoolExecutor. When it first starts, they all hit this
-    # function at the same time. Putting a random time sleeper helps manage that a little lowering
-    # resource needs a little and network bottlenecks, especially if they are all hitting one hucs files at one time.
-    # random between 0 and 3 seconds.
-    time.sleep(random.randint(0, 3))
 
     # log file
     # if log_file is not None:
@@ -285,6 +293,12 @@ def Inundate_gms(
                 logging.info(f"Inundation raster mapping data saved to {inundation_mapping_file_path}")
             else:
                 logging.debug(f"Inundation raster mapping data saved to {inundation_mapping_file_path}")
+
+    # Aug 2026:
+    # gives it 10 seconds for the gc to finish releaseing memory.
+    time.sleep(10)
+    # force what is left over
+    force_garbage_collection()
 
     return raster_paths_df
 

@@ -21,7 +21,7 @@ from tools_shared_variables import (  # INPUTS_DIR,; elev_raster_ndv,
 )
 
 import src.utils.shared_functions as sf
-from src.utils.shared_functions import FIM_Helpers as fh
+# from src.utils.shared_functions import FIM_Helpers as fh
 from src.utils.shared_functions import get_huc_vars
 
 
@@ -193,6 +193,7 @@ class Test_Case(Benchmark):
         inclusion_area_buffer=0,
         overwrite=True,
         verbose=False,
+        num_parent_workers=1,  # Used only for memory allocation management
         branch_workers=1,
         precalb_option=False,
         log_folder='',
@@ -212,6 +213,10 @@ class Test_Case(Benchmark):
             If True, overwites pre-existing test cases within the test_cases directory.
         verbose : bool
             If True, prints out all pertinent data.
+        num_parent_workers : int
+            Number of worker processes assigned to original parent number of jobs
+            for processpool or threadpool if applicable. Used in conjuction with the number
+            of branch workers for memory allocation only.
         branch_workers : int
             Number of worker processes assigned to branch processing.
         log_folder: string
@@ -302,6 +307,7 @@ class Test_Case(Benchmark):
                         magnitude,
                         instance,
                         branch_workers=branch_workers,
+                        num_parent_workers=num_parent_workers,
                         precalb_option=precalb_option,
                         verbose=verbose,
                     )
@@ -347,7 +353,16 @@ class Test_Case(Benchmark):
                 handler.close()
                 logger.removeHandler(handler)
 
-    def _inundate_and_compute(self, magnitude, lid, precalb_option, branch_workers=1, verbose=False):
+    def _inundate_and_compute(self,
+                              magnitude,
+                              lid,
+                              precalb_option,
+                              branch_workers=1,
+                              num_parent_workers=1,
+                              verbose=False):
+
+        # num_parent_workers=1,  # Used only for memory allocation management
+        # used by both inundate_gms and mosiac_inundation which have child MT's
 
         # Aug 2026: compute_contingency_stats_from_rasters calls some gval items
         # and there is evidence that their may be some new memory leaks with this newer
@@ -418,6 +433,7 @@ class Test_Case(Benchmark):
             inundation_mapping_file_path=inundation_mapping_file_path,
             verbose=verbose,
             num_threads=branch_workers,
+            num_parent_workers=num_parent_workers,
             # num_workers=gms_workers,
             precalb_option=precalb_option,
             windowed=True,
