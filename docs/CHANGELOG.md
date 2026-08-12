@@ -8,10 +8,10 @@ Fixes SQLite errors caused by geopackage file handling by the OS (introduced in 
 Bash scripts were also refactored to use bash arrays and use of explicit notation including curly braces around environment variables, quotes around arguments, and double brackets around conditional blocks.
 
 ### Additions
-- `sitecustomize.py`: Redefines geopandas.to_parquet() to automatically sort by Hilbert curve, then adds that functionality to geopandas.to_file() so that GeoParquet files can be written with `to_file()` ignoring certain keyword argumens such as `layer`, and `overwrite` and sets `driver='fiona'` as the default for Geopackage (.gpkg) files. Also specifies the use of `spawn` to force clean process spawning for multiprocessing and prevent segmentation faults.
 - `src/`
     - `subset_vectors_to_branches.py`: Replaces GDAL command-line `ogr2ogr`
     - `utils/`
+        - `io.py`: Redefines geopandas.to_parquet() to automatically sort by Hilbert curve, then adds that functionality to geopandas.to_file() so that GeoParquet files can be written with `to_file()` ignoring certain keyword argumens such as `layer`, and `overwrite` and sets `driver='fiona'` as the default for Geopackage (.gpkg) files. Also specifies the use of `spawn` to force clean process spawning for multiprocessing and prevent segmentation faults.
         - `polygonize_raster.py`: Converts from raster to vector as a replacement for the GDAL command-line `gdal_polygonize.py`
         - `rasterize_parquet.py`: Converts from vector to raster as a replacement for the GDAL command-line `gdal_rasterize.py`
 

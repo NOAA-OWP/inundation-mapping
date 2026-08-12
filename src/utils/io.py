@@ -17,14 +17,19 @@ def write_geodataframe(gdf: gpd.GeoDataFrame, filename, *args, **kwargs) -> None
 
     # Route 1: Parquet -> Hilbert sort + to_parquet()
     if not has_layer and (driver == "parquet" or (driver is None and ext == ".parquet")):
-        parquet_kwargs = {
-            k: v
-            for k, v in kwargs.items()
-            if k not in ("driver", "layer", "schema", "mode", "engine", "overwrite")
-        }
+
+        EXCLUDED_PARQUET_KWARGS = {"driver", "layer", "schema", "mode", "engine", "overwrite"}
+
+        parquet_kwargs = {k: v for k, v in kwargs.items() if k not in EXCLUDED_PARQUET_KWARGS}
 
         if not gdf.empty and gdf.active_geometry_name is not None and not gdf.geometry.is_empty.all():
-            gdf = gdf.sort_values(by="geometry", ascending=True).reset_index(drop=True)
+            # Sort spatially on Hilbert curve
+            gdf = gdf.sort_values(by="geometry", ascending=True)
+
+            if gdf.index.name is None:
+                gdf = gdf.reset_index(drop=True)
+            else:
+                gdf = gdf.reset_index()
 
         # Any write error is surfaced to the caller.
         gdf.to_parquet(filename, **parquet_kwargs)
@@ -33,6 +38,7 @@ def write_geodataframe(gdf: gpd.GeoDataFrame, filename, *args, **kwargs) -> None
     elif driver in ("gpkg", "geopackage") or (driver is None and ext == ".gpkg"):
         gpkg_kwargs = kwargs.copy()
         gpkg_kwargs.setdefault("driver", "GPKG")
+        gpkg_kwargs.setdefault("engine", "fiona")
 
         gdf.to_file(filename, *args, **gpkg_kwargs)
 
