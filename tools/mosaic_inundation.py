@@ -80,7 +80,6 @@ def Mosaic_inundation(
     # Aug 2026: is_mosaic_for_branches was the wrong name, it really was for intermediate files for rolling
     # up by huc level (ag in tqdm) as intermediate files to help with final rollup.
     # Only inundate_nation used it. But it would have done it by default anyways, so it is pointless
-    # is_mosaic_for_branches: Optional[bool] = False,
     # appends to the output file names. Really only has value if more than one huc is processed.
     # Name "per huc" but technically, it is per unit_attribute)
     is_mosaic_for_branches: Optional[bool] = False,  # usually the value of the huc number

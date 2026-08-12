@@ -98,6 +98,7 @@ def synthesize_test_cases(
     overall_start_dt = datetime.now(timezone.utc)
 
     logging.info("***************************************************")
+    print(f"Logs saved to: {log_file_path}")    
     logging.info(
         "***** Note about log files: Some warnings and errors will show up multiple times, and"
         " not necessarily in order, but last copy of a set of error messages will show find context info."

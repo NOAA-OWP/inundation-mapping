@@ -60,8 +60,9 @@ def validate_ripple_data(
     # setup logs
     # make a download_logs folder inside the target
     log_path = os.path.join(output_folder, "logs")
-    sf.setup_file_logger(log_path, "ripple_validation")
+    log_file_path = sf.setup_file_logger(log_path, "ripple_validation")
     logging.info(f"Start time: {overall_start_dt.strftime('%m/%d/%Y %H:%M:%S')} UTC")
+    print(f"Logs saved to: {log_file_path}")    
 
     logging.info(f"Validating data in {s3_full_folder_path}.")
     time.sleep(5)  # gives the a min to read this.

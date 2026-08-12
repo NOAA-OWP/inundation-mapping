@@ -19,6 +19,9 @@ from src.utils.shared_variables import elev_raster_ndv
 # This function is for inundation rasters and not depth rasters. interpolate_water_surface.py is the only
 # tool that uses depth rasters and calls directly to Inundate_gms
 # Aug 2026: masking system commented out. See notes at mosiac_iundation.py -> mask_mosiac function
+
+# While this can take a list of hucs, it is recommended you only submit one huc and have your own
+# processpool on the outside and mosaic the hucs together if you need too.
 def produce_mosaicked_inundation(
     hydrofabric_dir: str,
     hucs: Union[str, List[str]],
