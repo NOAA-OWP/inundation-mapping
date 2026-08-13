@@ -12,7 +12,7 @@ from inundate_gms import Inundate_gms
 from mosaic_inundation import Mosaic_inundation
 
 # from src.utils.shared_functions import FIM_Helpers as fh
-from src.utils.shared_functions import s3_or_local_path_exists
+from src.utils.shared_functions import force_garbage_collection, s3_or_local_path_exists
 from src.utils.shared_variables import elev_raster_ndv
 
 
@@ -215,6 +215,9 @@ def produce_mosaicked_inundation(
 
         #     map_file.to_csv(map_filename, index=False)
 
+        logging.info(f"Skipping mosaic as debug test - raster path = {output_raster_path}")
+        return output_raster_path
+
         if verbose:
             logging.info(f"Mosaicking extent... - {hucs} based on forecast of {flow_file_path}")
         else:
@@ -244,8 +247,9 @@ def produce_mosaicked_inundation(
 
         if raster_paths_df is not None:
             # Aug 2026: masking system commented out. See notes at mosiac_iundation.py -> mask_mosiac function
+            # Avoid copy() here: the DataFrame is not mutated downstream and duplication can double memory use.
             mosaic_file_path = Mosaic_inundation(
-                raster_paths_df.copy(),
+                raster_paths_df,
                 output_mosaic_path=output_raster_path,
                 # mosaic_attribute is the colum name in the (raster_paths_df) that has the paths to be mosiacked
                 mosaic_attribute=mosaic_attribute,
@@ -258,6 +262,8 @@ def produce_mosaicked_inundation(
                 # inundation_polygon=inundation_polygon,
                 # num_threads=num_threads,  # likely broke as part of the write_window error
             )
+            del raster_paths_df
+            force_garbage_collection()
             # fh.vprint("Mosaicking complete.", verbose)
             msg = f"Mosaicking complete for huc(s) {hucs} based on forecast of {flow_file_path}"
             if verbose:
