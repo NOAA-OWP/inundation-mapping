@@ -317,7 +317,7 @@ def validate_dirs_and_get_pathlists(input_dirs):
             catfim_type_name = "flow_based"
 
         # Get output filepaths for the directories
-        (__,__,__,library_gpkg_path,__,__,) = cpp.get_output_filepaths(dir, catfim_type_name)
+        (__, __, __, library_gpkg_path, __, __) = cpp.get_output_filepaths(dir, catfim_type_name)
 
         # TODO: Currently this is just working with gpkgs but we could switch to parquets if that helps with memory/processing
         library_gpkg_path_list.append(library_gpkg_path)
