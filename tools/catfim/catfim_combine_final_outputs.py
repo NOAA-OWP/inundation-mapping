@@ -145,7 +145,7 @@ def merge_library_gpkgs(gpkg_path_list):
     return gdfs, library_source_df
 
 
-def merge_sites_gpkgs(library_source_df):
+def merge_sites_gpkgs(library_source_df, sites_gpkg_list):
     '''
     Gets a df of which HUCs to get from which CatFIM run source, generates a gpkg list,
     and iterates through the library GPKGs to merge the correct HUCs into the output
@@ -167,11 +167,10 @@ def merge_sites_gpkgs(library_source_df):
     logging.info("")
     logging.info("Begin merging sites GPKGs...")
 
-    # Get a list of unique catfim_run_folder values from the library_source_df
-    library_gpkg_list = library_source_df['library_gpkg'].unique().tolist()
-
-    # Get a list of sites gpkgs from the library gpkg list
-    sites_gpkg_list = [item.replace("library", "sites") for item in library_gpkg_list]
+    # # Get a list of unique catfim_run_folder values from the library_source_df
+    # library_gpkg_list = library_source_df['library_gpkg'].unique().tolist()
+    # # Get a list of sites gpkgs from the library gpkg list 
+    # sites_gpkg_list = [item.replace("library", "sites") for item in library_gpkg_list]
 
     # Get rid of any paths that don't exist and log a warning
     for path in sites_gpkg_list:
@@ -186,12 +185,28 @@ def merge_sites_gpkgs(library_source_df):
 
     # Read and concatenate all files
     for f in sites_gpkg_list:
+        catfim_run_folder_f = os.path.basename(os.path.dirname(f))
+
         logging.info("")
+        logging.info(f'CatFIM run: {catfim_run_folder_f}')
         logging.info(f"Reading sites GPKG: {f}")
+
+        # Get the list of all HUCs run in the CatFIM run
+        huc_list_path = os.path.join(os.path.dirname(f), 'catfim_huc_list.txt')
+
+        with open(huc_list_path, "r") as file:
+            huc_list_run_f = file.read().splitlines()
+            # TODO: Make sure the list is in the right data type (str, 8 digit)
+
+        # Make sure HUCs are an 8 digit string, padded with a 0 if needed
+        huc_list_run_f = [str(num).zfill(8) for num in huc_list_run_f]
+
+        logging.info(f'Found input HUC list of {len(huc_list_run_f)} HUCs')  # TEMP DEBUG
 
         # Read gpkg
         gdf = gpd.read_file(f)
 
+        # Fix coltypes and colnames as needed
         if len(col_types_dict) == 0:
             col_types_dict = gdf.dtypes.to_dict()
         else:
@@ -200,17 +215,12 @@ def merge_sites_gpkgs(library_source_df):
                     logging.info(f'Added missing col: {col}')
                     gdf[col] = None
             gdf = gdf.astype(col_types_dict)
-
-        # Fix coltypes as needed
         gdf['nwm_seg'] = gdf['nwm_seg'].astype(str)
 
         huc_list = gdf['huc8'].unique()
         logging.info(f"Found {len(huc_list)} unique HUCs")
 
         # Get the library HUC list for this CatFIM run
-        catfim_run_folder_f = os.path.basename(os.path.dirname(f))
-        logging.info(f'CatFIM run: {catfim_run_folder_f}')
-
         [library_huc_list_f] = library_source_df[
             library_source_df['catfim_run_folder'] == catfim_run_folder_f
         ]['library_huc_list'].tolist()
@@ -218,12 +228,25 @@ def merge_sites_gpkgs(library_source_df):
             f'{len(library_huc_list_f)} HUCs used this source for their library, adding their sites gpkgs'
         )
 
+        # We want to add the outputs of from this run if:
+        # - the library from this run was added (huc should be in library_sites_list_f), OR
+        # - the library from this run is not available BUT this HUC was run in this version AND
+        #   we do not already have the sites from this HUC yet (huc should be in huc_list_run_f but not yet in hucs_added)
+        
+        # Convert the exclusion list to a set for O(1) lookups
+        hucs_added_set = set(hucs_added)
+
+        # Get HUCs that are in this CatFIM run but not yet addaed
+        huc_list_run_not_added_f = [item for item in huc_list_run_f if item not in hucs_added_set]
+
+        sites_huc_list_f = list(set(library_huc_list_f + huc_list_run_not_added_f))
+
         # Get the sites values for the HUCs that we have the library from this source
-        gdf = gdf[gdf['huc8'].isin(library_huc_list_f)]
+        gdf = gdf[gdf['huc8'].isin(sites_huc_list_f)]
         gdfs.append(gdf)
 
         # Update hucs_added with the HUCs from the current gdf
-        hucs_added.extend(library_huc_list_f)
+        hucs_added.extend(sites_huc_list_f)
 
         logging.info(f"Added {len(gdf)} rows to the merged GeoDataFrame.")
         logging.info(f"Total unique HUCs added so far: {len(hucs_added)}")
