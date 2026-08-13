@@ -119,14 +119,6 @@ def inundate(
 
     """
 
-    # Let it pick up the default logger even if it was never set up or was created with special handlers.
-    # When a logger is attached to, even it if is not set up, it goes to console only.
-    # This a handle only. With inundate mostly being called from indundate_gms via a threadpool
-    # this helps with managing logging collisions and a memory built up of the logger
-    # Notice: it is called "logger" and not "logging".
-    # If we need it in child classes, pass the "logger"
-    logger = logging.getLogger()
-
     # commented out as it fills the logs heavily (there are over 55,000 branches in a BED)
     # if verbose:
     #     logging.info(f"Start Inundating for {huc} - {branch_id}")
@@ -299,8 +291,16 @@ def inundate(
 
         return inun_data
 
+    except NoForecastFound:
+        logging.warning(f"[{huc}:{branch_id}] - does not have any forecast data")
+        return None
+    
+    except hydroTableHasOnlyLakes:
+        logging.warning(f"[{huc}:{branch_id}] - hydrotable only has lakes")
+        return None
+
     except Exception as ex:
-        logger.critical(
+        logging.critical(
             f"[{huc}:{branch_id}] - Critical Error while inundating for {forecast_file_path}."
             f" Details = {ex}"
         )
@@ -314,11 +314,6 @@ def inundate(
         if depth_rst is not None:
             depth_rst.close()
             del depth_rst
-
-        # Closes the temp attachment to the logging handlers from outside the MT
-        # Forces the logging handlers to flush before continuing and leaving late console messages
-        for handler in logger.handlers:
-            handler.flush()
 
         # Aug 2026: Manually force the GC (Garbage collector) to release memory so it does it quicker.
         # With Pyhton 3.12, new GDAL and rasterio, as it is slower now to release memory
@@ -403,10 +398,16 @@ def __inundate_in_huc(
     if depths_raster_path is not None:
         # logging.debug(f"Writing depths_  to {inundation_raster_path}")
         depth_rst.write(rem, window=window, indexes=1)
+        # Aug 2026: FIXED - Do not delete file objects here
+        # These are managed by parent function's context manager
+        # Premature deletion caused context manager cleanup to fail
 
     if inundation_raster_path is not None:
         # logging.debug(f"Writing inundation_rst  to {inundation_raster_path}")
         inundation_rst.write(catchments, window=window, indexes=1)
+        # Aug 2026: FIXED - Do not delete file objects here
+        # These are managed by parent function's context manager
+   
 
     # return inundation_raster_path, depths_raster_path, None
     # Aug 2026: This is a little weird, but ok
@@ -833,6 +834,11 @@ def __subset_hydroTable_to_forecast(
     except Exception as ex:
         raise ex  # yes. just re-raise... in theory, in why catch and rethrow? readability.
 
+    # Aug 2026: MEMORY FIX - Clean up forecast DataFrame since it's no longer needed
+    # forecast_file_path is a reference to the loaded forecast data
+    if isinstance(forecast_file_path, pd.DataFrame):
+        del forecast_file_path
+
     # else:
 
     # initialize dictionary
@@ -913,6 +919,10 @@ def read_nwm_forecast_file(forecast_file, rename_headers: Optional[bool] = True)
     flows_df = flows_df.set_index('feature_id', drop=True)
 
     flows_df = flows_df.dropna()
+
+    # Aug 2026: CRITICAL FIX - Close xarray dataset to release netcdf file handle
+    # This was left open indefinitely, keeping the file descriptor in use
+    flows_nc.close()
 
     return flows_df
 

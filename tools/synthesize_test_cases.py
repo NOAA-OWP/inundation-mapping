@@ -2,6 +2,7 @@
 
 import argparse
 import csv
+import gc
 import json
 import logging
 import multiprocessing
@@ -269,6 +270,7 @@ def synthesize_test_cases(
 
                     # helps release the memory faster
                     del executor_dict[future]
+                    gc.collect()  # Force garbage collection after each task to prevent worker memory growth (spawn mode workaround)
 
             except KeyboardInterrupt:
                 has_errors = True
@@ -467,7 +469,8 @@ def create_master_metrics_csv(
                                     sub_list_to_append = [hand_version, nws_lid, magnitude, huc]
                                     full_json_path = os.path.join(magnitude_dir, f)
                                     if os.path.exists(full_json_path):
-                                        stats_dict = json.load(open(full_json_path))
+                                        with open(full_json_path) as f_json:
+                                            stats_dict = json.load(f_json)
                                         for metric in metrics_to_write:
                                             sub_list_to_append.append(stats_dict[metric])
                                         sub_list_to_append.append(full_json_path)
@@ -549,7 +552,8 @@ def create_master_metrics_csv(
                                                     flow = row[1]
 
                                         # Add metrics from file to metrics table ('list_to_write')
-                                        stats_dict = json.load(open(full_json_path))
+                                        with open(full_json_path) as f_json:
+                                            stats_dict = json.load(f_json)
                                         for metric in metrics_to_write:
                                             sub_list_to_append.append(stats_dict[metric])
                                         sub_list_to_append.append(full_json_path)

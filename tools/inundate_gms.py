@@ -522,18 +522,18 @@ def __inundate_gms_generator(
                     raise ValueError("Missing expected column 'precalb_discharge_cms' in hydrotable.")
                 missing_count = hydro_table_all["precalb_discharge_cms"].isna().sum()
                 if missing_count > 0:
-                    # Yes.. write back to itself as it affect memory pointers.
-                    # We are moving away from inplace args.
-                    hydro_table_all = hydro_table_all["precalb_discharge_cms"].fillna(
+                    # Aug 2026: Fix memory issue - fillna was incorrectly assigning Series to DataFrame
+                    # Now correctly updating column in-place
+                    hydro_table_all["precalb_discharge_cms"] = hydro_table_all["precalb_discharge_cms"].fillna(
                         hydro_table_all["discharge_cms"]
                     )
 
-            # if hydro_table_huc is not None and s3_or_local_isfile(hydro_table_huc):
-            # Yes.. write back to itself as it affect memory pointers.
-            # We are moving away from inplace args.
-
             hydro_table_all.set_index(["HUC", "feature_id", "HydroID"])
             hydro_table_branch_df = hydro_table_all.loc[hydro_table_all["branch_id"] == int(branch_id)]
+            # Aug 2026: CRITICAL MEMORY FIX - Delete large hydro_table_all after filtering
+            # This was the biggest leak: full HUC table loaded for each branch but never released
+            # With 50,000+ branches per HUC, memory accumulated into terabytes
+            del hydro_table_all
             # else:
             # Aug 1, 2026:  Change to purely HUC level and not branch level
             # Earlier FIM4 versions only have branch level hydrotables

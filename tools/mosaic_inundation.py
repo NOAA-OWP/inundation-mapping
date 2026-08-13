@@ -2,6 +2,7 @@
 # coding: utf-8
 
 import argparse
+import gc
 import logging
 import os
 
@@ -9,7 +10,7 @@ import os
 import warnings
 
 # from concurrent.futures import ThreadPoolExecutor, as_completed
-from threading import Lock
+# from threading import Lock
 from typing import Optional, Union
 
 import geopandas as gpd
@@ -279,10 +280,20 @@ def Mosaic_inundation(
                 remove_at_end.extend(remove_list)
                 remove_at_end = list(set(remove_at_end))  # Ensures unique values
 
+            # Explicitly drop the large per-aggregation list so GDAL/Rasterio objects can release memory
+            del inundation_maps_list
+            del remove_list
+            force_garbage_collection()
+            gc.collect()
+
             logging.debug(f"Mosaic complete for {ag_key}")
 
         if inundation_polygon is not None:  # Aug 2026: No scripts use this at this time, but maybe later
             mosaic_final_inundation_extent_to_poly(ag_mosaic_output_path, inundation_polygon)
+
+        del inundation_maps_df
+        del aggregation_units
+        force_garbage_collection()
 
         if remove_intermediate_files:
             # if verbose:
@@ -370,26 +381,22 @@ def mosaic_by_unit(
     """
 
     #     if mosaic_output_path is not None:
-
-    merge(inundation_maps_list, method='max', nodata=nodata, dst_path=mosaic_output_path)
-
-    # if mask_path:
-    #     # fh.vprint("Masking ...", verbose)
-    #     if verbose:
-    #         logging.info(f"Masking... for {mosaic_output_path} using {mask_path}")
-    #     else:
-    #         logging.debug(f"Masking... for {mosaic_output_path} using {mask_path}")
-
-    #     mask_mosaic(mosaic_output_path, mask_path, outfile=mosaic_output_path, workers=num_threads)
-
     remove_list = []
-    if remove_intermediate_files:
-        # if verbose:
-        #     #fh.vprint("Removing inputs ...", verbose)
 
-        for inun_map in inundation_maps_list:
-            if inun_map is not None and os.path.isfile(inun_map):
-                remove_list.append(inun_map)
+    try:
+        merge(inundation_maps_list, method='max', nodata=nodata, dst_path=mosaic_output_path)
+    finally:
+        if remove_intermediate_files:
+            # if verbose:
+            #     #fh.vprint("Removing inputs ...", verbose)
+
+            for inun_map in inundation_maps_list:
+                if inun_map is not None and os.path.isfile(inun_map):
+                    remove_list.append(inun_map)
+
+        del inundation_maps_list
+        force_garbage_collection()
+        gc.collect()
 
     return remove_list
 
