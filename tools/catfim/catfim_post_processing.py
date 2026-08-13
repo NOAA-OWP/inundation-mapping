@@ -6,10 +6,10 @@ import warnings
 from datetime import datetime, timezone
 
 import geopandas as gpd
+from fiona.errors import DriverError
 
 import src.utils.shared_functions as sf
 import tools.catfim.catfim_shared_functions as csf
-from fiona.errors import DriverError
 
 
 warnings.simplefilter(action='ignore', category=FutureWarning)

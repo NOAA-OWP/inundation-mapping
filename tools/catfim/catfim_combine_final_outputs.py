@@ -114,7 +114,9 @@ def merge_library_gpkgs(gpkg_path_list):
         # Log the duplicate HUCs that are being skipped
         duplicate_hucs = set(gdf['huc8'].unique()) - set(huc_list_filtered)
         if duplicate_hucs:
-            logging.warning(f"Skipping {len(duplicate_hucs)} duplicate HUCs (already merged from previous GPKGs):")
+            logging.warning(
+                f"Skipping {len(duplicate_hucs)} duplicate HUCs (already merged from previous GPKGs):"
+            )
             logging.warning(duplicate_hucs)
 
         # Filter out HUCs that have libraries that have already been added
@@ -127,7 +129,11 @@ def merge_library_gpkgs(gpkg_path_list):
         logging.info(f"Total unique HUCs added so far: {len(hucs_added)}")
 
         # Update the data source list to show which HUCs from this library source are being added
-        data_source_f = {'catfim_run_folder':  os.path.basename(os.path.dirname(f)), 'library_gpkg': f, 'library_huc_list': huc_list_filtered}
+        data_source_f = {
+            'catfim_run_folder': os.path.basename(os.path.dirname(f)),
+            'library_gpkg': f,
+            'library_huc_list': huc_list_filtered,
+        }
         data_source_list.append(data_source_f)
 
     library_source_df = pd.DataFrame(data_source_list)
@@ -205,8 +211,12 @@ def merge_sites_gpkgs(library_source_df):
         catfim_run_folder_f = os.path.basename(os.path.dirname(f))
         logging.info(f'CatFIM run: {catfim_run_folder_f}')
 
-        [library_huc_list_f] = library_source_df[library_source_df['catfim_run_folder'] == catfim_run_folder_f]['library_huc_list'].tolist()
-        logging.info(f'{len(library_huc_list_f)} HUCs used this source for their library, adding their sites gpkgs')
+        [library_huc_list_f] = library_source_df[
+            library_source_df['catfim_run_folder'] == catfim_run_folder_f
+        ]['library_huc_list'].tolist()
+        logging.info(
+            f'{len(library_huc_list_f)} HUCs used this source for their library, adding their sites gpkgs'
+        )
 
         # Get the sites values for the HUCs that we have the library from this source
         gdf = gdf[gdf['huc8'].isin(library_huc_list_f)]
@@ -307,14 +317,7 @@ def validate_dirs_and_get_pathlists(input_dirs):
             catfim_type_name = "flow_based"
 
         # Get output filepaths for the directories
-        (
-            __,
-            __,
-            __,
-            library_gpkg_path,
-            __,
-            __,
-        ) = cpp.get_output_filepaths(dir, catfim_type_name)
+        (__,__,__,library_gpkg_path,__,__,) = cpp.get_output_filepaths(dir, catfim_type_name)
 
         # TODO: Currently this is just working with gpkgs but we could switch to parquets if that helps with memory/processing
         library_gpkg_path_list.append(library_gpkg_path)
@@ -337,7 +340,9 @@ def rollup_logs(input_dirs, output_dir):
 
     '''
     logging.info("Compiling final logs...")
-    final_log_path = os.path.join(output_dir, f"ALL_LOGS_combined_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.log")
+    final_log_path = os.path.join(
+        output_dir, f"ALL_LOGS_combined_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.log"
+    )
 
     for dir in input_dirs:
         logging.info(f"Processing logs for {os.path.basename(dir)}")
@@ -351,9 +356,7 @@ def rollup_logs(input_dirs, output_dir):
             continue
 
         if num_log_files_avail > 1:
-            logging.info(
-                f"{num_log_files_avail} logs available. Using most recent log: {dir_log_file_name}"
-            )
+            logging.info(f"{num_log_files_avail} logs available. Using most recent log: {dir_log_file_name}")
 
         dir_log_file_path = os.path.join(log_folder_path, dir_log_file_name)
 
@@ -369,9 +372,7 @@ def rollup_logs(input_dirs, output_dir):
                 logging.info(f"  Copied {os.path.basename(path)} to {os.path.basename(final_path)}")
             else:
                 # If final log exists, append HUC .log file to gen .log file
-                log_concat_success = sf.rollup_log_files(
-                    path, final_path, remove_old_src_file=False
-                )
+                log_concat_success = sf.rollup_log_files(path, final_path, remove_old_src_file=False)
                 logging.info(f"  Copying {os.path.basename(path)} into {os.path.basename(final_path)}")
 
                 if not log_concat_success:
@@ -382,7 +383,7 @@ def rollup_logs(input_dirs, output_dir):
 
     return
 
-    
+
 def save_compiled_outputs(gdfs, gpkg_path_list, output_dir, label, file_type):
     '''
     Save the compiled GDFs as output CSVs, GPKGs, and parquets.
@@ -419,7 +420,7 @@ def save_compiled_outputs(gdfs, gpkg_path_list, output_dir, label, file_type):
     # Concatenate sites GeoDataFrames into one GDF and update LID column name
     logging.info('Begin concatenating gdf list into single gdf...')
     compiled_gdf = gpd.pd.concat(gdfs, ignore_index=True)
-    compiled_gdf.rename(columns={'nws_lid': 'ahps_lid'}, inplace=True) # TODO: Is this still necessary?
+    compiled_gdf.rename(columns={'nws_lid': 'ahps_lid'}, inplace=True)  # TODO: Is this still necessary?
     logging.info('Finished creating single gdf')
 
     # Save the compiled GeoDataFrames to GeoPackage files
@@ -517,7 +518,7 @@ def combine_final_outputs(output_dir, input_dirs, label):
 
         # ------
         # Compile and save sites GDFs
-    
+
         gdfs_sites, sites_gpkg_path_list = merge_sites_gpkgs(library_source_df)
 
         if len(gdfs_sites) > 0:

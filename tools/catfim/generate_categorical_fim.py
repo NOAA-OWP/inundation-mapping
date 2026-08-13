@@ -358,34 +358,6 @@ def process_generate_categorical_fim(
             if huc in nwm_huc_list:
                 valid_fim_hucs.append(huc)
 
-        # TODO: Clean up
-        # TEMP HACK
-        # Aug 1, 2026
-        # Temp work around. We need to temp filter the list of HUCs to try
-        # Load up a list of hucs.
-        # Maybe we can clean it up and add as an arg for a long term option?
-        # This needs hardening
-        # attempt_huc_list_file = "data/catfim/rob_tests/rob_test_list_1.csv"
-        # attempt_huc_list_df = pd.read_csv(attempt_huc_list_file, dtype=str, header=None, names=["hucs"])
-        # attempt_huc_list = attempt_huc_list_df["hucs"].unique().tolist()
-
-        # valid_fim_hucs = []
-        # for huc in adj_valid_fim_hucs:
-            # if huc in nwm_huc_list and huc in attempt_huc_list:  # TEMP DEBUG EMILY - commenting out Rob's HUC list file thing
-                # valid_fim_hucs.append(huc)
-            # elif huc in nwm_huc_list:
-            #     logging.debug(f".... {huc} does not have any nwm sites")
-            # else:
-            #     logging.debug(f".... {huc} is not on the huc attempt list")
-
-        # NON HACK VERSION (no attempt list)- need to look into this deeper to figure out a good long answer
-        # valid_fim_hucs = []
-        # for pre_filtered_huc in adj_valid_fim_hucs:
-        #     if pre_filtered_huc in nwm_huc_list:
-        #         valid_fim_hucs.append(huc)
-        #     else:
-        #         logging.debug(f".... {huc} does not have any nwm sites")
-
         # Remove duplicate hucs and sort
         valid_fim_hucs = list(set(valid_fim_hucs))
         valid_fim_hucs.sort()
