@@ -353,6 +353,7 @@ class Test_Case(Benchmark):
                 handler.close()
                 logger.removeHandler(handler)
 
+
     def _inundate_and_compute(self,
                               magnitude,
                               lid,

@@ -9,7 +9,7 @@ import os
 import re
 import time
 import traceback
-from concurrent.futures import ProcessPoolExecutor, as_completed, wait
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import datetime, timezone
 
 import pandas as pd
@@ -136,7 +136,7 @@ def synthesize_test_cases(
         Hit CTRL-C to abort."""
         )
         # give them a few seconds to read it.
-        time.sleep(5)  # gives the a min to read this.
+        time.sleep(10)  # gives a few sec to read this.
         print("")
 
     try:
@@ -189,21 +189,12 @@ def synthesize_test_cases(
         # at the end of the process pool, we will aggregate the log files
         # which include this prefix
 
-        # By default, maxtasksperchild is set to None, meaning worker processes live as long as the process pool itself.
-        # If a task or imported module retains state, memory can grow over time. Recycling workers periodically helps
-        # prevent that growth from accumulating across many alpha-test jobs.
-
-        # max_tasks_per_child = (
-        #     10  # This is critical to help recycle memory. Do not go very high, 5 to 10 is good.
-        # )
-        # 20 is too high. 1 is too low as it will keep recycling and not be efficient.
-
         # In inundate_gms.py, there is a threadpoolexecutor.
         # Note: rasterio opened files are never truly thread safe. But, most of our tools are processed
         # one branch at a time. Except synthesize_test_cases which has its own processpool so there could
         # be collisions there, but it has a random sleep timer to help (in run_alpha_test)
 
-        # 1. Explicitly set the start method to fork
+        # Explicitly set the start method to fork
         # (Must be called before any pool is created)
         multiprocessing.set_start_method('spawn', force=True)
 
@@ -321,6 +312,11 @@ def synthesize_test_cases(
                 hand_version=hand_version,
                 huc_list=huc_list,
             )
+
+    except KeyboardInterrupt:
+        # Ctrl-C, just continue and shut down, no errors, warnings.
+        logging.error("Keyboard Interrupt (likely Ctrl-C)")
+
     except Exception:
         # No need to reraise
         logging.critical("++++++++++++++++++++++++++++++++++++++++++++++++")
@@ -329,10 +325,9 @@ def synthesize_test_cases(
     finally:
         print("================================")
         logging.info("End synthesize test cases")
-        print(f"Log files were saved to {log_file_path}")
-
         logging.info(f"ended: {datetime.now().strftime('%m/%d/%Y %H:%M:%S')}")
         logging.info(sf.calculate_duration_msg(overall_start_dt))
+        print(f"Log files were saved to {log_file_path}")        
         print()
 
 
