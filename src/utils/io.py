@@ -7,7 +7,6 @@ def write_geodataframe(
     gdf: gpd.GeoDataFrame, filename: str | Path, *args, ignore_index: bool = False, **kwargs
 ) -> None:
     """Write a GeoDataFrame using the appropriate GeoPandas I/O method."""
-
     filepath = Path(filename) if isinstance(filename, (str, Path)) else None
 
     has_layer = "layer" in kwargs and kwargs["layer"] is not None
@@ -17,11 +16,9 @@ def write_geodataframe(
 
     ext = filepath.suffix.lower() if filepath else ""
 
-    # Route 1: Parquet -> Hilbert sort + to_parquet()
+    # ROUTE 1: Parquet (ONLY when no 'layer' is passed and format requests Parquet)
     if not has_layer and (driver == "parquet" or (driver is None and ext == ".parquet")):
-
         EXCLUDED_PARQUET_KWARGS = {"driver", "layer", "schema", "mode", "engine", "overwrite"}
-
         parquet_kwargs = {k: v for k, v in kwargs.items() if k not in EXCLUDED_PARQUET_KWARGS}
 
         # Set GeoParquet & PyArrow writing options
@@ -34,20 +31,20 @@ def write_geodataframe(
             # Sort spatially on Hilbert curve
             gdf = gdf.sort_values(by="geometry", ascending=True)
 
-            if gdf.index.name is None:
-                gdf = gdf.reset_index(drop=True)
+        if ignore_index:
+            gdf = gdf.reset_index(drop=True)
 
-        # Any write error is surfaced to the caller.
         gdf.to_parquet(filename, **parquet_kwargs)
 
-    # Route 2: GeoPackage -> to_file()
-    elif driver in ("gpkg", "geopackage") or (driver is None and ext == ".gpkg"):
-        gpkg_kwargs = kwargs.copy()
-        gpkg_kwargs.setdefault("driver", "GPKG")
-        gpkg_kwargs.setdefault("engine", "fiona")
-
-        gdf.to_file(filename, *args, **gpkg_kwargs)
-
-    # Route 3: All other formats
+    # ROUTE 2: All Vector File Formats (GPKG, Shapefile, GeoJSON, GDB, etc.)
     else:
-        gdf.to_file(filename, *args, **kwargs)
+        out_kwargs = kwargs.copy()
+
+        # If writing a GeoPackage, apply Fiona defaults
+        if driver in ("gpkg", "geopackage") or (driver is None and ext == ".gpkg"):
+            out_kwargs.setdefault("engine", "fiona")
+
+        if ignore_index:
+            gdf = gdf.reset_index(drop=True)
+
+        gdf.to_file(filename, *args, **out_kwargs)
