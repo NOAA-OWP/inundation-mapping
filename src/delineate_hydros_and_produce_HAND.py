@@ -327,9 +327,9 @@ def delineate_and_produce_hand(
     ds_dem_adj = adjust_thalweg_lateral_in_memory(
         dem_ds=ds_dem,
         stream_pixels_ds=ds_streams,
-        allo_ds=ds_allo,
-        dist_ds=ds_dist,
-        max_dist=50.0,
+        allocation_ds=ds_allo,
+        distance_ds=ds_dist,
+        distance_threshold=50.0,
         elev_threshold=float(thalweg_lateral_elev_threshold),
     )
 

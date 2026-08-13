@@ -16,7 +16,7 @@ from rasterio.io import DatasetReader
 from rasterio.mask import mask
 from scipy.stats import mode
 from shapely.geometry import LineString, MultiLineString, MultiPoint, Point
-from shapely.ops import linemerge, unary_union
+from shapely.ops import linemerge
 from shapely.strtree import STRtree
 from tqdm import tqdm
 
