@@ -150,7 +150,9 @@ def compile_catfim_sites(sorted_path_list):
 
         if '.gpkg' in sites_filepath:
             # Read in site GPKG
-            sites_df = gpd.read_file(sites_filepath, engine='fiona')
+            sites_df = gpd.read_file(sites_filepath)
+            # sites_df = gpd.read_file(sites_filepath, engine='fiona')
+
         elif '.csv' in sites_filepath:
             # Read in site CSV
             sites_df = pd.read_csv(sites_filepath)

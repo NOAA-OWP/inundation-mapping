@@ -37,7 +37,6 @@ def merge_library_gpkgs(gpkg_path_list):
     Merge library gpkgs and create an output table showing which library polygons are from which
     CatFIM run source.
 
-
     Arguments
     ---------
     gpkg_path_list - list of str
@@ -60,7 +59,6 @@ def merge_library_gpkgs(gpkg_path_list):
             gpkg_path_list.remove(path)  # Remove from list if file doesn't exist
             continue
 
-
     # Read and concatenate all files
     gdfs = []
     data_source_list = []
@@ -68,10 +66,43 @@ def merge_library_gpkgs(gpkg_path_list):
 
     for f in gpkg_path_list:
         logging.info("")
-        logging.info(f"Reading library GPKG: {f}")
+        logging.info(f'CatFIM run: {os.path.basename(os.path.dirname(f))}')
+        logging.info(f"Library GPKG: {f}")
 
         # Read library gpkg
         gdf = gpd.read_file(f)
+
+        # TODO: Deal with interval_stage_x and interval_stage_y?
+
+        # Define desired data types for specific columns
+        dtype_mapping = {
+            'huc8': 'str',
+            'status': 'str',
+            'wfo': 'str',
+            'rfc': 'str',
+            'state': 'str',
+            'county': 'str',
+            'name': 'str',
+            'magnitude': 'str',
+            'stage': 'float64',
+            'stage_uni': 'str',
+            'stage_src': 'str',
+            'rfc_stage': 'float64',
+            'datum_adj_ft': 'float64',
+            'datum_adj_wse_ft': 'float64',
+            'gage_zero_elev_ft': 'float64',
+            'is_interval': 'bool',
+            'interval_stage': 'float64',
+            'hand_dem_elev_ft': 'float64',
+            'hand_stage': 'float64',
+        }
+
+        for colname, coltype in dtype_mapping.items():
+            if colname in gdf.columns:
+                gdf[colname] = gdf[colname].astype(coltype)
+
+        # Update the huc8 column to ensure 8-digit strings with leading zeros
+        gdf["huc8"] = gdf["huc8"].astype(str).str.zfill(8)
 
         # Get a list of HUCs in the library
         huc_list = gdf['huc8'].unique()
@@ -79,12 +110,6 @@ def merge_library_gpkgs(gpkg_path_list):
 
         # Get the list of HUCs that are in the HUC list and not already in hucs_added
         huc_list_filtered = [huc for huc in huc_list if huc not in hucs_added]
-
-        # Update the data source list to show which HUCs from this library source are being added
-        data_source_f = {'catfim_run_folder':  os.path.basename(os.path.dirname(f)), 'library_gpkg': f, 'library_huc_list': huc_list_filtered}
-        data_source_list.append(data_source_f)
-        logging.info('data_source_f:')  # TEMP DEBUG
-        logging.info(data_source_f)  # TEMP DEBUG
 
         # Log the duplicate HUCs that are being skipped
         duplicate_hucs = set(gdf['huc8'].unique()) - set(huc_list_filtered)
@@ -101,8 +126,11 @@ def merge_library_gpkgs(gpkg_path_list):
         logging.info(f"Added {len(gdf)} rows to the merged GeoDataFrame.")
         logging.info(f"Total unique HUCs added so far: {len(hucs_added)}")
 
-    library_source_df = pd.DataFrame(data_source_list)
+        # Update the data source list to show which HUCs from this library source are being added
+        data_source_f = {'catfim_run_folder':  os.path.basename(os.path.dirname(f)), 'library_gpkg': f, 'library_huc_list': huc_list_filtered}
+        data_source_list.append(data_source_f)
 
+    library_source_df = pd.DataFrame(data_source_list)
 
     logging.info("")
     logging.info(f"Compiled library GDFs for {len(hucs_added)} total unique HUCs")
@@ -113,10 +141,12 @@ def merge_library_gpkgs(gpkg_path_list):
 
 def merge_sites_gpkgs(library_source_df):
     '''
+    Gets a df of which HUCs to get from which CatFIM run source, generates a gpkg list,
+    and iterates through the library GPKGs to merge the correct HUCs into the output
+    library gdf list.
+
     Arguments
     ---------
-    # gpkg_path_list - list of str
-    #     List of paths to the GeoPackage files to be merged
     library_source_df - DataFrame
         Dataframe with the columns huc, library_gpkg, and catfim_run_folder. Shows which sources the library
         data has come from (so we can make sure we get the sites data from the same source).
@@ -125,8 +155,9 @@ def merge_sites_gpkgs(library_source_df):
     -------
     gdfs - list of GeoDataFrames
         List of GeoDataFrames read from the GeoPackage files, with duplicate HUCs removed
+    gpkg_path_list - list of str
+        List of paths to the GeoPackage files to be merged
     '''
-
     logging.info("")
     logging.info("Begin merging sites GPKGs...")
 
@@ -134,7 +165,7 @@ def merge_sites_gpkgs(library_source_df):
     library_gpkg_list = library_source_df['library_gpkg'].unique().tolist()
 
     # Get a list of sites gpkgs from the library gpkg list
-    sites_gpkg_list = [item.replace("sites", "library") for item in library_gpkg_list]
+    sites_gpkg_list = [item.replace("library", "sites") for item in library_gpkg_list]
 
     # Get rid of any paths that don't exist and log a warning
     for path in sites_gpkg_list:
@@ -143,11 +174,11 @@ def merge_sites_gpkgs(library_source_df):
             sites_gpkg_list.remove(path)  # Remove from list if file doesn't exist
             continue
 
-    # Read and concatenate all files
     gdfs = []
+    hucs_added = []  # Keeps track of HUCs that have already been added to the merged_gdf
+    col_types_dict = {}
 
-    hucs_added = []  # Keep track of HUCs that have already been added to the merged_gdf
-
+    # Read and concatenate all files
     for f in sites_gpkg_list:
         logging.info("")
         logging.info(f"Reading sites GPKG: {f}")
@@ -155,33 +186,29 @@ def merge_sites_gpkgs(library_source_df):
         # Read gpkg
         gdf = gpd.read_file(f)
 
+        if len(col_types_dict) == 0:
+            col_types_dict = gdf.dtypes.to_dict()
+        else:
+            for col in col_types_dict.keys():
+                if col not in gdf.columns:
+                    logging.info(f'Added missing col: {col}')
+                    gdf[col] = None
+            gdf = gdf.astype(col_types_dict)
+
+        # Fix coltypes as needed
+        gdf['nwm_seg'] = gdf['nwm_seg'].astype(str)
+
         huc_list = gdf['huc8'].unique()
         logging.info(f"Found {len(huc_list)} unique HUCs")
-
-
-        # Code for handling duplicate HUCs (removed for now, I think we handle this in the sites code) # TODO: Clean up
-        # # Get the list of HUCs that are in the HUC list and not already in hucs_added
-        # huc_list_filtered = [huc for huc in huc_list if huc not in hucs_added]
-        # # Log the duplicate HUCs that are being skipped
-        # duplicate_hucs = set(gdf['huc8'].unique()) - set(huc_list_filtered)
-        # if duplicate_hucs:
-        #     logging.warning(f"Skipping {len(duplicate_hucs)} duplicate HUCs (already merged from previous GPKGs):")
-        #     logging.warning(duplicate_hucs)
-        # # Filter out HUCs that have already been added
-        # gdf = gdf[gdf['huc8'].isin(huc_list_filtered)]
-        # gdfs.append(gdf)
-
-        # library_source_df data structure:
-        # 'catfim_run_folder':  os.path.basename(os.path.dirname(f)), 'library_gpkg': f, 'library_huc_list': huc_list_filtered
 
         # Get the library HUC list for this CatFIM run
         catfim_run_folder_f = os.path.basename(os.path.dirname(f))
         logging.info(f'CatFIM run: {catfim_run_folder_f}')
 
-        [library_huc_list_f] = library_source_df[library_source_df['catfim_run_folder']==catfim_run_folder_f]['library_huc_list'].tolist()
+        [library_huc_list_f] = library_source_df[library_source_df['catfim_run_folder'] == catfim_run_folder_f]['library_huc_list'].tolist()
         logging.info(f'{len(library_huc_list_f)} HUCs used this source for their library, adding their sites gpkgs')
 
-        # Get the sites values for the HUCs that we have the library from this source # TODO: Phrasing?
+        # Get the sites values for the HUCs that we have the library from this source
         gdf = gdf[gdf['huc8'].isin(library_huc_list_f)]
         gdfs.append(gdf)
 
@@ -195,7 +222,7 @@ def merge_sites_gpkgs(library_source_df):
     logging.info(f"Compiled sites GDFs for {len(hucs_added)} total unique HUCs")
     logging.info("")
 
-    return gdfs
+    return gdfs, sites_gpkg_list
 
 
 def validate_dirs_and_get_pathlists(input_dirs):
@@ -209,15 +236,14 @@ def validate_dirs_and_get_pathlists(input_dirs):
 
     Returns
     -------
-    sites_gpkg_path_list - list of str
-        List of paths to the sites GeoPackage files in the input directories
     library_gpkg_path_list - list of str
         List of paths to the library GeoPackage files in the input directories
+
     '''
     logging.info("")
     logging.info("Validating input directories and getting output filepaths...")
 
-    sites_gpkg_path_list, library_gpkg_path_list = [], []
+    library_gpkg_path_list = []
     catfim_type_first, fim_run_dir_first, past_major_interval_cap_first, search_first = None, None, None, None
 
     # Get the args from the first dir
@@ -282,21 +308,20 @@ def validate_dirs_and_get_pathlists(input_dirs):
 
         # Get output filepaths for the directories
         (
-            sites_gpkg_path,
-            sites_csv_path,
-            sites_parquet_path,
+            __,
+            __,
+            __,
             library_gpkg_path,
-            library_csv_path,
-            library_parquet_path,
+            __,
+            __,
         ) = cpp.get_output_filepaths(dir, catfim_type_name)
 
         # TODO: Currently this is just working with gpkgs but we could switch to parquets if that helps with memory/processing
-        sites_gpkg_path_list.append(sites_gpkg_path)
         library_gpkg_path_list.append(library_gpkg_path)
 
-    logging.info(f"Compiled {len(sites_gpkg_path_list)} sites gpkg filepaths and {len(library_gpkg_path_list)} library gpkg filepaths")
+    logging.info(f"Compiled {len(library_gpkg_path_list)} library gpkg filepaths")
 
-    return sites_gpkg_path_list, library_gpkg_path_list
+    return library_gpkg_path_list
 
 
 def rollup_logs(input_dirs, output_dir):
@@ -376,51 +401,44 @@ def save_compiled_outputs(gdfs, gpkg_path_list, output_dir, label, file_type):
         Type of file being saved (e.g., 'sites' or 'library') for logging and file naming
     '''
 
-    # Get filename without extension for the layer name
+    # Get filename without extension for the layer name (i.e. flow_based_catfim_sites)
     filename = os.path.splitext(os.path.basename(gpkg_path_list[0]))[0]
 
-    # Make filenames
-    # TODO: Makes these kinda wonky filenames. Could fix, but also it might be ok
-    # ex. flow_based_catfim_library_test1_library.csv (says library twice)
-    merged_sites_gpkg_path = os.path.join(output_dir, f"{filename}_{label}_{file_type}.gpkg")
-    merged_sites_parquet_path = os.path.join(output_dir, f"{filename}_{label}_{file_type}.parquet")
-    merged_sites_csv_path = os.path.join(output_dir, f"{filename}_{label}_{file_type}.csv")
+    # Make filenames (i.e. compiled_flow_based_catfim_library.csv)
+    merged_gpkg_path = os.path.join(output_dir, f"{label}_{filename}.gpkg")
+    merged_parquet_path = os.path.join(output_dir, f"{label}_{filename}.parquet")
+    merged_csv_path = os.path.join(output_dir, f"{label}_{filename}.csv")
+
+    for path in [merged_gpkg_path, merged_parquet_path, merged_csv_path]:
+        if os.path.exists(path):
+            logging.warning(f'File already exists at {path}, file will be overwritten.')
+            # TODO: Do we want to toggle an override option? or make sure we're not
+            # overwriting original outputs? no.. I guess that's what the label protects
+            # against...
 
     # Concatenate sites GeoDataFrames into one GDF and update LID column name
     logging.info('Begin concatenating gdf list into single gdf...')
-
-    # compiled_sites_gdf = gpd.pd.concat(gdfs, ignore_index=True)
-    compiled_sites_df = pd.concat(gdfs, ignore_index=True)
-    compiled_sites_gdf = gpd.GeoDataFrame(compiled_sites_df, geometry="geometry")
-
-    compiled_sites_gdf.rename(columns={'nws_lid': 'ahps_lid'}, inplace=True)
+    compiled_gdf = gpd.pd.concat(gdfs, ignore_index=True)
+    compiled_gdf.rename(columns={'nws_lid': 'ahps_lid'}, inplace=True) # TODO: Is this still necessary?
     logging.info('Finished creating single gdf')
 
     # Save the compiled GeoDataFrames to GeoPackage files
-    compiled_sites_gdf.to_file(
-        merged_sites_gpkg_path,
+    compiled_gdf.to_file(
+        merged_gpkg_path,
         driver='GPKG',
-        engine='fiona',
+        # engine='fiona',  # might be more correct but kept crashing the tool...
         index=False,
     )
-
-    # compiled_sites_gdf.to_file(
-    #     merged_sites_gpkg_path,
-    #     driver='GPKG',
-    #     engine='fiona',
-    #     index=False,
-    #     layer_options={"OVERWRITE": "YES"},
-    # )
-    logging.info(f"Saved {file_type} GeoPackage to {merged_sites_gpkg_path}")
+    logging.info(f"Saved {file_type} GeoPackage to {merged_gpkg_path}")
 
     # Save the GeoDataFrames to GeoParquet files
-    compiled_sites_gdf.to_parquet(merged_sites_parquet_path, index=False)
-    logging.info(f"Saved {file_type} GeoParquet to {merged_sites_parquet_path}")
+    compiled_gdf.to_parquet(merged_parquet_path, index=False)
+    logging.info(f"Saved {file_type} GeoParquet to {merged_parquet_path}")
 
     # Drop geometry column and save the csv versions
-    compiled_sites_df = compiled_sites_gdf.drop(columns=['geometry'])
-    compiled_sites_df.to_csv(merged_sites_csv_path, index=False)
-    logging.info(f"Saved {file_type} CSV to {merged_sites_csv_path}")
+    compiled_df = compiled_gdf.drop(columns=['geometry'])
+    compiled_df.to_csv(merged_csv_path, index=False)
+    logging.info(f"Saved {file_type} CSV to {merged_csv_path}")
     logging.info("")
 
     return
@@ -438,7 +456,6 @@ def combine_final_outputs(output_dir, input_dirs, label):
         Space-delimited list of paths to directories containing CatFIM outputs (to be joined)
     label - str
         Label to be added to the output filenames
-
     '''
 
     is_logging_loaded = False
@@ -480,7 +497,7 @@ def combine_final_outputs(output_dir, input_dirs, label):
         # ------
         # Iterate through input folders.
         # For each input folder, validate that the args match the first args, and then get a list of the filepaths
-        sites_gpkg_path_list, library_gpkg_path_list = validate_dirs_and_get_pathlists(input_dirs)
+        library_gpkg_path_list = validate_dirs_and_get_pathlists(input_dirs)
 
         # ------
         # Compile and save library GDFs
@@ -501,7 +518,7 @@ def combine_final_outputs(output_dir, input_dirs, label):
         # ------
         # Compile and save sites GDFs
     
-        gdfs_sites = merge_sites_gpkgs(library_source_df)
+        gdfs_sites, sites_gpkg_path_list = merge_sites_gpkgs(library_source_df)
 
         if len(gdfs_sites) > 0:
             logging.info('Begin saving compiled sites data...')
