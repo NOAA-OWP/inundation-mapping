@@ -143,9 +143,17 @@ def process_branch(sub_branch_path, branch, huc_id):
 
     # Reset calibration columns to default states
     na_cols = [
-        'precalb_discharge_cms', 'calb_coef_usgs', 'calb_coef_spatial',
-        'calb_coef_ras2fim', 'calb_coef_final', 'last_updated', 'submitter',
-        'obs_source', 'channel_n', 'overbank_n', 'Bathymetry_source'
+        'precalb_discharge_cms',
+        'calb_coef_usgs',
+        'calb_coef_spatial',
+        'calb_coef_ras2fim',
+        'calb_coef_final',
+        'last_updated',
+        'submitter',
+        'obs_source',
+        'channel_n',
+        'overbank_n',
+        'Bathymetry_source',
     ]
     for col in na_cols:
         if col in input_hydro_table.columns:
@@ -153,7 +161,7 @@ def process_branch(sub_branch_path, branch, huc_id):
 
     if 'calb_applied' in input_hydro_table.columns:
         input_hydro_table['calb_applied'] = False
-    
+
     if 'subdiv_applied' in input_hydro_table.columns:
         input_hydro_table['subdiv_applied'] = False
 
