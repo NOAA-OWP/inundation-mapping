@@ -7,7 +7,7 @@ import os
 import re
 import shutil
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 from multiprocessing import Pool
 
 import rasterio
@@ -16,7 +16,8 @@ from rasterio.enums import Resampling
 from rasterio.shutil import copy
 from rio_vrt import build_vrt
 
-from utils.shared_functions import FIM_Helpers as fh
+# from utils.shared_functions import FIM_Helpers as fh
+import src.utils.shared_functions as sf
 
 
 # INUN_REVIEW_DIR = r'/data/inputs/rating_curve/nwm_recur_flows/'
@@ -26,11 +27,8 @@ from utils.shared_functions import FIM_Helpers as fh
 # DEFAULT_OUTPUT_DIR = '/data/inundation_review/inundate_nation/mosaic_output/'
 
 
-# TODO: Nov 2023, Logging system appears to be not working correctly.
-
-
 def inundate_nation(
-    fim_run_dir,
+    hand_run_dir,
     output_dir,
     magnitude_key,
     flow_file,
@@ -43,30 +41,33 @@ def inundate_nation(
     assert os.path.exists(flow_file), f"ERROR: could not find the flow file: {flow_file}"
 
     if job_number > available_cores:
-        job_number = available_cores - 1
+        job_number = available_cores - 2
         print(
             "Provided job number exceeds the number of available cores. "
             + str(job_number)
             + " max jobs will be used instead."
         )
 
-    print()
-    print("Inundation Nation script starting...")
+    hand_version = os.path.basename(os.path.normpath(hand_run_dir))
+    output_base_file_name = magnitude_key + "_" + hand_version
 
-    fim_version = os.path.basename(os.path.normpath(fim_run_dir))
-    output_base_file_name = magnitude_key + "_" + fim_version
+    # =====================
+    # Setup Logging and headers
+    log_file_path = sf.setup_file_logger(output_dir, output_base_file_name)
 
-    __setup_logger(output_dir, output_base_file_name)
-    logging.info(f"Using fim version: {fim_version}")
+    print("================================")
+    logging.info(f"Start Inundate Nation : {datetime.now().strftime('%m/%d/%Y %H:%M:%S')}")
+    logging.info(f"Using fim version: {hand_version}")    
+    overall_start_dt = datetime.now(timezone.utc)
 
-    start_dt = datetime.now()
-
-    logging.info(f"Input FIM Directory: {fim_run_dir}")
+    logging.info(f"Input FIM Directory: {hand_run_dir}")
     logging.info(f"output_dir: {output_dir}")
     logging.info(f"magnitude_key: {magnitude_key}")
     logging.info(f"flow_file: {flow_file}")
     logging.info(f"inc_mosaic: {str(inc_mosaic)}")
     logging.info(f"Precalibration Discharge: {str(precalb)}")
+    print(f"Logs saved to: {log_file_path}")    
+    logging.info("-----------------------------------")
 
     magnitude_output_dir = os.path.join(output_dir, output_base_file_name)
 
@@ -83,29 +84,18 @@ def inundate_nation(
 
     if huc_list == 'all' or len(huc_list) == 0:
         huc_list = []
-        for huc in os.listdir(fim_run_dir):
+        for huc in os.listdir(hand_run_dir):
             if re.match(r'\d{8}', huc):
                 huc_list.append(huc)
     else:
         for huc in huc_list:
-            huc_path = os.path.join(fim_run_dir, huc)
+            huc_path = os.path.join(hand_run_dir, huc)
             assert os.path.isdir(huc_path), f'ERROR: could not find the input fim_dir location: {huc_path}'
 
     huc_list.sort()
 
     logging.info(f"Inundation mosaic wrapper outputs will saved here: {magnitude_output_dir}")
-    run_inundation(
-        [
-            fim_run_dir,
-            huc_list,
-            magnitude_key,
-            magnitude_output_dir,
-            flow_file,
-            job_number,
-            thread_number,
-            precalb,
-        ]
-    )
+    run_inundation(hand_run_dir, huc_list, magnitude_key, magnitude_output_dir, flow_file, thread_number, precalb)
 
     # Perform mosaic operation
     if inc_mosaic:
@@ -126,7 +116,7 @@ def inundate_nation(
         for rasfile in os.listdir(magnitude_output_dir):
             if rasfile.endswith(".tif") and "extent" in rasfile:
                 # p = magnitude_output_dir + rasfile
-                procs_list.append([magnitude_output_dir, rasfile, output_bool_dir, fim_version])
+                procs_list.append([magnitude_output_dir, rasfile, output_bool_dir, hand_version])
 
         # Multiprocess --> create boolean inundation rasters for all hucs
         if len(procs_list) > 0:
@@ -156,7 +146,7 @@ def inundate_nation(
     logging.info(fh.print_date_time_duration(start_dt, end_time))
 
 
-def run_inundation(args):
+def run_inundation(hand_run_dir, huc_list, magnitude, magnitude_output_dir, forecast, thread_number, precalb):
     """
     This script is a wrapper for the inundate function and is designed for multiprocessing.
 
@@ -165,19 +155,6 @@ def run_inundation(args):
             magnitude_output_dir (str), forecast (str), job_number (int)]
 
     """
-
-    # Aug 2026: Can only use a num thread values, besides, the job_number were not be used in this context
-    fim_run_dir = args[0]
-    huc_list = args[1]
-    magnitude = args[2]
-    magnitude_output_dir = args[3]
-    forecast = args[4]
-    # job_number = args[5]
-    # thread_number = args[6]
-    # precalb = args[7]
-    thread_number = args[5]
-    precalb = args[6]
-
     # Define file paths for use in inundate().
 
     inundation_raster = os.path.join(magnitude_output_dir, magnitude + "_inund_extent.tif")
@@ -199,19 +176,20 @@ def run_inundation(args):
     # See more notes in produce_mosaicked_inundation and mosaic_inundation
     # In this case, it is processing multiple hucs at a time, so it will automatically use the
     # output_raster_path as a base name and location, appending the huc value to each one produced
+
+    # is_mosaic_for_branches: Technically is not the right name. It simply appends the huc number to the mosiac file
     produce_mosaicked_inundation(
-        fim_run_dir,
+        hand_run_dir,
         huc_list,
         forecast,
         output_raster_path=inundation_raster,
-        # num_workers=job_number,
+        # num_workers=job_number,  # Aug 2026: Was never really used here
         num_threads=thread_number,
         remove_intermediate_files=True,
         verbose=True,
         # True because we are processing more than one HUC. This means for each huc, all of its branches
         # are mosaicked at the HUC level.
         is_mosaic_for_branches=True,
-        # gms_multi_process=True,
         precalb_option=precalb,
         mosaic_attribute="inundation_raster_paths",
     )
@@ -319,40 +297,6 @@ def vrt_raster_mosaic(output_bool_dir, output_dir, fim_version_tag, threads, pre
             vrt_file = None
 
 
-def __setup_logger(output_folder_path, log_file_name_key, log_level=logging.INFO):
-    start_time = datetime.now()
-    file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
-    log_file_name = f"{log_file_name_key}-{file_dt_string}.log"
-
-    log_file_path = os.path.join(output_folder_path, log_file_name)
-    print('Log file created here:' + str(log_file_path))
-
-    # Clear previous logging configuration
-    logging.getLogger().handlers = []
-
-    # Create a StreamHandler and set the level
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(log_level)
-
-    # Create a FileHandler and set the level
-    file_handler = logging.FileHandler(log_file_path)
-    file_handler.setLevel(log_level)
-
-    # Create a formatter and set the formatter for the handlers
-    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-    console_handler.setFormatter(formatter)
-    file_handler.setFormatter(formatter)
-
-    # Add the handlers to the logger
-    logger = logging.getLogger()
-    logger.setLevel(log_level)
-    logger.addHandler(console_handler)
-    logger.addHandler(file_handler)
-
-    # Log the start time
-    logger.info(f'Started: {start_time.strftime("%m/%d/%Y %H:%M:%S")}')
-    logger.info("----------------")
-
 
 if __name__ == "__main__":
     """
@@ -373,9 +317,6 @@ if __name__ == "__main__":
         -j 10
         -t 8
     outputs become /data/inundation_review/inundate_nation/hw_fim_4_0_9_2_mosiac.tif (.log, etc)
-
-    If run on UCS2, you can map docker as -v /dev_fim_share../:/data -v /local...outputs:/outputs
-    -v .../inundation-mapping/:/foss_fim as normal.
     """
 
     available_cores = multiprocessing.cpu_count()
@@ -389,9 +330,9 @@ if __name__ == "__main__":
 
     parser.add_argument(
         '-r',
-        '--fim-run-dir',
+        '--hand-run-dir',
         help='Name of directory containing outputs '
-        'of fim_run.sh (e.g. data/ouputs/dev_abc/12345678_dev_test)',
+        'of fim_pipeline.sh (e.g. data/ouputs/dev_abc/12345678_dev_test)',
         required=True,
     )
 
