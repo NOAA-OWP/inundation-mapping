@@ -303,27 +303,18 @@ def delineate_and_produce_hand(
             levee_id_attr=levee_id_attribute,
         )
 
-    # --- 2. D8 FLOW ACCUMULATIONS (In-Memory Python) ---
-    print(f"--> [Step 2] D8 Flow Accumulations (In-Memory) {huc_number} {current_branch_id}")
+    # --- 2. D8 FLOW ACCUMULATIONS (In-Memory pyflwdir) ---
+    print(f"--> [Step 2] D8 Flow Accumulations (In-Memory pyflwdir) {huc_number} {current_branch_id}")
     ds_flowdir = gdal.Open(
         str(tempCurrentBranchDataDir / f"flowdir_d8_burned_filled_{current_branch_id}.tif")
     )
+
     hw_file = tempCurrentBranchDataDir / f"headwaters_{current_branch_id}.tif"
     ds_headwaters = gdal.Open(str(hw_file)) if hw_file.is_file() else None
-    stream_file = tempCurrentBranchDataDir / f"demDerived_streamPixels_{current_branch_id}.tif"
 
-    if stream_file.is_file():
-        ds_streams = gdal.Open(str(stream_file))
-        ds_flowaccum, _ = accumulate_headwaters_in_memory(
-            flow_dir_ds=ds_flowdir,
-            headwaters_ds=ds_headwaters,
-            stream_pixels_path=str(stream_file),
-            threshold=1,
-        )
-    else:
-        ds_flowaccum, ds_streams = accumulate_headwaters_in_memory(
-            flow_dir_ds=ds_flowdir, headwaters_ds=ds_headwaters, threshold=1
-        )
+    ds_flowaccum, ds_streams = accumulate_headwaters_in_memory(
+        flow_dir_ds=ds_flowdir, headwaters_ds=ds_headwaters, threshold=1
+    )
 
     # --- 3. PREPROCESSING FOR LATERAL THALWEG (In-Memory Python) ---
     print(
@@ -558,14 +549,18 @@ def delineate_and_produce_hand(
         ],
     )
 
-    # --- 14. D8 REM (Direct In-Memory Python Import) ---
-    print(f"--> [Step 14] D8 REM (Direct In-Memory Import) {huc_number} {current_branch_id}")
+    # --- 14. D8 REM ---
+    print(f"--> [Step 14] D8 REM {huc_number} {current_branch_id}")
     ds_dem_cond = gdal.Open(str(tempCurrentBranchDataDir / f"dem_thalwegCond_{current_branch_id}.tif"))
     ds_gw_pixels = gdal.Open(str(tempCurrentBranchDataDir / f"gw_catchments_pixels_{current_branch_id}.tif"))
 
     ds_rem = create_rem_in_memory(
         dem_ds=ds_dem_cond, pixel_watersheds_ds=ds_gw_pixels, thalweg_ds=ds_streams, nodata_val=ndv
     )
+
+    # PERSIST REM TO DISK FOR DOWNSTREAM TEMPLATE RASTERIZATION
+    rem_tif_path = tempCurrentBranchDataDir / f"rem_{current_branch_id}.tif"
+    persist_dataset(ds_rem, rem_tif_path, srs_wkt=srs_wkt, force=True)
 
     # --- 15. ZERO & MASK REM TO CATCHMENTS (In-Memory GDAL) ---
     print(
@@ -581,9 +576,7 @@ def delineate_and_produce_hand(
     landsea_subset = tempHucDataDir / "LandSea_subset.gpkg"
     landsea_tif = tempCurrentBranchDataDir / f"LandSea_subset_{current_branch_id}.tif"
     if landsea_subset.is_file():
-        print(
-            f"--> [Step 16] Rasterize filtered/dissolved ocean/Glake polygon {huc_number} {current_branch_id}"
-        )
+        print(f"--> [Step 16] Rasterize ocean/Glake polygon {huc_number} {current_branch_id}")
         gdal_rasterize_vector(
             src_vector=str(landsea_subset),
             template_raster=str(tempCurrentBranchDataDir / f"rem_{current_branch_id}.tif"),
