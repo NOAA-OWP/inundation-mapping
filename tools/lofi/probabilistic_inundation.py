@@ -30,12 +30,8 @@ from scipy.stats import (
 from shapely.geometry import shape
 from tqdm import tqdm
 
-<<<<<<< HEAD
 from utils.io import write_geodataframe
-from utils.shared_functions import s3_or_local_glob
-=======
 from utils.shared_functions import s3_or_local_glob, use_pandas_3_behavior
->>>>>>> dev
 
 
 def get_fim_probability_distributions(
