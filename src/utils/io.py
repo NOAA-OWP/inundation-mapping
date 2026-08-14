@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import geopandas as gpd
+import pandas as pd
 
 
 def write_geodataframe(gdf: gpd.GeoDataFrame, filename: str | Path, *args, **kwargs) -> None:
@@ -26,11 +27,12 @@ def write_geodataframe(gdf: gpd.GeoDataFrame, filename: str | Path, *args, **kwa
         parquet_kwargs.setdefault("write_page_checksum", True)
 
         if not gdf.empty and gdf.active_geometry_name is not None and not gdf.geometry.is_empty.all():
-            # Sort spatially on Hilbert curve
+            is_default_index = isinstance(gdf.index, pd.RangeIndex)
+
             gdf = gdf.sort_values(by="geometry", ascending=True)
 
-        if kwargs.get("index") is not False:
-            gdf = gdf.reset_index(drop=(gdf.index.name is None))
+            if is_default_index and kwargs.get("index") is not True:
+                gdf = gdf.reset_index(drop=True)
 
         gdf.to_parquet(filename, **parquet_kwargs)
 
