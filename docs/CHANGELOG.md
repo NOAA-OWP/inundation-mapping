@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.9.x.x- 2026-07-29 - [PR#1910](https://github.com/NOAA-OWP/inundation-mapping/pull/1910)
+## v4.9.21.4 - 2026-08-14 - [PR#1910](https://github.com/NOAA-OWP/inundation-mapping/pull/1910)
 
 Significantly improves performance and memory usage of the manning subdivision code.
 
@@ -13,6 +13,9 @@ Significantly improves performance and memory usage of the manning subdivision c
 * Several parts of the computation were modified to improve numerical stability and enforce physical constraints.
 
 I observed that the bottleneck of the original function is actually reading files. I split the file I/O and the computation into separate pieces. Switching to a faster csv parser (pyarrow) halved the runtime.
+
+<br/>
+
 ## v4.9.21.3 - 2026-08-14 - [PR#1803](https://github.com/NOAA-OWP/inundation-mapping/pull/1803)
 
 This PR updates the FLASH FIM workflow to make it more efficient for development of a rapidly updating service and expands the capabilites to oCONUS domains.
