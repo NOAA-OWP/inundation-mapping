@@ -3,9 +3,7 @@ from pathlib import Path
 import geopandas as gpd
 
 
-def write_geodataframe(
-    gdf: gpd.GeoDataFrame, filename: str | Path, *args, ignore_index: bool = False, **kwargs
-) -> None:
+def write_geodataframe(gdf: gpd.GeoDataFrame, filename: str | Path, *args, **kwargs) -> None:
     """Write a GeoDataFrame using the appropriate GeoPandas I/O method."""
     filepath = Path(filename) if isinstance(filename, (str, Path)) else None
 
@@ -31,8 +29,8 @@ def write_geodataframe(
             # Sort spatially on Hilbert curve
             gdf = gdf.sort_values(by="geometry", ascending=True)
 
-        if ignore_index:
-            gdf = gdf.reset_index(drop=True)
+        if kwargs.get("index") is not False:
+            gdf = gdf.reset_index(drop=(gdf.index.name is None))
 
         gdf.to_parquet(filename, **parquet_kwargs)
 
@@ -43,8 +41,5 @@ def write_geodataframe(
         # If writing a GeoPackage, apply Fiona defaults
         if driver in ("gpkg", "geopackage") or (driver is None and ext == ".gpkg"):
             out_kwargs.setdefault("engine", "fiona")
-
-        if ignore_index:
-            gdf = gdf.reset_index(drop=True)
 
         gdf.to_file(filename, *args, **out_kwargs)
