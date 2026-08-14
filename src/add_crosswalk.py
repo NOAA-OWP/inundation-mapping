@@ -271,8 +271,16 @@ def add_crosswalk(
         right_on='HydroID',
     )
 
-    # Use the new HFAB slope as the single source of truth for SLOPE
-    input_src_base['SLOPE'] = input_src_base['SLOPE_HFAB'].astype(float)
+    # Prioritize HFAB slope values, then fall back to IRIS-SWORD, and finally
+    # use the original rise/run slope as the last resort for any remaining gaps.
+    input_src_base['SLOPE_HFAB'] = pd.to_numeric(input_src_base['SLOPE_HFAB'], errors='coerce')
+    input_src_base['SLOPE_IRIS_SWORD'] = pd.to_numeric(input_src_base['SLOPE_IRIS_SWORD'], errors='coerce')
+    input_src_base['SLOPE_RISE_RUN'] = pd.to_numeric(input_src_base['SLOPE_RISE_RUN'], errors='coerce')
+    input_src_base['SLOPE'] = (
+        input_src_base['SLOPE_HFAB']
+        .combine_first(input_src_base['SLOPE_IRIS_SWORD'])
+        .combine_first(input_src_base['SLOPE_RISE_RUN'])
+    )
 
     # --- Normalize and stabilize precision of extremely small slopes ---
     #   1. Rounded to 3 digits in scientific notation

@@ -237,6 +237,10 @@ class HucDirectory(object):
         hydrotable = pd.read_csv(hydrotable_filename, dtype=self.hydrotable_dtypes)
         hydrotable['branch_id'] = branch_id
         hydrotable[['calb_applied']] = hydrotable[['calb_applied']].fillna(value=False)
+        if 'subdiv_applied' in hydrotable.columns:
+            hydrotable['subdiv_applied'] = hydrotable['subdiv_applied'].fillna(value=False)
+        else:
+            hydrotable['subdiv_applied'] = False
         self.agg_hydrotable.append(hydrotable)
 
     def aggregate_src_full_crosswalk(self, branch_path, branch_id):
