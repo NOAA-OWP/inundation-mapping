@@ -889,14 +889,17 @@ def generate_spatial_difference_maps(
 
         print(f'Saved comparison site GPKG to {comparison_gpkg_save_path}')
 
+        # TODO: Do we need to add something to ensure colnames are uniform here?
+        # Changed huc8 -> huc and wfo -> WFO
+
         # Add back in the metadata columns
         removed_geom = removed_geom.merge(
-            before_gdf[[id_col, mag_col, 'huc8', 'name', 'wfo', 'rfc', 'state', 'county']],
+            before_gdf[[id_col, mag_col, 'huc', 'name', 'WFO', 'rfc', 'state', 'county']],
             on=[id_col, mag_col],
             how='left',
         )
         added_geom = added_geom.merge(
-            before_gdf[[id_col, mag_col, 'huc8', 'name', 'wfo', 'rfc', 'state', 'county']],
+            before_gdf[[id_col, mag_col, 'huc', 'name', 'WFO', 'rfc', 'state', 'county']],
             on=[id_col, mag_col],
             how='left',
         )
