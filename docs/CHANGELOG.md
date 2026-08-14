@@ -14,6 +14,30 @@ Updates to LoFI model and optimizations to runtime and memory management.
 - `tools/lofi/probabilistic_inundation.py`: Established base parameters for distributions, checked for monotonically increasing discharge, and refactored to optimize runtime including revisions made in [PR#1912](https://github.com/NOAA-OWP/inundation-mapping/pull/1912/changes)
 - `tools/lofi/probabilistic_version.py`: Updated version.
 - `tools/inundate_gms.py`: Added check to direct dataframe SRC if indexes already exist to avoid expensive reindexing.
+## v4.9.21.4 - 2026-08-14 - [PR#1910](https://github.com/NOAA-OWP/inundation-mapping/pull/1910)
+
+Significantly improves performance and memory usage of the manning subdivision code.
+
+### Additions
+* Streamline manning subdivision. Almost all the computation happens within numpy/C layer. For 19020104 huc, branch 0, the manning subdivision is computed in 525ms. Reusing memory buffers within numpy results in significantly reduced memory usage.
+* Add `use_pandas_3_behavior` decorator. This enables current pandas 3.0 behavior in pandas 2.2+ within a scoped block (function or context).
+
+### Changes
+* Several parts of the computation were modified to improve numerical stability and enforce physical constraints.
+
+I observed that the bottleneck of the original function is actually reading files. I split the file I/O and the computation into separate pieces. Switching to a faster csv parser (pyarrow) halved the runtime.
+
+<br/>
+
+## v4.9.21.3 - 2026-08-14 - [PR#1803](https://github.com/NOAA-OWP/inundation-mapping/pull/1803)
+
+This PR updates the FLASH FIM workflow to make it more efficient for development of a rapidly updating service and expands the capabilites to oCONUS domains.
+
+### Additions
+- `tools/flashfim/optimized_flash_conflation.py`: Added new script to look up FLASH flows via a lookup table rather than using zonal stats to optimize service efficiency. This new script can also process additional domains including Puerto Rico, Virgin Islands, Hawaii, and Guam.
+
+### Changes
+- `tools/flashfim/conflate_flash_flows.py`: Restructured reading of FLASH grib file for efficiency.
 <br/>
 
 ## v4.9.21.2 - 2026-07-24 - [PR#1895](https://github.com/NOAA-OWP/inundation-mapping/pull/1895)
@@ -132,7 +156,6 @@ Fixes a topology error in `associate_levelpaths_with_levees.py` where the negati
 ### Changes
 
 `src/associate_levelpaths_with_levees.py`: Adds `resolution` parameter for buffer creation.
-
 <br/>
 
 ## v4.9.20.0 - 2026-07-11 - [PR#1731](https://github.com/NOAA-OWP/inundation-mapping/pull/1731)
