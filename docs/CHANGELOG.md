@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.9.xx.x - 2026-xx-xx - [PR#1842](https://github.com/NOAA-OWP/inundation-mapping/pull/1842)
+## v4.9.21.6 - 2026-08-14 - [PR#1842](https://github.com/NOAA-OWP/inundation-mapping/pull/1842)
 
 This PR identifies and removes NWM streams that fall into the whitelist ripple model domain gaps. It also builds a final list of valid Ripple/NWM stream reaches and matching model domains. It removes blacklisted or invalid records, resolves cross-HUC duplicates, removes small disconnected domain fragments, excludes streams insufficiently covered by the retained domain, and preserves short topological bridges. So main goals include:
 
@@ -28,8 +28,6 @@ This PR identifies and removes NWM streams that fall into the whitelist ripple m
 ### Changes
 `/data/ripple/validate_ripple_data.py`
 `/data/ripple/remove_blacklisted_streams_and_ripple_model_domain_gaps.py`
-
-
 <br/>
 
 ## v4.9.21.5 - 2026-08-14 - [PR#1907](https://github.com/NOAA-OWP/inundation-mapping/pull/1907)
