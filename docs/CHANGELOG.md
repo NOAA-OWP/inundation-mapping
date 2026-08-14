@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.9.21.3 - 2026-07-30 - [PR#1876](https://github.com/NOAA-OWP/inundation-mapping/pull/1876)
+## v4.9.21.5 - 2026-08-14 - [PR#1876](https://github.com/NOAA-OWP/inundation-mapping/pull/1876)
 
 Updates to LoFI model and optimizations to runtime and memory management.
 
@@ -14,6 +14,9 @@ Updates to LoFI model and optimizations to runtime and memory management.
 - `tools/lofi/probabilistic_inundation.py`: Established base parameters for distributions, checked for monotonically increasing discharge, and refactored to optimize runtime including revisions made in [PR#1912](https://github.com/NOAA-OWP/inundation-mapping/pull/1912/changes)
 - `tools/lofi/probabilistic_version.py`: Updated version.
 - `tools/inundate_gms.py`: Added check to direct dataframe SRC if indexes already exist to avoid expensive reindexing.
+
+<br/>
+
 ## v4.9.21.4 - 2026-08-14 - [PR#1910](https://github.com/NOAA-OWP/inundation-mapping/pull/1910)
 
 Significantly improves performance and memory usage of the manning subdivision code.
