@@ -1,14 +1,14 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.9.xx.x - 2026-xx-xx - [PR#1907](https://github.com/NOAA-OWP/inundation-mapping/pull/1907)
+## v4.9.21.5 - 2026-08-14 - [PR#1907](https://github.com/NOAA-OWP/inundation-mapping/pull/1907)
 
 This compares the roughness and slopes of Ohio River streams between FIM 6.1 and 6.2. For large slope changes, it recalculates channel and overbank Manning’s roughness using 6.1 roughness × sqrt(6.2 slope / 6.1 slope), capped at 0.07 and 0.20; otherwise, it retains the 6.2 values.
 It writes comparison CSVs, removes incomplete and manually excluded features, updates the FIM 6.2.1 Manning table (`/src/bash_variables.env`), and finally applies manually reviewed overrides from weird_feature_roughness_updated.csv.
 
 ### Changes
 
--  `/tools/analyze_optz_roughness.py`
+- `/tools/analyze_optz_roughness.py`
 - `/src/bash_variables.env`
 
 <br/>
