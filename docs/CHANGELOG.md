@@ -1,13 +1,15 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.9.21.X - 2026-08-13 - [PR#1916](https://github.com/NOAA-OWP/inundation-mapping/pull/1916)
+## v4.9.21.7 - 2026-08-14 - [PR#1916](https://github.com/NOAA-OWP/inundation-mapping/pull/1916)
 
 Hotfix to address missing/null slope values for oCONUS domains when using the ransac-derived slope input file. The `add_crosswalk.py` workflow now uses SWORD-derived and then rise/run slope values if missing/null values in the ransac-derived dataset. 
 
 ### Changes
 
 - `add_crosswalk.py`: updated logic to use and prioritize three different slope sources to ensure no missing/null values. Priority order: 1) RANSAC-derived slope from hfab 2) IRIS-SWORD-derived slope 3) default rise/run
+<br/>
+
 ## v4.9.21.6 - 2026-08-14 - [PR#1842](https://github.com/NOAA-OWP/inundation-mapping/pull/1842)
 
 This PR identifies and removes NWM streams that fall into the whitelist ripple model domain gaps. It also builds a final list of valid Ripple/NWM stream reaches and matching model domains. It removes blacklisted or invalid records, resolves cross-HUC duplicates, removes small disconnected domain fragments, excludes streams insufficiently covered by the retained domain, and preserves short topological bridges. So main goals include:
