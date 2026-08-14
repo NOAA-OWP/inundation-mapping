@@ -1,12 +1,14 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.9.x.x - 2026-08-06 - [PR#1917](https://github.com/NOAA-OWP/inundation-mapping/pull/1917)
+## v4.9.21.8 - 2026-08-14 - [PR#1917](https://github.com/NOAA-OWP/inundation-mapping/pull/1917)
 
 This PR fixes a bug in `reset_htable_src.py` where the old calibration columns were not being cleared. Previously, when reset_htable_src.py was executed, the script reset discharge_cms to its original geometric values but did not remove existing calibration columns, such as precalb_discharge_cms.
 
 ### Changes
 - `src/reset_htable_src.py`: Updated the reset logic to check for the presence of calibration columns (precalb_discharge_cms, calb_coef_*, calb_applied, etc.) and set their values back to default empty states.
+<br/>
+
 ## v4.9.21.7 - 2026-08-14 - [PR#1916](https://github.com/NOAA-OWP/inundation-mapping/pull/1916)
 
 Hotfix to address missing/null slope values for oCONUS domains when using the ransac-derived slope input file. The `add_crosswalk.py` workflow now uses SWORD-derived and then rise/run slope values if missing/null values in the ransac-derived dataset. 
