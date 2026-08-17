@@ -301,8 +301,7 @@ def run_fb_mapping(
 
             logging.info(f"{huc} : {ahps_site} : {magnitude} - Begin inundation for {tif_name}")
             try:
-                # executor.submit(  # TODO: decide about keeping MP here (removed for now)
-                job_number_inundate = 1  # TODO: Decide about keeping MP here? (added a placeholder for now)
+                job_number_inundate = 1
 
                 run_fb_inundation(
                     huc,
@@ -373,7 +372,7 @@ def run_fb_inundation(  # renamed from run_inundation
         map_file = Inundate_gms(
             hydrofabric_dir=fim_run_dir,
             forecast=magnitude_flows_csv_path,
-            num_workers=job_number_inundate,  # TODO: keep multiproc? currently defaults to 1
+            num_workers=job_number_inundate,
             hydro_table_df=None,
             hucs=huc,
             inundation_raster=output_extent_tif,
@@ -385,7 +384,8 @@ def run_fb_inundation(  # renamed from run_inundation
         )
 
         # HACK: Give rasterio files a chance in Inundate_gms time to finish closing
-        # not sure it iwill work
+        # not sure it will work
+        # TODO Fall 2026: Test with and without this
         # A bit of start staggering to help not overload the MP (0.1 milliseconds to 5 secs)
         time_delay_mms = random.randint(100, 5000) / 1000
         time.sleep(time_delay_mms)
@@ -447,9 +447,6 @@ def run_fb_inundation(  # renamed from run_inundation
             if os.path.exists(tif_file):
                 os.remove(tif_file)
 
-    # TODO: Decide humm... do we keep the try catch here? do we even want one?
-    # what do we want to do if a site, mag fails... dump the entire tool or
-    # just log this site/mag?
     except Exception as ex:
         # Log errors and their tracebacks
 
@@ -887,17 +884,16 @@ def run_sb_inundation(
     # ---------------------
     # Iterate through branches to produce the inundated branch tifs for the HAND stage
 
-    # TODO: In the future, could add multi-threading for branch processing.
-
     # Jan 2026 CatFIM Reorg Note:
     # Previously we had multiprocessing in place for the branch processing.
     # We've taken out the multiprocessing, but in the future we could put back
     # in some multi-threading to speed some things up. We would want to do some
     # benchmark tests before and after multithreading to make sure it's actually
     # speeding things up.
-
+    #
     # For now, we will just run it single-threaded and can implement multi-
     # threading later.
+    # TODO: In the future, could add multi-threading for branch processing.
 
     # Set these to False initially and if at least one valid data source is found they will be changed to True
     branch_rem_available = False

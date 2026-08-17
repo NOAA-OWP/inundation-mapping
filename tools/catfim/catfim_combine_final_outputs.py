@@ -98,7 +98,7 @@ def create_huc_summary_table(input_dirs, newest_run_name, output_dir):
 
     # Select which source to get each HUC's data from
     # TODO: In the future, I could use logic from whether the lib or site is available,
-    # but for this run I know that run3 should always be prioritized over run2
+    # but for the August 2026  run I know that run3 should always be prioritized over run2
 
     # If a HUC is only in one run, use that run (unique = yes)
     cond1 = huc_outputs_df["unique"] == "yes"
@@ -166,8 +166,6 @@ def merge_library_gpkgs(gpkg_path_list, huc_outputs_df):
 
         # Read library gpkg
         gdf = gpd.read_file(f)
-
-        # TODO: Deal with interval_stage_x and interval_stage_y?
 
         # Define desired data types for specific columns
         dtype_mapping = {

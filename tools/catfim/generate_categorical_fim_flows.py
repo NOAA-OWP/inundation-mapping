@@ -38,7 +38,7 @@ Sites_gdf:
 """
 
 # TODO: This file could be renamed to something like generate_categorical_fim_thresholds
-# as "flows" is not descriptive enough. Note: Renaming it will maintian its history.
+# as "flows" is not descriptive enough. Note: Renaming it will maintain its history.
 
 
 def get_threshold_data(huc, huc_path, valid_nwm_lids):
@@ -275,13 +275,8 @@ def process_threshold_data(
 
     # Note: CONUS + Hawaii + Puerto Rico falls through to get_huc_vars' 'else' case, which might be
     # slow to load as it is 1.8 GiB.
-
-    # TODO: Rob: This should be changed to loading something_path at the HUC level for flow data,
-    # because the CONUS flow file it is 1.6 GiB and is a bit slow to load.
-    #
-    # Emily: I'm not certain that any of our FIM output flowlines files will be correct for this
-    # application. However, we could potentially use the preclip workflow to create
-    # HUC-level flow files for each HUC. I think this is a task to add to the CatFIM Epic.
+    # TODO: Would be good to read in a smaller flows file. However, it doens't look like
+    # any of the HUC-level FIM output flowlines files would be correct for this application.
 
     # ================================
     # Compile intermediate library data for all valid site/magnitude combinations in the HUC

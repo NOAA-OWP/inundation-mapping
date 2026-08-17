@@ -485,7 +485,7 @@ def read_format_catfim_library(catfim_library_filepath):
         # Read in site GPKG
         print(
             f'Library file stored as GPKG, creating geometry column - {catfim_library_filepath}'
-        )  # TEMP DEBUG
+        )  # VERBOSE
 
         library_gdf = gpd.read_file(catfim_library_filepath, engine='fiona')
 
@@ -493,7 +493,7 @@ def read_format_catfim_library(catfim_library_filepath):
         # Read in site CSV
         print(
             f'Library file stored as CSV, creating geometry column - {catfim_library_filepath}'
-        )  # TEMP DEBUG
+        )  # VERBOSE
 
         library_table = pd.read_csv(catfim_library_filepath)
 

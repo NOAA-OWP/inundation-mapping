@@ -139,9 +139,6 @@ def process_huc(huc, output_folder):
         # Make HUC mapping folders
         make_huc_mapping_folders(output_mapping_dir, output_temp_dir, output_log_dir)
 
-        # TODO: AWS BUG Jan 2026 - Why are my logs read only for all but the owner? other apps don't I think.
-        # I can not delete them to cleanup if I want too. huh? Better check other apps that use setup_file_logger
-
         # HUC level logs will be initially saved in the temp dir and then they will be copied into the HUC/logs folder
         # at the end of processing (which will help us ensure that the logs we compile up are from the current run)
         log_file_path = sf.setup_file_logger(output_temp_dir, f"process_huc_{huc}")
@@ -517,7 +514,6 @@ def __process_elevations(
         download_source = "Manual_Input"
     else:
         download_source = "WRDS"
-    # logging.info(f"{huc} - Data downloaded from {download_source}") # TEMP DEBUG
 
     # Initialize output dataframes
     updated_huc_library_df = pd.DataFrame()  # a replacement huc_library_df
@@ -617,10 +613,6 @@ def __process_elevations(
         # Make an "rfc_stage" column (for documentation of the data source)
         lid_library_df['rfc_stage'] = lid_library_df['stage']
 
-        # TODO: rfc_stage, but final library calls this rfs_stage (typo?)
-        # uncorrect WRDS value before we adjusted it for inundation
-        # Changed this to rfc_stage for processing. Fix in finalization?
-
         # Get the site altitude from the USGS data
 
         # lid_altitude = lid_sites_gdf.iloc[0]['usgs_data_altitude']
@@ -646,10 +638,6 @@ def __process_elevations(
             continue
 
         lid_altitude_ft = float(lid_altitude_ft)  # Ensure it's a float for processing later
-
-        # logging.info(
-        # f"{lid}: Rating curve and elevation val source: {rating_curve_source}, site elev value: {lid_altitude_ft}"
-        # )  # TEMP DEBUG
 
         if lid_altitude_ft is None or lid_altitude_ft == 0:
             # Jan 2026: In previous versions not all recs stopped here when this failed
@@ -1069,9 +1057,6 @@ def __adjust_datum_ft(lid_sites_gdf, lid_library_df, lid, datum_adj_nodata_value
     # ---------------------------
     # Get datum adjustment to convert elev to NAVD88 (if elev data is in NGVD29)
     # using the NOAA VDatum API
-
-    # TODO: Does this will work calling ngvd_to_navd_ft when in EC2's? Can it talk to that
-    # service from EC2's? Check this.
 
     # Jan 2026: Previously we set the default datum_adj_ft to 0.0 here and then only updated it
     # if we knew it was in NGVD29 and we could get a value from vdatum.
