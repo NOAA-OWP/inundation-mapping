@@ -9,7 +9,7 @@ import geopandas as gpd
 import numpy as np
 import requests
 import xarray as xr
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
 
 warnings.filterwarnings("ignore")
@@ -191,7 +191,7 @@ def get_nomad_ensembles(
         warnings.simplefilter("ignore")
 
         if ensemble_type == "nbm":
-            for idx in tqdm(range(1, 7)):
+            for idx in tqdm(range(1, 7), leave=False):
 
                 ds_lists = []
                 if dt != datetime.now().strftime('%Y%m%d') or int(hr) < 6:
@@ -202,7 +202,7 @@ def get_nomad_ensembles(
                 temp_dt = datetime.strptime(dt + f' {hr}', '%Y%m%d %H') - timedelta(hours=(idx - 1) * 6)
                 temp_dt_str, temp_hr = temp_dt.strftime('%Y%m%d'), temp_dt.strftime('%H')
 
-                for x in tqdm(range(1, 241)):
+                for x in tqdm(range(1, 241), leave=False):
                     temp_file_name = os.path.join(temp_download_path, f'nbm_{idx}_{x}.nc')
                     temp_files.append(temp_file_name)
                     if overwrite or not os.path.exists(temp_file_name):
@@ -227,7 +227,7 @@ def get_nomad_ensembles(
             concat_ds.to_netcdf(output_path)
 
         if ensemble_type == "srf":
-            for idx in tqdm(range(1, 7)):
+            for idx in tqdm(range(1, 7), leave=False):
 
                 ds_lists = []
                 if dt != datetime.now().strftime('%Y%m%d') and int(hr) < 6:
@@ -240,7 +240,7 @@ def get_nomad_ensembles(
                 temp_dt = datetime.strptime(dt + f' {hr}', '%Y%m%d %H') - timedelta(hours=(idx - 1) * 1)
                 temp_dt_str, temp_hr = temp_dt.strftime('%Y%m%d'), temp_dt.strftime('%H')
 
-                for x in tqdm(range(1, 19)):
+                for x in tqdm(range(1, 19), leave=False):
                     temp_file_name = os.path.join(temp_download_path, f'srf_{idx}_{x}.nc')
                     temp_files.append(temp_file_name)
                     if overwrite or not os.path.exists(temp_file_name):
@@ -265,10 +265,10 @@ def get_nomad_ensembles(
             concat_ds.to_netcdf(output_path)
 
         if ensemble_type == "gfs":
-            for idx in tqdm(range(1, 7)):
+            for idx in tqdm(range(1, 7), leave=False):
 
                 ds_lists = []
-                for x in tqdm(range(1, 205)):
+                for x in tqdm(range(1, 205), leave=False):
                     temp_file_name = os.path.join(temp_download_path, f'gfs_{idx}_{x}.nc')
                     temp_files.append(temp_file_name)
                     if overwrite or not os.path.exists(temp_file_name):
