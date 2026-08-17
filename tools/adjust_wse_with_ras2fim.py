@@ -66,6 +66,9 @@ class adjust_wse_with_ras2fim:
         # merge the results into ras_points_with_rc
         ras_points_with_rc = ras_points_with_rc.merge(min_flow_wse, on='fid_xs')
 
+        # TODO: Jun 2026: Change all rasterio.open commands to better scope contol.
+        # Using either the "with" syntax, or open the file / read / explicit close
+
         # now start to compute min WSE of HAND
         # TODO examine using WSE of actual minimum flow instead of assuming the stage to be zero
         # Note... I tested above and the differenc (improvment in results) ewas insignificant.
@@ -91,6 +94,9 @@ class adjust_wse_with_ras2fim:
         # Interpolate a discharge from ras2fim discharge-stage rating curves for the "WSE_base_error", and call it "Q_Adjust"
         ras2fim_Qs = get_ras2fim_discharge_parallel(ras_points_with_rc, ras_rating_with_stage)
         ras_points_with_rc = ras_points_with_rc.merge(ras2fim_Qs, on="fid_xs")
+
+        # TODO: Jun 2026: Change all rasterio.open commands to better scope contol.
+        # Using either the "with" syntax, or open the file / read / explicit close
 
         # Compute the median of "Q_Adjust" of ras2fim points within each HAND HydroID
         # to do that, first we need to get HydroID for ras points

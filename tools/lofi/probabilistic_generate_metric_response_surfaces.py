@@ -98,7 +98,8 @@ def create_flood_maps(
         if os.path.exists(final_inundation_path) and not overwrite:
             continue
 
-        mask_path = os.path.join(hydrofabric_dir, str(huc), 'wbd.gpkg')
+        # Aug 2026: masking system commented out. See notes at mosiac_iundation.py -> mask_mosiac function
+        # mask_path = os.path.join(hydrofabric_dir, str(huc), 'wbd.gpkg')
 
         # Sub-divide src
         src_output_file = "htable_branch" + "_{0}" + f"_{N}_{obank_N}_{s}.feather"
@@ -113,20 +114,29 @@ def create_flood_maps(
                     hydrofabric_dir, huc, branch, N, obank_N, s, src_output_path, src_output_file
                 )
 
+        # TODO: July 2026:  IMPORTANT
+        # Review how it wants to use jobs versus threads.
+
+        # July 2026: We no longer pass in num_workers as downstream no only uses multi-threading.
+        # Some other scripts use num_workers to have their own MP before passing into produce_mosaicked_inundation
+        # but others, just use high thread counts, such as this tool historically.
+        # See more notes in produce_mosaicked_inundation
+
         # Make inundation extent output
+        # Aug 2026: masking system commented out. See notes at mosiac_iundation.py -> mask_mosiac function
         produce_mosaicked_inundation(
             hydrofabric_dir,
             huc,
             flow_path,
-            hydro_table_df=os.path.join(src_output_path, src_output_file),
-            inundation_raster=final_inundation_path,
-            mask=mask_path,
+            hydro_table_path=os.path.join(src_output_path, src_output_file),
+            output_raster_path=final_inundation_path,
+            # mask=mask_path,
             verbose=False,
-            num_workers=num_jobs,
+            # num_workers=num_jobs,
             num_threads=num_threads,
             windowed=windowed,
-            log_file=log_file,
-            remove_intermediate=True,
+            # log_file=log_file,
+            # remove_intermediate=True,
         )
 
         ds = rxr.open_rasterio(final_inundation_path)

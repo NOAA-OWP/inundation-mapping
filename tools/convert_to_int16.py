@@ -34,6 +34,8 @@ def convert_to_int16(branch_dir: str):
     # Iterate through each pair of gw catchments and rems
     for c, r in zip(catchments, rems):
 
+        # TODO: Jun 2026: Change all rasterio.open commands to better scope contol.
+        # Using either the "with" syntax, or open the file / read / explicit close
         catchment = rxr.open_rasterio(c)
 
         # Check if converting data is possible
@@ -65,6 +67,8 @@ def convert_to_int16(branch_dir: str):
             with open(hydroid_prefix_path, 'w') as file:
                 file.write(hydroid_prefix)
 
+        # TODO: Jun 2026: Change all rasterio.open commands to better scope contol.
+        # Using either the "with" syntax, or open the file / read / explicit close
         rem = rxr.open_rasterio(r)
 
         # Save original as another file to be deleted by deny list or saved
