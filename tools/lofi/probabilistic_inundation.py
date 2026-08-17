@@ -1,11 +1,8 @@
 import argparse
 import ast
 import os
-import shutil
-import warnings
 from concurrent.futures import as_completed
 from contextlib import ExitStack
-from functools import partial
 from typing import Dict, Optional, Tuple, Union
 
 import fsspec
@@ -252,156 +249,7 @@ def analyze_nonmonotonic_src(srcs_df):
     return srcs_df
 
 
-# TODO: Replace this code with LoFi Optimization PR [1912](https://github.com/NOAA-OWP/inundation-mapping/pull/1910)
-@use_pandas_3_behavior()
-def compute_manning_subdivision(df_src, channel_manning, overbank_manning, slope_adj, eps=1e-5):
-    # Extract columns as numpy arrays. Ordering must not change during computation
-    # The following variables should be views (ie memory not owned by this function)
-    vstage = df_src['Stage'].to_numpy()
-    vstage_bf = df_src['Stage_bankfull'].to_numpy()
-    vvol = df_src['Volume (m3)'].to_numpy()
-    vvol_bf = df_src['Volume_bankfull'].to_numpy()
-    vsurf_area_bf = df_src['SurfArea_bankfull'].to_numpy()
-    vbedarea = df_src['BedArea (m2)'].to_numpy()
-    vbedarea_bf = df_src['BedArea_bankfull'].to_numpy()
-    vlengthkm = df_src['LENGTHKM'].to_numpy()
-    vslope_rise = df_src['SLOPE_RISE_RUN'].to_numpy()
-    vslope_main = df_src['SLOPE'].to_numpy()
-    vq_orig = df_src['Discharge (m3s-1)'].to_numpy()
-
-    # The memory buffers in the following code are allocated and managed very carefully.
-    # Please understand how memory is allocated and used before making *any* changes.
-    # References to arrays are cleared when they are no longer needed in order
-    # to keep each array referenced by only 1 reference.
-    lengthm = vlengthkm * 1000
-    mask = vstage <= vstage_bf
-    delta_stage = vstage - vstage_bf
-
-    vol_chan = delta_stage * vsurf_area_bf
-    np.add(vol_chan, vvol_bf, out=vol_chan)  # Estimated channel volume
-    np.minimum(vol_chan, vvol, out=vol_chan)  # ensure that estimated doesn't exceed actual volume
-    np.copyto(vol_chan, vvol, where=mask)  # Use actual volume where stage is below bankfull
-
-    # Compute volume overbank
-    vol_obank = vvol - vol_chan
-    np.maximum(vol_obank, 0.0, out=vol_obank)  # Ensure that vol_obank is always positive
-    np.putmask(vol_obank, mask, 0.0)  # Set overbank to 0 where stage doesn't exceed bankfull
-
-    wetarea_chan = np.divide(vol_chan, lengthm, out=vol_chan)
-    del vol_chan
-
-    # Compute channel bedarea
-    bedarea_chan = np.where(mask, vbedarea, vbedarea_bf)
-    np.minimum(bedarea_chan, vbedarea_bf, out=bedarea_chan, where=mask)
-
-    bedarea_obank = vbedarea - bedarea_chan
-    np.maximum(bedarea_obank, 0.0, out=bedarea_obank)
-    np.putmask(bedarea_obank, mask, 0.0)
-
-    wettedperim_chan = bedarea_chan / lengthm
-    np.multiply(delta_stage, 2, out=delta_stage)
-    np.add(wettedperim_chan, delta_stage, out=wettedperim_chan, where=mask)
-    del delta_stage, bedarea_chan
-
-    np.maximum(wettedperim_chan, eps, out=wettedperim_chan)
-    hydraulicrad_chan = np.divide(wetarea_chan, wettedperim_chan, out=wettedperim_chan)
-    del wettedperim_chan
-
-    hydraulicrad_chan = np.maximum(hydraulicrad_chan, 0.0, out=hydraulicrad_chan)
-    np.power(hydraulicrad_chan, 2 / 3, out=hydraulicrad_chan)
-
-    # Compute channel discharge
-    q_chan = np.multiply(wetarea_chan, hydraulicrad_chan, out=wetarea_chan)
-    del wetarea_chan
-
-    slope = np.add(vslope_rise, slope_adj, out=hydraulicrad_chan)
-    np.maximum(slope, eps, out=slope)
-    np.sqrt(slope, out=slope)
-    del hydraulicrad_chan
-
-    np.multiply(q_chan, slope, out=q_chan)
-    np.multiply(q_chan, 1 / np.float64(channel_manning), out=q_chan)
-
-    wetarea_obank = np.divide(vol_obank, lengthm, out=vol_obank)
-    del vol_obank
-
-    wettedperim_obank = np.divide(bedarea_obank, lengthm, out=bedarea_obank)
-    np.maximum(wettedperim_obank, eps, out=wettedperim_obank)
-    del bedarea_obank
-
-    hydraulicrad_obank = np.divide(wetarea_obank, wettedperim_obank, out=wettedperim_obank)
-    np.maximum(hydraulicrad_obank, 0.0, out=hydraulicrad_obank)
-    np.power(hydraulicrad_obank, 2 / 3, out=hydraulicrad_obank)
-
-    q_obank = np.multiply(wetarea_obank, hydraulicrad_obank, out=wetarea_obank)
-    del wetarea_obank, hydraulicrad_obank
-
-    np.add(vslope_main, slope_adj, out=slope)
-    np.maximum(slope, eps, out=slope)
-    np.sqrt(slope, out=slope)
-
-    np.multiply(q_obank, slope, out=q_obank)
-    np.multiply(q_obank, 1 / np.float64(overbank_manning), out=q_obank)
-    del slope
-
-    # Compute total discharge
-    q_total = np.add(q_chan, q_obank, out=q_chan)
-    del q_chan, q_obank
-    np.equal(vstage, 0, out=mask)
-    np.putmask(q_total, mask, 0.0)
-
-    subdiv_applied = np.isnan(vstage_bf, out=mask)
-    np.putmask(q_total, subdiv_applied, vq_orig)
-    np.logical_not(subdiv_applied, out=subdiv_applied)
-    return subdiv_applied, q_total
-
-
-@use_pandas_3_behavior()
-def read_crosswalk(hydrofabric_dir, huc, branch):
-    read_cols = [
-        'Stage',
-        'Stage_bankfull',
-        'Volume (m3)',
-        'Volume_bankfull',
-        'SurfArea_bankfull',
-        'BedArea (m2)',
-        'BedArea_bankfull',
-        'LENGTHKM',
-        'SLOPE_RISE_RUN',
-        'SLOPE',
-        'Bathymetry_source',
-        'HydroID',
-        'Discharge (m3s-1)',
-    ]
-    path = os.path.join(hydrofabric_dir, huc, 'branches', branch, f"src_full_crosswalked_{branch}.csv")
-    df_src = pd.read_csv(path, engine='pyarrow', usecols=read_cols)
-    return df_src
-
-
-@use_pandas_3_behavior()
-def get_computed_subdivisions(df_src, channel_manning, overbank_manning, slope_adj):
-    subdiv_applied, final_discharge = compute_manning_subdivision(
-        df_src, channel_manning, overbank_manning, slope_adj
-    )
-
-    # We copy because we want to release df_src afterward
-    df_computed = pd.DataFrame(
-        {
-            'HydroID': df_src['HydroID'],
-            'stage': df_src['Stage'],
-            'Bathymetry_source': df_src['Bathymetry_source'],
-            'subdiv_applied': subdiv_applied,
-            'channel_n': channel_manning,
-            'overbank_n': overbank_manning,
-            'subdiv_discharge_cms': final_discharge,
-            'discharge_cms': final_discharge,  # create a copy of vmann modified discharge (used to track future changes)
-        },
-        copy=False,
-    )
-
-    return df_computed
-
-
+# TODO: Replace this code with LoFI Optimization PR When Modeling Parity is achieved [1910](https://github.com/NOAA-OWP/inundation-mapping/pull/1910)
 @use_pandas_3_behavior()
 def get_subdivided_src(hydrofabric_dir, huc, branch, channel_manning, overbank_manning, slope_adj):
     """
@@ -438,8 +286,6 @@ def get_subdivided_src(hydrofabric_dir, huc, branch, channel_manning, overbank_m
 
     df_src = df_src.drop(
         [
-            'channel_n',
-            'overbank_n',
             'subdiv_applied',
             'Discharge (m3s-1)_subdiv',
             'Volume_chan (m3)',
@@ -491,8 +337,9 @@ def get_subdivided_src(hydrofabric_dir, huc, branch, channel_manning, overbank_m
     df_src['WettedPerimeter_obank (m)'] = df_src['BedArea_obank (m2)'] / df_src['LENGTHKM'] / 1000
 
     # Subdivide Geometry ----------------------------------------------------------------------------------
-    df_src['channel_n'] = channel_manning
-    df_src['overbank_n'] = overbank_manning
+    df_src['channel_n'] = df_src['channel_n'] + channel_manning
+    df_src['overbank_n'] = df_src['overbank_n'] + overbank_manning
+    df_src['SLOPE'] = df_src['SLOPE'] + slope_adj
     df_src['subdiv_applied'] = ~df_src['Stage_bankfull'].isnull()  # creat
 
     # Subdivide Manning Eq --------------------------------------------------------------------------------
@@ -507,7 +354,7 @@ def get_subdivided_src(hydrofabric_dir, huc, branch, channel_manning, overbank_m
     df_src['Discharge_chan (m3s-1)'] = (
         df_src['WetArea_chan (m2)']
         * pow(df_src['HydraulicRadius_chan (m)'], 2.0 / 3)
-        * pow(np.max([df_src['SLOPE_RISE_RUN'] + slope_adj, np.repeat(1e-5, df_src.shape[0])], axis=0), 0.5)
+        * pow(np.maximum(df_src['SLOPE'], np.repeat(1e-5, df_src.shape[0])), 0.5)
         / df_src['channel_n']
     )
     df_src['Velocity_chan (m/s)'] = df_src['Discharge_chan (m3s-1)'] / df_src['WetArea_chan (m2)']
@@ -531,7 +378,7 @@ def get_subdivided_src(hydrofabric_dir, huc, branch, channel_manning, overbank_m
     df_src['Discharge_obank (m3s-1)'] = (
         df_src['WetArea_obank (m2)']
         * pow(df_src['HydraulicRadius_obank (m)'], 2.0 / 3)
-        * pow(np.max([df_src['SLOPE'] + slope_adj, np.repeat(1e-5, df_src.shape[0])], axis=0), 0.5)
+        * pow(np.maximum(df_src['SLOPE'], np.repeat(1e-5, df_src.shape[0])), 0.5)
         / df_src['overbank_n']
     )
     df_src['Velocity_obank (m/s)'] = df_src['Discharge_obank (m3s-1)'] / df_src['WetArea_obank (m2)']
@@ -550,6 +397,12 @@ def get_subdivided_src(hydrofabric_dir, huc, branch, channel_manning, overbank_m
     df_src['Discharge (m3s-1)_subdiv'] = np.where(
         df_src['subdiv_applied'] is False, df_src['Discharge (m3s-1)'], df_src['Discharge (m3s-1)_subdiv']
     )  # reset the discharge value back to the original if vmann=false
+
+    hid = df_src['HydroID'].to_numpy()
+    df_src = df_src.groupby(['HydroID', 'feature_id'], group_keys=False).apply(
+        analyze_nonmonotonic_src, include_groups=False
+    )
+    df_src['HydroID'] = hid
 
     df_src = df_src[
         [
@@ -582,17 +435,15 @@ def get_subdivided_src(hydrofabric_dir, huc, branch, channel_manning, overbank_m
         errors='ignore',
     )
     df_htable = df_htable.merge(
-        df_computed, how='left', left_on=['HydroID', 'stage'], right_on=['HydroID', 'stage']
+        df_src, how='left', left_on=['HydroID', 'stage'], right_on=['HydroID', 'stage']
     )
 
     df_htable['branch_id'] = int(branch)
-    df_htable['LakeID'] = -999
     df_htable['HydroID'] = df_htable['HydroID'].astype(str)
     df_htable['feature_id'] = df_htable['feature_id'].astype(str)
     df_htable['precalb_discharge_cms'] = 0
 
-    output_table = os.path.join(htable_directory, htable_output.format(branch))
-    df_htable.to_feather(output_table)
+    return df_htable
 
 
 def inundate_probabilistic(
