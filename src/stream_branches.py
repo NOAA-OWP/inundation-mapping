@@ -22,6 +22,7 @@ from tqdm import tqdm
 
 from utils.fim_enums import FIM_exit_codes
 from utils.shared_variables import PREP_CRS
+from utils.spatial import sjoin
 
 
 gpd.options.io_engine = "pyogrio"
@@ -659,7 +660,7 @@ class StreamNetwork(gpd.GeoDataFrame):
 
             # trim only branches in WBD (to prevent outlet from being trimmed)
             if isinstance(wbd, gpd.GeoDataFrame):
-                tmp_self = gpd.sjoin(tmp_self, wbd)
+                tmp_self = sjoin(tmp_self, wbd)
 
             # If entire branch is in waterbody
             if all(tmp_self.Lake.values != -9999):
@@ -697,7 +698,7 @@ class StreamNetwork(gpd.GeoDataFrame):
 
             # Find branches in waterbodies
             self = self.rename(columns={branch_id_attribute: "bids"})
-            sjoined = gpd.sjoin(self, waterbodies, predicate="within")
+            sjoined = sjoin(self, waterbodies, predicate="within")
             self = self.drop(sjoined.index)
             self = self.rename(columns={"bids": branch_id_attribute})
 
@@ -733,7 +734,7 @@ class StreamNetwork(gpd.GeoDataFrame):
         if isinstance(wbd, gpd.GeoDataFrame):
             # Find branches intersecting HUC
             self = self.rename(columns={branch_id_attribute: "bids"})
-            sjoined = gpd.sjoin(self, wbd, predicate="intersects")
+            sjoined = sjoin(self, wbd, predicate="intersects")
             self = self.rename(columns={"bids": branch_id_attribute})
 
             self = self[self.index.isin(sjoined.index.values)]
@@ -1176,17 +1177,17 @@ class StreamNetwork(gpd.GeoDataFrame):
                 wbd = wbd.drop(columns=[col], axis=1)
 
         # Filter segments that are in the HUC
-        self_in_wbd = gpd.sjoin(self, wbd)
+        self_in_wbd = sjoin(self, wbd)
         self_in_wbd = self_in_wbd.drop('index_right', axis=1)
 
         # # Find downstream segments outside of WBD
         # self_not_in_wbd = self_ref[~self_ref['ID'].isin(self_in_wbd['ID'])]
 
         # Find the HUC outlet(s) -- downstream segments that intersect WBD boundary
-        sjoin = gpd.sjoin(
+        sjoined = sjoin(
             self_in_wbd, gpd.GeoDataFrame(geometry=wbd.boundary)
         )  # this finds both inflows and outflows
-        outflows = sjoin[~sjoin['to'].isin(self_in_wbd['ID'])]
+        outflows = sjoined[~sjoined['to'].isin(self_in_wbd['ID'])]
 
         if outflows.empty:
             self.write(out_vector_files, index=False)

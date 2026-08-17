@@ -8,6 +8,8 @@ from os.path import join
 import geopandas as gpd
 import rasterio
 
+from src.utils.spatial import sjoin
+
 
 gpd.options.io_engine = "pyogrio"
 
@@ -91,7 +93,7 @@ class GageCrosswalk(object):
 
         input_catchments = gpd.read_file(input_catchment_filename, dtype={'HydroID': int})
         input_catchments.to_crs(huc_CRS, inplace=True)
-        self.gages = gpd.sjoin(self.gages, input_catchments[['HydroID', 'LakeID', 'geometry']], how='inner')
+        self.gages = sjoin(self.gages, input_catchments[['HydroID', 'LakeID', 'geometry']], how='inner')
 
     def snap_to_dem_derived_flows(self, input_flows_filename):
         '''

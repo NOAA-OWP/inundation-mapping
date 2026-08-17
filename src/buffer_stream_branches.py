@@ -5,6 +5,7 @@ import os
 
 import geopandas as gpd
 
+from src.utils.spatial import clip
 from stream_branches import StreamBranchPolygons, StreamNetwork
 
 
@@ -36,7 +37,7 @@ def buffer_stream_branches(
         # Clip to WBD
         if os.path.exists(wbd):
             wbd = gpd.read_file(wbd)
-            stream_polys.geometry = gpd.clip(stream_polys, wbd).geometry
+            stream_polys.geometry = clip(stream_polys, wbd).geometry
 
             stream_polys.write(stream_polygons_file, verbose=verbose)
 

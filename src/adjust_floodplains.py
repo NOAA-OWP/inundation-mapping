@@ -11,6 +11,8 @@ import whitebox
 from rasterio.mask import mask
 from shapely.geometry import mapping
 
+from src.utils.spatial import clip
+
 
 # Set wbt envs
 wbt = whitebox.WhiteboxTools()
@@ -157,7 +159,7 @@ def adjust_floodplains(
                     fema_flood_zones_availability_mask, fema_flood_zones, how='difference'
                 )
 
-            fema_flood_zones_availability_mask = gpd.clip(fema_flood_zones_availability_mask, branch_poly)
+            fema_flood_zones_availability_mask = clip(fema_flood_zones_availability_mask, branch_poly)
 
             if fema_flood_zones_availability_mask.empty:
                 return  # No flood zones to process, exit the function

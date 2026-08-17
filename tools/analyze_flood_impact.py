@@ -9,6 +9,8 @@ import pandas as pd
 import rasterio
 from rasterio import features as riofeatures
 
+from src.utils.spatial import sjoin
+
 
 def analyze_flood_impact(
     benchmark_inundation_tif, test_inundation_tif, model_domain_shp, structures_gpkg, roads_gpkg, output_gpkg
@@ -186,7 +188,7 @@ def impacted(features_gpkg, inundation_tif):
     """
     # Find intersecting features with inundation
     impacted_features = gpd.GeoDataFrame(
-        gpd.sjoin(features_gpkg, inundation_tif, how='inner', predicate='intersects'), crs=inundation_tif.crs
+        sjoin(features_gpkg, inundation_tif, how='inner', predicate='intersects'), crs=inundation_tif.crs
     )
 
     impacted_features['isImpacted'] = True

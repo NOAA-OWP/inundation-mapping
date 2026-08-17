@@ -13,6 +13,8 @@ from os.path import join
 import geopandas as gpd
 import pandas as pd
 
+from src.utils.spatial import clip
+
 
 #################################
 # TODO: July 4, 2026:  In the event of an exception, the log file will not exist
@@ -217,7 +219,7 @@ def correct_rating_for_ai_bathymetry(huc_dir, huc, strm_order, bathy_file_aibase
     nwm_stream = gpd.read_file(path_nwm_streams)
 
     wbd8 = gpd.read_file(join(huc_dir, 'wbd.gpkg'), engine="pyogrio", use_arrow=True)
-    nwm_stream_clp = nwm_stream.clip(wbd8)
+    nwm_stream_clp = clip(nwm_stream, wbd8)
 
     ml_bathy_data_df = ml_bathy_data_df.merge(
         nwm_stream_clp[['ID', 'order_']], left_on='hf_id', right_on='ID'

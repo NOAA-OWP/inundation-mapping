@@ -8,6 +8,8 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 
+from utils.spatial import sjoin
+
 
 gpd.options.io_engine = "pyogrio"
 
@@ -134,8 +136,13 @@ def associate_levelpaths_with_levees(
     right_ids = leveed.loc[leveed['levee_side'] == 'right', f'{levee_id_attribute}_1']
 
     # Associate level paths with levee buffers
-    levee_levelpaths_left = gpd.sjoin(levees_buffered_left, levelpaths)
-    levee_levelpaths_right = gpd.sjoin(levees_buffered_right, levelpaths)
+    levee_levelpaths_left = sjoin(levees_buffered_left, levelpaths)
+    levee_levelpaths_right = sjoin(levees_buffered_right, levelpaths)
+    for df in [levee_levelpaths_left, levee_levelpaths_right]:
+        if branch_id_attribute not in df.columns:
+            df[branch_id_attribute] = pd.Series(dtype=int)
+        if levee_id_attribute not in df.columns:
+            df[levee_id_attribute] = pd.Series(dtype=int)
 
     levee_levelpaths_left = levee_levelpaths_left[[levee_id_attribute, branch_id_attribute]]
     levee_levelpaths_right = levee_levelpaths_right[[levee_id_attribute, branch_id_attribute]]
@@ -161,7 +168,18 @@ def associate_levelpaths_with_levees(
     # Add level paths to levees not found
     if len(levees_not_found) > 0:
         levees_not_found.geometry = levees_not_found.buffer(2 * levee_buffer)
-        levees_not_found = gpd.sjoin(levees_not_found, levelpaths)
+        levees_not_found = sjoin(levees_not_found, levelpaths)
+
+        # Ensure branch_id_attribute is present
+        if branch_id_attribute not in levees_not_found.columns:
+            if f"{branch_id_attribute}_right" in levees_not_found.columns:
+                levees_not_found.rename(
+                    columns={f"{branch_id_attribute}_right": branch_id_attribute}, inplace=True
+                )
+            elif f"{branch_id_attribute}_left" in levees_not_found.columns:
+                levees_not_found.rename(
+                    columns={f"{branch_id_attribute}_left": branch_id_attribute}, inplace=True
+                )
 
         # Add to out_df
         out_df = (

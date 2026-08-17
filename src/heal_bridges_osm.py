@@ -12,6 +12,8 @@ from rasterio import features
 from rasterio.warp import Resampling, reproject
 from rasterstats import zonal_stats
 
+from src.utils.spatial import sjoin
+
 
 threatened_percent = 0.75
 
@@ -164,7 +166,7 @@ def process_bridges_in_huc(
     osm_gdf = osm_gdf.loc[osm_gdf.threshold_hand > 0]
     catchments_df = gpd.read_file(catchments)
 
-    osm_gdf = gpd.sjoin(osm_gdf, catchments_df[['HydroID', 'feature_id', 'order_', 'geometry']], how='inner')
+    osm_gdf = sjoin(osm_gdf, catchments_df[['HydroID', 'feature_id', 'order_', 'geometry']], how='inner')
 
     del catchments_df
 

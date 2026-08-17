@@ -8,6 +8,7 @@ C++ process boundaries.
 """
 
 import argparse
+import gc
 import os
 import re
 import sys
@@ -28,6 +29,22 @@ gdal.UseExceptions()
 
 SRC_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SRC_DIR.parent
+
+
+# --- OPTIMIZATION 1: Global GDAL Threading & RAM Caching ---
+gdal.SetCacheMax(4096 * 1024 * 1024)  # Use 4GB GDAL Block Cache
+os.environ["GDAL_NUM_THREADS"] = "ALL_CPUS"
+os.environ["VSI_CACHE"] = "TRUE"
+
+# Multi-threaded compression flags for flushing rasters to disk/RAM-disk
+TIFF_WRITE_OPTIONS = [
+    "COMPRESS=LZW",
+    "TILED=YES",
+    "BLOCKXSIZE=512",
+    "BLOCKYSIZE=512",
+    "NUM_THREADS=ALL_CPUS",  # Uses all available CPU threads for compression
+    "BIGTIFF=IF_NEEDED",
+]
 
 
 # ------------------------------------------------------------------------------
@@ -74,17 +91,17 @@ def load_config_from_env_files() -> dict:
     return config
 
 
-def persist_dataset(ds: gdal.Dataset, dst_path: Path, srs_wkt: str = None, force: bool = True):
-    """Flushes an in-memory dataset to disk with explicit SRS preservation."""
-    if force and ds is not None:
-        dst_path = Path(dst_path)
-        dst_path.parent.mkdir(parents=True, exist_ok=True)
+def persist_dataset(src_ds: gdal.Dataset, dst_path: str, srs_wkt: str = None, force: bool = True):
+    """Flushes in-memory rasters to disk using multi-threaded CPU compression."""
+    if not force and os.path.exists(dst_path):
+        return
 
-        if srs_wkt and not ds.GetProjectionRef():
-            ds.SetProjection(srs_wkt)
-
-        driver = gdal.GetDriverByName("GTiff")
-        driver.CreateCopy(str(dst_path), ds, strict=0, options=["COMPRESS=LZW", "TILED=YES"])
+    driver = gdal.GetDriverByName("GTiff")
+    dst_ds = driver.CreateCopy(str(dst_path), src_ds, options=TIFF_WRITE_OPTIONS)
+    if srs_wkt:
+        dst_ds.SetProjection(srs_wkt)
+    dst_ds.FlushCache()
+    dst_ds = None
 
 
 def run_python_script(script_path: Path, args: list):
@@ -372,6 +389,10 @@ def delineate_and_produce_hand(
         tempCurrentBranchDataDir / f"flowaccum_d8_burned_filled_{current_branch_id}.tif",
         srs_wkt,
     )
+
+    # Clean up intermediate datasets no longer needed in RAM
+    del ds_allo, ds_dist, ds_dem, ds_dem_adj, ds_flowaccum
+    gc.collect()  # Force instant C/Python memory recovery
 
     # --- 6. FLOW CONDITION STREAMS (TauDEM C++ Subprocess) ---
     print(f"--> [Step 6] Flow Condition Thalweg {huc_number} {current_branch_id}")

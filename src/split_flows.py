@@ -67,6 +67,7 @@ import build_stream_traversal
 from utils.fim_enums import FIM_exit_codes
 from utils.shared_functions import getDriver
 from utils.shared_variables import FIM_ID
+from utils.spatial import sjoin
 
 
 gpd.options.io_engine = "pyogrio"
@@ -389,7 +390,7 @@ def split_flows(
     )
     split_flows_gdf['LengthKm'] = split_flows_gdf.geometry.length * toMetersConversion
     if lakes is not None:
-        split_flows_gdf = gpd.sjoin(
+        split_flows_gdf = sjoin(
             split_flows_gdf, lakes_buffer, how='left', predicate='within'
         )  # Note: Options include intersects, within, contains, crosses
         split_flows_gdf = split_flows_gdf.rename(columns={lake_id_column: "LakeID"}).fillna(-999)
