@@ -8,8 +8,8 @@ import traceback
 from datetime import datetime, timezone
 
 import geopandas as gpd
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 import src.utils.shared_functions as sf
 import tools.catfim.catfim_post_processing as cpp
@@ -31,7 +31,6 @@ and SEARCH (all found in the runtime_args.env file of the directories).
 The outputs are merged into new files in the output directory with a label added to the filename.
 
 '''
-
 
 
 def create_huc_summary_table(input_dirs, newest_run_name, output_dir):

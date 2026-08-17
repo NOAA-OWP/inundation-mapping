@@ -483,17 +483,13 @@ def read_format_catfim_library(catfim_library_filepath):
 
     if '.gpkg' in catfim_library_filepath:
         # Read in site GPKG
-        print(
-            f'Library file stored as GPKG, creating geometry column - {catfim_library_filepath}'
-        )  # VERBOSE
+        print(f'Library file stored as GPKG, creating geometry column - {catfim_library_filepath}')
 
         library_gdf = gpd.read_file(catfim_library_filepath, engine='fiona')
 
     elif '.csv' in catfim_library_filepath:
         # Read in site CSV
-        print(
-            f'Library file stored as CSV, creating geometry column - {catfim_library_filepath}'
-        )  # VERBOSE
+        print(f'Library file stored as CSV, creating geometry column - {catfim_library_filepath}')
 
         library_table = pd.read_csv(catfim_library_filepath)
 
