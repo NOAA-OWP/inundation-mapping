@@ -3,17 +3,25 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v4.9.____ - 2026-07-__ - [PR#1869](https://github.com/NOAA-OWP/inundation-mapping/pull/1869)
 
-Smooths out some outstanding quirks found after merging the CatFIM reorg changes into dev and creates a new CatFIM tool for joining outputs from a secondary run (such as Guam stage-based) into the primary CatFIM outputs.
+This PR smooths out some outstanding quirks found after merging the CatFIM reorg changes into dev and creates a new CatFIM tool for joining outputs from a secondary run (such as Guam stage-based) into the primary CatFIM outputs.
 
 ### Additions
 - `tools/catfim/catfim_combine_final_outputs.py`: Joins the CatFIM outputs from a secondary folder to the outputs in a primary folder. The outputs are merged into new files in the primary folder with a label added to the filename.
 
 ### Changes
+- `data/wrds/download_process_wrds.py`:  Fix a bug that was preventing the upstream and downstream trace to work. Update naming conventions. Renamed `main()` to `download_process_wrds()`.
+- `src/bash_variables.env`: Update NWM and Guam threshold and metadata files.
 - `src/process_branch.sh`: Comment change.
-- `tools/catfim/catfim_post_processing.py`: Moved filepath creation to new function `get_output_filepaths()`. Added functionality to save outputs as parquets (as well as the previous CSV and GPKG outputs).
-- `tools/catfim/catfim_shared_functions.py`: Adjusted logging priority.
-- `tools/catfim/generate_categorical_fim.py`: Fixed logging of unfinished HUC list (was causing error).
-- `tools/tools_shared_functions.py`: Comment change.
+- `tools/catfim/ahps_restricted_sites.csv`: Add restricted site.
+- `tools/catfim/catfim_post_processing.py`: Moved filepath creation to new function `get_output_filepaths()`. Added functionality to save outputs as parquets (as well as the previous CSV and GPKG outputs). Added additional logging to the site GDF compilation section. 
+- `tools/catfim/catfim_process_huc.py`: Updated file saving settings.
+- `tools/catfim/catfim_shared_functions.py`: Adjusted logging priority. Changed some errors to warnings in logging. Updated file saving settings.
+- `tools/catfim/catfim_sites_compare.py`: Update script to handle new column names and file structures of the post-reorg CatFIM outputs (while still backwards compatible with previous outputs since it's a comparison tool).
+- `tools/catfim/generate_categorical_fim.py`: Fixed logging of unfinished HUC list (was causing error). Added HUC list text file functionality.  Updated file save settings and added output parquets. Removed rerun section (for now). 
+- `tools/catfim/generate_categorical_fim_flows.py`: Add logging of segment list (for debugging). Updated file saving settings. 
+- `tools/catfim/generate_categorical_fim_mapping.py`: Fixed logging syntax where `warnings` was used instead of `warning` (was causing error). Added exit if no geometries were found (was causing error). Updated file saving settings. 
+- `tools/tools_shared_functions.py`: Comment change. Updated file reading settings.
+
 
 ## v4.9.21.9 - 2026-08-17 - [PR#1876](https://github.com/NOAA-OWP/inundation-mapping/pull/1876)
 
