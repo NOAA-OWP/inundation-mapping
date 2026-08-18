@@ -107,7 +107,7 @@ def does_s3_bucket_exist(s3_client, bucket_name):
         # Check if our aws_exception_handler knows what it is.
         # if it finds it, it returns a nice user friendly message
         return_msg, _ = awssf.aws_exception_handler(ex)
-        raise Exception(return_msg)
+        raise Exception(return_msg)n_msg)
 
     return is_success, return_msg
 
