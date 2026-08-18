@@ -1,6 +1,105 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.21.9 - 2026-08-17 - [PR#1876](https://github.com/NOAA-OWP/inundation-mapping/pull/1876)
+
+Updates to LoFI model and optimizations to runtime and memory management.
+
+### Changes
+- `tools/lofi/probabilistic_distribution_parameters.py`: Updated tqdm to work with script or notebooks.
+- `tools/lofi/probabilistic_generate_metric_response_surfaces.py`: Updated tqdm to work with script or notebooks.
+- `tools/lofi/probabilistic_generate_get_ensembles_gcs.py`: Updated tqdm to work with script or notebooks.
+- `tools/lofi/probabilistic_get_ensembles_gcs`: Updated tqdm to work with script or notebooks.
+- `tools/lofi/probabilistic_get_ensembles_nomads`: Updated tqdm to work with script or notebooks.
+- `tools/lofi/probabilistic_inundation.py`: Established base parameters for distributions, checked for monotonically increasing discharge, and refactored to optimize runtime including revisions made in [PR#1912](https://github.com/NOAA-OWP/inundation-mapping/pull/1912/changes)
+- `tools/lofi/probabilistic_version.py`: Updated version.
+- `tools/inundate_gms.py`: Added check to direct dataframe SRC if indexes already exist to avoid expensive reindexing.
+<br/>
+
+## v4.9.21.8 - 2026-08-14 - [PR#1917](https://github.com/NOAA-OWP/inundation-mapping/pull/1917)
+
+This PR fixes a bug in `reset_htable_src.py` where the old calibration columns were not being cleared. Previously, when reset_htable_src.py was executed, the script reset discharge_cms to its original geometric values but did not remove existing calibration columns, such as precalb_discharge_cms.
+
+### Changes
+- `src/reset_htable_src.py`: Updated the reset logic to check for the presence of calibration columns (precalb_discharge_cms, calb_coef_*, calb_applied, etc.) and set their values back to default empty states.
+<br/>
+
+## v4.9.21.7 - 2026-08-14 - [PR#1916](https://github.com/NOAA-OWP/inundation-mapping/pull/1916)
+
+Hotfix to address missing/null slope values for oCONUS domains when using the ransac-derived slope input file. The `add_crosswalk.py` workflow now uses SWORD-derived and then rise/run slope values if missing/null values in the ransac-derived dataset. 
+
+### Changes
+
+- `add_crosswalk.py`: updated logic to use and prioritize three different slope sources to ensure no missing/null values. Priority order: 1) RANSAC-derived slope from hfab 2) IRIS-SWORD-derived slope 3) default rise/run
+<br/>
+
+## v4.9.21.6 - 2026-08-14 - [PR#1842](https://github.com/NOAA-OWP/inundation-mapping/pull/1842)
+
+This PR identifies and removes NWM streams that fall into the whitelist ripple model domain gaps. It also builds a final list of valid Ripple/NWM stream reaches and matching model domains. It removes blacklisted or invalid records, resolves cross-HUC duplicates, removes small disconnected domain fragments, excludes streams insufficiently covered by the retained domain, and preserves short topological bridges. So main goals include:
+
+  - Excludes blacklisted streams
+  - Revalidates stream records using library-path status, HUC assignments, and HUC boundary overlap.
+  - Keeps only model domains belonging to surviving collection/model combinations.
+  - Excludes any island model domain (small model domain that are not connected of the main Ripple domain). Therefore, it Removes disconnected domain components that intersect one or zero streams.
+  - Buffers that domain by 100 metres to tolerate small edge/alignment errors.
+  - Decides which whitelisted streams have adequate spatial coverage:
+ 
+      1.  Includes streams fully inside the ripple domain (within)
+      2.  Includes streams between 2 included streams. The current workflow uses 3 streams.
+      3.  Includes headwaters that at least 50% of downstream tail of stream is inside the domain and downstream_endpoint covered by the domain.
+      4.  Includes the middle streams that at least 60%  of stream is inside the domain and downstream_endpoint covered by the domain.
+
+  - Retains short gaps of up to three reaches when they connect two included reaches.
+  - Flags certain streams spanning multiple individual model domains as “too long.”
+  - Removes domain rows whose intersecting streams are all invalid.
+
+
+### Additions
+`/data/ripple/remove_ripple_blacklisted_streams_and_model_gaps.py`
+
+### Changes
+`/data/ripple/validate_ripple_data.py`
+`/data/ripple/remove_blacklisted_streams_and_ripple_model_domain_gaps.py`
+<br/>
+
+## v4.9.21.5 - 2026-08-14 - [PR#1907](https://github.com/NOAA-OWP/inundation-mapping/pull/1907)
+
+This compares the roughness and slopes of Ohio River streams between FIM 6.1 and 6.2. For large slope changes, it recalculates channel and overbank Manning’s roughness using 6.1 roughness × sqrt(6.2 slope / 6.1 slope), capped at 0.07 and 0.20; otherwise, it retains the 6.2 values.
+It writes comparison CSVs, removes incomplete and manually excluded features, updates the FIM 6.2.1 Manning table (`/src/bash_variables.env`), and finally applies manually reviewed overrides from weird_feature_roughness_updated.csv.
+
+### Changes
+
+- `/tools/analyze_optz_roughness.py`
+- `/src/bash_variables.env`
+
+<br/>
+
+## v4.9.21.4 - 2026-08-14 - [PR#1910](https://github.com/NOAA-OWP/inundation-mapping/pull/1910)
+
+Significantly improves performance and memory usage of the manning subdivision code.
+
+### Additions
+* Streamline manning subdivision. Almost all the computation happens within numpy/C layer. For 19020104 huc, branch 0, the manning subdivision is computed in 525ms. Reusing memory buffers within numpy results in significantly reduced memory usage.
+* Add `use_pandas_3_behavior` decorator. This enables current pandas 3.0 behavior in pandas 2.2+ within a scoped block (function or context).
+
+### Changes
+* Several parts of the computation were modified to improve numerical stability and enforce physical constraints.
+
+I observed that the bottleneck of the original function is actually reading files. I split the file I/O and the computation into separate pieces. Switching to a faster csv parser (pyarrow) halved the runtime.
+
+<br/>
+
+## v4.9.21.3 - 2026-08-14 - [PR#1803](https://github.com/NOAA-OWP/inundation-mapping/pull/1803)
+
+This PR updates the FLASH FIM workflow to make it more efficient for development of a rapidly updating service and expands the capabilites to oCONUS domains.
+
+### Additions
+- `tools/flashfim/optimized_flash_conflation.py`: Added new script to look up FLASH flows via a lookup table rather than using zonal stats to optimize service efficiency. This new script can also process additional domains including Puerto Rico, Virgin Islands, Hawaii, and Guam.
+
+### Changes
+- `tools/flashfim/conflate_flash_flows.py`: Restructured reading of FLASH grib file for efficiency.
+<br/>
+
 ## v4.9.21.2 - 2026-07-24 - [PR#1895](https://github.com/NOAA-OWP/inundation-mapping/pull/1895)
 
 Most notes embedded.
@@ -117,7 +216,6 @@ Fixes a topology error in `associate_levelpaths_with_levees.py` where the negati
 ### Changes
 
 `src/associate_levelpaths_with_levees.py`: Adds `resolution` parameter for buffer creation.
-
 <br/>
 
 ## v4.9.20.0 - 2026-07-11 - [PR#1731](https://github.com/NOAA-OWP/inundation-mapping/pull/1731)
