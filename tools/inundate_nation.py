@@ -6,15 +6,17 @@ import multiprocessing
 import os
 import re
 import shutil
+import traceback
 from collections import defaultdict
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import datetime, timezone
-from multiprocessing import Pool
 
 import rasterio
 from inundate_mosaic_wrapper import produce_mosaicked_inundation
 from rasterio.enums import Resampling
 from rasterio.shutil import copy
 from rio_vrt import build_vrt
+from tqdm import tqdm
 
 # from utils.shared_functions import FIM_Helpers as fh
 import src.utils.shared_functions as sf
@@ -40,13 +42,12 @@ def inundate_nation(
 ):
     assert os.path.exists(flow_file), f"ERROR: could not find the flow file: {flow_file}"
 
-    if job_number > available_cores:
-        job_number = available_cores - 2
-        print(
-            "Provided job number exceeds the number of available cores. "
-            + str(job_number)
-            + " max jobs will be used instead."
-        )
+    available_cores = multiprocessing.cpu_count() - 2
+
+    total_workers = job_number * thread_number
+    if total_workers > available_cores:
+        raise Exception("Job number arg * num threads can not exceed the max cores - 2."
+                        f" max available is {available_cores}")
 
     hand_version = os.path.basename(os.path.normpath(hand_run_dir))
     output_base_file_name = magnitude_key + "_" + hand_version
@@ -57,7 +58,7 @@ def inundate_nation(
 
     print("================================")
     logging.info(f"Start Inundate Nation : {datetime.now().strftime('%m/%d/%Y %H:%M:%S')}")
-    logging.info(f"Using fim version: {hand_version}")    
+    logging.info(f"Using hand version: {hand_version}")    
     overall_start_dt = datetime.now(timezone.utc)
 
     logging.info(f"Input FIM Directory: {hand_run_dir}")
@@ -95,58 +96,86 @@ def inundate_nation(
     huc_list.sort()
 
     logging.info(f"Inundation mosaic wrapper outputs will saved here: {magnitude_output_dir}")
-    run_inundation(hand_run_dir, huc_list, magnitude_key, magnitude_output_dir, flow_file, thread_number, precalb)
 
-    # Perform mosaic operation
-    if inc_mosaic:
-        fh.print_current_date_time()
-        logging.info(datetime.now().strftime("%Y_%m_%d-%H_%M_%S"))
-        logging.info("Performing bool mosaic process...")
-        output_bool_dir = os.path.join(output_dir, "bool_temp")
-        logging.info(f"output_bool_dir is {output_bool_dir}")
+    try:
 
-        if not os.path.exists(output_bool_dir):
-            os.mkdir(output_bool_dir)
-        else:
+        if os.path.exists(output_bool_dir):
             # we need to empty it. we will kill it and remake it (using rmtree to force it)
             shutil.rmtree(output_bool_dir, ignore_errors=True)
+
+        has_errors = run_inundation(hand_run_dir, huc_list, magnitude_key, magnitude_output_dir,
+                        flow_file, thread_number, job_number, precalb)
+
+        logging.info(f"Inudation complete: {sf.calculate_duration_msg(overall_start_dt)}")
+
+        if huc_errors...... put up message and stop.
+
+        # Perform mosaic operation
+        if inc_mosaic:
+            section_start_dt = datetime.now(timezone.utc)
+            logging.info("-----------")
+            logging.info("Performing bool mosaic process...")
+            logging.info(datetime.now().strftime("%Y_%m_%d-%H_%M_%S"))
+            output_bool_dir = os.path.join(output_dir, "bool_temp")
+            logging.info(f"output_bool_dir is {output_bool_dir}")
+
             os.mkdir(output_bool_dir)
 
-        procs_list = []
-        for rasfile in os.listdir(magnitude_output_dir):
-            if rasfile.endswith(".tif") and "extent" in rasfile:
-                # p = magnitude_output_dir + rasfile
-                procs_list.append([magnitude_output_dir, rasfile, output_bool_dir, hand_version])
+            procs_list = []
+            for rasfile in os.listdir(magnitude_output_dir):
+                if rasfile.endswith(".tif") and "extent" in rasfile:
+                    # p = magnitude_output_dir + rasfile
+                    procs_list.append([magnitude_output_dir, rasfile, output_bool_dir, hand_version])
 
-        # Multiprocess --> create boolean inundation rasters for all hucs
-        if len(procs_list) > 0:
-            with Pool(processes=job_number) as pool:
-                pool.map(create_bool_rasters, procs_list)
+            # Multiprocess --> create boolean inundation rasters for all hucs
+
+            if len(procs_list) > 0:
+                with Pool(processes=job_number) as pool:
+                    pool.map(create_bool_rasters, procs_list)
+            else:
+                msg = f"Did not find any valid FIM extent rasters: {magnitude_output_dir}"
+                print(msg)
+                logging.info(msg)
+
+            # Perform VRT creation and mosaic all of the huc rasters using boolean rasters
+            vrt_raster_mosaic(output_bool_dir, output_dir, output_base_file_name, thread_number, precalb)
+
+            # now cleanup the temp bool directory
+            shutil.rmtree(output_bool_dir, ignore_errors=True)
+
+            logging.info("-----------")
+            logging.info("bool mosaic process complete...")
+            logging.info(f"ended: {datetime.now().strftime('%m/%d/%Y %H:%M:%S')}")
+            logging.info(sf.calculate_duration_msg(section_start_dt))
+
         else:
-            msg = f"Did not find any valid FIM extent rasters: {magnitude_output_dir}"
-            print(msg)
-            logging.info(msg)
+            print("Skipping mosiaking")
 
-        # Perform VRT creation and mosaic all of the huc rasters using boolean rasters
-        vrt_raster_mosaic(output_bool_dir, output_dir, output_base_file_name, thread_number, precalb)
+    except KeyboardInterrupt:
+        # Ctrl-C, just continue and shut down, no errors, warnings.
+        logging.error("Keyboard Interrupt (likely Ctrl-C)")
 
-        # now cleanup the temp bool directory
-        shutil.rmtree(output_bool_dir, ignore_errors=True)
+    except Exception:
+        # No need to reraise
+        logging.critical("++++++++++++++++++++++++++++++++++++++++++++++++")
+        logging.critical("An exception has occurred")
+        logging.critical(traceback.format_exc())
+    finally:
+        print("================================")
+        logging.info("End Inundate Nation")
+        logging.info(f"ended: {datetime.now().strftime('%m/%d/%Y %H:%M:%S')}")
+        logging.info(sf.calculate_duration_msg(overall_start_dt))
+        print(f"Log files were saved to {log_file_path}")       
+        print()
 
-    else:
-        print("Skipping mosiaking")
 
     # now cleanup the raw mosiac directories
     # comment this out if you want to see the individual huc rasters
-    shutil.rmtree(magnitude_output_dir, ignore_errors=True)
-
-    fh.print_current_date_time()
-    logging.info(logging.info(datetime.now().strftime("%Y_%m_%d-%H_%M_%S")))
-    end_time = datetime.now()
-    logging.info(fh.print_date_time_duration(start_dt, end_time))
+    # shutil.rmtree(magnitude_output_dir, ignore_errors=True)
 
 
-def run_inundation(hand_run_dir, huc_list, magnitude, magnitude_output_dir, forecast, thread_number, precalb):
+def run_inundation(hand_run_dir, huc_list, magnitude, magnitude_output_dir,
+                   forecast, thread_number, job_number, precalb, log_file_path):
     """
     This script is a wrapper for the inundate function and is designed for multiprocessing.
 
@@ -157,7 +186,7 @@ def run_inundation(hand_run_dir, huc_list, magnitude, magnitude_output_dir, fore
     """
     # Define file paths for use in inundate().
 
-    inundation_raster = os.path.join(magnitude_output_dir, magnitude + "_inund_extent.tif")
+    final_inundation_raster = os.path.join(magnitude_output_dir, magnitude + "_inund_extent.tif")
 
     logging.info(
         "Running inundation wrapper for the NWM recurrence intervals for each huc using magnitude: "
@@ -170,29 +199,149 @@ def run_inundation(hand_run_dir, huc_list, magnitude, magnitude_output_dir, fore
     )
     print()
 
+    # =================================
+    # Set up multiprocessor
+
+    # Each log file created by each MP huc and mag pre-pended will start with the prefix
+    # Each MP will add its own suffix to avoid log collisions
+    # at the end of the process pool, we will aggregate the log files
+    # which include this prefix.
+    mp_log_prefix = f"{magnitude}_huc"
+    # clear out any files that already pre-existed as mp files with this prefix.
+    sf.remove_child_logs(log_file_path, mp_log_prefix)
+
+    # try already set prior to calling run_inundation)
+
+
+    # Build up the list of args
+    # Note.. .do not turn this into a generator - important
+
     # July 2026: We no longer pass in num_workers as downstream no only uses multi-threading.
     # Some other scripts use num_workers to have their own MP before passing into produce_mosaicked_inundation
     # but others, just use high thread counts, such as this tool historically.
     # See more notes in produce_mosaicked_inundation and mosaic_inundation
     # In this case, it is processing multiple hucs at a time, so it will automatically use the
     # output_raster_path as a base name and location, appending the huc value to each one produced
+    inun_arg_list = []
+    for huc in huc_list:
+        huc_mosaic_path = os.path.join(magnitude_output_dir, f"{magnitude}_{huc}_inund_extent.tif")
+        args = {
+            'hydrofabric_dir': hand_run_dir,
+            'hucs': huc,
+            'flow_file_path': forecast,
+            'output_raster_path': huc_mosaic_path,
+            # 'hydro_table_path': None  # let it pick it up from the huc level
+            'verbose': False,
+            'is_mosaic_for_branches': True,  # not really a good name, see produce_mosaicked_inundation for detail
+            'num_threads': thread_number,
+            # num_parent_workers - Used only for memory allocation management, not MT's
+            'num_parent_workers': job_number,
+            'precalb_option': precalb,
+        }
+        inun_arg_list.append(args)
 
-    # is_mosaic_for_branches: Technically is not the right name. It simply appends the huc number to the mosiac file
-    produce_mosaicked_inundation(
-        hand_run_dir,
-        huc_list,
-        forecast,
-        output_raster_path=inundation_raster,
-        # num_workers=job_number,  # Aug 2026: Was never really used here
-        num_threads=thread_number,
-        remove_intermediate_files=True,
-        verbose=True,
-        # True because we are processing more than one HUC. This means for each huc, all of its branches
-        # are mosaicked at the HUC level.
-        is_mosaic_for_branches=True,
-        precalb_option=precalb,
-        mosaic_attribute="inundation_raster_paths",
-    )
+    # TODO: Aug 13: Via a TON of testing through the synthesize_test_case.py, it is clear that there is a very tiny memory leak
+    # still in play. I added MP here with MT downstream to emulate how synth does it which is a least close.
+    # This tool previously more/less only used num threads (ish) for inundation. But that option is no longer avaialble as
+    # it quickly overloads the system. The true memory leaks is somewhere in iundate_gms.py and inundate.py.
+    # Now both Google Gemini and VSCode Copilot says there is no longer any true memory leaks but might be a volume issue
+    # and object management. But.. simply dropping the workers does not quite seem to be enough, but more testing is required
+    # to see if we can at least get by with lower thread numbers.
+    # This tool is mid update and has not be tested at all with the new inundation code.
+
+    # There continues to show evidence of memory leaks somewhere indirectly to gval and it really needs a re-evaluation
+    # I have run a number of benchmark and various other tools and many point to it as well as some issues inside our
+    # tools_shared_functions. It appears a ton of the functions in tools_shared_functions need upgrades and were not
+    # written in the first place with memory management in place. Granted, almost all of our tools have not considered
+    # best practises for memory and resource management. Now that we are needing more and more processing with more tools
+    # and processing steps, that tech-debt is catching up to us.
+
+
+    # Explicitly set the start method to fork
+    # (Must be called before any pool is created)
+    multiprocessing.set_start_method('spawn', force=True)
+    has_errors = False
+    with ProcessPoolExecutor(max_workers=job_number) as executor:
+
+        # Loop through all test cases, build the alpha test arguments, and submit them to the process pool
+        executor_dict = {}
+
+        pbar = tqdm(
+            total=len(inun_arg_list),
+            desc=f"Running Inundation per HUC with {job_number} workers",
+        )
+        try:
+            for huc in huc_list:
+                huc_mosaic_path = os.path.join(magnitude_output_dir, f"{magnitude}_{huc}_inund_extent.tif")
+                args = {
+                    'hydrofabric_dir': hand_run_dir,
+                    'hucs': huc,
+                    'flow_file_path': forecast,
+                    'output_raster_path': huc_mosaic_path,
+                    # 'hydro_table_path': None  # let it pick it up from the huc level
+                    'verbose': False,
+                    'is_mosaic_for_branches': True,  # not really a good name, see produce_mosaicked_inundation for detail
+                    'num_threads': thread_number,
+                    # num_parent_workers - Used only for memory allocation management, not MT's
+                    'num_parent_workers': job_number,
+                    'precalb_option': precalb,
+                }
+                future = executor.submit(produce_mosaicked_inundation, **args)
+                executor_dict[future] = huc  # We can use the huc as a future ID
+
+                for future in as_completed(executor_dict):
+
+                    huc_num = executor_dict[future]
+                    if future is not None:
+                        if future.cancelled():  # for keyboard CTRL-C's generally
+                            continue
+                        if future.exception():  # Just reraise as is
+                            has_errors = True
+                            logging.critical(f"An exception has been returned by future: {huc_num}")
+                            raise future.exception()
+                        # We do not use the result at this time
+                    num_successful_tests += 1
+                    pbar.update(1)  # ✅ Progress update for each completed task
+
+                    # helps release the memory faster
+                    del executor_dict[future]
+
+        except KeyboardInterrupt:
+            has_errors = True
+            # Ctrl-C, just continue and shut down, no errors, warnings.
+            logging.error("Keyboard Interrupt (likely Ctrl-C)")
+            pbar.close()  # aborts the progress bar
+            executor.shutdown(wait=True, cancel_futures=True)  # yes.. need wait True for MT
+
+        except Exception as ex:
+            has_errors = True
+            # this covers fails in the original call to produce_mosaicked_inundation such as
+            # bad definition.
+            logging.critical("++++++++++++++++++++++++++++++++++++++++++++++++")
+            logging.critical(f"*** Error: {ex}")
+            logging.critical(traceback.format_exc())
+            pbar.close()
+            # Note: Even though we use the "wait" flag, most WIP processes can not be
+            # aborted when using ProcessPool
+            executor.shutdown(
+                wait=True, cancel_futures=True
+            )  # tells the ProcessPoolExecutor to stop accepting new tasks. Even cancel the running tasks as soon as possible
+            # raise ex  Do not re-raise and do not sys.exit
+
+        finally:
+            # This will also merge -error.log and -warning.log files into the
+            # respective parent error, warning files.
+            # Granted.. putting it in "finally" will mean we get the logs a bit out of order
+            # but all errors and criticals are in the logs at least twice, so look at
+            # the last error messages and it will have context
+            print("++++++++++++")
+            logging.info(f"Merging child log files into parent logs. {log_file_path} - {mp_log_prefix}")
+            print("This can take a bit, hang in there.")
+            sf.merge_child_logs_into_parent_log(log_file_path, mp_log_prefix)
+            
+            # but it will be close enough to the actual progress.
+    return has_errors  
+
 
 
 def create_bool_rasters(args):
@@ -204,7 +353,9 @@ def create_bool_rasters(args):
     print("Calculating boolean inundate raster: " + rasfile)
     p = in_raster_dir + os.sep + rasfile
 
-    # TODO: Aug 2026: Might need to upgrade this to adde memoryfile wrappers. Tbd
+    # TODO: Aug 2026: 
+    # This whole section needs major memory and object/resource management upgrades. Lots of precendences
+    # and examples in the synthesize_test_case and downstream inundation family of files.
     with rasterio.open(p) as raster:
         profile = raster.profile
         array = raster.read()
@@ -235,6 +386,8 @@ def create_bool_rasters(args):
 
 
 def vrt_raster_mosaic(output_bool_dir, output_dir, fim_version_tag, threads, precalb):
+
+    # TODO: Aug 13, 2026: Lots of review and update requirements needed here for memory and object/resource management
     crs_groups = defaultdict(list)
 
     # Group rasters by CRS
@@ -318,8 +471,6 @@ if __name__ == "__main__":
         -t 8
     outputs become /data/inundation_review/inundate_nation/hw_fim_4_0_9_2_mosiac.tif (.log, etc)
     """
-
-    available_cores = multiprocessing.cpu_count()
 
     # Parse arguments.
     parser = argparse.ArgumentParser(

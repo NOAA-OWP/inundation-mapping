@@ -14,6 +14,29 @@ from src.utils.shared_functions import setup_file_logger
 from tools.tools_shared_variables import elev_raster_ndv
 
 
+# TODO: Aug 2026:  A ton of code changes have been done in teh "inudation" family of files that this tool uses.
+# Those changes were based entirely in memory / object / resourece management. This also triggered fundamental
+# changes in how we use ProcessPools and ThreadPools. Upgrades with GDAL / rasterio / geopandas / numpy, fiona and others
+# have been the true new triggers exposing significant code updates in some tools to help this.
+
+# As part of those upgrades, some simple changes were made help with logging sytems and we no longer can use
+# a "log" file as an argument. It now takes very little to bolt in our shared_functions.setup_logger system which
+# will be compatiable with the embedded logging in the inundate family of files.
+
+# Tasks here:
+#    - add shared_function logging
+#    - finish updating function calls to the new inudate files. Lots of efforts have been made in those files
+#      for depth rasters and processes that are only used by this tool. This file already has a good handful
+#      of those changes WIP implemented
+#    - Lots of adjustments required here for memory / resource management, far more than just rasterio "with"
+#      Lots of precendences in inudate family of files and synthesize_test_case.py and run_test_case.py
+#      Note: Simply adding rasterio "withs" for this tool are insufficent due to the volume and nature of data
+#      and tool usage.
+#    - This file is WIP and has not had even rudimentary testing for the new inundation changes.
+
+# Ask Rob.. there is a ton of changes, back story, adjustments, discoveries made over multiple months that are applicable
+# to this tool.
+
 def interpolate_wse(
     inundation_depth_raster,
     hydroconditioned_dem,
