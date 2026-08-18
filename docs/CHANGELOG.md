@@ -47,6 +47,19 @@ Bash scripts were also refactored to use bash arrays and use of explicit notatio
 #### Updated deny list
 - `config/deny_unit.lst`: Commented `buildings_subset.gpkg`
 
+## v4.9.21.9 - 2026-08-17 - [PR#1876](https://github.com/NOAA-OWP/inundation-mapping/pull/1876)
+
+Updates to LoFI model and optimizations to runtime and memory management.
+
+### Changes
+- `tools/lofi/probabilistic_distribution_parameters.py`: Updated tqdm to work with script or notebooks.
+- `tools/lofi/probabilistic_generate_metric_response_surfaces.py`: Updated tqdm to work with script or notebooks.
+- `tools/lofi/probabilistic_generate_get_ensembles_gcs.py`: Updated tqdm to work with script or notebooks.
+- `tools/lofi/probabilistic_get_ensembles_gcs`: Updated tqdm to work with script or notebooks.
+- `tools/lofi/probabilistic_get_ensembles_nomads`: Updated tqdm to work with script or notebooks.
+- `tools/lofi/probabilistic_inundation.py`: Established base parameters for distributions, checked for monotonically increasing discharge, and refactored to optimize runtime including revisions made in [PR#1912](https://github.com/NOAA-OWP/inundation-mapping/pull/1912/changes)
+- `tools/lofi/probabilistic_version.py`: Updated version.
+- `tools/inundate_gms.py`: Added check to direct dataframe SRC if indexes already exist to avoid expensive reindexing.
 <br/>
 
 ## v4.9.21.8 - 2026-08-14 - [PR#1917](https://github.com/NOAA-OWP/inundation-mapping/pull/1917)
