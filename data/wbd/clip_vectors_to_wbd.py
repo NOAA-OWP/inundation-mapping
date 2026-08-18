@@ -15,11 +15,9 @@ from dotenv import load_dotenv
 from shapely.geometry import LineString, MultiPolygon, Point, Polygon
 from shapely.ops import nearest_points
 
-<<<<<<< HEAD
+
 from src.utils.io import write_geodataframe
-=======
 from src.utils.shared_functions import get_huc_vars
->>>>>>> dev
 
 
 gpd.options.io_engine = "pyogrio"
