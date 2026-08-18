@@ -15,7 +15,6 @@ from dotenv import load_dotenv
 from shapely.geometry import LineString, MultiPolygon, Point, Polygon
 from shapely.ops import nearest_points
 
-
 from src.utils.io import write_geodataframe
 from src.utils.shared_functions import get_huc_vars
 
