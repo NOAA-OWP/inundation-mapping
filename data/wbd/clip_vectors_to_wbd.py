@@ -15,6 +15,8 @@ from dotenv import load_dotenv
 from shapely.geometry import LineString, MultiPolygon, Point, Polygon
 from shapely.ops import nearest_points
 
+from src.utils.io import write_geodataframe
+
 
 gpd.options.io_engine = "pyogrio"
 
@@ -35,7 +37,7 @@ output_filenames = {
     "levee_protected_areas": "LeveeProtectedAreas_subset.gpkg",
     "osm_bridges": "osm_bridges_subset.gpkg",
     "osm_roads": "osm_roads_subset.gpkg",
-    "buildings": "buildings_subset.gpkg",
+    "buildings": "buildings_subset.parquet",
 }
 
 
@@ -402,7 +404,7 @@ def subset_vector_layers(
             merged = gpd.GeoDataFrame(merged, geometry="geometry", crs=gdfs[0].crs)
 
             dst = os.path.join(huc_directory, output_filenames['buildings'])
-            merged.to_file(dst, driver="GPKG", engine="fiona")
+            write_geodataframe(merged, dst)
 
         else:
             logging.info(f"-- No building parquet files for huc {huc}")

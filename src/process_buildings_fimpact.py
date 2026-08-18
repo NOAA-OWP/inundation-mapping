@@ -31,7 +31,7 @@ def process_buildings_fimpact(
     branch_id = Path(output_path).parent.name
 
     # read buildings data
-    buildings_gdf = gpd.read_file(buildings_polygons)
+    buildings_gdf = gpd.read_parquet(buildings_polygons)
 
     # read catchments to split the building polygons for each intersected HYDROID/feature_id.
     catchments_df = gpd.read_file(catchments_path, columns=['HydroID', 'feature_id', 'geometry'])
@@ -95,7 +95,7 @@ if __name__ == "__main__":
     Sample usage :
         python foss_fim/src/process_buildings_fimpact.py
         -g outputs/buildings/02050206/branches/0/rem_zeroed_masked_0.tif
-        -r outputs/buildings/02050206/buildings_subset.gpkg
+        -r outputs/buildings/02050206/buildings_subset.parquet
         -c outputs/roads/02050206/branches/0/gw_catchments_reaches_filtered_addedAttributes_crosswalked_0.gpkg
         -o outputs/buildings/02050206/branches/0/buildings_fimpact_0.csv
 

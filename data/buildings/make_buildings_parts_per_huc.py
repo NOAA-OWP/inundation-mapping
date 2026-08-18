@@ -54,7 +54,7 @@ def make_building_parts_per_huc(
         if p.is_dir():
             shutil.rmtree(p)
 
-    print("Loading HUC8 buffered polygons from preclipping directory...")
+    print("Loading HUC8 boundary polygons from preclipping directory...")
     hucs_by_crs = load_hucs_by_crs(
         current_preclip_directory=current_preclip_directory, file_logger=file_logger, number_jobs=number_jobs
     )
@@ -129,9 +129,9 @@ def get_crs_of_state(state: str) -> str:
 
 def load_single_huc_for_crs(huc8: str, huc_dir: Path, file_logger, screen_queue, task_id):
     try:
-        gpkg = huc_dir / "wbd_buffered.gpkg"
+        gpkg = huc_dir / "wbd.gpkg"
         if not gpkg.exists():
-            raise RuntimeError(f"Missing wbd_buffered.gpkg file for HUC8_{huc8}.")
+            raise RuntimeError(f"Missing wbd.gpkg file for HUC8_{huc8}.")
 
         if huc8.startswith("19"):
             crs_key = ALASKA_CRS
@@ -155,7 +155,7 @@ def load_hucs_by_crs(
     current_preclip_directory: Path, file_logger, number_jobs: int
 ) -> Dict[str, gpd.GeoDataFrame]:
     """
-    Loads all HUC8 buffered polygons into memory, grouped by CRS (as strings),
+    Loads all HUC8 boundary polygons into memory, grouped by CRS (as strings),
     but assigns bucket/CRS purely from HUC8 directory name patterns (no CRS inspection).
 
     Bucketing rules (as requested):
@@ -165,7 +165,7 @@ def load_hucs_by_crs(
       - Else:   CONUS                       -> DEFAULT_FIM_PROJECTION_CRS
 
     Expects:
-      huc_root/<HUC8>/wbd_buffered.gpkg
+      huc_root/<HUC8>/wbd.gpkg
     """
     if not current_preclip_directory.exists():
         raise RuntimeError(f"Preclip directory does not exist: {current_preclip_directory}")

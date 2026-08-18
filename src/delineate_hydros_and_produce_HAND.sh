@@ -318,13 +318,13 @@ else
 fi
 
 ## Process buildings FIMpact ##
-if  [ -f $tempHucDataDir/buildings_subset.gpkg ]; then
+if [ "$process_buildings_fimpact" = "True" ] && [ -f $tempHucDataDir/buildings_subset.parquet ]; then
     echo -e $startDiv"Process buildings FIMpact $hucNumber $current_branch_id"
     date -u
     Tstart
     python3 $srcDir/process_buildings_fimpact.py \
         -g $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
-        -r $tempHucDataDir/buildings_subset.gpkg \
+        -r $tempHucDataDir/buildings_subset.parquet \
         -c $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked_$current_branch_id.gpkg \
         -o $tempCurrentBranchDataDir/buildings_fimpact_$current_branch_id.csv
     Tcount

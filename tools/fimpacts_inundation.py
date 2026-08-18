@@ -73,7 +73,7 @@ def inundation_status(
         },
         'buildings': {
             'fimpact_filename': 'buildings_fimpact.csv',
-            'subset_filename': 'buildings_subset.gpkg',
+            'subset_filename': 'buildings_subset.parquet',
             'join_id': 'UUID',
             'id_columns': ['UUID', 'huc8', 'HydroID', 'feature_id', 'branch'],
         },
@@ -166,7 +166,10 @@ def inundation_status(
 
         # open feature geometry
         feature_id = feature_config['join_id']
-        feature_gdf = gpd.read_file(feature_path)[[feature_id, 'geometry']]
+        if feature_path.lower().endswith('.parquet'):
+            feature_gdf = gpd.read_parquet(feature_path)[[feature_id, 'geometry']]
+        else:
+            feature_gdf = gpd.read_file(feature_path)[[feature_id, 'geometry']]
 
         # merge to get geometry and add it to fimpact
         fimpact_gdf = fimpact_df.merge(feature_gdf, on=feature_id, how='left')
