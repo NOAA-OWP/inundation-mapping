@@ -888,7 +888,7 @@ def get_stats_table_from_binary_rasters(
                         layer_agreement_raster = os.path.join(
                             os.path.split(agreement_raster)[0], poly_handle + '_agreement.tif'
                         )
-                        logging.debug(f"layer_agreement_raster is {layer_agreement_raster}")
+                        # logging.debug(f"layer_agreement_raster is {layer_agreement_raster}")
                         agreement_map_write = agreement_map_include.rio.write_nodata(10, encoded=True)
                         # TODO: Jun 2026: Was occasionally throwing rasterio errors.
                         # ie) 	rasterio._err.CPLE_AppDefinedError: Deleting /data/test_cases/{... a path}/sadn4_b0m_agreement.tif

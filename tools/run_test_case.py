@@ -268,7 +268,6 @@ def compute_contingency_stats_from_rasters(
                         layer_agreement_raster = os.path.join(
                             os.path.split(agreement_raster)[0], poly_handle + '_agreement.tif'
                         )
-                        logging.debug(f"layer_agreement_raster is {layer_agreement_raster}")
                         agreement_map_write = agreement_map_include.rio.write_nodata(10, encoded=True)
                         agreement_map_write.rio.to_raster(
                             layer_agreement_raster, dtype=np.uint8, driver="COG"
@@ -667,7 +666,7 @@ class Test_Case(Benchmark):
          lid : str
              lid of the current benchmark site. For non-AHPS sites, this should be an empty string ('').
         '''
-        logging.debug(f"Preparing file paths for {self.test_case_dir} - ({self.huc}) - ({magnitude}0")
+        # logging.debug(f"Preparing file paths for {self.test_case_dir} - ({self.huc}) - ({magnitude}")
 
         test_case_out_dir = os.path.join(self.test_case_dir, magnitude)
         inundation_prefix = lid + '_' if lid else ''
@@ -698,7 +697,6 @@ class Test_Case(Benchmark):
         # Save the mapping for huc, forecast to branch that were used in the final inundation rollup tif.
         inundation_mapping_file_path = predicted_raster_path.replace(".tif", ".csv")
 
-        logging.debug(f"benchmark_rast is {benchmark_rast} and benchmark_flows is {benchmark_flows}")
         if (
             not os.path.isfile(benchmark_rast)
             or not os.path.isfile(benchmark_flows)

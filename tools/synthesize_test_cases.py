@@ -204,16 +204,14 @@ def synthesize_test_cases(
         # one branch at a time. Except synthesize_test_cases which has its own processpool so there could
         # be collisions there, but it has a random sleep timer to help (in run_alpha_test)
 
-        # 1. Explicitly set the start method to fork
         # (Must be called before any pool is created)
-        multiprocessing.set_start_method('spawn', force=True)
+        # multiprocessing.set_start_method('spawn', force=True)
+        ctx_spawn = multiprocessing.get_context("spawn")
 
         has_errors = False
         num_successful_tests = 0
-        # with ProcessPoolExecutor(
-        #     max_workers=job_number_alpha_tests, max_tasks_per_child=max_tasks_per_child
-        # ) as executor:
-        with ProcessPoolExecutor(max_workers=job_number_alpha_tests) as executor:
+        # with ProcessPoolExecutor(max_workers=job_number_alpha_tests) as executor:
+        with ProcessPoolExecutor(max_workers=job_number_alpha_tests, mp_context=ctx_spawn) as executor:
 
             # Loop through all test cases, build the alpha test arguments, and submit them to the process pool
             executor_dict = {}
@@ -421,7 +419,7 @@ def create_master_metrics_csv(
         test_cases_folders = [d for d in os.listdir(benchmark_test_case_dir) if re.match(r'\d{8}_\w{3,7}', d)]
         test_cases_folders.sort()
 
-        logging.debug(f"Processing metrics for benchmark source: {benchmark_test_case_dir}")
+        # logging.debug(f"Processing metrics for benchmark source: {benchmark_test_case_dir}")
 
         if benchmark_source in ['ble', 'ifc', 'ras2fim']:
             magnitude_list = MAGNITUDE_DICT[benchmark_source]

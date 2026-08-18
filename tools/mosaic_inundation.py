@@ -240,10 +240,10 @@ def Mosaic_inundation(
         # not be collisions
         # Might check for dups in the inundation_maps which in theory should not happen
         for ag_key in tqdm(aggregation_units, disable=tqdm_disable, desc="Mosaicking FIMs"):
-            if verbose:
-                logging.info(f"Starting mosaic for {ag_key}")
-            else:
-                logging.debug(f"Starting mosaic for {ag_key}")
+            # if verbose:
+            #     logging.info(f"Starting mosaic for {ag_key}")
+            # else:
+            #     logging.debug(f"Starting mosaic for {ag_key}")
             try:
                 inundation_maps_list = inundation_maps_df.loc[ag_key, mosaic_attribute].tolist()
             except AttributeError as ae:
@@ -284,8 +284,6 @@ def Mosaic_inundation(
             del remove_list
             force_garbage_collection()
             gc.collect()
-
-            logging.debug(f"Mosaic complete for {ag_key}")
 
         if inundation_polygon is not None:  # Aug 2026: No scripts use this at this time, but maybe later
             mosaic_final_inundation_extent_to_poly(ag_mosaic_output_path, inundation_polygon)

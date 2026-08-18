@@ -149,6 +149,12 @@ def produce_mosaicked_inundation(
 
     # print(locals())
 
+    # DEBUG Test;
+    # shut off windowing
+    windowed=False,
+
+
+
     try:
         # Check that inundation_raster or depths_raster is supplied
         if not output_raster_path:
@@ -214,9 +220,6 @@ def produce_mosaicked_inundation(
         #         os.makedirs(os.path.dirname(map_filename))
 
         #     map_file.to_csv(map_filename, index=False)
-
-        logging.info(f"Skipping mosaic as debug test - raster path = {output_raster_path}")
-        return output_raster_path
 
         if verbose:
             logging.info(f"Mosaicking extent... - {hucs} based on forecast of {flow_file_path}")
