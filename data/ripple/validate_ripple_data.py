@@ -121,8 +121,9 @@ def __validate_s3_paths(df_features, s3_client, s3_bucket_name, s3_root_path):
 
         df.loc[idx, "is_library_path_valid"] = str(does_exist)
 
-        if row['is_valid'] == 'True' and does_exist is False:
-            df.loc[idx, "is_valid"] = str(False)
+        # if row['is_valid'] == 'True' and row['is_bridge'] == 'False' and does_exist is False:
+        #     df.loc[idx, "is_valid"] = str(False)
+        # print (row)
 
     return df
 
@@ -133,7 +134,18 @@ def __create_ripple_file_df(terrain_whitelist_file_path, ripple_version):
     # Using the incoming terrain file, make a simplified version for HV purposes.
 
     logging.info(f"Loading the terrain file: {terrain_whitelist_file_path}")
-    columns_to_load = ['feature_id', 'collection_id', 'model_id', 'is_blacklisted', 'huc']
+    columns_to_load = [
+        'huc',
+        'feature_id',
+        'nwm_to_id',
+        'order_',
+        'collection_id',
+        'model_id',
+        'db_path',
+        'is_blacklisted',
+        'is_bridge',
+        'is_valid',
+    ]
     dtype_mapping = {
         'feature_id': numpy.int32,
         'collection_id': str,
@@ -146,7 +158,6 @@ def __create_ripple_file_df(terrain_whitelist_file_path, ripple_version):
     df['huc'] = df['huc'].astype(int).astype(str).str.zfill(8)
 
     # new column flipping is_blacklist from True to False
-    df['is_valid'] = numpy.where(df['is_blacklisted'] == 'True', 'False', 'True')
     df["library_path"] = ""
     df["is_library_path_valid"] = 'False'
 
@@ -237,7 +248,7 @@ if __name__ == '__main__':
         ie) ripple/20260211_merged/collections/ble_12090301/library_extent/123446/
 
     python /foss_fim/data/ripple/validate_ripple_data.py
-      -sr 's3://some-bucket/fim/ripple'
+      -sr 's3://some-bucket/fim/ripple/' or 's3://hydrovis-ti-deployment-us-east-1/fim/ripple/'
       -rv '20260211_merged'
       -tf /data/ripple/ripple_20260211_merged/ripple_feature_list_sample.csv
       -n /data/ripple/ripple_20260211_merged/data_validation/

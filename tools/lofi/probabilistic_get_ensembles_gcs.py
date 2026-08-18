@@ -7,7 +7,7 @@ import gcsfs
 import geopandas as gpd
 import numpy as np
 import xarray as xr
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
 
 NBM_ENSEMBLE_URL = "gs://national-water-model/nwm.{0}/{1}/nwm.t{2}z.{1}.channel_rt.f{3}.conus.nc"
@@ -25,6 +25,7 @@ def get_gcs_ensembles(
     aggregate_forecast_method: str = "max_to_forecast",
     days_ahead: int = 5,
     hours_ahead: int = 0,
+    gcs: gcsfs.GCSFileSystem = None,
 ):
     """
     Method to collect ensembles for NOMADS service
@@ -50,11 +51,12 @@ def get_gcs_ensembles(
         How many days in the future to use in aggregation
     hours_ahead: int, default = 0
         How many hours in addition to days to use in aggregation
-
-
+    gcs: gcsfs.GCSFileSystem = None
+        Google cloud storage file object
     """
 
-    gcs = gcsfs.GCSFileSystem()
+    if gcs is None:
+        gcs = gcsfs.GCSFileSystem()
 
     # National Blend of Models Forced Medium Range (6 successively older forecasts)
     if ens_type == "nbm":
@@ -146,7 +148,7 @@ def get_gcs_ensembles(
 
         for mem in tqdm(members):
             intermediate_list = []
-            for ft in tqdm(forecast_times):
+            for ft in tqdm(forecast_times, leave=False):
                 try:
                     openfile = gcs.open(
                         GFS_ENSEMBLE_URL.format(
@@ -212,12 +214,12 @@ def get_gcs_ensembles(
         ds_list = []
         nofiles = []
 
-        for dtime, hr, mem in tqdm(zip(datetimes, hours, members)):
+        for dtime, hr, mem in tqdm(zip(datetimes, hours, members), leave=False):
             intermediate_list = []
             if len(str(hr)) < 2:
                 hr = f'0{hr}'
 
-            for ft in tqdm(forecast_times):
+            for ft in tqdm(forecast_times, leave=False):
 
                 try:
                     openfile = gcs.open(SHORT_ENSEMBLE_URL.format(dtime, forecast_type, hr, ft), mode='rb')

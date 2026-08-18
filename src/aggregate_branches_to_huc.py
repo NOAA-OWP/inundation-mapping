@@ -5,7 +5,9 @@ import glob
 import os
 import re
 import traceback
-from concurrent.futures import ProcessPoolExecutor
+import warnings
+
+# from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime
 from os.path import join
 
@@ -14,11 +16,21 @@ import pandas as pd
 from dotenv import load_dotenv
 
 from heal_bridges_osm import flow_lookup, flows_from_hydrotable
+from utils.shared_functions import get_huc_vars
 
+
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
+
+#################################
+# TODO: July 4, 2026:  In the event of an exception, the log file will not exist
+# and its details as well.
+# This needs a try/except with printing to log and at least a one liner
+# saying including the word "exception or error", which can be picked up automatically
+# by the rollup to fim_process_huc.sh or process_rerun_calibration_huc.sh
+################################
 
 load_dotenv('/foss_fim/src/bash_variables.env')
-DEFAULT_FIM_PROJECTION_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
-ALASKA_CRS = os.getenv('ALASKA_CRS')
 
 
 class HucDirectory(object):
@@ -224,6 +236,10 @@ class HucDirectory(object):
         hydrotable = pd.read_csv(hydrotable_filename, dtype=self.hydrotable_dtypes)
         hydrotable['branch_id'] = branch_id
         hydrotable[['calb_applied']] = hydrotable[['calb_applied']].fillna(value=False)
+        if 'subdiv_applied' in hydrotable.columns:
+            hydrotable['subdiv_applied'] = hydrotable['subdiv_applied'].fillna(value=False)
+        else:
+            hydrotable['subdiv_applied'] = False
         self.agg_hydrotable.append(hydrotable)
 
     def aggregate_src_full_crosswalk(self, branch_path, branch_id):
@@ -458,13 +474,8 @@ class HucDirectory(object):
                     bridge_pnts = bridge_pnts.astype(self.bridge_dtypes, errors='ignore')
 
                     # Set the CRS if it is not already set
-                    huc2Identifier = huc_id[:2]
                     if bridge_pnts.crs is None:
-                        # Alaska
-                        if huc2Identifier == '19':
-                            bridge_pnts.set_crs(ALASKA_CRS, inplace=True)
-                        else:
-                            bridge_pnts.set_crs(DEFAULT_FIM_PROJECTION_CRS, inplace=True)
+                        bridge_pnts.set_crs(get_huc_vars(huc_id)['crs'], inplace=True)
                     bridge_pnts.to_file(bridge_pnts_file, index=False, engine='fiona')
 
             if road_flag:
@@ -490,7 +501,7 @@ class HucDirectory(object):
 
                     self.agg_building_fimpact.to_csv(buildings_fimpact_file, index=False)
 
-        except Exception:
+        except Exception as ex:
             errMsg = (
                 "--------------------------------------"
                 f"\n huc_id {huc_id} has an error - outside multi proc\n"
@@ -509,6 +520,7 @@ class HucDirectory(object):
                 huc_id,
                 errMsg,
             )
+            raise ex  # we need to re-raise here to abort the scripts above it.
 
 
 # ==============================
@@ -548,6 +560,10 @@ def log_error(
         os.makedirs(log_dir)
 
     file_path = os.path.join(log_dir, file_name)
+
+    # this goes back to calibrate_rating_curve.sh which rolls up to its parent "tee"
+    # Then it can be scanned in the error system based on solely the "tee" file
+    print(errMsg)
 
     f = open(file_path, "a")
     f.write(errMsg)
@@ -612,7 +628,7 @@ def aggregate_by_huc(
             building_flag,
             huc_id,
         )
-    except Exception:
+    except Exception as ex:
         errMsg = "--------------------------------------" f"\n huc_id {huc_id} has an error\n"
         errMsg = errMsg + traceback.format_exc()
         print(errMsg, flush=True)
@@ -628,6 +644,7 @@ def aggregate_by_huc(
             huc_id,
             errMsg,
         )
+        raise ex  # We need to re-raise
 
     end_time = datetime.now()
     dt_string = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
