@@ -2,10 +2,12 @@
 import argparse
 import os
 import pickle
+import logging
 from datetime import date, datetime, timezone
 
 import pandas as pd
 from dotenv import load_dotenv
+import src.utils.shared_functions as sf
 from tools_shared_functions import aggregate_wbd_hucs, get_datum, get_metadata, get_thresholds
 from tools_shared_variables import (
     ACCEPTED_NAD27_SPELLINGS,
@@ -72,11 +74,6 @@ def download_all_metadata(metadata_filepath, metadata_url, search):
     search : int
         Search distance for upstream and downstream tracing (default is 5).
 
-    Returns
-    -------
-    list
-        List of messages indicating the progress and results of the download.
-
     Notes
     -----
     This function currently does not use the HUC list functionality because the get_metadata function
@@ -89,10 +86,9 @@ def download_all_metadata(metadata_filepath, metadata_url, search):
 
     nwm_us_search, nwm_ds_search = search, search
     output_meta_list = []
-    messages = []
 
-    messages.append('Starting metadata download from WRDS...')
-    messages.append(f'Upstream and downstream search distance: {search} miles')
+    logging.info('Starting metadata download from WRDS...')
+    logging.info(f'Upstream and downstream search distance: {search} miles')
 
     # Get all forecast points
     forecast_point_meta_list, ___, err_msg = get_metadata(
@@ -104,7 +100,7 @@ def download_all_metadata(metadata_filepath, metadata_url, search):
         downstream_trace_distance=nwm_ds_search,
     )
     if err_msg != '':
-        messages.append(err_msg)
+        logging.error(err_msg)
 
     # Get all sites for OCONUS regions (HI, PR, and AK)
     oconus_meta_list, ___, err_msg = get_metadata(
@@ -116,7 +112,7 @@ def download_all_metadata(metadata_filepath, metadata_url, search):
         downstream_trace_distance=nwm_ds_search,
     )
     if err_msg != '':
-        messages.append(err_msg)
+        logging.error(err_msg)
 
     # Append the lists
     unfiltered_meta_list = forecast_point_meta_list + oconus_meta_list
@@ -144,7 +140,7 @@ def download_all_metadata(metadata_filepath, metadata_url, search):
             output_meta_list.append(site)
 
     msg = f'Total number of unique LIDs: {len(unique_lids_list)}'
-    messages.append(msg)
+    logging.info(msg)
 
     # Return a count of how many of the first n sites have the upstream and downstream NWM features present
     # TODO: Simplify this check once we decide what % of sites should have these vals available
@@ -155,9 +151,9 @@ def download_all_metadata(metadata_filepath, metadata_url, search):
             downstream_count += 1
         if "upstream_nwm_features" in output_meta_list[i]:
             upstream_count += 1
-    messages.append(f"Spot-checking the first {sites_to_test} sites for upstream and downstream NWM features")
-    messages.append(f"Sites with 'downstream_nwm_features': {downstream_count}/{sites_to_test}")
-    messages.append(f"Sites with 'upstream_nwm_features': {upstream_count}/{sites_to_test}")
+    logging.info(f"Spot-checking the first {sites_to_test} sites for upstream and downstream NWM features")
+    logging.info(f"Sites with 'downstream_nwm_features': {downstream_count}/{sites_to_test}")
+    logging.info(f"Sites with 'upstream_nwm_features': {upstream_count}/{sites_to_test}")
 
     try:
         with open(metadata_filepath, "wb") as p_handle:
@@ -166,14 +162,14 @@ def download_all_metadata(metadata_filepath, metadata_url, search):
         os.chmod(metadata_filepath, 0o774)
 
         msg = f"New metadata file saved at {metadata_filepath}"
-        messages.append(msg)
+        logging.info(msg)
 
     except Exception as e:
         msg = f"Error saving meta data pickle file {metadata_filepath}: {e}"
-        messages.append(msg)
+        logging.error(msg)
         raise (e)
 
-    return messages
+    return
 
 
 def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict, lid_source_dict):
@@ -197,11 +193,6 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict, li
         as value. This is used to create a source preference list for the get_thresholds function.
         If there is no projection available for either source, the value will be an empty list.
 
-    Returns
-    -------
-    messages - LIST OF STRING
-        List of messages indicating the progress and results of the download
-
     Outputs
     -------
     Saves a combined pickle file 'all_thresholds.pkl' containing all thresholds.
@@ -218,18 +209,10 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict, li
         as value. This is used to create a source preference list for the get_thresholds function.
         If there is no projection available for either source, the value will be an empty list.
 
-    Returns
-    -------
-    messages - LIST OF STRING
-        List of messages indicating the progress and results of the download
-
     Outputs
     -------
     Saves a combined pickle file 'all_thresholds.pkl' containing all thresholds.
 
-    Notes
-    -----
-    The output is saved as a pickle file instead of CSV becuase that is the file type we
     Notes
     -----
     The output is saved as a pickle file instead of CSV becuase that is the file type we
@@ -239,27 +222,24 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict, li
 
     Example
     -------
-    messages = download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict)
-    Example
-    -------
-    messages = download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict)
+    download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict)
+
 
     '''
-    messages = []
     thresholds_start_time = datetime.now(timezone.utc)
 
-    messages.append('Starting threshold download from WRDS...')
+    logging.info('Starting threshold download from WRDS...')
 
     # Iterate through LIDs in huc_lid_dict and get thresholds from the WRDS API
     list_threshold_dfs = []
-
+    logging.info(f'len(huc_lid_dict) = {len(huc_lid_dict)}')  # TEMP DEBUG
     for huc, lids in huc_lid_dict.items():
         for lid in lids:
-
+            logging.info(lid)  # TEMP DEBUG
             try:
                 status_msg = ''
                 source_crs_availability = lid_source_dict[lid.upper()]
-
+                logging.info(f'Source CRS Availablity: {source_crs_availability}')  # TEMP DEBUG
                 stages, flows, status = get_thresholds(
                     threshold_url=threshold_url,
                     select_by='nws_lid',
@@ -271,23 +251,21 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict, li
                 # because I think it would be way too much information in the logs.
                 # However, it could be useful in the future to compile status information
                 # for all sites and save it to a file or something, TBD. - E, 3/20/26
-
+                logging.info(f'Status: {status}')  # TEMP DEBUG
                 # Combine and label thresholds
                 thresholds_dict = [
                     {'threshold_type': 'stages', 'huc': huc, **stages},
                     {'threshold_type': 'flows', 'huc': huc, **flows},
                 ]
-
+                logging.info(thresholds_dict)  # TEMP DEBUG
                 # Format into a dataframe and add to the df list
                 thresholds_df = pd.DataFrame(thresholds_dict)
                 list_threshold_dfs.append(thresholds_df)
 
             except Exception as e:
-                msg = f"Error retrieving thresholds for LID {lid}, exception occurred: {e}"
-                messages.append(msg)
-                if status_msg != '':
-                    messages.append(f"get_thresholds status: {status_msg}")  # For debugging
-                continue
+                msg = f"Error retrieving thresholds for LID {lid}, exception occurred: {e}. get_thresholds status: {status_msg}"
+                logging.error(msg)
+                raise(msg)
 
     # Combine all the DataFrames in the list into a single, final DataFrame
     all_thresholds_df = pd.concat(list_threshold_dfs, ignore_index=True)
@@ -299,18 +277,19 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict, li
 
         os.chmod(thresholds_filepath, 0o774)
         msg = f"Thresholds file saved at {thresholds_filepath}"
-        messages.append(msg)
+        logging.info(msg)
 
     except Exception as e:
         msg = f"Error saving pickle file {thresholds_filepath}, exception occurred: {e}"
-        messages.append(msg)
-        raise (e)
+        logging.error(msg)
+        raise(msg)
+
 
     thresholds_end_time = datetime.now(timezone.utc)
     thresholds_duration = thresholds_end_time - thresholds_start_time
-    messages.append(f"Finished downloading thresholds - Duration: {str(thresholds_duration).split('.')[0]}")
+    logging.info(f"Finished downloading thresholds - Duration: {str(thresholds_duration).split('.')[0]}")
 
-    return messages
+    return
 
 
 def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download):
@@ -359,8 +338,6 @@ def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download
             ie) a dictionary [('00BRD', '18060005'), ('AANG1', '03130001'), ...]
                 - Sorted by upper case site ids.
                 - May contain test or invalid sites at this point. Calling code can sort that out.
-    messages - LIST of STRING
-         List of messages indicating the progress and results of the metadata loading process.
 
     Example
     --------
@@ -368,17 +345,10 @@ def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download
     --------
     output_meta_list - LIST of DICT
         Filtered list of metadata dictionaries, each representing a unique NWS LID site.
-    huc_lid_dict - DICT
-        dictionary mapping LIDs to HUCs.
-            ie) a dictionary [('00BRD', '18060005'), ('AANG1', '03130001'), ...]
-                - Sorted by upper case site ids.
-                - May contain test or invalid sites at this point. Calling code can sort that out.
-    messages - LIST of STRING
-         List of messages indicating the progress and results of the metadata loading process.
 
     Example
     --------
-    output_meta_list, huc_lid_dict, messages = load_nwm_metadata(
+    output_meta_list = load_nwm_metadata(
         metadata_filepath, API_BASE_URL, search, metadata_download
     )
 
@@ -417,52 +387,45 @@ def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download
 
     '''
     output_meta_list = []
-    messages = []
 
     if metadata_download == True:
         metadata_url = f'{API_BASE_URL}/metadata'
 
         # Give a warning if the file will be overwritten
         if os.path.isfile(metadata_filepath):
-            msg = f"WARNING: File already exists at {metadata_filepath} & metadata_download is set to True. File will be overwritten."
-            messages.append(msg)
+            msg = f"File already exists at {metadata_filepath} & metadata_download is set to True. File will be overwritten."
+            logging.warning(msg)
         else:
             msg = f"NWM metadata file does not exist at {metadata_filepath}, metadata will be downloaded."
-            messages.append(msg)
+            logging.info(msg)
 
         # Download metadata and save metadata to pkl file
         metadata_start_time = datetime.now(timezone.utc)
-        messages_me = download_all_metadata(metadata_filepath, metadata_url, search)
-        messages = messages + messages_me
+        download_all_metadata(metadata_filepath, metadata_url, search)
 
         metadata_end_time = datetime.now(timezone.utc)
         metadata_duration = metadata_end_time - metadata_start_time
 
-        msg = f"Finished downloading metadata - Duration: {str(metadata_duration).split('.')[0]}"
-        messages.append(msg)
+        logging.info(f"Finished downloading metadata - Duration: {str(metadata_duration).split('.')[0]}")
 
     else:
-        msg = f"Loading NWM metadata from {metadata_filepath}."
-        messages.append(msg)
+        logging.info(f"Loading NWM metadata from {metadata_filepath}.")
 
     # Check metadata file exists and error if metafile is not there
     if not os.path.isfile(metadata_filepath):
-        msg = f"NWM metadata file not found at {metadata_filepath}."
-        messages.append(msg)
-
-        msg = "ERROR: Cannot proceed without NWM metadata. Set metadata_download to True or provide a valid metadata_filepath."
-        messages.append(msg)
-
-        return (output_meta_list, messages)
+        msg = (
+            f"NWM metadata file not found at {metadata_filepath}.",
+            "ERROR: Cannot proceed without NWM metadata. Set metadata_download to True or provide a valid metadata_filepath."
+        )
+        logging.error(msg)
+        raise(msg)
 
     # Open metadata file (either the one we just downloaded or pre-existing)
     with open(metadata_filepath, "rb") as p_handle:
         output_meta_list = pickle.load(p_handle)
+        logging.info(f"NWM metadata file loaded from {metadata_filepath}.")
 
-        msg = f"NWM metadata file loaded from {metadata_filepath}."
-        messages.append(msg)
-
-    return output_meta_list, messages
+    return output_meta_list
 
 
 def load_site_thresholds(threshold_file, lid):
@@ -613,13 +576,14 @@ def download_process_wrds(
 
     '''
 
+    # Validate output folder path
+    if not os.path.exists(output_folder):
+        raise ValueError(f'Output folder path {output_folder} does not exist. Please provide a valid path.')
+
+
     overall_start_time = datetime.now(timezone.utc)
     dt_string = overall_start_time.strftime("%m/%d/%Y %H:%M:%S")
 
-    print('================================')
-    print('Starting processing to obtain WRDS data')
-    print(f'{dt_string} (UTC)')
-    print()
 
     # Import variables from .env file
     load_dotenv(env_file)
@@ -634,22 +598,10 @@ def download_process_wrds(
             f'WBD layer name not found in env file ({env_file}). This is required for threshold download and aggregation of HUCs.'
         )
 
-    # Validate output folder path
-    # if not os.path.exists(output_folder):
-    #     raise ValueError(f'Output folder path {output_folder} does not exist. Please provide a valid path.')
-
-    # Validate inputs
     if metadata_download == False and threshold_download == False:
         raise ValueError(
             'At least one of -m (get metadata) or -t (get thresholds) must be specified as True.'
         )
-    elif metadata_download == True and threshold_download == True:
-        print('Both metadata and thresholds will be downloaded and saved.')
-    elif metadata_download == True and threshold_download == False:
-        print('Only metadata will be saved.')
-    elif threshold_download == True and metadata_download == False:
-        print('Only threshold data will be saved.')
-        # For this setup, a valid metadata pkl file must be provided (check will occur for this later on)
 
     # Validate search input and adjust metadata and threshold data inputs if needed
     if search == 9999:
@@ -664,16 +616,35 @@ def download_process_wrds(
                 " Re-run with the -gmf and -gtf arguments or remove the custom search value."
             )
 
+
+    # If validation passes, set up logging and start run
+
+    log_file_path = sf.setup_file_logger(output_folder, "download_process_wrds")
+
+    logging.info('================================')
+    logging.info('Starting processing to obtain WRDS data')
+    logging.info(f'{dt_string} (UTC)')
+    logging.info('')
+
+    # Validate inputs
+    if metadata_download == True and threshold_download == True:
+        logging.info('Both metadata and thresholds will be downloaded and saved.')
+    elif metadata_download == True and threshold_download == False:
+        logging.info('Only metadata will be saved.')
+    elif threshold_download == True and metadata_download == False:
+        logging.info('Only threshold data will be saved.')
+        # For this setup, a valid metadata pkl file must be provided (check will occur for this later on)
+
     # Format HUC list
     lst_hucs = lst_hucs.split()
     if 'all' in lst_hucs:
-        print('No HUC list provided, downloading data for all HUCs.')
+        logging.info('No HUC list provided, downloading data for all HUCs.')
     else:
-        print(f'Downloading data for {len(lst_hucs)} HUCs.')
-        print('HUC list only limits the thresholds downloaded, all metadata will stil be downloaded.')
+        logging.info(f'Downloading data for {len(lst_hucs)} HUCs.')
+        logging.info('HUC list only limits the thresholds downloaded, all metadata will stil be downloaded.')
 
-    print()
-    print("----- METADATA -----")
+    logging.info('')
+    logging.info("----- METADATA -----")
 
     # If no metafile is provided, generate filepath and filename
     if input_metadata_file == '':
@@ -685,25 +656,22 @@ def download_process_wrds(
     else:
         metadata_filepath = input_metadata_file
 
-    print("Begin loading metadata...")
+    logging.info("Begin loading metadata...")
     if metadata_download == True:
-        print("Metadata will be downloaded from WRDS, could take around 10 minutes.")
-    print(f"Metadata filepath: {metadata_filepath}.")
+        logging.info("Metadata will be downloaded from WRDS, could take around 10 minutes.")
+    logging.info(f"Metadata filepath: {metadata_filepath}.")
 
     # Load NWM metadata (either by loading file or downloading from WRDS)
-    output_meta_list, messages = load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download)
+    output_meta_list = load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download)
 
-    for msg in messages:
-        print(msg)
-
-    print()
-    print("----- THRESHOLDS -----")
+    logging.info()
+    logging.info("----- THRESHOLDS -----")
 
     # Load thresholds if specified
     if threshold_download == True:
 
         # Get the HUC dictionary
-        print('Getting HUC information from the metadata using the WBD layer...')
+        logging.info('Getting HUC information from the metadata using the WBD layer...')
         huc_lid_dict, nwm_sites_all_gdf = aggregate_wbd_hucs(
             output_meta_list, WBD_LAYER, retain_attributes=True
         )
@@ -730,39 +698,36 @@ def download_process_wrds(
         lid_source_df = pd.DataFrame(list(lid_source_dict.items()), columns=['nws_lid', 'crs_avail'])
         lid_source_df.to_csv(output_lid_source_table_filepath, index=False)
 
-        print(f'Site source table will be saved to {output_lid_source_table_filepath}')
+        logging.info(f'Site source table will be saved to {output_lid_source_table_filepath}')
 
         label_with_date = label_data_file(label, lst_hucs)
         output_thresholds_filename = f'WRDS_Thresholds{label_with_date}.pkl'
         thresholds_filepath = os.path.join(output_folder, output_thresholds_filename)
 
-        print(f"Thresholds will be downloaded for sites in {len(huc_lid_dict)} HUCs")
-        print(f'Thresholds will be saved to {thresholds_filepath}')
+        logging.info(f"Thresholds will be downloaded for sites in {len(huc_lid_dict)} HUCs")
+        logging.info(f'Thresholds will be saved to {thresholds_filepath}')
 
         # Download thresholds
-        messages = download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict, lid_source_dict)
-
-        for msg in messages:
-            print(msg)
-        print()
+        download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict, lid_source_dict)
+        logging.info('')
 
     else:
-        print('Threshold download not selected, skipping threshold download.')
-        print()
+        logging.info('Threshold download not selected, skipping threshold download.')
+        logging.info('')
 
     overall_end_time = datetime.now(timezone.utc)
     dt_string = overall_end_time.strftime("%m/%d/%Y %H:%M:%S")
     time_duration = overall_end_time - overall_start_time
 
-    print('Processing complete.')
-    print(f"Total duration: {str(time_duration).split('.')[0]}")
-    print('================================')
+    logging.info('Processing complete.')
+    logging.info(f"Total duration: {str(time_duration).split('.')[0]}")
+    logging.info('================================')
 
 
 if __name__ == '__main__':
     '''
-    TODO: Implement logging system
 
+    
     Arguments
     ---------
     -m, --metadata-download (Optional)
