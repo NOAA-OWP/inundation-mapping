@@ -196,11 +196,11 @@ def analyze_nonmonotonic_src(srcs_df):
 
     """
 
-    srcs_df.loc[srcs_df['Stage'] == 0, 'Discharge (m3s-1)'] = 0
+    srcs_df.loc[srcs_df['Stage'] == 0, 'Discharge (m3s-1)_subdiv'] = 0
 
     cond_chan = srcs_df['bankfull_proxy'] == 'channel'
     srcs_df_chan = srcs_df[cond_chan]
-    non_monotonic_index = srcs_df_chan.index[srcs_df_chan['Discharge (m3s-1)'].diff().lt(0)].tolist()
+    non_monotonic_index = srcs_df_chan.index[srcs_df_chan['Discharge (m3s-1)_subdiv'].diff().lt(0)].tolist()
 
     # Recalculate 'Discharge' values before the last non-monotonic row
     # Note: No change has been applied on WetArea, Volume, LENGTHKM
@@ -236,7 +236,7 @@ def analyze_nonmonotonic_src(srcs_df):
         srcs_df['HydraulicRadius (m)'] = srcs_df['HydraulicRadius (m)'].fillna(0)
 
         # Recalculate Discharge (m3s-1) for the selected rows
-        srcs_df.loc[row_slice, 'Discharge (m3s-1)'] = (
+        srcs_df.loc[row_slice, 'Discharge (m3s-1)_subdiv'] = (
             wet_area
             * (srcs_df.loc[row_slice, 'HydraulicRadius (m)'] ** (2.0 / 3))
             * pow(
@@ -399,9 +399,12 @@ def get_subdivided_src(hydrofabric_dir, huc, branch, channel_manning, overbank_m
     )  # reset the discharge value back to the original if vmann=false
 
     hid = df_src['HydroID'].to_numpy()
-    df_src = df_src.groupby(['HydroID', 'feature_id'], group_keys=False).apply(
-        analyze_nonmonotonic_src, include_groups=False
-    )
+
+    if branch != 0:
+        df_src = df_src.groupby(['HydroID', 'feature_id'], group_keys=False).apply(
+            analyze_nonmonotonic_src, include_groups=False
+        )
+
     df_src['HydroID'] = hid
 
     df_src = df_src[
