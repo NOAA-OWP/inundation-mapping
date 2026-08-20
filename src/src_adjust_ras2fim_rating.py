@@ -228,7 +228,7 @@ def branch_proc_list(ras_df, huc_dir, debug_outputs_option, log_file, branch_job
             branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_' + branch_id + '.tif'
         )
         catchments_poly_path = os.path.join(
-            branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked_' + branch_id + '.gpkg'
+            branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked_' + branch_id + '.parquet'
         )
         htable_path = os.path.join(branch_dir, 'hydroTable_' + branch_id + '.csv')
         water_edge_median_ds = ras_df[(ras_df['huc'] == huc) & (ras_df['levpa_id'] == branch_id)]

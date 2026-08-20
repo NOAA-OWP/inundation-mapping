@@ -16,6 +16,7 @@ import pyarrow.parquet as pq
 from dotenv import load_dotenv
 from shapely.geometry import box
 
+from src.utils.io import write_geodataframe
 from src.utils.shared_functions import get_huc_vars, run_with_mp, setup_mp_file_logger
 
 
@@ -316,7 +317,8 @@ def process_row_group_chunk(
                 part_dir.mkdir(parents=True, exist_ok=True)
                 part_path = part_dir / f"{state}_rg{rg:05d}.parquet"
 
-                sub.to_parquet(
+                write_geodataframe(
+                    sub,
                     part_path,
                     index=False,
                     compression="zstd",

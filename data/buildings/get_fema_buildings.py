@@ -12,6 +12,8 @@ import geopandas as gpd
 import requests
 from dotenv import load_dotenv
 
+from src.utils.io import write_geodataframe
+
 
 # Website that shows the official "latest per state"
 PAGE_URL = "https://disasters.geoplatform.gov/USA_Structures/"
@@ -128,7 +130,7 @@ def convert_gdb_to_parquet(gdb_dir, parquet_dir, selected_states):
 
         out_path = parquet_dir / f"{state}_structures.parquet"
         logging.info(f"[{state}] Writing -> {out_path}  (CRS={tgt_crs})")
-        gdf.to_parquet(out_path, index=False, compression="zstd", row_group_size=250_000)
+        write_geodataframe(gdf, out_path, index=False, compression="zstd", row_group_size=250_000)
 
     logging.info(f"Done. Outputs in: {parquet_dir.resolve()}")
 

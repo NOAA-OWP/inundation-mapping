@@ -29,6 +29,7 @@ from dotenv import load_dotenv
 from overpy.exception import OverpassGatewayTimeout, OverpassTooManyRequests
 from shapely.geometry import LineString
 
+from src.utils.io import write_geodataframe
 from src.utils.shared_functions import FIM_Helpers as fh
 from src.utils.shared_functions import get_huc_vars, run_with_mp, setup_mp_file_logger
 
@@ -77,7 +78,7 @@ def combine_hucs(output_dir):
             continue
         gdf = pd.concat([gpd.read_file(f) for f in flist], ignore_index=True)
         gdf["osmid"] = gdf["osmid"].astype(str)
-        gdf.to_file(os.path.join(output_dir, f"{region}_osm_roads.gpkg"), driver="GPKG", engine="fiona")
+        write_geodataframe(gdf, os.path.join(output_dir, f"{region}_osm_roads.gpkg"))
         print(f"Compiled {region.title()} road lines!")
         [f.unlink() for f in flist]
 
@@ -289,7 +290,7 @@ def single_huc_job(
                 )
 
                 output_path = os.path.join(output_dir, f"roads_{HUC_no}.gpkg")
-                splitted_osm_roads.to_file(output_path)
+                write_geodataframe(splitted_osm_roads, output_path)
             else:
                 file_logger.warning(f"No roads within actual boundary of HUC for {task_id}")
                 screen_queue.put(f"No roads within actual boundary of HUC for {task_id}")

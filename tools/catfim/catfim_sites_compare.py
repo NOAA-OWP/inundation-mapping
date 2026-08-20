@@ -13,6 +13,8 @@ import pandas as pd
 from pyproj import CRS
 from shapely import wkt
 
+from src.utils.io import write_geodataframe
+
 
 pd.options.mode.chained_assignment = None  # default='warn'
 
@@ -881,7 +883,7 @@ def generate_spatial_difference_maps(
 
         # Save the sites GDF as a GeoPackage
         comparison_gpkg_save_path = comparison_table_save_path.replace('.csv', '.gpkg')
-        compare_sites_gdf.to_file(comparison_gpkg_save_path, layer='points', driver='GPKG')
+        write_geodataframe(compare_sites_gdf, comparison_gpkg_save_path, layer='points', driver='GPKG')
 
         print(f'Saved comparison site GPKG to {comparison_gpkg_save_path}')
 
@@ -911,8 +913,12 @@ def generate_spatial_difference_maps(
             # Move geometry to the last column
             added_geom = added_geom[[col for col in added_geom.columns if col != 'geometry'] + ['geometry']]
 
-            added_geom.to_file(
-                gained_coverage_gpkg_save_path, index=False, layer='gained_coverage', driver='GPKG'
+            write_geodataframe(
+                added_geom,
+                gained_coverage_gpkg_save_path,
+                index=False,
+                layer='gained_coverage',
+                driver='GPKG',
             )
             print(f'Saved gained coverage GPKG to {gained_coverage_gpkg_save_path}')
 
@@ -928,8 +934,8 @@ def generate_spatial_difference_maps(
                 [col for col in removed_geom.columns if col != 'geometry'] + ['geometry']
             ]
 
-            removed_geom.to_file(
-                lost_coverage_gpkg_save_path, index=False, layer='lost_coverage', driver='GPKG'
+            write_geodataframe(
+                removed_geom, lost_coverage_gpkg_save_path, index=False, layer='lost_coverage', driver='GPKG'
             )
             print(f'Saved lost coverage GPKG to {lost_coverage_gpkg_save_path}')
 

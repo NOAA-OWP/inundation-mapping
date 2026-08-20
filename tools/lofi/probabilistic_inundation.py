@@ -17,6 +17,7 @@ from scipy.stats import expon, gamma, genextreme, genpareto, gumbel_r, kappa4, n
 from shapely.geometry import shape
 from tqdm.auto import tqdm
 
+from utils.io import write_geodataframe
 from utils.shared_functions import s3_or_local_glob, use_pandas_3_behavior
 
 
@@ -665,7 +666,7 @@ def inundate_probabilistic(
             shapes = riofeat.shapes(rst.read(1), mask=None, transform=rst.transform)
             gdf = gpd.GeoDataFrame(_make_geometry(shapes), columns=['geometry', 'value'], crs=raster_crs)
             gdf = gdf.set_geometry('geometry')
-            gdf.to_file(out_vec)
+            write_geodataframe(gdf, out_vec)
 
     for file in percentile_files:
         os.remove(file)
