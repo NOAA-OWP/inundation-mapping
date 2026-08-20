@@ -510,7 +510,7 @@ def save_compiled_outputs(gdfs, gpkg_path_list, output_dir, label, file_type):
     return
 
 
-def combine_final_outputs(output_dir, input_dirs, newest_run_name, label):
+def combine_final_outputs(output_dir, input_dirs, newest_run_name, label, huc_output_df_path):
     '''
     Main function.
 
@@ -545,6 +545,14 @@ def combine_final_outputs(output_dir, input_dirs, newest_run_name, label):
         msg = "At least two input directories are required to combine CatFIM outputs."
         raise ValueError(msg)
 
+    if newest_run_name != "" and huc_output_df_path != "":
+        msg = (
+            "newest_run_name and huc_output_df_path were both provided."
+            "Cannot implement newest run preference if HUC output df path provided."
+            "Select one or the other."
+        )
+        raise ValueError(msg)
+
     log_file_path = sf.setup_file_logger(output_dir, "combine_final_outputs")
     is_logging_loaded = True
 
@@ -562,8 +570,21 @@ def combine_final_outputs(output_dir, input_dirs, newest_run_name, label):
 
     try:
         # ------
-        # Create a HUC summary table to calculate which outputs to use for each HUC
-        huc_outputs_df = create_huc_summary_table(input_dirs, newest_run_name, output_dir)
+
+        if huc_output_df_path != "":
+            # TODO: Add validation with the input huc_output_df_path (make sure it
+            # has the right run names and provide a warning if one of the input runs
+            # isn't mentioned in this file, etc.)
+
+            # Read HUC output df path
+            huc_outputs_df = pd.read_csv(huc_output_df_path)
+            huc_outputs_df["huc"] = huc_outputs_df["huc"].astype(str).str.zfill(8)
+
+        else:
+            # TODO: Add validation of the newest_run_name variable
+
+            # Create a HUC summary table to calculate which outputs to use for each HUC
+            huc_outputs_df = create_huc_summary_table(input_dirs, newest_run_name, output_dir)
 
         # ------
         # Iterate through input folders.
@@ -666,8 +687,9 @@ if __name__ == '__main__':
     parser.add_argument(
         '-n',
         '--newest-run-name',
-        help='REQUIRED: Name of the newest run (to be used to choose which outputs to use if multiple runs have outputs for a HUC).',
-        required=True,
+        help='OPTIONAL: Name of the newest run (to be used to choose which outputs to use if multiple runs have outputs for a HUC).',
+        required=False,
+        default = '',
     )
 
     parser.add_argument(
@@ -676,6 +698,14 @@ if __name__ == '__main__':
         help='OPTIONAL: Label for the output files (to differentiate them from the original primary outputs)',
         required=False,
         default='combined',
+    )
+
+    parser.add_argument(
+        '-hp',
+        '--huc-output-df-path',
+        help='OPTIONAL: Input HUC output df path to dictate which results to get the outputs for each HUC.',
+        required=False,
+        default='',
     )
 
     args = vars(parser.parse_args())
