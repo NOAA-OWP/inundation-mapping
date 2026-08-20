@@ -22,7 +22,7 @@ from tqdm import tqdm
 
 from utils.fim_enums import FIM_exit_codes
 from utils.shared_variables import PREP_CRS
-from utils.spatial import sjoin
+from utils.spatial import clip, sjoin
 
 
 gpd.options.io_engine = "pyogrio"
@@ -1489,7 +1489,7 @@ class StreamNetwork(gpd.GeoDataFrame):
         values_excluded = self.values_excluded
 
         self = StreamNetwork(
-            gpd.clip(self, mask, keep_geom_type).reset_index(drop=True),
+            clip(self, mask, keep_geom_type).reset_index(drop=True),
             branch_id_attribute=branch_id_attribute,
             attribute_excluded=attribute_excluded,
             values_excluded=values_excluded,
@@ -1609,7 +1609,7 @@ class StreamBranchPolygons(StreamNetwork):
         if fileType == "vector":
             for i, row in generator_to_iterate:
                 branch_id = row[self.branch_id_attribute]
-                out = gpd.clip(to_clip, row[self.geom_name], keep_geom_type=True)
+                out = clip(to_clip, row[self.geom_name], keep_geom_type=True)
                 return_list += [out]
 
                 if (out_filename_template is not None) & (not out.empty):

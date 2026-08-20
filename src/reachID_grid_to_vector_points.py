@@ -1,99 +1,86 @@
 #!/usr/bin/env python3
 
 import argparse
-from contextlib import nullcontext
+import sys
+from pathlib import Path
 
 import geopandas as gpd
 import numpy as np
 import rasterio
-from shapely.geometry import Point
-
-from utils.shared_functions import getDriver
-from utils.shared_variables import PREP_PROJECTION
 
 
-gpd.options.io_engine = "pyogrio"
+def reachID_grid_to_vector_points_in_memory(
+    raster_dataset: rasterio.DatasetReader, id_field_name: str = "featureID", nodata_val: float = None
+) -> gpd.GeoDataFrame:
+    """Converts non-NoData raster grid pixel centroids to a GeoDataFrame in-memory.
 
+    Parameters
+    ----------
+    raster_dataset : rasterio.DatasetReader
+        Open rasterio dataset object in RAM.
+    id_field_name : str
+        Attribute column name for the pixel grid values (default: 'featureID').
+    nodata_val : float, optional
+        Override NoData value. If None, uses raster_dataset.nodata.
 
-def convert_grid_cells_to_points(raster, index_option, output_points_filename=False):
-    # For the str case, `with` closes what we opened. nullcontext is needed only because of the
-    # DatasetReader case — the caller owns that handle and it should not be closed while being in
-    # this function. nullcontext wraps it in a do-nothing context manager that disables the exit
-    # (cleanup) effect of the `with` statement, so the caller's handle is left open.
-    if isinstance(raster, str):
-        ctx = rasterio.open(raster, 'r')
-    elif isinstance(raster, rasterio.io.DatasetReader):
-        ctx = nullcontext(raster)
-    else:
-        raise TypeError("Pass raster dataset or filepath for raster")
-
-    with ctx as raster:
-        (upper_left_x, x_size, x_rotation, upper_left_y, y_rotation, y_size) = raster.get_transform()
-        indices = np.nonzero(raster.read(1) >= 1)
-
-        id = [None] * len(indices[0])
-        points = [None] * len(indices[0])
-
-        # Iterate over the Numpy points..
-        i = 1
-        for y_index, x_index in zip(*indices):
-            x = x_index * x_size + upper_left_x + (x_size / 2)  # add half the cell size
-            y = y_index * y_size + upper_left_y + (y_size / 2)  # to center the point
-            points[i - 1] = Point(x, y)
-            if index_option == 'reachID':
-                reachID = np.array(
-                    list(raster.sample((Point(x, y).coords), indexes=1))
-                ).item()  # check this; needs to add raster cell value + index
-                id[i - 1] = reachID * 10000 + i  # reachID + i/100
-            elif (index_option == 'featureID') | (index_option == 'pixelID'):
-                id[i - 1] = i
-            i += 1
-
-    pointGDF = gpd.GeoDataFrame({'id': id, 'geometry': points}, crs=PREP_PROJECTION, geometry='geometry')
-
-    del id, points
-
-    if output_points_filename is False:
-        return pointGDF
-    else:
-        pointGDF.to_file(
-            output_points_filename, driver=getDriver(output_points_filename), index=False, engine='fiona'
-        )
-
-
-if __name__ == '__main__':
-    # Parse arguments
+    Returns
+    -------
+    gpd.GeoDataFrame
+        Point features corresponding to pixel centroids with raster IDs.
     """
-    USAGE:
-        reachID_grid_to_vector_points.py
-            -r <flows_grid_IDs raster file>
-            -i <reachID or featureID or pixelID>
-            -p <output points filename>
-    """
+    data = raster_dataset.read(1)
 
-    parser = argparse.ArgumentParser(description='Converts a raster to points')
-    parser.add_argument('-r', '--raster', help='Raster to be converted to points', required=True, type=str)
-    parser.add_argument(
-        '-i',
-        '--index-option',
-        help='Indexing option',
-        required=True,
-        type=str,
-        choices=['reachID', 'featureID', 'pixelID'],
-    )
-    parser.add_argument(
-        '-p',
-        '--output-points-filename',
-        help='Output points layer filename',
-        required=False,
-        type=str,
-        default=False,
+    if nodata_val is None:
+        nodata_val = raster_dataset.nodata
+
+    # Filter out NoData pixels
+    if nodata_val is not None:
+        valid_mask = data != nodata_val
+    else:
+        valid_mask = ~np.isnan(data)
+
+    if not np.any(valid_mask):
+        print("Warning: No valid pixel values found in grid.")
+        return gpd.GeoDataFrame(columns=[id_field_name, "geometry"], crs=raster_dataset.crs)
+
+    # Extract pixel row/col indices for valid data
+    rows, cols = np.where(valid_mask)
+    pixel_values = data[rows, cols].astype(np.int64)
+
+    # Calculate real-world centroid coordinates using affine transform
+    xs, ys = rasterio.transform.xy(raster_dataset.transform, rows, cols, offset="center")
+
+    # Build GeoDataFrame directly in RAM using vectorized Points
+    points_gdf = gpd.GeoDataFrame(
+        {id_field_name: pixel_values}, geometry=gpd.points_from_xy(xs, ys), crs=raster_dataset.crs
     )
 
-    args = vars(parser.parse_args())
+    return points_gdf
 
-    raster = args['raster']
-    index_option = args['index_option']
-    output_points_filename = args['output_points_filename']
 
-    convert_grid_cells_to_points(raster, index_option, output_points_filename)
+def reachID_grid_to_vector_points(input_raster_path: str, id_field_name: str, output_gpkg_path: str) -> None:
+    """File I/O wrapper around the in-memory centroid vectorizer."""
+    print(f"Loading {input_raster_path} into RAM...")
+    with rasterio.open(input_raster_path) as src:
+        gdf = reachID_grid_to_vector_points_in_memory(raster_dataset=src, id_field_name=id_field_name)
+
+    print(f"Writing {len(gdf)} points to {output_gpkg_path}...")
+    out_path = Path(output_gpkg_path)
+    if out_path.exists():
+        out_path.unlink()
+
+    gdf.to_file(out_path, driver="GPKG", index=False)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Convert reach/feature ID grid centroids to vector points in-memory."
+    )
+    parser.add_argument("-r", "--input-raster", required=True, help="Input raster file path")
+    parser.add_argument("-i", "--id-field", default="featureID", help="Output ID attribute column name")
+    parser.add_argument("-p", "--output-gpkg", required=True, help="Output vector GeoPackage path")
+
+    args = parser.parse_args()
+    reachID_grid_to_vector_points(
+        input_raster_path=args.input_raster, id_field_name=args.id_field, output_gpkg_path=args.output_gpkg
+    )

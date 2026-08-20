@@ -9,19 +9,31 @@ C++ process boundaries.
 
 import argparse
 import gc
+import json
 import os
 import re
 import sys
+import time
+from datetime import datetime
 from pathlib import Path
 
+import geopandas as gpd
 import numpy as np
+import pandas as pd
+import rasterio as rio
 from osgeo import gdal, ogr
 
 # Direct Python In-Memory Imports
 from accumulate_headwaters import accumulate_headwaters_in_memory
+from add_crosswalk import add_crosswalk_in_memory
 from adjust_thalweg_lateral import adjust_thalweg_lateral_in_memory
+from filter_catchments_and_add_attributes import filter_catchments_and_add_attributes_in_memory
 from make_rem import create_rem_in_memory
+from make_stages_and_catchlist import make_stages_and_catchlist_in_memory, write_catchlist_file
 from mask_dem import mask_dem_in_memory
+from mitigate_branch_outlet_backpool import mitigate_branch_outlet_backpool_in_memory
+from reachID_grid_to_vector_points import reachID_grid_to_vector_points_in_memory
+from split_flows import split_flows_in_memory
 from unique_pixel_and_allocation import unique_pixel_allocation_in_memory
 
 
@@ -45,6 +57,31 @@ TIFF_WRITE_OPTIONS = [
     "NUM_THREADS=ALL_CPUS",  # Uses all available CPU threads for compression
     "BIGTIFF=IF_NEEDED",
 ]
+
+
+# Global variable to track step start time
+_step_start_time = None
+
+
+# Global variable to track execution timing between steps
+_last_step_time = None
+
+
+def log_step(message: str) -> None:
+    """Logs pipeline step messages with a timestamp and the elapsed time since the previous step."""
+    global _last_step_time
+    now = time.perf_counter()
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    if _last_step_time is not None:
+        elapsed = now - _last_step_time
+        mins, secs = divmod(elapsed, 60)
+        time_str = f" [Took: {int(mins)}m {secs:.2f}s]" if mins > 0 else f" [Took: {secs:.2f}s]"
+    else:
+        time_str = ""
+
+    _last_step_time = now
+    print(f"[{timestamp}]{time_str} {message}", flush=True)
 
 
 # ------------------------------------------------------------------------------
@@ -244,7 +281,8 @@ def gdal_polygonize_raster(in_raster: Path, out_gpkg: Path, layer_name: str, fie
     fld = ogr.FieldDefn(field_name, ogr.OFTInteger)
     out_layer.CreateField(fld)
 
-    gdal.Polygonize(src_band, None, out_layer, 0, ["8CONNECTED=8"], callback=None)
+    # Use src_band.GetMaskBand() as mask to suppress NoData outer bounding box
+    gdal.Polygonize(src_band, src_band.GetMaskBand(), out_layer, 0, ["8CONNECTED=8"], callback=None)
 
     src_ds = None
     out_ds = None
@@ -303,13 +341,15 @@ def delineate_and_produce_hand(
         b_arg = tempHucDataDir / "nwm_subset_streams.gpkg"
         z_arg = tempHucDataDir / "nwm_catchments_proj_subset.gpkg"
 
+    wbd8_clp_file = tempHucDataDir / "wbd8_clp.gpkg"
+
     # --- 1. MASK LEVEE-PROTECTED AREAS FROM DEM (In-Memory Python) ---
     ds_dem = gdal.Open(str(tempCurrentBranchDataDir / f"dem_meters_{current_branch_id}.tif"))
     srs_wkt = ds_dem.GetProjectionRef()
     levee_subset = tempHucDataDir / "LeveeProtectedAreas_subset.gpkg"
 
     if mask_leveed_area_toggle == "True" and levee_subset.is_file():
-        print(f"--> [Step 1] Mask levee-protected areas (In-Memory) {huc_number} {current_branch_id}")
+        log_step(f"--> [Step 1] Mask levee-protected areas (In-Memory) {huc_number} {current_branch_id}")
         ds_dem = mask_dem_in_memory(
             dem_ds=ds_dem,
             nld_gpkg_path=str(levee_subset),
@@ -321,7 +361,7 @@ def delineate_and_produce_hand(
         )
 
     # --- 2. D8 FLOW ACCUMULATIONS (In-Memory pyflwdir) ---
-    print(f"--> [Step 2] D8 Flow Accumulations (In-Memory pyflwdir) {huc_number} {current_branch_id}")
+    log_step(f"--> [Step 2] D8 Flow Accumulations (In-Memory pyflwdir) {huc_number} {current_branch_id}")
     ds_flowdir = gdal.Open(
         str(tempCurrentBranchDataDir / f"flowdir_d8_burned_filled_{current_branch_id}.tif")
     )
@@ -334,13 +374,15 @@ def delineate_and_produce_hand(
     )
 
     # --- 3. PREPROCESSING FOR LATERAL THALWEG (In-Memory Python) ---
-    print(
+    log_step(
         f"--> [Step 3] Preprocessing for lateral thalweg adjustment (In-Memory) {huc_number} {current_branch_id}"
     )
     ds_stream_ids, ds_allo, ds_dist = unique_pixel_allocation_in_memory(stream_pixels_ds=ds_streams)
 
     # --- 4. ADJUST THALWEG LATERAL MINIMUM (In-Memory Python) ---
-    print(f"--> [Step 4] Performing lateral thalweg adjustment (In-Memory) {huc_number} {current_branch_id}")
+    log_step(
+        f"--> [Step 4] Performing lateral thalweg adjustment (In-Memory) {huc_number} {current_branch_id}"
+    )
     ds_dem_adj = adjust_thalweg_lateral_in_memory(
         dem_ds=ds_dem,
         stream_pixels_ds=ds_streams,
@@ -351,7 +393,7 @@ def delineate_and_produce_hand(
     )
 
     # --- 5. MASK BURNED DEM FOR STREAMS ONLY (In-Memory GDAL) ---
-    print(f"--> [Step 5] Mask Burned DEM for Thalweg Only (In-Memory) {huc_number} {current_branch_id}")
+    log_step(f"--> [Step 5] Mask Burned DEM for Thalweg Only (In-Memory) {huc_number} {current_branch_id}")
     ds_flows = gdal_multiply_in_memory(ds_flowdir, ds_streams, nodata_val=0)
 
     # =========================================================================
@@ -391,11 +433,11 @@ def delineate_and_produce_hand(
     )
 
     # Clean up intermediate datasets no longer needed in RAM
-    del ds_allo, ds_dist, ds_dem, ds_dem_adj, ds_flowaccum
+    del ds_allo, ds_dist, ds_dem, ds_dem_adj, ds_flowaccum, ds_flows, ds_stream_ids
     gc.collect()  # Force instant C/Python memory recovery
 
     # --- 6. FLOW CONDITION STREAMS (TauDEM C++ Subprocess) ---
-    print(f"--> [Step 6] Flow Condition Thalweg {huc_number} {current_branch_id}")
+    log_step(f"--> [Step 6] Flow Condition Thalweg {huc_number} {current_branch_id}")
     run_python_script(
         srcDir / "run_taudem_subprocess.py",
         [
@@ -412,7 +454,7 @@ def delineate_and_produce_hand(
     )
 
     # --- 7. D8 SLOPES (TauDEM C++ Subprocess) ---
-    print(f"--> [Step 7] D8 Slopes from DEM {huc_number} {current_branch_id}")
+    log_step(f"--> [Step 7] D8 Slopes from DEM {huc_number} {current_branch_id}")
     run_python_script(
         srcDir / "run_taudem_subprocess.py",
         [
@@ -429,7 +471,7 @@ def delineate_and_produce_hand(
     )
 
     # --- 8. STREAMNET FOR REACHES (TauDEM C++ Subprocess) ---
-    print(f"--> [Step 8] Stream Net for Reaches {huc_number} {current_branch_id}")
+    log_step(f"--> [Step 8] Stream Net for Reaches {huc_number} {current_branch_id}")
     run_python_script(
         srcDir / "run_taudem_subprocess.py",
         [
@@ -457,36 +499,40 @@ def delineate_and_produce_hand(
         ],
     )
 
-    # --- 9. SPLIT DERIVED REACHES ---
-    print(f"--> [Step 9] Split Derived Reaches {huc_number} {current_branch_id}")
-    run_python_script(
-        srcDir / "split_flows.py",
-        [
-            "-f",
-            tempCurrentBranchDataDir / f"demDerived_reaches_{current_branch_id}.shp",
-            "-d",
-            tempCurrentBranchDataDir / f"dem_thalwegCond_{current_branch_id}.tif",
-            "-s",
-            tempCurrentBranchDataDir / f"demDerived_reaches_split_{current_branch_id}.gpkg",
-            "-p",
-            tempCurrentBranchDataDir / f"demDerived_reaches_split_points_{current_branch_id}.gpkg",
-            "-w",
-            tempHucDataDir / "wbd8_clp.gpkg",
-            "-l",
-            tempHucDataDir / "nwm_lakes_proj_subset.gpkg",
-            "-n",
-            b_arg,
-            "-m",
-            max_split_distance_meters,
-            "-t",
-            slope_min,
-            "-b",
-            lakes_buffer_dist_meters,
-        ],
-    )
+    # --- Step 9: In-Memory Stream Splitting ---
+    log_step(f"--> [Step 9] Splitting flows in-memory for branch {current_branch_id}")
+
+    # File paths
+    flows_path = tempCurrentBranchDataDir / f"demDerived_reaches_{current_branch_id}.shp"
+    dem_path = tempCurrentBranchDataDir / f"dem_thalwegCond_{current_branch_id}.tif"
+    split_flows_path = tempCurrentBranchDataDir / f"demDerived_reaches_split_{current_branch_id}.gpkg"
+    split_points_path = tempCurrentBranchDataDir / f"demDerived_reaches_split_points_{current_branch_id}.gpkg"
+    lakes_file = tempHucDataDir / "nwm_lakes_proj_subset.gpkg"
+
+    # Read datasets into RAM
+    flows_gdf = gpd.read_file(flows_path, engine="fiona")
+    wbd8_gdf = gpd.read_file(wbd8_clp_file, engine="fiona")
+    nwm_streams_gdf = gpd.read_file(b_arg, engine="fiona")
+    lakes_gdf = gpd.read_file(lakes_file, engine="fiona") if lakes_file.is_file() else None
+
+    with rio.open(dem_path) as dem_dataset:
+        split_flows_gdf, split_points_gdf = split_flows_in_memory(
+            flows_gdf=flows_gdf,
+            dem_dataset=dem_dataset,
+            wbd8_gdf=wbd8_gdf,
+            nwm_streams_gdf=nwm_streams_gdf,
+            lakes_gdf=lakes_gdf,
+            max_length=float(max_split_distance_meters),
+            slope_min=float(slope_min),
+            lakes_buffer_input=float(lakes_buffer_dist_meters),
+        )
+
+    # Save output GeoDataFrames required by TauDEM Step 10 & Step 13
+    split_flows_gdf.to_file(split_flows_path, driver="GPKG", index=False)
+    split_points_gdf.to_file(split_points_path, driver="GPKG", index=False)
 
     # --- 10. GAGE WATERSHED FOR REACHES (TauDEM C++ Subprocess) ---
-    print(f"--> [Step 10] Gage Watershed for Reaches {huc_number} {current_branch_id}")
+    log_step(f"--> [Step 10] Gage Watershed for Reaches {huc_number} {current_branch_id}")
     run_python_script(
         srcDir / "run_taudem_subprocess.py",
         [
@@ -506,22 +552,24 @@ def delineate_and_produce_hand(
         ],
     )
 
-    # --- 11. VECTORIZE FEATURE ID CENTROIDS ---
-    print(f"--> [Step 11] Vectorize Pixel Centroids {huc_number} {current_branch_id}")
-    run_python_script(
-        srcDir / "reachID_grid_to_vector_points.py",
-        [
-            "-r",
-            tempCurrentBranchDataDir / f"demDerived_streamPixels_{current_branch_id}.tif",
-            "-i",
-            "featureID",
-            "-p",
-            tempCurrentBranchDataDir / f"flows_points_pixels_{current_branch_id}.gpkg",
-        ],
-    )
+    # --- Step 11: VECTORIZE FEATURE ID CENTROIDS (In-Memory) ---
+    log_step(f"--> [Step 11] Vectorize Pixel Centroids in-memory {huc_number} {current_branch_id}")
+
+    stream_pixels_tif = tempCurrentBranchDataDir / f"demDerived_streamPixels_{current_branch_id}.tif"
+    flows_points_gpkg = tempCurrentBranchDataDir / f"flows_points_pixels_{current_branch_id}.gpkg"
+
+    import rasterio
+
+    with rasterio.open(stream_pixels_tif) as src_stream_pixels:
+        flows_pts_gdf = reachID_grid_to_vector_points_in_memory(
+            raster_dataset=src_stream_pixels, id_field_name="featureID"
+        )
+
+    # Persist output required by Step 12 (TauDEM gagewatershed)
+    flows_pts_gdf.to_file(flows_points_gpkg, driver="GPKG", index=False)
 
     # --- 12. GAGE WATERSHED FOR PIXELS (TauDEM C++ Subprocess) ---
-    print(f"--> [Step 12] Gage Watershed for Pixels {huc_number} {current_branch_id}")
+    log_step(f"--> [Step 12] Gage Watershed for Pixels {huc_number} {current_branch_id}")
     run_python_script(
         srcDir / "run_taudem_subprocess.py",
         [
@@ -541,37 +589,56 @@ def delineate_and_produce_hand(
         ],
     )
 
-    # --- 13. CATCH AND MITIGATE BRANCH OUTLET BACKPOOL ERROR ---
-    print(
+    # --- Step 13: CATCH AND MITIGATE BRANCH OUTLET BACKPOOL ERROR (Pure In-Memory) ---
+    log_step(
         f"--> [Step 13] Catching and mitigating branch outlet backpool issue {huc_number} {current_branch_id}"
     )
-    run_python_script(
-        srcDir / "mitigate_branch_outlet_backpool.py",
-        [
-            "-b",
-            tempCurrentBranchDataDir,
-            "-cp",
-            tempCurrentBranchDataDir / f"gw_catchments_pixels_{current_branch_id}.tif",
-            "-cpp",
-            tempCurrentBranchDataDir / f"gw_catchments_pixels_{current_branch_id}.gpkg",
-            "-cr",
-            tempCurrentBranchDataDir / f"gw_catchments_reaches_{current_branch_id}.tif",
-            "-s",
-            tempCurrentBranchDataDir / f"demDerived_reaches_split_{current_branch_id}.gpkg",
-            "-p",
-            tempCurrentBranchDataDir / f"demDerived_reaches_split_points_{current_branch_id}.gpkg",
-            "-n",
-            b_arg,
-            "-d",
-            tempCurrentBranchDataDir / f"dem_thalwegCond_{current_branch_id}.tif",
-            "-t",
-            slope_min,
-            "--calculate-stats",
-        ],
-    )
+
+    # Paths
+    cp_tif_path = tempCurrentBranchDataDir / f"gw_catchments_pixels_{current_branch_id}.tif"
+    cr_tif_path = tempCurrentBranchDataDir / f"gw_catchments_reaches_{current_branch_id}.tif"
+    dem_tif_path = tempCurrentBranchDataDir / f"dem_thalwegCond_{current_branch_id}.tif"
+    split_flows_path = tempCurrentBranchDataDir / f"demDerived_reaches_split_{current_branch_id}.gpkg"
+    split_points_path = tempCurrentBranchDataDir / f"demDerived_reaches_split_points_{current_branch_id}.gpkg"
+
+    # 1. Read Vector layers into RAM
+    split_flows_gdf = gpd.read_file(split_flows_path)
+    split_points_gdf = gpd.read_file(split_points_path)
+    nwm_streams_gdf = gpd.read_file(b_arg)
+
+    # 2. Open Raster datasets in RAM
+    with (
+        rasterio.open(cp_tif_path) as cp_ds,
+        rasterio.open(cr_tif_path) as cr_ds,
+        rasterio.open(dem_tif_path) as dem_ds,
+    ):
+        # Run pure in-memory calculation
+        out_flows, out_pts, masked_cr_arr, masked_cp_arr = mitigate_branch_outlet_backpool_in_memory(
+            catchment_pixels_ds=cp_ds,
+            catchment_reaches_ds=cr_ds,
+            split_flows_gdf=split_flows_gdf,
+            split_points_gdf=split_points_gdf,
+            nwm_streams_gdf=nwm_streams_gdf,
+            dem_dataset=dem_ds,
+            branch_dir=str(tempCurrentBranchDataDir),
+            slope_min=float(slope_min),
+            calculate_stats=True,
+            dry_run=False,
+        )
+
+        # 3. Persist updated masked rasters back to disk for downstream steps
+        for path, arr, ds in [(cr_tif_path, masked_cr_arr, cr_ds), (cp_tif_path, masked_cp_arr, cp_ds)]:
+            profile = ds.profile.copy()
+            profile.update(BIGTIFF="YES")
+            with rasterio.open(path, "w", **profile) as dst:
+                dst.write(arr, 1)
+
+    # 4. Save updated vectors to disk
+    out_flows.to_file(split_flows_path, driver="GPKG", index=False)
+    out_pts.to_file(split_points_path, driver="GPKG", index=False)
 
     # --- 14. D8 REM ---
-    print(f"--> [Step 14] D8 REM {huc_number} {current_branch_id}")
+    log_step(f"--> [Step 14] D8 REM {huc_number} {current_branch_id}")
     ds_dem_cond = gdal.Open(str(tempCurrentBranchDataDir / f"dem_thalwegCond_{current_branch_id}.tif"))
     ds_gw_pixels = gdal.Open(str(tempCurrentBranchDataDir / f"gw_catchments_pixels_{current_branch_id}.tif"))
 
@@ -584,7 +651,7 @@ def delineate_and_produce_hand(
     persist_dataset(ds_rem, rem_tif_path, srs_wkt=srs_wkt, force=True)
 
     # --- 15. ZERO & MASK REM TO CATCHMENTS (In-Memory GDAL) ---
-    print(
+    log_step(
         f"--> [Step 15] Bring negative values in REM to zero and mask (In-Memory) {huc_number} {current_branch_id}"
     )
     ds_gw_reach = gdal.Open(str(tempCurrentBranchDataDir / f"gw_catchments_reaches_{current_branch_id}.tif"))
@@ -597,7 +664,7 @@ def delineate_and_produce_hand(
     landsea_subset = tempHucDataDir / "LandSea_subset.gpkg"
     landsea_tif = tempCurrentBranchDataDir / f"LandSea_subset_{current_branch_id}.tif"
     if landsea_subset.is_file():
-        print(f"--> [Step 16] Rasterize ocean/Glake polygon {huc_number} {current_branch_id}")
+        log_step(f"--> [Step 16] Rasterize ocean/Glake polygon {huc_number} {current_branch_id}")
         gdal_rasterize_vector(
             src_vector=str(landsea_subset),
             template_raster=str(tempCurrentBranchDataDir / f"rem_{current_branch_id}.tif"),
@@ -607,7 +674,7 @@ def delineate_and_produce_hand(
         )
 
     # --- 17. POLYGONIZE REACH WATERSHEDS ---
-    print(f"--> [Step 17] Polygonize Reach Watersheds {huc_number} {current_branch_id}")
+    log_step(f"--> [Step 17] Polygonize Reach Watersheds {huc_number} {current_branch_id}")
     gdal_polygonize_raster(
         in_raster=tempCurrentBranchDataDir / f"gw_catchments_reaches_{current_branch_id}.tif",
         out_gpkg=tempCurrentBranchDataDir / f"gw_catchments_reaches_{current_branch_id}.gpkg",
@@ -615,29 +682,33 @@ def delineate_and_produce_hand(
         field_name="HydroID",
     )
 
-    # --- 18. PROCESS CATCHMENTS AND MODEL STREAMS STEP 1 ---
-    print(f"--> [Step 18] Process catchments and model streams {huc_number} {current_branch_id}")
-    run_python_script(
-        srcDir / "filter_catchments_and_add_attributes.py",
-        [
-            "-i",
-            tempCurrentBranchDataDir / f"gw_catchments_reaches_{current_branch_id}.gpkg",
-            "-f",
-            tempCurrentBranchDataDir / f"demDerived_reaches_split_{current_branch_id}.gpkg",
-            "-c",
-            tempCurrentBranchDataDir
-            / f"gw_catchments_reaches_filtered_addedAttributes_{current_branch_id}.gpkg",
-            "-o",
-            tempCurrentBranchDataDir / f"demDerived_reaches_split_filtered_{current_branch_id}.gpkg",
-            "-w",
-            tempHucDataDir / "wbd8_clp.gpkg",
-            "-u",
-            huc_number,
-        ],
+    # --- Step 18: PROCESS CATCHMENTS AND MODEL STREAMS STEP 1 (In-Memory) ---
+    log_step(f"--> [Step 18] Process catchments and model streams in-memory {huc_number} {current_branch_id}")
+
+    # Paths
+    catchments_gpkg = tempCurrentBranchDataDir / f"gw_catchments_reaches_{current_branch_id}.gpkg"
+    flows_gpkg = tempCurrentBranchDataDir / f"demDerived_reaches_split_{current_branch_id}.gpkg"
+    out_catchments_gpkg = (
+        tempCurrentBranchDataDir / f"gw_catchments_reaches_filtered_addedAttributes_{current_branch_id}.gpkg"
+    )
+    out_flows_gpkg = tempCurrentBranchDataDir / f"demDerived_reaches_split_filtered_{current_branch_id}.gpkg"
+
+    # Read active memory layers
+    catch_gdf = gpd.read_file(catchments_gpkg, layer="catchments")
+    flows_gdf = gpd.read_file(flows_gpkg)
+    wbd_gdf = gpd.read_file(wbd8_clp_file)
+
+    # Run in-memory filtering
+    filt_catch_gdf, filt_flows_gdf = filter_catchments_and_add_attributes_in_memory(
+        catchments_gdf=catch_gdf, flows_gdf=flows_gdf, wbd_gdf=wbd_gdf, huc_code=huc_number
     )
 
+    # Flush once to disk for Step 19 & Step 21
+    filt_catch_gdf.to_file(out_catchments_gpkg, layer="catchments", driver="GPKG", index=False)
+    filt_flows_gdf.to_file(out_flows_gpkg, driver="GPKG", index=False)
+
     # --- 19. RASTERIZE NEW CATCHMENTS AGAIN ---
-    print(f"--> [Step 19] Rasterize filtered catchments {huc_number} {current_branch_id}")
+    log_step(f"--> [Step 19] Rasterize filtered catchments {huc_number} {current_branch_id}")
     gdal_rasterize_vector(
         src_vector=str(
             tempCurrentBranchDataDir
@@ -653,7 +724,7 @@ def delineate_and_produce_hand(
     )
 
     # --- 20. MASK SLOPE TO CATCHMENTS ---
-    print(f"--> [Step 20] Mask slopes to catchments {huc_number} {current_branch_id}")
+    log_step(f"--> [Step 20] Mask slopes to catchments {huc_number} {current_branch_id}")
     ds_slopes = gdal.Open(str(tempCurrentBranchDataDir / f"slopes_d8_dem_meters_{current_branch_id}.tif"))
     ds_catch_filt = gdal.Open(
         str(
@@ -668,32 +739,30 @@ def delineate_and_produce_hand(
         srs_wkt,
     )
 
-    # --- 21. MAKE CATCHMENT AND STAGE FILES ---
-    print(f"--> [Step 21] Generate Catchment List and Stage List Files {huc_number} {current_branch_id}")
-    run_python_script(
-        srcDir / "make_stages_and_catchlist.py",
-        [
-            "-f",
-            tempCurrentBranchDataDir / f"demDerived_reaches_split_filtered_{current_branch_id}.gpkg",
-            "-c",
-            tempCurrentBranchDataDir
-            / f"gw_catchments_reaches_filtered_addedAttributes_{current_branch_id}.gpkg",
-            "-s",
-            tempCurrentBranchDataDir / f"stage_{current_branch_id}.txt",
-            "-a",
-            tempCurrentBranchDataDir / f"catch_list_{current_branch_id}.txt",
-            "-m",
-            stage_min_meters,
-            "-i",
-            stage_interval_meters,
-            "-t",
-            stage_max_meters,
-        ],
+    # --- Step 21: MAKE CATCHMENT AND STAGE FILES (In-Memory) ---
+    log_step(
+        f"--> [Step 21] Generate Catchment List and Stage List Files in-memory {huc_number} {current_branch_id}"
     )
+
+    catch_list_txt = tempCurrentBranchDataDir / f"catch_list_{current_branch_id}.txt"
+    stage_txt = tempCurrentBranchDataDir / f"stage_{current_branch_id}.txt"
+
+    # Call the renamed function directly with in-memory DataFrames
+    catchlist_df, stage_list = make_stages_and_catchlist_in_memory(
+        catchments_gdf=filt_catch_gdf,
+        flows_gdf=filt_flows_gdf,
+        stage_min_meters=float(stage_min_meters),
+        stage_interval_meters=float(stage_interval_meters),
+        stage_max_meters=float(stage_max_meters),
+    )
+
+    # Write formatted outputs to disk for Step 24 (catchhydrogeo)
+    write_catchlist_file(catchlist_df, str(catch_list_txt))
+    np.savetxt(stage_txt, stage_list, fmt="%.2f")
 
     # --- 22. MASK REM RASTER TO REMOVE OCEAN AREAS ---
     if landsea_tif.is_file():
-        print(
+        log_step(
             f"--> [Step 22] Additional masking to REM raster to remove ocean/Glake areas {huc_number} {current_branch_id}"
         )
         ds_landsea = gdal.Open(str(landsea_tif))
@@ -704,7 +773,7 @@ def delineate_and_produce_hand(
 
     # --- 23. HEAL HAND (NON-BRANCH ZERO) ---
     if is_healed_hand and current_branch_id != branch_zero_id:
-        print(
+        log_step(
             f"--> [Step 23] Healed HAND to Remove Hydro-conditioning Artifacts {huc_number} {current_branch_id}"
         )
         ds_dem_orig = gdal.Open(str(tempCurrentBranchDataDir / f"dem_meters_{current_branch_id}.tif"))
@@ -714,7 +783,7 @@ def delineate_and_produce_hand(
         )
 
     # --- 24. HYDRAULIC PROPERTIES (TauDEM C++ Subprocess) ---
-    print(f"--> [Step 24] Sample reach averaged parameters {huc_number} {current_branch_id}")
+    log_step(f"--> [Step 24] Sample reach averaged parameters {huc_number} {current_branch_id}")
     run_python_script(
         srcDir / "run_taudem_subprocess.py",
         [
@@ -737,56 +806,80 @@ def delineate_and_produce_hand(
         ],
     )
 
-    # --- 25. FINALIZE CATCHMENTS AND MODEL STREAMS ---
-    print(f"--> [Step 25] Finalize catchments and model streams {huc_number} {current_branch_id}")
-    run_python_script(
-        srcDir / "add_crosswalk.py",
-        [
-            "-d",
-            tempCurrentBranchDataDir
-            / f"gw_catchments_reaches_filtered_addedAttributes_{current_branch_id}.gpkg",
-            "-a",
-            tempCurrentBranchDataDir / f"demDerived_reaches_split_filtered_{current_branch_id}.gpkg",
-            "-s",
-            tempCurrentBranchDataDir / f"src_base_{current_branch_id}.csv",
-            "-l",
-            tempCurrentBranchDataDir
-            / f"gw_catchments_reaches_filtered_addedAttributes_crosswalked_{current_branch_id}.gpkg",
-            "-f",
-            tempCurrentBranchDataDir
-            / f"demDerived_reaches_split_filtered_addedAttributes_crosswalked_{current_branch_id}.gpkg",
-            "-r",
-            tempCurrentBranchDataDir / f"src_full_crosswalked_{current_branch_id}.csv",
-            "-j",
-            tempCurrentBranchDataDir / f"src_{current_branch_id}.json",
-            "-x",
-            tempCurrentBranchDataDir / f"crosswalk_table_{current_branch_id}.csv",
-            "-t",
-            tempCurrentBranchDataDir / f"hydroTable_{current_branch_id}.csv",
-            "-w",
-            tempHucDataDir / "wbd8_clp.gpkg",
-            "-b",
-            b_arg,
-            "-u",
-            huc_number,
-            "-m",
-            manning_n,
-            "-k",
-            tempCurrentBranchDataDir / f"small_segments_{current_branch_id}.csv",
-            "-e",
-            min_catchment_area,
-            "-g",
-            min_stream_length,
-            "-i",
-            iris_sword_slope,
-            "-p",
-            hfab_ransac_slope,
-        ],
+    # --- Step 25: FINALIZE CATCHMENTS AND MODEL STREAMS (In-Memory) ---
+    log_step(
+        f"--> [Step 25] Finalize catchments and model streams in-memory {huc_number} {current_branch_id}"
     )
+
+    # Paths for inputs/outputs
+    src_base_csv = tempCurrentBranchDataDir / f"src_base_{current_branch_id}.csv"
+    small_segs_csv = tempCurrentBranchDataDir / f"small_stream_segments_{current_branch_id}.csv"
+
+    out_catch_path = (
+        tempCurrentBranchDataDir
+        / f"gw_catchments_reaches_filtered_addedAttributes_crosswalked_{current_branch_id}.gpkg"
+    )
+    out_flows_path = (
+        tempCurrentBranchDataDir
+        / f"demDerived_reaches_split_filtered_addedAttributes_crosswalked_{current_branch_id}.gpkg"
+    )
+    out_src_full_path = tempCurrentBranchDataDir / f"src_full_crosswalked_{current_branch_id}.csv"
+    out_src_json_path = tempCurrentBranchDataDir / f"src_{current_branch_id}.json"
+    out_cross_path = tempCurrentBranchDataDir / f"crosswalk_table_{current_branch_id}.csv"
+    out_hydro_path = tempCurrentBranchDataDir / f"hydroTable_{current_branch_id}.csv"
+
+    # 1. Read base inputs into RAM
+    src_base_df = pd.read_csv(src_base_csv, dtype=object)
+    nwm_streams_gdf = gpd.read_file(b_arg, engine="fiona")
+    wbd_gdf = gpd.read_file(wbd8_clp_file, engine="fiona")
+
+    # 2. Load parquet slope datasets (using iris_sword_slope and hfab_ransac_slope from cfg)
+    iris_df = pd.read_parquet(iris_sword_slope).rename(
+        columns={"slope_iris_sword": "SLOPE_IRIS_SWORD", "id": "feature_id"}
+    )
+    hfab_slopes_df = pd.read_parquet(hfab_ransac_slope)[["id", "slope_m_per_m"]].rename(
+        columns={"id": "feature_id", "slope_m_per_m": "SLOPE_HFAB"}
+    )
+
+    # 3. Call in-memory crosswalk engine using matching keyword arguments
+    (
+        cross_catch_gdf,
+        cross_flows_gdf,
+        src_full_df,
+        src_crosswalk_df,
+        hydro_table_df,
+        src_json_dict,
+        sml_segs_df,
+    ) = add_crosswalk_in_memory(
+        input_catchments=filt_catch_gdf,
+        input_flows=filt_flows_gdf,
+        input_src_base=src_base_df,
+        input_huc=wbd_gdf,
+        input_nwmflows=nwm_streams_gdf,
+        iris_df=iris_df,
+        hfab_slopes_df=hfab_slopes_df,
+        mannings_n=float(manning_n),
+        min_catchment_area=float(min_catchment_area),
+        min_stream_length=float(min_stream_length),
+        huc_id=huc_number,
+    )
+
+    # 4. Save outputs to disk for downstream steps
+    if len(sml_segs_df) > 0:
+        sml_segs_df.to_csv(small_segs_csv, index=False)
+
+    cross_catch_gdf.to_file(out_catch_path, driver="GPKG", index=False)
+    cross_flows_gdf.to_file(out_flows_path, driver="GPKG", index=False)
+    src_full_df.to_csv(out_src_full_path, index=False)
+    src_crosswalk_df.to_csv(out_cross_path, index=False)
+    hydro_table_df.to_csv(out_hydro_path, index=False)
+
+    with open(out_src_json_path, "w", encoding="utf-8") as f:
+        json.dump(src_json_dict, f, sort_keys=True, indent=2)
 
     # --- 26. HEAL HAND (BRANCH ZERO) ---
     if is_healed_hand and current_branch_id == branch_zero_id:
-        print(
+        log_step(
             f"--> [Step 26] Healed HAND to Remove Hydro-conditioning Artifacts {huc_number} {current_branch_id}"
         )
         ds_dem_orig = gdal.Open(str(tempCurrentBranchDataDir / f"dem_meters_{current_branch_id}.tif"))
@@ -798,7 +891,7 @@ def delineate_and_produce_hand(
     # --- 27. HEAL HAND BRIDGES ---
     osm_bridges = tempHucDataDir / "osm_bridges_subset.gpkg"
     if osm_bridges.is_file():
-        print(f"--> [Step 27] Burn in bridges {huc_number} {current_branch_id}")
+        log_step(f"--> [Step 27] Burn in bridges {huc_number} {current_branch_id}")
         run_python_script(
             srcDir / "heal_bridges_osm.py",
             [
@@ -823,7 +916,7 @@ def delineate_and_produce_hand(
     # --- 28. PROCESS ROADS FIMpact ---
     osm_roads = tempHucDataDir / "osm_roads_subset.gpkg"
     if osm_roads.is_file():
-        print(f"--> [Step 28] Process roads FIMpact {huc_number} {current_branch_id}")
+        log_step(f"--> [Step 28] Process roads FIMpact {huc_number} {current_branch_id}")
         run_python_script(
             srcDir / "process_roads_fimpact.py",
             [
@@ -842,7 +935,7 @@ def delineate_and_produce_hand(
     # --- 29. PROCESS BUILDINGS FIMpact ---
     buildings_subset = tempHucDataDir / "buildings_subset.gpkg"
     if buildings_subset.is_file():
-        print(f"--> [Step 29] Process buildings FIMpact {huc_number} {current_branch_id}")
+        log_step(f"--> [Step 29] Process buildings FIMpact {huc_number} {current_branch_id}")
         run_python_script(
             srcDir / "process_buildings_fimpact.py",
             [
@@ -860,7 +953,7 @@ def delineate_and_produce_hand(
 
     # --- 30. EVALUATE CROSSWALK ---
     if current_branch_id == branch_zero_id and evaluate_crosswalk == "1":
-        print(f"--> [Step 30] Evaluate crosswalk {huc_number} {current_branch_id}")
+        log_step(f"--> [Step 30] Evaluate crosswalk {huc_number} {current_branch_id}")
         run_python_script(
             toolsDir / "evaluate_crosswalk.py",
             [
@@ -882,9 +975,9 @@ def delineate_and_produce_hand(
 
     # --- 31. CONVERSION TO INT16 ---
     if huc2Identifier == 19:
-        print("--> [Step 31] Skipping Int16 Conversion for Alaska HUC")
+        log_step("--> [Step 31] Skipping Int16 Conversion for Alaska HUC")
     else:
-        print(f"--> [Step 31] Convert GW Catchments and REM to Int16 {huc_number} {current_branch_id}")
+        log_step(f"--> [Step 31] Convert GW Catchments and REM to Int16 {huc_number} {current_branch_id}")
         run_python_script(toolsDir / "convert_to_int16.py", ["-b", tempCurrentBranchDataDir])
 
     print(f"=== [SUCCESS] Completed delineate_hydros_and_produce_HAND for HUC {huc_number} ===")
