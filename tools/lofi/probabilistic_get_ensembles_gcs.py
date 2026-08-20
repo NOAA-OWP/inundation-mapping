@@ -341,35 +341,35 @@ if __name__ == '__main__':
     dt = '20250402'
     hr = '0'
 
-    # get_gcs_ensembles(
-    #     dt=dt,
-    #     hour=hr,
-    #     ens_type='gfs',
-    #     feature_ids=streams['ID'].unique(),
-    #     output_path="../../ensembles/test/gcs",
-    #     output_name=f"{huc}_ensembles_gfs.nc",
-    # )
-    #
-    # get_gcs_ensembles(
-    #     dt=dt,
-    #     hour=hr,
-    #     ens_type='nbm',
-    #     feature_ids=streams['ID'].unique(),
-    #     output_path="../../ensembles/test/gcs",
-    #     output_name=f"{huc}_ensembles_nbm.nc",
-    # )
+    get_gcs_ensembles(
+        dt=dt,
+        hour=hr,
+        ens_type='gfs',
+        feature_ids=streams['ID'].unique(),
+        output_path="../../ensembles/test/gcs",
+        output_name=f"{huc}_ensembles_gfs.nc",
+    )
 
-    # get_gcs_ensembles(
-    #     dt=dt,
-    #     hour=hr,
-    #     ens_type='srf',
-    #     feature_ids=streams['ID'].unique(),
-    #     output_path="../../ensembles/test/gcs",
-    #     output_name=f"{huc}_ensembles_srf.nc",
-    #     days_ahead=0,
-    #     hours_ahead=13,
-    #     aggregate_forecast_method="time_slice",
-    # )
+    get_gcs_ensembles(
+        dt=dt,
+        hour=hr,
+        ens_type='nbm',
+        feature_ids=streams['ID'].unique(),
+        output_path="../../ensembles/test/gcs",
+        output_name=f"{huc}_ensembles_nbm.nc",
+    )
+
+    get_gcs_ensembles(
+        dt=dt,
+        hour=hr,
+        ens_type='srf',
+        feature_ids=streams['ID'].unique(),
+        output_path="../../ensembles/test/gcs",
+        output_name=f"{huc}_ensembles_srf.nc",
+        days_ahead=0,
+        hours_ahead=13,
+        aggregate_forecast_method="time_slice",
+    )
 
     get_gcs_ensembles(
         dt=dt,
@@ -391,15 +391,15 @@ if __name__ == '__main__':
         keep_time_slices=True,
     )
 
-    # get_gcs_ensembles(
-    #     dt=dt,
-    #     hour=hr,
-    #     ens_type='srf',
-    #     feature_ids=streams['ID'].unique(),
-    #     output_path="../../ensembles/test/gcs",
-    #     output_name=f"{huc}_ensembles_srf_all.nc",
-    #     days_ahead=0,
-    #     hours_ahead=13,
-    #     aggregate_forecast_method="time_slice",
-    #     keep_time_slices=True,
-    # )
+    get_gcs_ensembles(
+        dt=dt,
+        hour=hr,
+        ens_type='srf',
+        feature_ids=streams['ID'].unique(),
+        output_path="../../ensembles/test/gcs",
+        output_name=f"{huc}_ensembles_srf_all.nc",
+        days_ahead=0,
+        hours_ahead=13,
+        aggregate_forecast_method="time_slice",
+        keep_time_slices=True,
+    )
