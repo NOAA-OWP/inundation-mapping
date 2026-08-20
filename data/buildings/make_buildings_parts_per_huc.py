@@ -6,7 +6,6 @@ import re
 import shutil
 import time
 import traceback
-from itertools import zip_longest
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -16,11 +15,29 @@ import pyarrow.parquet as pq
 from dotenv import load_dotenv
 from shapely.geometry import box
 
+from src.utils.io import write_geodataframe
 from src.utils.shared_functions import get_huc_vars, run_with_mp, setup_mp_file_logger
 
 
-# Your required building attributes (geometry always will be included)
-BUILDING_COLUMNS = ["UUID", "HEIGHT", "OCC_CLS", "SOURCE", "VAL_METHOD"]
+# Workflow overview:
+# HUC8 boundaries are loaded once, grouped by regional CRS, and spatially indexed.
+# For each state GeoParquet file, row-group bounding boxes are obtained from
+# Parquet metadata without reading the building records. Those bounding boxes
+# are used to preselect candidate HUC8s, after which each row group is read once
+# and an exact spatial join is performed only against those candidate HUCs.
+# The resulting buildings are then written as independent per-HUC Parquet parts.
+# This metadata-first filtering avoids unnecessary row-group reads and limits
+# expensive spatial operations to geographically relevant HUCs.
+
+# Design note:
+# Each Parquet row group is treated as one multiprocessing task. This keeps the
+# row group as the natural unit of I/O: its building data is read once, then
+# spatially joined against all candidate HUC8s and split into per-HUC outputs
+# from memory. Compared with HUC-based tasks, this avoids rereading the same
+# building data for multiple HUCs.
+
+
+BUILDING_COLUMNS = ["UUID", "HEIGHT", "OCC_CLS", "SOURCE", "VAL_METHOD", "geometry"]
 
 srcDir = os.getenv('srcDir')
 load_dotenv(f'{srcDir}/bash_variables.env')
@@ -32,12 +49,9 @@ def make_building_parts_per_huc(
     out_dir: Path,
     states: Optional[List[str]] = None,
     number_jobs: int = 8,
-    row_group_chunk_size: int = 3,
 ):
     start_time = time.perf_counter()
     selected_states = {s.upper() for s in (states or [])}
-    if row_group_chunk_size < 1:
-        raise ValueError("row_group_chunk_size must be >= 1.")
 
     out_dir.mkdir(parents=True, exist_ok=True)
     log_file_path = os.path.join(out_dir, "create_building_parts.log")
@@ -61,12 +75,11 @@ def make_building_parts_per_huc(
     if not building_files:
         raise RuntimeError(f"No building parquet files found in {states_buildings_dir}")
 
-    tasks_args_list = build_mixed_row_group_tasks(
+    tasks_args_list = build_row_group_tasks(
         building_files=building_files,
         selected_states=selected_states,
         hucs_by_crs=hucs_by_crs,
         out_dir=out_dir,
-        row_group_chunk_size=row_group_chunk_size,
     )
 
     if not tasks_args_list:
@@ -76,10 +89,10 @@ def make_building_parts_per_huc(
             )
         raise RuntimeError(f"No row-group tasks were created from parquet files in {states_buildings_dir}")
 
-    print(f"Created {len(tasks_args_list)} mixed row-group tasks (chunk size={row_group_chunk_size}).")
+    print(f"Created {len(tasks_args_list)} row-group tasks.")
 
     mp_results = run_with_mp(
-        task_function=process_row_group_chunk,
+        task_function=process_row_group,
         tasks_args_list=tasks_args_list,
         file_logger=file_logger,
         max_workers=number_jobs,
@@ -216,112 +229,138 @@ def arrow_rowgroup_to_gdf(table, crs: str) -> gpd.GeoDataFrame:
     return gdf
 
 
-def build_mixed_row_group_tasks(
+def get_row_group_bbox_column_index(pf: pq.ParquetFile) -> Dict[str, int]:
+    """
+    finds which Parquet columns correspond to the GeoParquet bounding-box fields
+    and returns a dict mapping each bbox field to column index...
+    typical result={"bbox.xmin":4, "bbox.ymin":5,...}
+    """
+
+    BBOX_STAT_PATHS = ("bbox.xmin", "bbox.ymin", "bbox.xmax", "bbox.ymax")
+    if pf.metadata.num_row_groups == 0:
+        return {}
+
+    typical_row_group_meta = pf.metadata.row_group(0)
+    dict_result = {}
+    for i in range(typical_row_group_meta.num_columns):
+        column = typical_row_group_meta.column(i)
+        column_path = column.path_in_schema
+        if column_path in BBOX_STAT_PATHS:
+            dict_result[column_path] = i
+
+    return dict_result
+
+
+def get_row_group_bbox(pf: pq.ParquetFile, rg: int, bbox_col_index: Dict[str, int]) -> Optional[tuple]:
+    """Read a row group's spatial extent from GeoParquet bbox column stats, without reading its data."""
+    row_group = pf.metadata.row_group(rg)
+    stats = {}
+    for path, idx in bbox_col_index.items():
+        col_stats = row_group.column(idx).statistics
+        if col_stats is None or not col_stats.has_min_max:
+            return None
+        stats[path] = col_stats
+
+    # Each bbox field has separate min and max statistics across all geometries in the row group.
+    # e.g., bbox.xmin.min is the smallest xmin among all geometries vs bbox.xmin.max is
+    # the largest xmin value among all geometries in that row group.
+    return (stats["bbox.xmin"].min, stats["bbox.ymin"].min, stats["bbox.xmax"].max, stats["bbox.ymax"].max)
+
+
+def build_row_group_tasks(
     building_files: List[Path],
     selected_states: set[str],
     hucs_by_crs: Dict[str, gpd.GeoDataFrame],
     out_dir: Path,
-    row_group_chunk_size: int,
 ) -> List[dict]:
-    per_state_row_groups: List[List[dict]] = []
+    tasks_args_list: List[dict] = []
     for bp in building_files:
         state = bp.stem.split("_")[0].upper()
         if selected_states and state not in selected_states:
             continue
         pf = pq.ParquetFile(str(bp))
-        rows = [{"state": state, "buildings_parquet": bp, "row_group": rg} for rg in range(pf.num_row_groups)]
-        if rows:
-            per_state_row_groups.append(rows)
 
-    interleaved_items: List[dict] = []
-    for row in zip_longest(*per_state_row_groups, fillvalue=None):
-        for item in row:
-            if item is not None:
-                interleaved_items.append(item)
+        # GeoParquet's nested "bbox" struct column is flattened into separate leaf
+        # columns (bbox.xmin/ymin/xmax/ymax), and pyarrow's row-group stats API is
+        # indexed positionally, not by name, so resolve each path -> index once per file.
+        bbox_col_index = get_row_group_bbox_column_index(pf)
+        if len(bbox_col_index) != 4:
+            raise RuntimeError(
+                f"Expected all 4 bbox statistic columns in {bp.name}, found {list(bbox_col_index)}"
+            )
 
-    tasks_args_list: List[dict] = []
-    # Bundle interleaved row groups into fixed-size multiprocessing tasks.
-    # Smaller chunks usually improve load balancing across workers, while larger
-    # chunks reduce task-launch overhead but can make individual workers heavier.
-    for i in range(0, len(interleaved_items), row_group_chunk_size):
-        chunk = interleaved_items[i : i + row_group_chunk_size]
-        tasks_args_list.append(
-            {
-                "task_id": f"chunk_{i // row_group_chunk_size:05d}",
-                "items": chunk,
-                "hucs_by_crs": hucs_by_crs,
-                "out_dir": out_dir,
-            }
-        )
+        hucs = hucs_by_crs.get(get_crs_of_state(state))
+        if hucs is None:
+            raise RuntimeError(f"No HUC boundaries found for CRS of state {state}")
+
+        for rg in range(pf.num_row_groups):
+            rg_bbox = get_row_group_bbox(pf, rg, bbox_col_index)
+            if rg_bbox is None:
+                raise RuntimeError(f"Missing bbox statistics for {bp.name}, row group {rg}")
+
+            xmin, ymin, xmax, ymax = rg_bbox
+            intersected_idx = hucs.sindex.query(box(xmin, ymin, xmax, ymax), predicate="intersects")
+            if len(intersected_idx) == 0:
+                # Row group's bbox touches no HUC
+                continue
+
+            # Candidate HUCs resolved here, once, from metadata alone. One task per row
+            # group -- the atomic multiprocessing work unit.
+            tasks_args_list.append(
+                {
+                    "item": {
+                        "state": state,
+                        "buildings_parquet": bp,
+                        "row_group": rg,
+                        "intersected_hucs": hucs.iloc[intersected_idx][["huc8", "geometry"]],
+                    },
+                    "out_dir": out_dir,
+                    "task_id": f"{state}_rg{rg:05d}",
+                }
+            )
+
     return tasks_args_list
 
 
-def process_row_group_chunk(
-    items: List[dict],
-    hucs_by_crs: Dict[str, gpd.GeoDataFrame],
-    out_dir: Path,
-    file_logger,
-    screen_queue,
-    task_id,
-) -> None:
+def process_row_group(item: dict, out_dir: Path, file_logger, screen_queue, task_id):
     try:
-        pf_cache = {}
-        if "geometry" not in BUILDING_COLUMNS:
-            BUILDING_COLUMNS.append("geometry")
+        state = item["state"]
+        buildings_parquet = item["buildings_parquet"]
+        rg = item["row_group"]
+        intersected_hucs = item["intersected_hucs"]
+        state_crs = get_crs_of_state(state)
 
-        for item in items:
-            state = item["state"]
-            buildings_parquet = item["buildings_parquet"]
-            rg = item["row_group"]
-            state_crs = get_crs_of_state(state)
-            hucs = hucs_by_crs[state_crs]
+        pf = pq.ParquetFile(str(buildings_parquet))
 
-            bp_key = str(buildings_parquet)
-            if bp_key not in pf_cache:
-                pf_cache[bp_key] = pq.ParquetFile(bp_key)
-            pf = pf_cache[bp_key]
+        screen_queue.put(f"[{task_id}] {state} | {buildings_parquet.name} | row_group={rg}")
+        table = pf.read_row_group(rg, columns=BUILDING_COLUMNS)
+        bg = arrow_rowgroup_to_gdf(table, crs=state_crs)
+        if bg.empty:
+            return 1, [True]
 
-            screen_queue.put(f"[{task_id}] {state} | {buildings_parquet.name} | row_group={rg}")
-            table = pf.read_row_group(rg, columns=BUILDING_COLUMNS)
-            bg = arrow_rowgroup_to_gdf(table, crs=state_crs)
-            if bg.empty:
-                continue
+        # Candidate HUCs were already narrowed from parquet bbox metadata in
+        # build_row_group_tasks, so go straight to the accurate sjoin.
+        joined = gpd.sjoin(
+            bg, intersected_hucs, how="inner", predicate="intersects"
+        )  # keep buildings touching a HUC boundary (use within if needed)
+        if joined.empty:
+            return 1, [True]
 
-            # Cheap bbox gate: limit intersected hucs for this chunk
-            minx, miny, maxx, maxy = bg.total_bounds
-            intersected_idx = hucs.sindex.query(box(minx, miny, maxx, maxy), predicate="intersects")
-            if len(intersected_idx) == 0:  # if this row-group does not intersect any hucs
-                screen_queue.put(f'No HUCs intersected row_group: {rg} of {state}')
-                file_logger.info(f'No HUCs intersected row_group: {rg} of {state}')
-                continue
+        # Clean join artifacts
+        joined = joined.drop(columns=["index_right", "geometry_right"], errors="ignore")
 
-            intersected_hucs = hucs.iloc[intersected_idx][["huc8", "geometry"]]
+        # Write parts per HUC8
+        for huc8, sub in joined.groupby("huc8"):
+            sub = sub.copy()
+            sub["huc8"] = sub["huc8"].astype("string")  # pandas StringDtype (not categorical)
 
-            # now do the accurate sjoin only for the intersected hucs
-            joined = gpd.sjoin(
-                bg, intersected_hucs, how="inner", predicate="intersects"
-            )  # keep buildings touching a HUC boundary (use within if needed)
-            if joined.empty:
-                continue
+            part_dir = out_dir / f"huc8_{huc8}"
+            part_dir.mkdir(parents=True, exist_ok=True)
+            part_path = part_dir / f"{state}_rg{rg:05d}.parquet"
 
-            # Clean join artifacts
-            joined = joined.drop(columns=["index_right", "geometry_right"], errors="ignore")
-
-            # Write parts per HUC8
-            for huc8, sub in joined.groupby("huc8"):
-                sub = sub.copy()
-                sub["huc8"] = sub["huc8"].astype("string")  # pandas StringDtype (not categorical)
-
-                part_dir = out_dir / f"huc8_{huc8}"
-                part_dir.mkdir(parents=True, exist_ok=True)
-                part_path = part_dir / f"{state}_rg{rg:05d}.parquet"
-
-                sub.to_parquet(
-                    part_path,
-                    index=False,
-                    compression="zstd",
-                    use_dictionary=False,  # important to avoid schema-merge conflicts
-                )
+            write_geodataframe(
+                sub, part_path, index=False, use_dictionary=False  # important to avoid schema-merge conflicts
+            )
 
         return 1, [True]
 
@@ -374,17 +413,6 @@ if __name__ == "__main__":
         default=8,
         type=int,
     )
-    parser.add_argument(
-        "--row_group_chunk_size",
-        help=(
-            "OPTIONAL: Number of parquet row groups bundled into each multiprocessing task. "
-            "Lower values improve load balancing but add overhead; higher values reduce overhead "
-            "but can make each worker heavier. Most users should keep the default of 3."
-        ),
-        required=False,
-        default=3,
-        type=int,
-    )
 
     args = parser.parse_args()
     make_building_parts_per_huc(
@@ -393,5 +421,4 @@ if __name__ == "__main__":
         out_dir=Path(args.out_dir) / "huc_parts",
         states=args.state.split() if args.state else None,
         number_jobs=args.number_jobs,
-        row_group_chunk_size=args.row_group_chunk_size,
     )
