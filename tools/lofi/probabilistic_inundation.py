@@ -400,7 +400,7 @@ def get_subdivided_src(hydrofabric_dir, huc, branch, channel_manning, overbank_m
 
     hid = df_src['HydroID'].to_numpy()
 
-    if branch != 0:
+    if branch != '0':
         df_src = df_src.groupby(['HydroID', 'feature_id'], group_keys=False).apply(
             analyze_nonmonotonic_src, include_groups=False
         )
