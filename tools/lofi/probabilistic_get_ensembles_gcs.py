@@ -22,6 +22,7 @@ def get_gcs_ensembles(
     feature_ids: List[int],
     output_path: str,
     output_name: str,
+    keep_time_slices: bool = False,
     aggregate_forecast_method: str = "max_to_forecast",
     days_ahead: int = 5,
     hours_ahead: int = 0,
@@ -44,6 +45,8 @@ def get_gcs_ensembles(
         Path to save ensemble files.
     output_name : str
         Name of final processed ensemble file.
+    keep_time_slices : bool
+        Whether to keep all time slices or aggregate forecasts.
     aggregate_forecast_method : str, default = "max_to_forecast"
         Method to aggregate ensembles.  Options ["max_to_forecast". "timeslice_max_of_any_feature_id",
         "timeslice_max_sum", "timeslice"]
@@ -115,10 +118,15 @@ def get_gcs_ensembles(
         final_ds = xr.concat(ds_list, "ensemble")
         final_ds = final_ds.expand_dims(reference_time=[og_time])
 
-        final_ds = aggregate_forecasts(
-            final_ds, aggregate_forecast_method=aggregate_forecast_method, day=days_ahead, hour=hours_ahead
-        )
-        final_ds = final_ds.dropna('feature_id')
+        if keep_time_slices is False:
+            final_ds = aggregate_forecasts(
+                final_ds,
+                aggregate_forecast_method=aggregate_forecast_method,
+                day=days_ahead,
+                hour=hours_ahead,
+            )
+            final_ds = final_ds.dropna('feature_id')
+
         final_ds.to_netcdf(os.path.join(output_path, output_name))
 
     # Global Forecasting System Medium Range (Current forecast with 6 successively older forcings)
@@ -178,10 +186,15 @@ def get_gcs_ensembles(
 
         final_ds = xr.concat(ds_list, "ensemble")
 
-        final_ds = aggregate_forecasts(
-            final_ds, aggregate_forecast_method=aggregate_forecast_method, day=days_ahead, hour=hours_ahead
-        )
-        final_ds = final_ds.dropna('feature_id')
+        if keep_time_slices is False:
+            final_ds = aggregate_forecasts(
+                final_ds,
+                aggregate_forecast_method=aggregate_forecast_method,
+                day=days_ahead,
+                hour=hours_ahead,
+            )
+            final_ds = final_ds.dropna('feature_id')
+
         final_ds.to_netcdf(os.path.join(output_path, output_name))
 
     # Short Range Forecasts (Current forecast with 6 successively older forcings)
@@ -241,10 +254,15 @@ def get_gcs_ensembles(
         final_ds = xr.concat(ds_list, "ensemble")
         final_ds = final_ds.expand_dims(reference_time=[og_time])
 
-        final_ds = aggregate_forecasts(
-            final_ds, aggregate_forecast_method=aggregate_forecast_method, day=days_ahead, hour=hours_ahead
-        )
-        final_ds = final_ds.dropna('feature_id')
+        if keep_time_slices is False:
+            final_ds = aggregate_forecasts(
+                final_ds,
+                aggregate_forecast_method=aggregate_forecast_method,
+                day=days_ahead,
+                hour=hours_ahead,
+            )
+            final_ds = final_ds.dropna('feature_id')
+
         final_ds.to_netcdf(os.path.join(output_path, output_name))
 
     else:
@@ -351,4 +369,37 @@ if __name__ == '__main__':
         days_ahead=0,
         hours_ahead=13,
         aggregate_forecast_method="time_slice",
+    )
+
+    get_gcs_ensembles(
+        dt=dt,
+        hour=hr,
+        ens_type='gfs',
+        feature_ids=streams['ID'].unique(),
+        output_path="../../ensembles/test/gcs",
+        output_name=f"{huc}_ensembles_gfs_all.nc",
+        keep_time_slices=True,
+    )
+
+    get_gcs_ensembles(
+        dt=dt,
+        hour=hr,
+        ens_type='nbm',
+        feature_ids=streams['ID'].unique(),
+        output_path="../../ensembles/test/gcs",
+        output_name=f"{huc}_ensembles_nbm_all.nc",
+        keep_time_slices=True,
+    )
+
+    get_gcs_ensembles(
+        dt=dt,
+        hour=hr,
+        ens_type='srf',
+        feature_ids=streams['ID'].unique(),
+        output_path="../../ensembles/test/gcs",
+        output_name=f"{huc}_ensembles_srf_all.nc",
+        days_ahead=0,
+        hours_ahead=13,
+        aggregate_forecast_method="time_slice",
+        keep_time_slices=True,
     )

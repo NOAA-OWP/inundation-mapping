@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+# V4.9.21.10 - 2026-08-21 -[PR#1930](https://github.com/NOAA-OWP/inundation-mapping/pull/1930)
+
+This PR stops a non-monotonic check from occurring with branch zero, adjusts the attributes, and allows all time slices of gcs ensembles to be downloaded.
+
+### Changes
+- `tools/lofi/probabilistic_get_ensembles_gcs.py`: Allow for all time slices to be downloaded.
+- `tools/lofi/probabilistic_get_inundation.py`: Stop non-monotonic check on branch zero and adjust the attributes used.
+- `tools/lofi/probabilistic_verison.py`: Update version.
+<br />
+
 ## v4.9.21.9 - 2026-08-17 - [PR#1876](https://github.com/NOAA-OWP/inundation-mapping/pull/1876)
 
 Updates to LoFI model and optimizations to runtime and memory management.
