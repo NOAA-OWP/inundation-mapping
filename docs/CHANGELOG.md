@@ -46,7 +46,9 @@ Bash scripts were also refactored to use bash arrays and use of explicit notatio
 
 #### Updated deny list
 - `config/deny_unit.lst`: Commented `buildings_subset.gpkg`
-# V4.9.21.10 - 2026-08-21 -[PR#1930](https://github.com/NOAA-OWP/inundation-mapping/pull/1930)
+<br />
+
+## v4.9.21.10 - 2026-08-21 -[PR#1930](https://github.com/NOAA-OWP/inundation-mapping/pull/1930)
 
 This PR stops a non-monotonic check from occurring with branch zero, adjusts the attributes, and allows all time slices of gcs ensembles to be downloaded.
 
