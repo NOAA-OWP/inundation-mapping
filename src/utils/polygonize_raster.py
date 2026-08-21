@@ -9,6 +9,37 @@ from rasterio.features import shapes
 from shapely.geometry import shape
 
 
+def polygonize_in_memory(
+    input_raster: str, field_name: str = "HydroID", connectivity: int = 8, output_file: str = None
+) -> gpd.GeoDataFrame:
+    """Polygonizes a raster dataset into a GeoDataFrame directly in RAM."""
+    with rasterio.open(input_raster) as src:
+        raster_array = src.read(1)
+        transform = src.transform
+        crs = src.crs
+        nodata = src.nodata
+
+    mask = (raster_array != nodata) if nodata is not None else None
+
+    shape_generator = shapes(raster_array, mask=mask, transform=transform, connectivity=connectivity)
+
+    geometries = []
+    values = []
+    for geom, value in shape_generator:
+        geometries.append(shape(geom))
+        values.append(int(value))
+
+    gdf = gpd.GeoDataFrame({field_name: values}, geometry=geometries, crs=crs)
+
+    if output_file:
+        if output_file.endswith(".parquet"):
+            gdf.to_parquet(output_file, index=False)
+        else:
+            gdf.to_file(output_file, index=False, driver="GPKG")
+
+    return gdf
+
+
 def polygonize(
     input_raster: str, output_file: str, field_name: str = None, connectivity: int = 8, quiet: bool = False
 ):

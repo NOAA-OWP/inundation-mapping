@@ -433,6 +433,9 @@ def add_crosswalk_in_memory(
 
         output_src_json[str(hid)] = {"q_list": q_list, "stage_list": stage_list}
 
+    output_src = output_src.loc[:, ~output_src.columns.duplicated()].copy()
+    output_hydro_table = output_hydro_table.loc[:, ~output_hydro_table.columns.duplicated()].copy()
+
     return (
         output_catchments,
         output_flows,

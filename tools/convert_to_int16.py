@@ -1,109 +1,61 @@
 #!/usr/bin/env python3
+
 import argparse
-import os
-import sys
-import traceback
-from glob import glob
+from pathlib import Path
 
 import numpy as np
-import rioxarray as rxr
-import xarray as xr
-
-from utils.fim_enums import FIM_exit_codes
+import rasterio as rio
 
 
-def convert_to_int16(branch_dir: str):
-    """
-    Method to convert gage watershed hydro id and relative elevation model datasets from float32 to int16
+def convert_array_to_int16(arr: np.ndarray, nodata_val: float = -9999.0) -> tuple[np.ndarray, int]:
+    """Converts a float or int32 raster array to int16 in RAM while preserving nodata values."""
+    int16_nodata = -32768
+    out_arr = np.full_like(arr, fill_value=int16_nodata, dtype=np.int16)
 
-    Parameters
-    ----------
-    branch_dir : str
-        Directory containing hydrofabric data
+    # Valid data mask
+    valid_mask = (arr != nodata_val) & (~np.isnan(arr))
 
-    """
+    # Scale / clip to Int16 numeric limits
+    clipped_vals = np.clip(arr[valid_mask], -32767, 32767)
+    out_arr[valid_mask] = np.round(clipped_vals).astype(np.int16)
 
-    hydroid_prefix = None
+    return out_arr, int16_nodata
 
-    # Get gage watershed catchments and rems for the appropriate branch (or * for all branches)
-    catchments = glob(f"{branch_dir}/gw_catchments_reaches_filtered_addedAttributes_*.tif")
-    rems = glob(f"{branch_dir}/rem_zeroed_masked_*.tif")
 
-    hydroid_prefix_path = os.path.join(branch_dir, 'hydroid_prefix.txt')
+def convert_raster_file_to_int16_in_memory(raster_path: str) -> None:
+    """Reads a raster file, converts its band array to Int16 in RAM, and overwrites the file."""
+    path = Path(raster_path)
+    if not path.is_file():
+        return
 
-    # Iterate through each pair of gw catchments and rems
-    for c, r in zip(catchments, rems):
+    with rio.open(path) as src:
+        profile = src.profile.copy()
+        nodata_val = src.nodata if src.nodata is not None else -9999.0
+        arr = src.read(1)
 
-        catchment = rxr.open_rasterio(c)
+    int16_arr, int16_nodata = convert_array_to_int16(arr, nodata_val=nodata_val)
 
-        # Check if converting data is possible
-        if (np.unique(catchment).shape[0] > 32766) | (len(str(int(np.max(catchment)))) > 8):
+    profile.update(dtype=rio.int16, nodata=int16_nodata, count=1)
 
-            print(
-                "Catchment raster has either more than 32766 unique HydroIDs or has HydroIDs with more",
-                "than 8 digits.  Please adjust data accordingly before running Int16 data conversion.",
-            )
-            sys.exit(FIM_exit_codes.CANNOT_CONVERT_HYDROIDS_TO_INT16.value)
+    with rio.open(path, "w", **profile) as dst:
+        dst.write(int16_arr, 1)
 
-        if hydroid_prefix is None:
-            hydroid_prefix = str(int(np.floor(catchment.max() / 10000)))
 
-        # Save original as another file to be deleted by deny list or saved
-        catchment.rio.to_raster(c.replace('.tif', '_int32.tif'), compress="LZW", tiled=True)
+def convert_to_int16_directory(branch_dir: str) -> None:
+    """File/Directory CLI wrapper that finds catchments and REM rasters and converts them to Int16."""
+    b_path = Path(branch_dir)
+    if not b_path.is_dir():
+        return
 
-        # Preserve the last four digits only since the first four of HydroIDs are ubiquitous amongst all HUC08
-        nodata, crs = catchment.rio.nodata, catchment.rio.crs
-        catchment.data = xr.where(catchment != nodata, catchment - int(hydroid_prefix) * 10000, catchment)
-
-        catchment = catchment.astype(np.int16)
-        catchment.rio.write_nodata(nodata, inplace=True)
-        catchment.rio.write_crs(crs, inplace=True)
-
-        catchment.rio.to_raster(c, dtype=np.int16, compress="LZW", tiled=True)
-
-        if not os.path.exists(hydroid_prefix_path):
-            with open(hydroid_prefix_path, 'w') as file:
-                file.write(hydroid_prefix)
-
-        rem = rxr.open_rasterio(r)
-
-        # Save original as another file to be deleted by deny list or saved
-        rem.rio.to_raster(r.replace('.tif', '_float32.tif'), compress="LZW", tiled=True)
-        nodata, crs = rem.rio.nodata, rem.rio.crs
-
-        # Preserve the second highest possible number for int16, use the highest number for nodata
-        rem.data = xr.where(rem > 32.766, 32.766, rem)
-        rem.data = xr.where(rem >= 0, np.round(rem * 1000), 32767)
-
-        rem = rem.astype(np.int16)
-        rem.rio.write_nodata(32767, inplace=True)
-        rem.rio.write_crs(crs, inplace=True)
-
-        rem.rio.to_raster(r, dtype=np.int16, compress="LZW", tiled=True)
+    # Find candidate rasters matching gw_catchments and rem_ zeroed rasters
+    for raster_file in b_path.glob("*.tif"):
+        if "gw_catchments" in raster_file.name or "rem_zeroed" in raster_file.name:
+            convert_raster_file_to_int16_in_memory(str(raster_file))
 
 
 if __name__ == "__main__":
-
-    """
-    Example Usage:
-
-    python ./convert_to_int16.py
-        -b ../outputs/fim_outputs/12090301/0
-    """
-
-    # Parse arguments
-    parser = argparse.ArgumentParser(description="Convert float32 and int32 datasets to int16")
-
-    parser.add_argument(
-        "-b", "--branch_dir", help="REQUIRED: Id of branch to process (or * for all)", required=True
-    )
+    parser = argparse.ArgumentParser(description="Convert REM and GW Catchments rasters to Int16")
+    parser.add_argument("-b", "--branch-dir", required=True, help="Path to branch directory")
 
     args = vars(parser.parse_args())
-
-    try:
-        # Catch all exceptions through the script if it came
-        # from command line.
-        convert_to_int16(**args)
-
-    except Exception:
-        print("The following error has occurred:\n", traceback.format_exc())
+    convert_to_int16_directory(branch_dir=args["branch_dir"])

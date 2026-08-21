@@ -1,145 +1,181 @@
+#!/usr/bin/env python3
+
 import argparse
-import glob
-import os
-import re
 from pathlib import Path
 
 import geopandas as gpd
 import numpy as np
 import pandas as pd
-import rasterio
-import xarray as xr
-from rasterio import features
-from rasterio.warp import Resampling, reproject
+import rasterio as rio
 from rasterstats import zonal_stats
 
+from utils.spatial import sjoin
 
-def min_hand_excluding_zero(values):
-    # Convert to unmasked array and drop 0 and masked/nodata
-    # return np.nan if on NoData Hand to be able to filter them later
-    data = np.ma.filled(values.astype(float), np.nan)  # Convert masked to nan
-    valid = data[(data != 0) & (~np.isnan(data))]
-    return float(np.min(valid)) if valid.size > 0 else np.nan
+
+def flow_lookup_in_memory(stages: tuple, hydro_id: int, hydrotable_df: pd.DataFrame) -> tuple:
+    """In-memory discharge interpolation from hydroTable dataframe."""
+    sub_df = hydrotable_df[hydrotable_df["HydroID"] == hydro_id]
+    if sub_df.empty:
+        return (np.nan, np.nan)
+
+    # Standardize stage and discharge column names
+    stage_col = "stage" if "stage" in sub_df.columns else "Stage"
+    q_col = "discharge_cms" if "discharge_cms" in sub_df.columns else "Discharge (m3s-1)"
+
+    sub_df = sub_df.sort_values(by=stage_col)
+
+    stages_arr = sub_df[stage_col].to_numpy()
+    q_arr = sub_df[q_col].to_numpy()
+
+    return_flows = np.interp(stages, stages_arr, q_arr)
+    return tuple(return_flows)
+
+
+def process_roads_fimpact_in_memory(
+    rem_raster_path: str,
+    roads_gdf: gpd.GeoDataFrame,
+    catchments_gdf: gpd.GeoDataFrame,
+    hydrotable_df: pd.DataFrame,
+    buffer_m: float = 1.5,
+    threatened_percent: float = 0.75,
+    output_gpkg_path: str = None,
+) -> gpd.GeoDataFrame:
+    """Calculates road inundation thresholds (HAND/REM depth & discharge) entirely in RAM.
+
+    Parameters
+    ----------
+    rem_raster_path : str
+        Path to the branch REM raster file.
+    roads_gdf : gpd.GeoDataFrame
+        Clipped road network vector layer in memory.
+    catchments_gdf : gpd.GeoDataFrame
+        Branch catchments vector layer in memory.
+    hydrotable_df : pd.DataFrame
+        Rating curve hydroTable dataframe in memory.
+    buffer_m : float
+        Buffer distance for road geometries during raster zonal statistics.
+    threatened_percent : float
+        Fraction of threshold HAND depth to define threatened stage.
+    output_gpkg_path : str, optional
+        Optional path to persist the resulting road impact layer to disk.
+
+    Returns
+    -------
+    gpd.GeoDataFrame
+        GeoDataFrame of road segments enriched with flood thresholds and flow properties.
+    """
+    if roads_gdf.empty or catchments_gdf.empty:
+        print("Empty roads or catchments input passed to process_roads_fimpact_in_memory.")
+        return gpd.GeoDataFrame()
+
+    roads_df = roads_gdf.copy()
+    roads_df["centroid_geometry"] = roads_df.geometry.centroid
+
+    # Buffer roads for zonal statistics
+    buffered_geom = roads_df.geometry.buffer(buffer_m, resolution=buffer_m)
+
+    # Execute raster zonal statistics in RAM
+    with rio.open(rem_raster_path) as rem_src:
+        transform = rem_src.transform
+        nodata_val = rem_src.nodata
+
+        stats = zonal_stats(
+            buffered_geom,
+            rem_raster_path,
+            affine=transform,
+            stats="median",
+            nodata=nodata_val,
+            all_touched=True,
+        )
+
+    roads_df["threshold_hand"] = pd.to_numeric([x.get("median") for x in stats], errors="coerce")
+
+    # Filter out unimpacted roads
+    roads_df = roads_df.loc[roads_df["threshold_hand"] > 0].copy()
+
+    if roads_df.empty:
+        return gpd.GeoDataFrame()
+
+    # Switch geometry back to centroids for spatial join to catchments
+    roads_df["geometry"] = roads_df["centroid_geometry"]
+    roads_df = roads_df.drop(columns=["centroid_geometry"], errors="ignore")
+
+    # Clean prior join keys and perform spatial join
+    roads_df = roads_df.drop(columns=["index_right"], errors="ignore")
+    catchments_clean = catchments_gdf.drop(columns=["index_right"], errors="ignore")
+
+    roads_df = sjoin(roads_df, catchments_clean[["HydroID", "feature_id", "order_", "geometry"]], how="inner")
+    roads_df = roads_df.drop(columns=["index_right"], errors="ignore")
+
+    # Compute threatened stage (75% threshold)
+    roads_df["threshold_hand_75"] = roads_df["threshold_hand"] * threatened_percent
+
+    # Lookup discharges from hydrotable dataframe
+    if not hydrotable_df.empty and "HydroID" in roads_df.columns:
+        flows = roads_df.apply(
+            lambda row: flow_lookup_in_memory(
+                (row["threshold_hand"], row["threshold_hand_75"]), row["HydroID"], hydrotable_df
+            ),
+            axis=1,
+            result_type="expand",
+        )
+        roads_df[["threshold_discharge", "threshold_discharge75"]] = flows
+
+        # Unit conversions
+        roads_df["threshold_hand_ft"] = roads_df["threshold_hand"] * 3.28084
+        roads_df["threshold_hand_75_ft"] = roads_df["threshold_hand_75"] * 3.28084
+        roads_df["threshold_discharge_cfs"] = roads_df["threshold_discharge"] * 35.3147
+        roads_df["threshold_discharge_75_cfs"] = roads_df["threshold_discharge75"] * 35.3147
+
+    # Persist output if requested
+    if output_gpkg_path and not roads_df.empty:
+        roads_df.to_file(output_gpkg_path, driver="GPKG", index=False)
+
+    return roads_df
 
 
 def process_roads_fimpact(
-    hand_grid_raster: str, osm_road_vector: str, catchments_path: str, output_path: str
-) -> None:
-    """
-    Processes road impacts within a HUC region using the FIMpact framework and  saves the result to a csv file.
+    rem_raster_path: str,
+    roads_gpkg: str,
+    catchments_gpkg: str,
+    hydrotable_csv: str,
+    output_gpkg: str,
+    buffer_m: float = 1.5,
+):
+    """File I/O CLI wrapper for backward compatibility."""
+    roads_gdf = gpd.read_file(roads_gpkg) if Path(roads_gpkg).is_file() else gpd.GeoDataFrame()
+    catchments_gdf = (
+        gpd.read_file(catchments_gpkg, layer="catchments")
+        if Path(catchments_gpkg).is_file()
+        else gpd.read_file(catchments_gpkg)
+    )
+    hydrotable_df = pd.read_csv(hydrotable_csv) if Path(hydrotable_csv).is_file() else pd.DataFrame()
 
-    Parameters:
-    - source_hand_raster (str): REQUIRED. Path to the source HAND raster file
-    - osm_road_vector (str): REQUIRED. Path to a GeoPackage (GPKG) file containing the road segments.
-    - catchments (srr): REQUIRED. Path to HAND catchment
-    - output_path (str): REQUIRED. Path where the output CSV file will be saved.
-
-    """
-    # get branch id from output file passed from fim pipeline
-    branch_id = Path(output_path).parent.name
-
-    # read hand grid
-    with rasterio.open(hand_grid_raster, 'r') as hand_grid:
-        hand_grid_profile = hand_grid.profile
-        hand_grid_array = hand_grid.read(1)
-
-    # read roads data
-    roads_gdf = gpd.read_file(osm_road_vector)
-
-    # remove this extra id
-    if 'catchment_id' in roads_gdf.columns:
-        roads_gdf = roads_gdf.drop(columns=['catchment_id'])
-
-    # read HAND catchments to split the roads segments for each intersected HYDROIDs/feature_ids.
-    # this is different than bridges, because a road can exists within multiple HydroID/hydroTable and
-    # we need to consider threshold hand for all intersected HydroID.
-    catchments_df = gpd.read_file(catchments_path, columns=['HydroID', 'feature_id', 'order_', 'geometry'])
-
-    # possible that feature id and hydro id be as type float. first make them int and then str
-    catchments_df['feature_id'] = catchments_df['feature_id'].astype(int).astype(str)
-    catchments_df['HydroID'] = catchments_df['HydroID'].astype(int).astype(str)
-
-    # further split the roads based on HAND catchments
-    roads_gdf_splitted = gpd.overlay(roads_gdf, catchments_df, how="intersection")
-
-    # zonal stats does not like the lines input if it is jagged (can happenen because
-    # of overlaying with catchment boundaries) and can yield wrong results.
-    # threfore, we explode the lines to make sure all segments are single linestring.
-    roads_gdf_splitted = roads_gdf_splitted.explode(index_parts=True).reset_index(drop=True)
-
-    if not roads_gdf_splitted.empty:
-        roads_gdf_splitted['branch'] = branch_id
-
-        # Call zonal_stats with the custom stat
-        stats = zonal_stats(
-            roads_gdf_splitted['geometry'],
-            hand_grid_array,
-            affine=hand_grid_profile['transform'],
-            nodata=hand_grid_profile["nodata"],
-            all_touched=True,
-            stats=[],  # No built-in stats needed
-            add_stats={"min_ex0": min_hand_excluding_zero},
-        )
-
-        # we do not care about the length of inundated roads... just the min hand anywhere along the length
-        roads_gdf_splitted.loc[:, 'threshold_hand'] = [x.get('min_ex0') for x in stats]
-
-        # it is possible that roads cross areas of a HAND with nan data (levee), so make sure to remove those Nan threshold hands
-        roads_gdf_splitted = roads_gdf_splitted.dropna(subset=['threshold_hand'])
-
-        # no need to save geometry --helpful to save disc size
-        roads_gdf_splitted = roads_gdf_splitted.drop(columns='geometry')
-
-        # group by segment id, hydroid, and report the min of threshold hand to remove extra exploded road segments in each hydroid
-        min_idx = roads_gdf_splitted.groupby(['osmid_catchid', 'HydroID'])['threshold_hand'].idxmin()
-        roads_gdf_splitted = roads_gdf_splitted.loc[min_idx]
-
-        # make sure to record ids as str for csv output file
-        cols_to_str = ['osmid', 'huc8', 'HydroID', 'feature_id', 'order_', 'branch']
-        roads_gdf_splitted[cols_to_str] = roads_gdf_splitted[cols_to_str].astype(str)
-
-        roads_gdf_splitted.to_csv(output_path, index=False)
-    else:
-        print(f'no splitted roads for {branch_id}')
-
-    del catchments_df
+    process_roads_fimpact_in_memory(
+        rem_raster_path=rem_raster_path,
+        roads_gdf=roads_gdf,
+        catchments_gdf=catchments_gdf,
+        hydrotable_df=hydrotable_df,
+        buffer_m=buffer_m,
+        output_gpkg_path=output_gpkg,
+    )
 
 
 if __name__ == "__main__":
-    '''
-    Sample usage :
-        python foss_fim/src/process_roads_fimpact.py
-        -g outputs/roads/02050206/branches/0/rem_zeroed_masked_0.tif
-        -c outputs/roads/02050206/branches/0/gw_catchments_reaches_filtered_addedAttributes_crosswalked_0.gpkg
-        -r outputs/roads/02050206/osm_roads_subset.gpkg
-        -o outputs/roads/02050206/branches/0/osm_roads_fimpact_0.csv
-
-    '''
-
-    parser = argparse.ArgumentParser(description='Process roads FIMpacts')
-
-    parser.add_argument(
-        '-g', '--hand_grid_raster', help='REQUIRED: Path for HAND grid raster file', required=True
-    )
-
-    parser.add_argument(
-        '-r',
-        '--osm_road_vector',
-        help='REQUIRED: Path to a GPKG file containing the osm roads centerline ',
-        required=True,
-    )
-
-    parser.add_argument(
-        '-c',
-        '--catchments_path',
-        help='REQUIRED: Path and file name of the HAND catchments geopackage',
-        required=True,
-    )
-
-    parser.add_argument(
-        '-o', '--output_path', help='REQUIRED: Path where the output csv file will be saved', required=True
-    )
+    parser = argparse.ArgumentParser(description="Process Road Flood Impact Analysis")
+    parser.add_argument("-g", "--rem-raster", required=True, help="REM raster path")
+    parser.add_argument("-r", "--roads-gpkg", required=True, help="Roads GPKG path")
+    parser.add_argument("-p", "--catchments-gpkg", required=True, help="Catchments GPKG path")
+    parser.add_argument("-t", "--hydrotable-csv", required=True, help="HydroTable CSV path")
+    parser.add_argument("-o", "--output-gpkg", required=True, help="Output impact GPKG path")
+    parser.add_argument("-b", "--buffer-m", default=1.5, type=float, help="Buffer meters")
 
     args = vars(parser.parse_args())
-
-    process_roads_fimpact(**args)
+    process_roads_fimpact(
+        rem_raster_path=args["rem_raster"],
+        roads_gpkg=args["roads_gpkg"],
+        catchments_gpkg=args["catchments_gpkg"],
+        hydrotable_csv=args["hydrotable_csv"],
+        output_gpkg=args["output_gpkg"],
+        buffer_m=args["buffer_m"],
+    )
