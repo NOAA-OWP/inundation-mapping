@@ -338,7 +338,7 @@ def process_generate_categorical_fim(
         nwm_sites_all_gdf = nwm_sites_all_gdf.to_crs(VIZ_PROJECTION)
 
         # Save a parquet version for quick loading in each HUC and 1/10th of the size
-        write_geodataframe(nwm_sites_all_gdf, nwm_sites_file)
+        nwm_sites_all_gdf.to_parquet(nwm_sites_file)
 
         # Save a GPKG version for debugging (not shared with the HUCs)
         write_geodataframe(

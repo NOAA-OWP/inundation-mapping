@@ -15,6 +15,8 @@ from shapely import wkt
 
 from src.utils.io import write_geodataframe
 
+from src.utils.io import write_geodataframe
+
 
 pd.options.mode.chained_assignment = None  # default='warn'
 

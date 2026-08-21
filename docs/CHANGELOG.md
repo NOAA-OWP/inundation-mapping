@@ -23,6 +23,7 @@ This PR smooths out some outstanding quirks found after merging the CatFIM reorg
 - `tools/tools_shared_functions.py`: Comment change. Updated file reading settings.
 
 ## v4.9.x.x - 2026-06-15 - [PR#1862](https://github.com/NOAA-OWP/inundation-mapping/pull/1862)
+## v4.10.0.0 - 2026-06-21 - [PR#1862](https://github.com/NOAA-OWP/inundation-mapping/pull/1862)
 
 Fixes SQLite errors caused by geopackage file handling by the OS (introduced in #1805) by using GeoParquet files (sorted by Hilbert curve) created by Python instead of system GDAL commands. Writing to GeoParquet is simplified by adding the capability to `to_file()`. Three new files replace the three GDAL command-line programs `gdal_polygonize.py`, `gdal_rasterize.py`, and `ogr2ogr`. In a couple of intermediate cases where GDAL was called directly and does not accept geoparquet input files, shapefiles were used instead of geopackages.
 
@@ -67,6 +68,17 @@ Bash scripts were also refactored to use bash arrays and use of explicit notatio
 
 #### Updated deny list
 - `config/deny_unit.lst`: Commented `buildings_subset.gpkg`
+<br />
+
+## v4.9.21.10 - 2026-08-21 -[PR#1930](https://github.com/NOAA-OWP/inundation-mapping/pull/1930)
+
+This PR stops a non-monotonic check from occurring with branch zero, adjusts the attributes, and allows all time slices of gcs ensembles to be downloaded.
+
+### Changes
+- `tools/lofi/probabilistic_get_ensembles_gcs.py`: Allow for all time slices to be downloaded.
+- `tools/lofi/probabilistic_get_inundation.py`: Stop non-monotonic check on branch zero and adjust the attributes used.
+- `tools/lofi/probabilistic_verison.py`: Update version.
+<br />
 
 ## v4.9.21.9 - 2026-08-17 - [PR#1876](https://github.com/NOAA-OWP/inundation-mapping/pull/1876)
 
