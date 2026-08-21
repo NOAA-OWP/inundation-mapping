@@ -155,6 +155,7 @@ def inundation_status(
         fimpact_df = fimpact_df[fimpact_df['evaluated_discharge'] > fimpact_df['threshold_discharge']]
 
         # add evaluated stage. For performance, read hydrotable of each branch once for all records in that branch
+        print(f'  Computing evaluated stage for {len(fimpact_df)} {feature_type} records...')
         get_evaluated_stage(fimpact_df, fim_run_dir, huc)
 
         fimpact_df['flood_depth'] = fimpact_df['evaluated_stage'] - fimpact_df['threshold_hand']

@@ -1,6 +1,40 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.x.x.x - 2026-08-21 - [PR#1900](https://github.com/NOAA-OWP/inundation-mapping/pull/1900)
+
+This PR closes issue #1864, by applying these improvements:
+
+- **Zonal stats runtime** (`process_buildings_fimpact.py`, `process_roads_fimpact.py`, `compute_flood_depth.py`): replaced the custom per-feature Python callback (`min_hand_excluding_zero`) with a single vectorized numpy pass that remaps zero HAND pixels to nodata, then lets `zonal_stats` use its built-in `min` stat. Also wrapped each zonal_stats call in a shared `rasterio.Env()` instead of letting it rebuild the GDAL environment per feature. Evaluated and ruled out a `bbox=`-based GDAL read filter (it segfaulted); `gpd.overlay()` already prunes to in-domain buildings efficiently on its own.
+
+- **Buildings retrieved by actual HUC boundary**: buildings are also now retrieved only for a HUC's actual boundary rather than its buffered domain, which reduces the number of features to process and can further reduce runtime.
+
+- **Buildings input as GeoParquet**: buildings are now carried as GeoParquet (`buildings_subset.parquet`) instead of GeoPackage.
+
+- **Buildings FIMpact toggle**: added a `process_buildings_fimpact` toggle in `params_template.env` so a FIM pipeline run can skip buildings FIMpact processing. 
+
+- **Simplified and sped up `data/buildings/make_buildings_parts_per_huc.py`**: for each state's building parquet file, intersecting HUCs are now found per row group using only that row group's bbox metadata (read from the parquet footer, no building data read). Each row group is then read exactly once, and its buildings are written out to every HUC it actually intersects.
+
+
+
+### Changes
+- `config/params_template.env` — added the `process_buildings_fimpact` toggle.
+- `data/buildings/get_fema_buildings.py` — writes state building parquet files with spatial sorting/bbox metadata/compression instead of the default `to_parquet` call.
+- `data/buildings/make_buildings_parts_per_huc.py` — reworked to prefilter row groups using parquet bbox metadata, read each row group exactly once, and dispatch one multiprocessing task per row group.
+- `data/wbd/clip_vectors_to_wbd.py` — buildings output switched from GeoPackage to GeoParquet.
+- `src/bash_variables.env` — bumped `pre_clip_huc_dir` and `buildings_parts_path` to newer input versions.
+- `src/delineate_hydros_and_produce_HAND.sh` — buildings FIMpact step now gated by the new toggle and reads the parquet buildings subset.
+- `src/process_buildings_fimpact.py` — zonal stats sped up via vectorized nodata handling.
+- `src/process_roads_fimpact.py` — same zonal stats optimization applied to roads.
+- `tools/compute_flood_depth.py` — same zonal stats optimization applied here too.
+- `tools/fimpacts_inundation.py` — now reads the input feature file as GeoParquet or GeoPackage depending on extension, since this shared function handles both buildings (now `.parquet`) and roads (still `.gpkg`).
+- `src/utils/huc_process_error_report.py` — reworded a log message.
+
+---------------------------------------------------------------
+### Testing
+Ran the full FIM pipeline for HUC 07120004 before and after these changes and confirmed identical FIM maps, and ran `tools/fimpacts_inundation.py` before and after with identical output.
+<br/>
+
 ## v4.9.21.9 - 2026-08-17 - [PR#1876](https://github.com/NOAA-OWP/inundation-mapping/pull/1876)
 
 Updates to LoFI model and optimizations to runtime and memory management.

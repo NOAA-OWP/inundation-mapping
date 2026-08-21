@@ -329,6 +329,8 @@ if [ "$process_buildings_fimpact" = "True" ] && [ -f $tempHucDataDir/buildings_s
         -c $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked_$current_branch_id.gpkg \
         -o $tempCurrentBranchDataDir/buildings_fimpact_$current_branch_id.csv
     Tcount
+elif [ "$process_buildings_fimpact" != "True" ]; then
+    echo -e $startDiv"Skipping buildings FIMpact processing (toggle off) for $hucNumber"
 else
     echo -e $startDiv"No buildings data for $hucNumber"
 fi
