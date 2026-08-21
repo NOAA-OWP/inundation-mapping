@@ -5,8 +5,10 @@ import glob
 import logging
 import math
 import os
+import random
 import shutil
 import sys
+import time
 import traceback
 from datetime import datetime, timezone
 
@@ -36,7 +38,10 @@ appropriate NWM reaches.
 
 """
 
-gpd.options.io_engine = "pyogrio"
+gpd.options.io_engine = "pyogrio"  # Force GDAL to use standard locking and synchronous write modes
+# helps with gpkg.to_file writes
+os.environ["GDAL_GEO_TRUNCATE_JOURNAL"] = "YES"
+os.environ["OGR_SQLITE_SYNCHRONOUS"] = "OFF"  # Speeds up network writes
 
 
 # Main function for CatFIM mapping processing for a HUC
@@ -275,7 +280,7 @@ def run_fb_mapping(
                 continue
 
             logging.info(" ")
-            logging.info(f"{huc} : {ahps_site} - {magnitude}")
+            # logging.info(f"{huc} : {ahps_site} - {magnitude}")  # too verbose
 
             # Create a site/magnitude specific flows csv and drop unnecessary colunmns
             magnitude_flows_df_filtered = magnitude_flows_df[
@@ -297,8 +302,7 @@ def run_fb_mapping(
 
             logging.info(f"{huc} : {ahps_site} : {magnitude} - Begin inundation for {tif_name}")
             try:
-                # executor.submit(  # TODO: decide about keeping MP here (removed for now)
-                job_number_inundate = 1  # TODO: Decide about keeping MP here? (added a placeholder for now)
+                job_number_inundate = 1
 
                 run_fb_inundation(
                     huc,
@@ -369,7 +373,7 @@ def run_fb_inundation(  # renamed from run_inundation
         map_file = Inundate_gms(
             hydrofabric_dir=fim_run_dir,
             forecast=magnitude_flows_csv_path,
-            num_workers=job_number_inundate,  # TODO: keep multiproc? currently defaults to 1
+            num_workers=job_number_inundate,
             hydro_table_df=None,
             hucs=huc,
             inundation_raster=output_extent_tif,
@@ -377,8 +381,15 @@ def run_fb_inundation(  # renamed from run_inundation
             verbose=False,
             log_file=None,
             output_fileNames=None,
-            multi_process=True,
+            multi_process=False,
         )
+
+        # HACK: Give rasterio files a chance in Inundate_gms time to finish closing
+        # not sure it will work
+        # TODO Fall 2026: Test with and without this
+        # A bit of start staggering to help not overload the MP (0.1 milliseconds to 5 secs)
+        time_delay_mms = random.randint(100, 5000) / 1000
+        time.sleep(time_delay_mms)
 
         # ---------------------
         # Mosaic inundation tifs for lid/category
@@ -434,11 +445,9 @@ def run_fb_inundation(  # renamed from run_inundation
         branch_tifs = glob.glob(output_extent_branch_tif)
 
         for tif_file in branch_tifs:
-            os.remove(tif_file)
+            if os.path.exists(tif_file):
+                os.remove(tif_file)
 
-    # TODO: Decide humm... do we keep the try catch here? do we even want one?
-    # what do we want to do if a site, mag fails... dump the entire tool or
-    # just log this site/mag?
     except Exception as ex:
         # Log errors and their tracebacks
 
@@ -570,7 +579,16 @@ def run_sb_mapping(
         # If no segments, write message and exit out
         if not segments or len(segments) == 0:
             msg = 'Missing NWM stream segments for site'
-            logging.warning(f"{huc} : {ahps_site} - msg")
+            logging.warning(f"{huc} : {ahps_site} - {msg}")
+            sites_gdf = csf.update_line_status_or_warning(ahps_site, sites_gdf, msg, set_mapped_to_no=True)
+            continue
+
+        # Get the site altitude and error out if it's NaN (we need it for the inundation calculations)
+        lid_altitude = huc_library_df[(huc_library_df['nws_lid'] == ahps_site)]['lid_alt_ft'].iloc[0]
+
+        if math.isnan(lid_altitude):
+            msg = "Site altitude is nan, no inundation possible"
+            logging.warning(f"{huc} : {ahps_site} - {msg}")
             sites_gdf = csf.update_line_status_or_warning(ahps_site, sites_gdf, msg, set_mapped_to_no=True)
             continue
 
@@ -810,7 +828,7 @@ def run_sb_inundation(
     # TODO: Decide if we want to implement this ID to FB CatFIM too?
     huc_lid_cat_id = f"{huc} : {ahps_site} : {magnitude}"
 
-    logging.info(f"{huc_lid_cat_id} - Starting to create tifs")
+    # logging.info(f"{huc_lid_cat_id} - Starting to create tifs")  # too verbose
 
     # ---------------------
     # Calculate HAND stage
@@ -822,14 +840,10 @@ def run_sb_inundation(
     # Subtract HAND gage elevation from HAND WSE to get HAND stage.
     hand_stage_m = datum_adj_wse_m - lid_usgs_elev  # HAND stage in m
 
-    logging.info("datum_adj_wse = stage_val + datum_adj_ft + lid_altitude")  # TEMP DEBUG
-    logging.info(f"{datum_adj_wse} = {stage_val} + {datum_adj_ft} + {lid_altitude}")  # TEMP DEBUG
-    logging.info("hand_stage_m = datum_adj_wse_m - lid_usgs_elev")  # TEMP DEBUG
-    logging.info(f"{hand_stage_m} = {datum_adj_wse_m} - {lid_usgs_elev}")  # TEMP DEBUG
-
-    # hand_stage = ( # TODO: Clean up
-    #     hand_stage_m if str(huc)[:2] == '19' else round(hand_stage_m * 1000)
-    # )  # convert to mm to match HAND if it's NOT Alaska (HUC starts with 19)
+    logging.info(f"{huc_lid_cat_id} - datum_adj_wse = stage_val + datum_adj_ft + lid_altitude")  # TEMP DEBUG
+    logging.info(f"{huc_lid_cat_id} - {datum_adj_wse} = {stage_val} + {datum_adj_ft} + {lid_altitude}")
+    logging.info(f"{huc_lid_cat_id} - hand_stage_m = datum_adj_wse_m - lid_usgs_elev")  # TEMP DEBUG
+    logging.info(f"{huc_lid_cat_id} - {hand_stage_m} = {datum_adj_wse_m} - {lid_usgs_elev}")  # TEMP DEBUG
 
     # Keep stage in meters if it's in Alaska (HUC starts with 19)
     if str(huc)[:2] == '19':
@@ -845,10 +859,11 @@ def run_sb_inundation(
     datum_adj_wse = round(datum_adj_wse, 2)
     datum_adj_wse_m = round(datum_adj_wse_m, 2)
 
-    logging.info(f"datum_adj_wse : {datum_adj_wse}")  # TEMP DEBUG
-    logging.info(f"datum_adj_wse_m : {datum_adj_wse_m}")  # TEMP DEBUG
-    logging.info(f"hand_stage : {hand_stage} {hand_stage_units}")  # TEMP DEBUG
-    logging.info("")  # TEMP DEBUG
+    logging.info(
+        f"{huc_lid_cat_id} - datum_adj_wse : {datum_adj_wse}, datum_adj_wse_m : {datum_adj_wse_m}"
+    )  # TEMP DEBUG
+    logging.info(f"{huc_lid_cat_id} - hand_stage : {hand_stage} {hand_stage_units}")  # TEMP DEBUG
+    logging.info(f"{huc_lid_cat_id} - ")  # TEMP DEBUG
 
     # If hand_stage is negative, write message and exit out
     if hand_stage < 0:
@@ -870,17 +885,21 @@ def run_sb_inundation(
     # ---------------------
     # Iterate through branches to produce the inundated branch tifs for the HAND stage
 
-    # TODO: In the future, could add multi-threading for branch processing.
-
     # Jan 2026 CatFIM Reorg Note:
     # Previously we had multiprocessing in place for the branch processing.
     # We've taken out the multiprocessing, but in the future we could put back
     # in some multi-threading to speed some things up. We would want to do some
     # benchmark tests before and after multithreading to make sure it's actually
     # speeding things up.
-
+    #
     # For now, we will just run it single-threaded and can implement multi-
     # threading later.
+    # TODO: In the future, could add multi-threading for branch processing.
+
+    # Set these to False initially and if at least one valid data source is found they will be changed to True
+    branch_rem_available = False
+    branch_catchments_file_available = False
+    branch_hydrotable_available = False
 
     for branch in branches:
 
@@ -898,23 +917,38 @@ def run_sb_inundation(
             'gw_catchments_reaches_filtered_addedAttributes_' + branch + '.tif',
         )
         hydrotable_path = os.path.join(fim_run_dir, huc, full_branch_path, 'hydroTable_' + branch + '.csv')
+        # TODO: Switch to using the huc-level version, parquet hydrotable (instead of branch-level CSV)
 
-        # NOTE: Jan 26 sometimes, these can fail to exist if a branchf initial failed during HAND generation
+        # NOTE: Jan 26 sometimes, these can fail to exist if a branch initially failed during HAND generation
         # Do any of these ultimately change the sites gdf status / mapping columns?
         # if so.. change it here (adjusting for the actual status message in the final library gpkg) # TODO: Test this contingency?
 
         if not os.path.exists(rem_path):
-            msg = "Branch REM doesn't exist (could be bad branch)"
-            logging.warnings(f'{msg_id_w_branch} - {msg}')
+            msg = "Branch REM not found (could be bad branch)"
+            logging.warning(f'{msg_id_w_branch} - {msg}')
             continue
+        else:
+            # Set to true if we have at least one
+            branch_rem_available = True
+
         if not os.path.exists(catchments_path):
-            msg = "Branch catchments files don't exist (could be bad branch)"
-            logging.warnings(f'{msg_id_w_branch} - {msg}')
+            msg = "Branch catchments files not found (could be bad branch)"
+            logging.warning(f'{msg_id_w_branch} - {msg}')
             continue
+        else:
+            # Set to true if we have at least one
+            branch_catchments_file_available = True
+
         if not os.path.exists(hydrotable_path):
-            msg = "Branch hydrotable doesn't exist (could be bad branch)"
-            logging.warnings(f'{msg_id_w_branch} - {msg}')
+            msg = "Branch hydrotable not found (could be bad branch)"
+            logging.warning(f'{msg_id_w_branch} - {msg}')
             continue
+        else:
+            # Set to true if we have at least one
+            branch_hydrotable_available = True
+
+        # If we get past these three checks at least once, it means we had at least one branch
+        # REM, catchments file, and hydrotable for the site
 
         # Use hydroTable to determine hydroid_list from site_ms_segments.
         hydrotable_df = pd.read_csv(
@@ -983,6 +1017,19 @@ def run_sb_inundation(
 
     # end of previous MP (removed Jan 2026)
     # end of branch loop
+
+    # Return a warning if we were missing data for all branches
+    if not branch_rem_available:
+        logging.warning(f'{huc_lid_cat_id} - REM not found for any branches')
+        # TODO: Should this be a reason to exit and update the site status?
+
+    if not branch_catchments_file_available:
+        logging.warning(f'{huc_lid_cat_id} - Catchments file not found for any branches')
+        # TODO: Should this be a reason to exit and update the site status?
+
+    if not branch_hydrotable_available:
+        logging.warning(f'{huc_lid_cat_id} - Hydrotable not found for any branches')
+        # TODO: Should this be a reason to exit and update the site status?
 
     # ---------------------
     # Mosaic inundation tifs for ahps_site/magnitude
@@ -1199,8 +1246,8 @@ def mosaic_sb_inundation(lid, output_mapping_dir, category_key, huc_lid_cat_id):
 
     # Exit function if there aren't any tifs to mosaic
     if len(lid_dir_list) == 0:
-        logging.error(  # TODO: Should this be an error or warning? Might want to trace further up
-            f"{huc_lid_cat_id} - No branch tifs found for category key {category_key}. Skipping mosaicking and lake masking."
+        logging.warning(
+            f"{huc_lid_cat_id} - No branch tifs found for category key {category_key}. Possibly no hydrotable or valid streamlines found. Skipping mosaicking and lake masking."
         )
         is_success = False
         return None, is_success
@@ -1269,7 +1316,8 @@ def mosaic_sb_inundation(lid, output_mapping_dir, category_key, huc_lid_cat_id):
 
     branch_tifs = glob.glob(f"{output_mapping_dir}/{lid}_{category_key}_extent_*.tif")
     for tif_file in branch_tifs:
-        os.remove(tif_file)
+        if os.path.exists(tif_file):
+            os.remove(tif_file)
 
     is_success = True
 
@@ -1386,16 +1434,26 @@ def post_process_huc_mapping(huc, catfim_type, sites_gdf, huc_library_df, output
             )
             logging.critical(traceback.format_exc())
 
-    # Make inundated multipolygon list into a dataframe
-    reformatted_geom_list_df = pd.concat(reformatted_geom_list, ignore_index=True)
+    # Count how many nan values are in the reformatted_geom_list (in case any tif failed to reformat)
+    num_nan_geoms = sum(x is None for x in reformatted_geom_list)
+    if num_nan_geoms > 0:
+        logging.warning(
+            f"{huc} - Post-Process HUC Mapping - {num_nan_geoms} tif(s) failed to reformat into inundated multipolygons"
+        )
+
+    # Drop nan values from the reformatted_geom_list (in case any tif failed to reformat)
+    reformatted_geom_list = [x for x in reformatted_geom_list if x is not None]
 
     # Exit if no geoms were created
     # (pretty unlikely, should only happen if something has gone wrong while reformatting inundation maps)
-    if len(reformatted_geom_list_df) == 0:
+    if len(reformatted_geom_list) == 0:
         logging.warning(
             f"{huc} - Post-Process HUC Mapping - TIFFs found but no reformatted geom created at {output_mapping_dir}"
         )
         return sites_gdf, None
+
+    # Make inundated multipolygon list into a dataframe
+    reformatted_geom_list_df = pd.concat(reformatted_geom_list, ignore_index=True)
 
     # Handle intervals if CatFIM type is stage-based
     if catfim_type == 'sb':
@@ -1435,7 +1493,9 @@ def post_process_huc_mapping(huc, catfim_type, sites_gdf, huc_library_df, output
                 # Add the interval information
                 huc_library_df_subset['interval_stage'] = interval_stage
                 huc_library_df_subset['is_interval'] = True
-
+                huc_library_df_subset['stage'] = (
+                    interval_stage  # overwrites the RFC stage with the interval stage
+                )
                 huc_library_interval_data_list.append(huc_library_df_subset)
 
             # Make the new interval data into a DF and append it to the huc_library_df
@@ -1523,6 +1583,8 @@ def reformat_inundation_maps(huc, nws_lid, magnitude, tif_to_process, interval_s
         with rasterio.open(tif_to_process) as src:
             image = src.read(1)
             mask = image > 0
+            # logging.info(f"{huc} : {nws_lid} : {magnitude} - Min:  {image.min()}; Max:  {image.max()}")
+            # logging.info(f"{huc} : {nws_lid} : {magnitude} - Mean: {image.mean()}")
 
         # Aggregate shapes
         results = (
@@ -1533,10 +1595,9 @@ def reformat_inundation_maps(huc, nws_lid, magnitude, tif_to_process, interval_s
         # If no inundated shapes were created from the tifs, log a message and return
         list_results = list(results)
         if len(list_results) == 0:
-            logging.critical(
+            logging.warning(
                 f"{huc} : {nws_lid} : {magnitude} - No values above zero in inundated tif, "
-                "so zero inundated shapes were found. See GitHub issue #1491 for details."
-                # TODO: Is this GitHub issue still active? make sure error msg is up-to-date
+                "so zero inundated shapes were found."
             )
             return
 
@@ -1717,7 +1778,7 @@ def __calc_sb_intervals(non_rec_thresholds_df_site, past_major_interval_cap, huc
                 interval_recs.append([cur_magnitude_name, int_val])
                 stage_values_claimed.append(int_val)
 
-    logging.info(f"{huc_lid_id} interval recs are {interval_recs}")
+    # logging.info(f"{huc_lid_id} interval recs are {interval_recs}")  # too verbose
 
     return interval_recs
 

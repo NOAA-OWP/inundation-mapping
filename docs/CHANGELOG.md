@@ -1,6 +1,28 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.10.1.0 - 2026-08-21 - [PR#1869](https://github.com/NOAA-OWP/inundation-mapping/pull/1869)
+
+This PR smooths out some outstanding quirks found after merging the CatFIM reorg changes into dev and creates a new CatFIM tool for joining outputs from a secondary run (such as Guam stage-based) into the primary CatFIM outputs.
+
+### Additions
+- `tools/catfim/catfim_combine_final_outputs.py`: Joins the CatFIM outputs from a secondary folder to the outputs in a primary folder. The outputs are merged into new files in the primary folder with a label added to the filename.
+
+### Changes
+- `data/wrds/download_process_wrds.py`:  Fix a bug that was preventing the upstream and downstream trace to work. Update naming conventions. Renamed `main()` to `download_process_wrds()`.
+- `src/bash_variables.env`: Update NWM and Guam threshold and metadata files.
+- `src/process_branch.sh`: Comment change.
+- `tools/catfim/ahps_restricted_sites.csv`: Add restricted site.
+- `tools/catfim/catfim_post_processing.py`: Moved filepath creation to new function `get_output_filepaths()`. Added functionality to save outputs as parquets (as well as the previous CSV and GPKG outputs). Added additional logging to the site GDF compilation section. 
+- `tools/catfim/catfim_process_huc.py`: Updated file saving settings.
+- `tools/catfim/catfim_shared_functions.py`: Adjusted logging priority. Changed some errors to warnings in logging. Updated file saving settings.
+- `tools/catfim/catfim_sites_compare.py`: Update script to handle new column names and file structures of the post-reorg CatFIM outputs (while still backwards compatible with previous outputs since it's a comparison tool).
+- `tools/catfim/generate_categorical_fim.py`: Fixed logging of unfinished HUC list (was causing error). Added HUC list text file functionality.  Updated file save settings and added output parquets. Removed rerun section (for now). 
+- `tools/catfim/generate_categorical_fim_flows.py`: Add logging of segment list (for debugging). Updated file saving settings. 
+- `tools/catfim/generate_categorical_fim_mapping.py`: Fixed logging syntax where `warnings` was used instead of `warning` (was causing error). Added exit if no geometries were found (was causing error). Updated file saving settings. 
+- `tools/tools_shared_functions.py`: Comment change. Updated file reading settings.
+<br />
+
 ## v4.10.0.0 - 2026-06-21 - [PR#1862](https://github.com/NOAA-OWP/inundation-mapping/pull/1862)
 
 Fixes SQLite errors caused by geopackage file handling by the OS (introduced in #1805) by using GeoParquet files (sorted by Hilbert curve) created by Python instead of system GDAL commands. Writing to GeoParquet is simplified by adding the capability to `to_file()`. Three new files replace the three GDAL command-line programs `gdal_polygonize.py`, `gdal_rasterize.py`, and `ogr2ogr`. In a couple of intermediate cases where GDAL was called directly and does not accept geoparquet input files, shapefiles were used instead of geopackages.
@@ -467,6 +489,7 @@ Mitigates errors introduced into USGS data download script by removing the secti
 - `data/usgs/get_usgs_rating_curves.py`: Adds blank index col back into acceptable sites CSV save code.
 - `src/usgs_gage_unit_setup.py`: Removed code that processes 'None' values in USGS gages.
 - `tools/tools_shared_functions.py`: Commented out section of `aggregate_wbd_hucs()` that assigns column types.
+
 <br/>
 
 ## v4.9.17.4 - 2026-07-08 - [PR#1870](https://github.com/NOAA-OWP/inundation-mapping/pull/1870)

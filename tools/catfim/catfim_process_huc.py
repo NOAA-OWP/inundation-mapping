@@ -31,6 +31,11 @@ from tools.tools_shared_variables import (
 
 gpd.options.io_engine = "pyogrio"
 
+# Force GDAL to use standard locking and synchronous write modes
+# helps with gpkg.to_file writes
+os.environ["GDAL_GEO_TRUNCATE_JOURNAL"] = "YES"
+os.environ["OGR_SQLITE_SYNCHRONOUS"] = "OFF"  # Speeds up network writes
+
 
 """_summary_
 
@@ -108,7 +113,7 @@ def process_huc(huc, output_folder):
         huc_path, output_folder = csf.validate_huc_inputs(huc, output_folder)
 
         # Create the huc folder if it does not exist
-        os.makedirs(huc_path, exist_ok=True, mode=0o777)
+        os.makedirs(huc_path, exist_ok=True, mode=0o776)
 
         overall_start_time = datetime.now(timezone.utc)
         dt_string = overall_start_time.strftime("%m/%d/%Y %H:%M:%S")
@@ -134,9 +139,6 @@ def process_huc(huc, output_folder):
 
         # Make HUC mapping folders
         make_huc_mapping_folders(output_mapping_dir, output_temp_dir, output_log_dir)
-
-        # TODO: AWS BUG Jan 2026 - Why are my logs read only for all but the owner? other apps don't I think.
-        # I can not delete them to cleanup if I want too. huh? Better check other apps that use setup_file_logger
 
         # HUC level logs will be initially saved in the temp dir and then they will be copied into the HUC/logs folder
         # at the end of processing (which will help us ensure that the logs we compile up are from the current run)
@@ -494,7 +496,6 @@ def __process_elevations(
         download_source = "Manual_Input"
     else:
         download_source = "WRDS"
-    # logging.info(f"{huc} - Data downloaded from {download_source}") # TEMP DEBUG
 
     # Initialize output dataframes
     updated_huc_library_df = pd.DataFrame()  # a replacement huc_library_df
@@ -515,8 +516,8 @@ def __process_elevations(
         src_usgs_elev_table = os.path.join(os.getenv("FIM_RUN_DIR"), huc, usgs_elev_table_file_name)
 
         if not os.path.isfile(src_usgs_elev_table):
-            msg = "HUC-level USGS elevation table missing from FIM run directory"
-            logging.error(f"{huc} - {msg}")
+            msg = "HUC-level USGS elevation table missing from FIM run directory, aborting run"
+            logging.warning(f"{huc} - {msg}")
 
             # If this happens, all sites in this HUC will fail and have this same message, so we can update them all
             sites_gdf = csf.update_line_status_or_warning("all", sites_gdf, msg, set_mapped_to_no=True)
@@ -593,12 +594,6 @@ def __process_elevations(
 
         # Make an "rfc_stage" column (for documentation of the data source)
         lid_library_df['rfc_stage'] = lid_library_df['stage']
-        # TODO: Decide if we want to remove the 'stage' col
-        # but add a 'hand_stage' col? I am partial to that because it's more descriptive!
-
-        # TODO: rfc_stage, but final library calls this rfs_stage (typo?)
-        # uncorrect WRDS value before we adjusted it for inundation
-        # Changed this to rfc_stage for processing. Fix in finalization?
 
         # Get the site altitude from the USGS data
 
@@ -625,10 +620,6 @@ def __process_elevations(
             continue
 
         lid_altitude_ft = float(lid_altitude_ft)  # Ensure it's a float for processing later
-
-        # logging.info(
-        # f"{lid}: Rating curve and elevation val source: {rating_curve_source}, site elev value: {lid_altitude_ft}"
-        # )  # TEMP DEBUG
 
         if lid_altitude_ft is None or lid_altitude_ft == 0:
             # Jan 2026: In previous versions not all recs stopped here when this failed
@@ -1048,9 +1039,6 @@ def __adjust_datum_ft(lid_sites_gdf, lid_library_df, lid, datum_adj_nodata_value
     # ---------------------------
     # Get datum adjustment to convert elev to NAVD88 (if elev data is in NGVD29)
     # using the NOAA VDatum API
-
-    # TODO: Does this will work calling ngvd_to_navd_ft when in EC2's? Can it talk to that
-    # service from EC2's? Check this.
 
     # Jan 2026: Previously we set the default datum_adj_ft to 0.0 here and then only updated it
     # if we knew it was in NGVD29 and we could get a value from vdatum.
