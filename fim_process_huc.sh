@@ -57,7 +57,7 @@ then
     exit 22
 fi
 
-if [ "$hucNumber" = "" ]
+if [ "${hucNumber}" = "" ]
 then
     echo "ERROR: Missing hucNumber argument (2nd argument)"
     usage
@@ -75,9 +75,9 @@ fi
 
 export tempRunDir=$workDir/$runName
 export outputDestDir=$outputsDir/$runName
-export tempHucDataDir=$tempRunDir/$hucNumber
-export outputHucDataDir=$outputDestDir/$hucNumber
-export tempBranchDataDir=$tempHucDataDir/branches
+export tempHucDataDir=$tempRunDir/${hucNumber}
+export outputHucDataDir=${outputDestDir}/${hucNumber}
+export tempBranchDataDir=${tempHucDataDir}/branches
 export current_branch_id=0
 
 if [ -d "$outputHucDataDir" ]; then

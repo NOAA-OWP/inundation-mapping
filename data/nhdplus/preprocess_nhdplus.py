@@ -10,9 +10,10 @@ import rasterio as rio
 from osgeo import gdal
 
 from data.create_vrt_file import create_vrt_file
+from data.derive_headwaters import findHeadWaterPoints
 from data.nfhl.download_fema_nfhl import download_nfhl_wrapper
 from data.usgs.acquire_and_preprocess_3dep_dems import __polygonize
-from src.derive_headwaters import findHeadWaterPoints
+from src.utils.io import write_geodataframe
 
 
 def preprocess_nhdplus(region: str, inputs_dir: str):
@@ -222,8 +223,10 @@ def preprocess_region(
 
     # Derive headwater points
     headwater_points = findHeadWaterPoints(NHDFlowline)
-    headwater_points.to_file(
-        os.path.join(target_folder, f'NHDFlowline_headwaters_{target_name}.gpkg'), driver='GPKG'
+    write_geodataframe(
+        headwater_points,
+        os.path.join(target_folder, f'NHDFlowline_headwaters_{target_name}.gpkg'),
+        driver='GPKG',
     )
 
     # Extract and reproject NHDPlus waterbodies
@@ -234,13 +237,15 @@ def preprocess_region(
     NHDWaterbody = NHDWaterbody.rename(columns={'ComID': 'LakeID'})
     NHDWaterbody = NHDWaterbody.to_crs(epsg=target_crs_number)
     NHDWaterbody = NHDWaterbody[['LakeID', 'geometry']]
-    NHDWaterbody.to_file(f'{inputs_dir}/nhdplus/{target_name}/NHDWaterbody_{target_name}.gpkg', driver='GPKG')
+    write_geodataframe(
+        NHDWaterbody, f'{inputs_dir}/nhdplus/{target_name}/NHDWaterbody_{target_name}.gpkg', driver='GPKG'
+    )
 
     NHDFlowline = NHDFlowline.sjoin(NHDWaterbody, how='left', predicate='intersects')
     NHDFlowline = NHDFlowline.rename(columns={'LakeID': 'Lake'})
     NHDFlowline['Lake'] = NHDFlowline['Lake'].fillna(-9999).astype(int)
 
-    NHDFlowline.to_file(os.path.join(target_folder, f'NHDFlowline_{target_name}.gpkg'), driver='GPKG')
+    write_geodataframe(NHDFlowline, os.path.join(target_folder, f'NHDFlowline_{target_name}.gpkg'))
 
     # Extract and reproject NHDPlus catchments
     nhd_catchment = f'{nhdplus_path}/NHDPlusCatchment/Catchment.shp'
@@ -249,7 +254,7 @@ def preprocess_region(
     NHDCatchment = gpd.read_file(nhd_catchment)
     NHDCatchment = NHDCatchment.rename(columns={'FeatureID': 'ID'})
     NHDCatchment = NHDCatchment.to_crs(epsg=target_crs_number)
-    NHDCatchment.to_file(f'{inputs_dir}/nhdplus/{target_name}/NHDCatchment_{target_name}.gpkg', driver='GPKG')
+    write_geodataframe(NHDCatchment, f'{inputs_dir}/nhdplus/{target_name}/NHDCatchment_{target_name}.gpkg')
 
     # Extract and reproject WBD
     wbd = f'{nhdplus_path}/WBDSnapshot/WBD/WBD_Subwatershed.shp'
@@ -261,7 +266,7 @@ def preprocess_region(
     WBD = WBD.to_crs(epsg=target_crs_number)
     if not os.path.exists(f'{inputs_dir}/wbd'):
         os.makedirs(f'{inputs_dir}/wbd')
-    WBD.to_file(f'{inputs_dir}/wbd/WBD_{target_name}.gpkg', layer='WBDHU8', driver='GPKG')
+    write_geodataframe(WBD, f'{inputs_dir}/wbd/WBD_{target_name}.gpkg', layer='WBDHU8', driver='GPKG')
 
     download_nfhl_wrapper(huc_list=[huc], output_folder=f"{inputs_dir}/fema/nfhl/{region}", num_processes=14)
 

@@ -1,7 +1,54 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-# V4.9.21.10 - 2026-08-21 -[PR#1930](https://github.com/NOAA-OWP/inundation-mapping/pull/1930)
+## v4.10.0.0 - 2026-06-21 - [PR#1862](https://github.com/NOAA-OWP/inundation-mapping/pull/1862)
+
+Fixes SQLite errors caused by geopackage file handling by the OS (introduced in #1805) by using GeoParquet files (sorted by Hilbert curve) created by Python instead of system GDAL commands. Writing to GeoParquet is simplified by adding the capability to `to_file()`. Three new files replace the three GDAL command-line programs `gdal_polygonize.py`, `gdal_rasterize.py`, and `ogr2ogr`. In a couple of intermediate cases where GDAL was called directly and does not accept geoparquet input files, shapefiles were used instead of geopackages.
+
+Bash scripts were also refactored to use bash arrays and use of explicit notation including curly braces around environment variables, quotes around arguments, and double brackets around conditional blocks.
+
+### Additions
+- `src/`
+    - `subset_vectors_to_branches.py`: Replaces GDAL command-line `ogr2ogr`
+    - `utils/`
+        - `io.py`: Redefines geopandas.to_parquet() to automatically sort by Hilbert curve, then adds that functionality to geopandas.to_file() so that GeoParquet files can be written with `to_file()` ignoring certain keyword argumens such as `layer`, and `overwrite` and sets `driver='fiona'` as the default for Geopackage (.gpkg) files. Also specifies the use of `spawn` to force clean process spawning for multiprocessing and prevent segmentation faults.
+        - `polygonize_raster.py`: Converts from raster to vector as a replacement for the GDAL command-line `gdal_polygonize.py`
+        - `rasterize_parquet.py`: Converts from vector to raster as a replacement for the GDAL command-line `gdal_rasterize.py`
+
+### Changes
+##### The files below previously wrote GeoParquet files using `to_parquet()` but were modified to use the new `to_file()`.
+- `data/`
+    - `buildings/get_fema_buildings.py` and `make_buildings_parts_per_huc.py`
+    - `nws/ahps_bench_polys_to_calb_pts.py` and `merge_nws_usgs_point_parquet.py`
+    - `slope/sword_slope_create_parquet_qc.py`
+    - `usgs/acquire_and_preprocess_3dep_dems.py` and `write_parquet_from_calib_pts.py`
+- `src/src_adjust_spatial_obs.py`
+- `tools/catfim/generate_categorical_fim.py`
+
+#### Changed to use geoparquet instead of geopackages and refactored
+- `src/`
+    - `delineate_hydros_and_produce_HAND.sh`, `reachID_grid_to_vector_points.py`, `run_by_branch.sh`, `run_huc.sh`
+
+#### Changed to use geoparquet instead of geopackages
+- `config/`
+    - `deny_branch_zero.lst`, `deny_branches.lst`, `deny_unit.lst`
+- `src/`
+    - `add_crosswalk.py`, `adjust_floodplains.py`, `aggregate_branches_to_huc.py`, `associate_levelpaths_with_levees.py`, `derive_level_paths.py`, `filter_catchments_and_add_attributes.py`, `heal_bridges_osm.py`, `longitudinal_flow_adjustment.py`, `make_stages_and_catchlist.py`, `mask_dem.py`, `mitigate_branch_outlet_backpool.py`, `process_buildings_fimpact.py`, `process_roads_fimpact.py`, `split_flows.py`, `src_adjust_ras2fim_rating.py`, `src_adjust_spatial_obs.py`, `src_adjust_usgs_rating_trace.py`, `src_roughness_optimization.py`, `stream_branches.py`, `usgs_gage_crosswalk.py`, `usgs_gage_unit_setup.py`
+ - `tools/
+     - catfim/`
+         - `vis_categorical_fim.py`
+     - `bridge_inundation.py`, `evaluate_crosswalk.py`, `rating_curve_comparison.py`
+
+#### Refactored
+- `fim_pre_processing.sh`, `fim_pipeline.sh`, `fim_process_huc.sh`, `fim_postprocessing.sh`
+- `src/`
+    - `bash_functions.env`, `calibrate_rating_curves.sh`, `process_branch.sh`
+
+#### Updated deny list
+- `config/deny_unit.lst`: Commented `buildings_subset.gpkg`
+<br />
+
+## v4.9.21.10 - 2026-08-21 -[PR#1930](https://github.com/NOAA-OWP/inundation-mapping/pull/1930)
 
 This PR stops a non-monotonic check from occurring with branch zero, adjusts the attributes, and allows all time slices of gcs ensembles to be downloaded.
 

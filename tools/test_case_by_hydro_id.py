@@ -16,6 +16,7 @@ from shapely.validation import make_valid
 from tools_shared_functions import compute_stats_from_contingency_table
 
 import src.utils.fim_logger as fl
+from src.utils.io import write_geodataframe
 from src.utils.shared_variables import VIZ_PROJECTION
 
 
@@ -279,7 +280,10 @@ def catchment_zonal_stats(benchmark_category, version, output_file_name):
             "gw_catchments_reaches_filtered_addedAttributes_crosswalked_0.gpkg",
         )
 
-        catchment_geom = gpd.read_file(catchment_gpkg)
+        if os.path.splitext(catchment_gpkg)[-1].lower() == '.parquet':
+            catchment_geom = gpd.read_parquet(catchment_gpkg)
+        else:
+            catchment_geom = gpd.read_file(catchment_gpkg)
         catchment_geom['geometry'] = catchment_geom.apply(lambda row: make_valid(row.geometry), axis=1)
 
         for agree_rast in agreement_dict:
@@ -332,7 +336,7 @@ def catchment_zonal_stats(benchmark_category, version, output_file_name):
     FLOG.lprint("------------------------------------")
 
     FLOG.lprint(f'Writing geopackage {output_file_name}')
-    csv_output.to_file(output_file_name, index=False, driver="GPKG", engine='fiona')
+    write_geodataframe(csv_output, output_file_name, index=False)
 
     FLOG.lprint('Writing to CSV')
     csv_path = output_file_name.replace(".gpkg", ".csv")

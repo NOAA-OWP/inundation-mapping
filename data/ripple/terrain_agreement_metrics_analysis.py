@@ -14,6 +14,8 @@ import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
 
+from src.utils.io import write_geodataframe
+
 
 # Parameters
 MAX_BRIDGE_REACHES = 1
@@ -331,7 +333,7 @@ def merge_nwm_streams_with_ripples(metrics_dir, out_dir, ripple_collection_name)
 
     if not os.path.exists(path_ripple_reaches):
         ripple_reaches_gdf = arrange_outgoing_columns(ripple_reaches_gdf)
-        ripple_reaches_gdf.to_file(path_ripple_reaches, driver='GPKG')
+        write_geodataframe(ripple_reaches_gdf, path_ripple_reaches)
     else:
         msg = f'Ripple reaches GeoPackage already exists, skipping write: {path_ripple_reaches}\n'
         print(msg)
@@ -440,7 +442,7 @@ def merge_ripple_reaches_sourcemodels_with_metrics_db(metrics_dir, out_dir, ripp
 
     if not os.path.exists(path_ripple_reaches_metrics):
         ripple_reaches_metrics_gdf = arrange_outgoing_columns(ripple_reaches_metrics_gdf)
-        ripple_reaches_metrics_gdf.to_file(path_ripple_reaches_metrics)
+        write_geodataframe(ripple_reaches_metrics_gdf, path_ripple_reaches_metrics)
     else:
         msg = f'Metrics geopackage already exists, skipping write: {path_ripple_reaches_metrics}\n'
         print(msg)
@@ -612,7 +614,7 @@ def create_ripple_STREAMS_gdf_csv(metrics_dir, out_dir):
                 metrics_streams_gdf = arrange_outgoing_columns(metrics_streams_gdf)
                 if 'huc' in metrics_streams_gdf.columns:
                     metrics_streams_gdf['huc'] = metrics_streams_gdf['huc'].astype('string')
-                metrics_streams_gdf.to_file(path_streams_metrics)
+                write_geodataframe(metrics_streams_gdf, path_streams_metrics)
             else:
                 log_text += log(
                     f'Stream metrics GeoPackage already exists, skipping write: {path_streams_metrics}'
@@ -653,7 +655,7 @@ def create_ripple_STREAMS_gdf_csv(metrics_dir, out_dir):
             metrics_streams_conus_gpkg = arrange_outgoing_columns(metrics_streams_conus_gpkg)
             if 'huc' in metrics_streams_conus_gpkg.columns:
                 metrics_streams_conus_gpkg['huc'] = metrics_streams_conus_gpkg['huc'].astype('string')
-            metrics_streams_conus_gpkg.to_file(path_metrics_streams_conus_gpkg)
+            write_geodataframe(metrics_streams_conus_gpkg, path_metrics_streams_conus_gpkg)
     else:
         log_text += log('No stream metrics GeoPackages were created.')
 
@@ -684,7 +686,7 @@ def create_ripple_STREAMS_gdf_csv(metrics_dir, out_dir):
         all_sourcemodels_conus_gdf = arrange_outgoing_columns(all_sourcemodels_conus_gdf)
         if 'huc' in all_sourcemodels_conus_gdf.columns:
             all_sourcemodels_conus_gdf['huc'] = all_sourcemodels_conus_gdf['huc'].astype('string')
-        all_sourcemodels_conus_gdf.to_file(path_all_sourcemodels_conus_gpkg, driver='GPKG')
+        write_geodataframe(all_sourcemodels_conus_gdf, path_all_sourcemodels_conus_gpkg)
 
     return log_text
 
@@ -953,7 +955,7 @@ def process_ripple_STREAMS_create_blackList(metrics_dir, out_dir):
             whitelist_gdf = arrange_outgoing_columns(whitelist_gdf)
             if 'huc' in whitelist_gdf.columns:
                 whitelist_gdf['huc'] = whitelist_gdf['huc'].astype('string')
-            whitelist_gdf.to_file(path_master_whitelist_conus_gpkg, driver='GPKG')
+            write_geodataframe(whitelist_gdf, path_master_whitelist_conus_gpkg)
         else:
             log_text += log(
                 f'All source models CONUS GeoPackage does not exist: {path_all_sourcemodels_conus_gpkg}'

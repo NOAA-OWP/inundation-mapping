@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from esri import ESRI_REST
 from shapely import Polygon
 
+from src.utils.io import write_geodataframe
 from src.utils.shared_functions import FIM_Helpers as fh
 from src.utils.shared_functions import (
     get_huc_vars,
@@ -110,7 +111,7 @@ def process_nfhl(
         nfhl_final = nfhl_final.dropna(axis=1, how='all')
 
         # Save layer to GPKG
-        nfhl_final.to_file(out_file, layer=nfhl_label, index=False, driver='GPKG')
+        write_geodataframe(nfhl_final, out_file, layer=nfhl_label, index=False, driver='GPKG')
 
     else:
         file_logger.warning(f"No {nfhl_label} zones for HUC {huc}")
@@ -301,7 +302,7 @@ def download_nfhl(
                 if nfhl_df.empty:
                     file_logger.error(f"No NFHL data for HUC {huc}")
                     return False
-                nfhl_df.to_file(out_file, layer='combined', index=False, driver='GPKG')
+                write_geodataframe(nfhl_df, out_file, layer='combined', index=False, driver='GPKG')
                 return True
             else:
                 file_logger.info(f"Output file {out_file} already exists, skipping HUC {task_id}")

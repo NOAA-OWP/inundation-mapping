@@ -2,6 +2,8 @@ import os
 
 import geopandas as gpd
 
+from src.utils.io import write_geodataframe
+
 
 ### This is a simple script is used to fix a few of the NWM streams that have coordinates
 ### in the wrong order. It is intended as a one-time fix for the input NWM streams data.
@@ -18,4 +20,4 @@ filename_out = os.path.join(dirname, 'nwm_flows_20250328.gpkg')
 data = gpd.read_file(filename_in)
 for id in ids:
     data.loc[data['ID'] == id, 'geometry'] = data[data['ID'] == id].geometry.reverse()
-data.to_file(filename_out, driver='GPKG')
+write_geodataframe(data, filename_out)

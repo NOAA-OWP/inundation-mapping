@@ -11,6 +11,8 @@ import geopandas as gpd
 import pandas as pd
 from dotenv import load_dotenv
 
+from src.utils.io import write_geodataframe
+
 
 # Global vars, shared by all related py files.
 MAGNITUDES_TYPES = ['action', 'minor', 'moderate', 'major', 'record']
@@ -688,7 +690,7 @@ def finalize_sites_mapping_status(
 
     # Save updated sites GDF
     logging.info(f"{huc_function_tag} Saving updated HUC sites GDF to {sites_post_mapping_file_path}")
-    sites_gdf.to_file(sites_post_mapping_file_path, driver='GPKG', engine="fiona", index=False)
+    write_geodataframe(sites_gdf, sites_post_mapping_file_path, index=False)
 
     # ------------------------------------
     # Process HUC library if it is available
@@ -725,7 +727,7 @@ def finalize_sites_mapping_status(
 
     # Save updated library gdf here
     logging.info(f"{huc_function_tag} Saving updated HUC library to {library_post_mapping_file_path}")
-    huc_library_gdf.to_file(library_post_mapping_file_path, driver='GPKG', engine="fiona", index=False)
+    write_geodataframe(huc_library_gdf, library_post_mapping_file_path, index=False)
 
     return
 

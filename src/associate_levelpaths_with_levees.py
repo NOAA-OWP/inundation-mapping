@@ -52,7 +52,7 @@ def associate_levelpaths_with_levees(
     # Read in geodataframes
     levees = gpd.read_file(levees_filename)
     leveed_areas = gpd.read_file(leveed_areas_filename)
-    levelpaths = gpd.read_file(levelpaths_filename)
+    levelpaths = gpd.read_parquet(levelpaths_filename)
 
     levees[levee_id_attribute] = levees[levee_id_attribute].astype(int)
     leveed_areas[levee_id_attribute] = leveed_areas[levee_id_attribute].astype(int)
