@@ -689,7 +689,7 @@ if __name__ == '__main__':
         '--newest-run-name',
         help='OPTIONAL: Name of the newest run (to be used to choose which outputs to use if multiple runs have outputs for a HUC).',
         required=False,
-        default = '',
+        default='',
     )
 
     parser.add_argument(

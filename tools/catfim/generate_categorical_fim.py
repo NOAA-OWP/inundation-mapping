@@ -342,9 +342,7 @@ def process_generate_categorical_fim(
 
         # Save a GPKG version for debugging (not shared with the HUCs)
         write_geodataframe(
-            nwm_sites_all_gdf, nwm_sites_file.replace('.parquet', '.gpkg'),
-            driver='GPKG',
-            index=False,
+            nwm_sites_all_gdf, nwm_sites_file.replace('.parquet', '.gpkg'), driver='GPKG', index=False
         )
 
         # Filter out hucs that do not have nws_sites
