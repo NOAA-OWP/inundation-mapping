@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.9.x.x - 2026-06-15 - [PR#1862](https://github.com/NOAA-OWP/inundation-mapping/pull/1862)
+## v4.10.0.0 - 2026-06-21 - [PR#1862](https://github.com/NOAA-OWP/inundation-mapping/pull/1862)
 
 Fixes SQLite errors caused by geopackage file handling by the OS (introduced in #1805) by using GeoParquet files (sorted by Hilbert curve) created by Python instead of system GDAL commands. Writing to GeoParquet is simplified by adding the capability to `to_file()`. Three new files replace the three GDAL command-line programs `gdal_polygonize.py`, `gdal_rasterize.py`, and `ogr2ogr`. In a couple of intermediate cases where GDAL was called directly and does not accept geoparquet input files, shapefiles were used instead of geopackages.
 
