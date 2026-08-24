@@ -206,12 +206,11 @@ def subset_vector_layers(
             # Loop through the filled polygons and insert the new geometry
             for i in range(len(nwm_lakes_fill_holes.geoms)):
                 nwm_lakes.loc[i, 'geometry'] = nwm_lakes_fill_holes.geoms[i]
-            nwm_lakes.to_file(
+            write_geodataframe(
+                nwm_lakes,
                 os.path.join(huc_directory, output_filenames['nwm_lakes']),
-                driver='GPKG',
                 index=False,
                 crs=huc_CRS,
-                engine="fiona",
             )
         del nwm_lakes
 
@@ -231,12 +230,11 @@ def subset_vector_layers(
             logging.info(f"Using levee_lines_burned source for {huc}: {nld_lines_preprocessed}")
             nld_lines_preprocessed = gpd.read_file(nld_lines_preprocessed, mask=wbd_buffer, engine="fiona")
             if not nld_lines_preprocessed.empty:
-                nld_lines_preprocessed.to_file(
+                write_geodataframe(
+                    nld_lines_preprocessed,
                     os.path.join(huc_directory, output_filenames['levee_lines_burned']),
-                    driver='GPKG',
                     index=False,
                     crs=huc_CRS,
-                    engine="fiona",
                 )
             del nld_lines_preprocessed
 
@@ -245,12 +243,11 @@ def subset_vector_layers(
             logging.info(f"Using levee_lines source for {huc}: {nld_lines}")
             nld_lines = gpd.read_file(nld_lines, mask=wbd_buffer, engine="fiona")
             if not nld_lines.empty:
-                nld_lines.to_file(
+                write_geodataframe(
+                    nld_lines,
                     os.path.join(huc_directory, output_filenames['levee_lines']),
-                    driver='GPKG',
                     index=False,
                     crs=huc_CRS,
-                    engine="fiona",
                 )
             del nld_lines
 
@@ -259,12 +256,11 @@ def subset_vector_layers(
             logging.info(f"Using levee_protected_areas source for {huc}: {levee_protected_areas}")
             levee_protected_areas = gpd.read_file(levee_protected_areas, mask=wbd_buffer, engine="fiona")
             if not levee_protected_areas.empty:
-                levee_protected_areas.to_file(
+                write_geodataframe(
+                    levee_protected_areas,
                     os.path.join(huc_directory, output_filenames['levee_protected_areas']),
-                    driver='GPKG',
                     index=False,
                     crs=huc_CRS,
-                    engine="fiona",
                 )
             del levee_protected_areas
 
@@ -284,12 +280,11 @@ def subset_vector_layers(
             nwm_catchments = gpd.read_file(nwm_catchments, mask=wbd_buffer, engine="fiona")
 
             if len(nwm_catchments) > 0:
-                nwm_catchments.to_file(
+                write_geodataframe(
+                    nwm_catchments,
                     os.path.join(huc_directory, output_filenames['nwm_catchments']),
-                    driver='GPKG',
                     index=False,
                     crs=huc_CRS,
-                    engine="fiona",
                 )
             else:
                 logging.info("No NWM catchments within HUC " + str(huc) + " boundaries.")
@@ -339,12 +334,11 @@ def subset_vector_layers(
                 print("-- No applicable roads for this HUC")
                 logging.info("-- No applicable roads for this HUC")
             else:
-                subset_osm_roads_gdb.to_file(
+                write_geodataframe(
+                    subset_osm_roads_gdb,
                     os.path.join(huc_directory, output_filenames['osm_roads']),
-                    driver='GPKG',
                     index=False,
                     crs=huc_CRS,
-                    engine="fiona",
                 )
 
             del subset_osm_roads_gdb
@@ -508,12 +502,11 @@ def subset_vector_layers(
                 errors='ignore',
             )
 
-            nwm_streams.to_file(
+            write_geodataframe(
+                nwm_streams,
                 os.path.join(huc_directory, output_filenames['nwm_streams']),
-                driver='GPKG',
                 index=False,
                 crs=huc_CRS,
-                engine="fiona",
             )
         else:
             print("No NWM stream segments within HUC " + str(huc) + " boundaries.")
@@ -527,12 +520,11 @@ def subset_vector_layers(
         nwm_headwaters = gpd.read_file(nwm_headwaters, mask=wbd_streams_buffer, engine="fiona")
 
         if len(nwm_headwaters) > 0:
-            nwm_headwaters.to_file(
+            write_geodataframe(
+                nwm_headwaters,
                 os.path.join(huc_directory, output_filenames['nwm_headwaters']),
-                driver='GPKG',
                 index=False,
                 crs=huc_CRS,
-                engine="fiona",
             )
         else:
             print("No headwater point(s) within HUC " + str(huc) + " boundaries.")

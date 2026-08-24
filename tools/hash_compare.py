@@ -144,8 +144,14 @@ def write_log(list_of_failed_files, file):
 
 
 def compare_gpkg(file1, file2, list_of_failed_files=[], verbose=False):
-    f1_gdf = geopandas.read_file(file1)
-    f2_gdf = geopandas.read_file(file2)
+    if os.path.splitext(file1)[-1].lower() == '.parquet':
+        f1_gdf = geopandas.read_parquet(file1)
+    else:
+        f1_gdf = geopandas.read_file(file1)
+    if os.path.splitext(file2)[-1].lower() == '.parquet':
+        f2_gdf = geopandas.read_parquet(file2)
+    else:
+        f2_gdf = geopandas.read_file(file2)
 
     try:
         assert_geodataframe_equal(f1_gdf, f2_gdf)

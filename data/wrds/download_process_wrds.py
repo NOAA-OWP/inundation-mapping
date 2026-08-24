@@ -92,6 +92,7 @@ def download_all_metadata(metadata_filepath, metadata_url, search):
     messages = []
 
     messages.append('Starting metadata download from WRDS...')
+    messages.append(f'Upstream and downstream search distance: {search} miles')
 
     # Get all forecast points
     forecast_point_meta_list, ___, err_msg = get_metadata(
@@ -144,6 +145,19 @@ def download_all_metadata(metadata_filepath, metadata_url, search):
 
     msg = f'Total number of unique LIDs: {len(unique_lids_list)}'
     messages.append(msg)
+
+    # Return a count of how many of the first n sites have the upstream and downstream NWM features present
+    # TODO: Simplify this check once we decide what % of sites should have these vals available
+    downstream_count, upstream_count = 0, 0
+    sites_to_test = 20
+    for i in range(sites_to_test):
+        if "downstream_nwm_features" in output_meta_list[i]:
+            downstream_count += 1
+        if "upstream_nwm_features" in output_meta_list[i]:
+            upstream_count += 1
+    messages.append(f"Spot-checking the first {sites_to_test} sites for upstream and downstream NWM features")
+    messages.append(f"Sites with 'downstream_nwm_features': {downstream_count}/{sites_to_test}")
+    messages.append(f"Sites with 'upstream_nwm_features': {upstream_count}/{sites_to_test}")
 
     try:
         with open(metadata_filepath, "wb") as p_handle:
@@ -583,7 +597,7 @@ def check_metadata_CRS_availability(output_meta_list):
     return lid_source_dict
 
 
-def main(
+def download_process_wrds(
     env_file,
     output_folder,
     label,
@@ -744,11 +758,10 @@ def main(
     print(f"Total duration: {str(time_duration).split('.')[0]}")
     print('================================')
 
-    # TODO: bolt in Ali's new logging system
-
 
 if __name__ == '__main__':
     '''
+    TODO: Implement logging system
 
     Arguments
     ---------
@@ -790,7 +803,7 @@ if __name__ == '__main__':
     Download BOTH metadata and thresholds for specific HUCs and a custom output folder
         python /foss_fim/data/wrds/download_process_wrds.py -m -t -lh "12090301 19020301" -w '/data/catfim/emily_test'
 
-    Download metadata ONLY for specific HUCs
+    Download metadata ONLY
         python /foss_fim/data/wrds/download_process_wrds.py -m
 
     Download thresholds ONLY (must use an existing metadata file)
@@ -846,7 +859,7 @@ if __name__ == '__main__':
         help='OPTIONAL: Upstream and downstream search in miles. '
         ' Defaults to a NoData val which will be replaced with csf.DEFAULT_SEARCH',
         required=False,
-        default='9999',
+        default=9999,
     )
 
     parser.add_argument(
@@ -878,4 +891,4 @@ if __name__ == '__main__':
     args = vars(parser.parse_args())
 
     # Main function call
-    main(**args)
+    download_process_wrds(**args)

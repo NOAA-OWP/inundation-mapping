@@ -5,6 +5,8 @@ import pathlib
 import geopandas as gpd
 import pandas as pd
 
+from src.utils.io import write_geodataframe
+
 
 """
 River Network Slope QA/QC and Gap-Filling Script
@@ -459,7 +461,7 @@ def process_network(csv_file, nwm_streams_gpkg_file, output_dir, gpkg_output):
         f.write("\n".join(log_lines))
 
     # Save Parquet output
-    df.to_parquet(parquet_file, engine="pyarrow", index=False)
+    write_geodataframe(df, parquet_file, index=False)
 
     # Optional GeoPackage output (keep only flowlines with valid slopes)
     if gpkg_output:
@@ -467,7 +469,7 @@ def process_network(csv_file, nwm_streams_gpkg_file, output_dir, gpkg_output):
         valid_df = df[["id", "slope_iris_sword", "status", "slope_original"]].rename(columns={"id": "ID"})
         merged_gdf = gdf[gdf["ID"].isin(valid_ids)].merge(valid_df, on="ID", how="left")
         merged_gdf = merged_gdf[~merged_gdf["slope_iris_sword"].isna()]
-        merged_gdf.to_file(out_gpkg_file, driver="GPKG")
+        write_geodataframe(merged_gdf, out_gpkg_file)
         print(f"GeoPackage written to: {out_gpkg_file}")
 
     # Export dropped segments CSV for review (original rows)

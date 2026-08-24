@@ -34,6 +34,84 @@ This PR closes issue #1864, by applying these improvements:
 ### Testing
 Ran the full FIM pipeline for HUC 07120004 before and after these changes and confirmed identical FIM maps, and ran `tools/fimpacts_inundation.py` before and after with identical output.
 <br/>
+## v4.10.1.0 - 2026-08-21 - [PR#1869](https://github.com/NOAA-OWP/inundation-mapping/pull/1869)
+
+This PR smooths out some outstanding quirks found after merging the CatFIM reorg changes into dev and creates a new CatFIM tool for joining outputs from a secondary run (such as Guam stage-based) into the primary CatFIM outputs.
+
+### Additions
+- `tools/catfim/catfim_combine_final_outputs.py`: Joins the CatFIM outputs from a secondary folder to the outputs in a primary folder. The outputs are merged into new files in the primary folder with a label added to the filename.
+
+### Changes
+- `data/wrds/download_process_wrds.py`:  Fix a bug that was preventing the upstream and downstream trace to work. Update naming conventions. Renamed `main()` to `download_process_wrds()`.
+- `src/bash_variables.env`: Update NWM and Guam threshold and metadata files.
+- `src/process_branch.sh`: Comment change.
+- `tools/catfim/ahps_restricted_sites.csv`: Add restricted site.
+- `tools/catfim/catfim_post_processing.py`: Moved filepath creation to new function `get_output_filepaths()`. Added functionality to save outputs as parquets (as well as the previous CSV and GPKG outputs). Added additional logging to the site GDF compilation section. 
+- `tools/catfim/catfim_process_huc.py`: Updated file saving settings.
+- `tools/catfim/catfim_shared_functions.py`: Adjusted logging priority. Changed some errors to warnings in logging. Updated file saving settings.
+- `tools/catfim/catfim_sites_compare.py`: Update script to handle new column names and file structures of the post-reorg CatFIM outputs (while still backwards compatible with previous outputs since it's a comparison tool).
+- `tools/catfim/generate_categorical_fim.py`: Fixed logging of unfinished HUC list (was causing error). Added HUC list text file functionality.  Updated file save settings and added output parquets. Removed rerun section (for now). 
+- `tools/catfim/generate_categorical_fim_flows.py`: Add logging of segment list (for debugging). Updated file saving settings. 
+- `tools/catfim/generate_categorical_fim_mapping.py`: Fixed logging syntax where `warnings` was used instead of `warning` (was causing error). Added exit if no geometries were found (was causing error). Updated file saving settings. 
+- `tools/tools_shared_functions.py`: Comment change. Updated file reading settings.
+<br />
+
+## v4.10.0.0 - 2026-06-21 - [PR#1862](https://github.com/NOAA-OWP/inundation-mapping/pull/1862)
+
+Fixes SQLite errors caused by geopackage file handling by the OS (introduced in #1805) by using GeoParquet files (sorted by Hilbert curve) created by Python instead of system GDAL commands. Writing to GeoParquet is simplified by adding the capability to `to_file()`. Three new files replace the three GDAL command-line programs `gdal_polygonize.py`, `gdal_rasterize.py`, and `ogr2ogr`. In a couple of intermediate cases where GDAL was called directly and does not accept geoparquet input files, shapefiles were used instead of geopackages.
+
+Bash scripts were also refactored to use bash arrays and use of explicit notation including curly braces around environment variables, quotes around arguments, and double brackets around conditional blocks.
+
+### Additions
+- `src/`
+    - `subset_vectors_to_branches.py`: Replaces GDAL command-line `ogr2ogr`
+    - `utils/`
+        - `io.py`: Redefines geopandas.to_parquet() to automatically sort by Hilbert curve, then adds that functionality to geopandas.to_file() so that GeoParquet files can be written with `to_file()` ignoring certain keyword argumens such as `layer`, and `overwrite` and sets `driver='fiona'` as the default for Geopackage (.gpkg) files. Also specifies the use of `spawn` to force clean process spawning for multiprocessing and prevent segmentation faults.
+        - `polygonize_raster.py`: Converts from raster to vector as a replacement for the GDAL command-line `gdal_polygonize.py`
+        - `rasterize_parquet.py`: Converts from vector to raster as a replacement for the GDAL command-line `gdal_rasterize.py`
+
+### Changes
+##### The files below previously wrote GeoParquet files using `to_parquet()` but were modified to use the new `to_file()`.
+- `data/`
+    - `buildings/get_fema_buildings.py` and `make_buildings_parts_per_huc.py`
+    - `nws/ahps_bench_polys_to_calb_pts.py` and `merge_nws_usgs_point_parquet.py`
+    - `slope/sword_slope_create_parquet_qc.py`
+    - `usgs/acquire_and_preprocess_3dep_dems.py` and `write_parquet_from_calib_pts.py`
+- `src/src_adjust_spatial_obs.py`
+- `tools/catfim/generate_categorical_fim.py`
+
+#### Changed to use geoparquet instead of geopackages and refactored
+- `src/`
+    - `delineate_hydros_and_produce_HAND.sh`, `reachID_grid_to_vector_points.py`, `run_by_branch.sh`, `run_huc.sh`
+
+#### Changed to use geoparquet instead of geopackages
+- `config/`
+    - `deny_branch_zero.lst`, `deny_branches.lst`, `deny_unit.lst`
+- `src/`
+    - `add_crosswalk.py`, `adjust_floodplains.py`, `aggregate_branches_to_huc.py`, `associate_levelpaths_with_levees.py`, `derive_level_paths.py`, `filter_catchments_and_add_attributes.py`, `heal_bridges_osm.py`, `longitudinal_flow_adjustment.py`, `make_stages_and_catchlist.py`, `mask_dem.py`, `mitigate_branch_outlet_backpool.py`, `process_buildings_fimpact.py`, `process_roads_fimpact.py`, `split_flows.py`, `src_adjust_ras2fim_rating.py`, `src_adjust_spatial_obs.py`, `src_adjust_usgs_rating_trace.py`, `src_roughness_optimization.py`, `stream_branches.py`, `usgs_gage_crosswalk.py`, `usgs_gage_unit_setup.py`
+ - `tools/
+     - catfim/`
+         - `vis_categorical_fim.py`
+     - `bridge_inundation.py`, `evaluate_crosswalk.py`, `rating_curve_comparison.py`
+
+#### Refactored
+- `fim_pre_processing.sh`, `fim_pipeline.sh`, `fim_process_huc.sh`, `fim_postprocessing.sh`
+- `src/`
+    - `bash_functions.env`, `calibrate_rating_curves.sh`, `process_branch.sh`
+
+#### Updated deny list
+- `config/deny_unit.lst`: Commented `buildings_subset.gpkg`
+<br />
+
+## v4.9.21.10 - 2026-08-21 -[PR#1930](https://github.com/NOAA-OWP/inundation-mapping/pull/1930)
+
+This PR stops a non-monotonic check from occurring with branch zero, adjusts the attributes, and allows all time slices of gcs ensembles to be downloaded.
+
+### Changes
+- `tools/lofi/probabilistic_get_ensembles_gcs.py`: Allow for all time slices to be downloaded.
+- `tools/lofi/probabilistic_get_inundation.py`: Stop non-monotonic check on branch zero and adjust the attributes used.
+- `tools/lofi/probabilistic_verison.py`: Update version.
+<br />
 
 ## v4.9.21.9 - 2026-08-17 - [PR#1876](https://github.com/NOAA-OWP/inundation-mapping/pull/1876)
 
@@ -444,6 +522,7 @@ Mitigates errors introduced into USGS data download script by removing the secti
 - `data/usgs/get_usgs_rating_curves.py`: Adds blank index col back into acceptable sites CSV save code.
 - `src/usgs_gage_unit_setup.py`: Removed code that processes 'None' values in USGS gages.
 - `tools/tools_shared_functions.py`: Commented out section of `aggregate_wbd_hucs()` that assigns column types.
+
 <br/>
 
 ## v4.9.17.4 - 2026-07-08 - [PR#1870](https://github.com/NOAA-OWP/inundation-mapping/pull/1870)

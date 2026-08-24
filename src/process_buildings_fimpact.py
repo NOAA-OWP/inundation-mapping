@@ -34,7 +34,7 @@ def process_buildings_fimpact(
     buildings_gdf = gpd.read_parquet(buildings_polygons)
 
     # read catchments to split the building polygons for each intersected HYDROID/feature_id.
-    catchments_df = gpd.read_file(catchments_path, columns=['HydroID', 'feature_id', 'geometry'])
+    catchments_df = gpd.read_parquet(catchments_path, columns=['HydroID', 'feature_id', 'geometry'])
 
     # possible that feature id and hydro id be as type float. first make them int and then str
     catchments_df['feature_id'] = catchments_df['feature_id'].astype(int).astype(str)

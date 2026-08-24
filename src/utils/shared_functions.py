@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 from multiprocessing import Manager
 from os.path import splitext
 from pathlib import Path
+from typing import Union
 
 # import fiona
 import geopandas as gp
