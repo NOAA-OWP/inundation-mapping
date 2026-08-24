@@ -7,7 +7,7 @@ import gcsfs
 import geopandas as gpd
 import numpy as np
 import xarray as xr
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
 
 NBM_ENSEMBLE_URL = "gs://national-water-model/nwm.{0}/{1}/nwm.t{2}z.{1}.channel_rt.f{3}.conus.nc"
@@ -22,9 +22,11 @@ def get_gcs_ensembles(
     feature_ids: List[int],
     output_path: str,
     output_name: str,
+    keep_time_slices: bool = False,
     aggregate_forecast_method: str = "max_to_forecast",
     days_ahead: int = 5,
     hours_ahead: int = 0,
+    gcs: gcsfs.GCSFileSystem = None,
 ):
     """
     Method to collect ensembles for NOMADS service
@@ -43,6 +45,8 @@ def get_gcs_ensembles(
         Path to save ensemble files.
     output_name : str
         Name of final processed ensemble file.
+    keep_time_slices : bool
+        Whether to keep all time slices or aggregate forecasts.
     aggregate_forecast_method : str, default = "max_to_forecast"
         Method to aggregate ensembles.  Options ["max_to_forecast". "timeslice_max_of_any_feature_id",
         "timeslice_max_sum", "timeslice"]
@@ -50,11 +54,12 @@ def get_gcs_ensembles(
         How many days in the future to use in aggregation
     hours_ahead: int, default = 0
         How many hours in addition to days to use in aggregation
-
-
+    gcs: gcsfs.GCSFileSystem = None
+        Google cloud storage file object
     """
 
-    gcs = gcsfs.GCSFileSystem()
+    if gcs is None:
+        gcs = gcsfs.GCSFileSystem()
 
     # National Blend of Models Forced Medium Range (6 successively older forecasts)
     if ens_type == "nbm":
@@ -113,10 +118,15 @@ def get_gcs_ensembles(
         final_ds = xr.concat(ds_list, "ensemble")
         final_ds = final_ds.expand_dims(reference_time=[og_time])
 
-        final_ds = aggregate_forecasts(
-            final_ds, aggregate_forecast_method=aggregate_forecast_method, day=days_ahead, hour=hours_ahead
-        )
-        final_ds = final_ds.dropna('feature_id')
+        if keep_time_slices is False:
+            final_ds = aggregate_forecasts(
+                final_ds,
+                aggregate_forecast_method=aggregate_forecast_method,
+                day=days_ahead,
+                hour=hours_ahead,
+            )
+            final_ds = final_ds.dropna('feature_id')
+
         final_ds.to_netcdf(os.path.join(output_path, output_name))
 
     # Global Forecasting System Medium Range (Current forecast with 6 successively older forcings)
@@ -146,7 +156,7 @@ def get_gcs_ensembles(
 
         for mem in tqdm(members):
             intermediate_list = []
-            for ft in tqdm(forecast_times):
+            for ft in tqdm(forecast_times, leave=False):
                 try:
                     openfile = gcs.open(
                         GFS_ENSEMBLE_URL.format(
@@ -176,10 +186,15 @@ def get_gcs_ensembles(
 
         final_ds = xr.concat(ds_list, "ensemble")
 
-        final_ds = aggregate_forecasts(
-            final_ds, aggregate_forecast_method=aggregate_forecast_method, day=days_ahead, hour=hours_ahead
-        )
-        final_ds = final_ds.dropna('feature_id')
+        if keep_time_slices is False:
+            final_ds = aggregate_forecasts(
+                final_ds,
+                aggregate_forecast_method=aggregate_forecast_method,
+                day=days_ahead,
+                hour=hours_ahead,
+            )
+            final_ds = final_ds.dropna('feature_id')
+
         final_ds.to_netcdf(os.path.join(output_path, output_name))
 
     # Short Range Forecasts (Current forecast with 6 successively older forcings)
@@ -212,12 +227,12 @@ def get_gcs_ensembles(
         ds_list = []
         nofiles = []
 
-        for dtime, hr, mem in tqdm(zip(datetimes, hours, members)):
+        for dtime, hr, mem in tqdm(zip(datetimes, hours, members), leave=False):
             intermediate_list = []
             if len(str(hr)) < 2:
                 hr = f'0{hr}'
 
-            for ft in tqdm(forecast_times):
+            for ft in tqdm(forecast_times, leave=False):
 
                 try:
                     openfile = gcs.open(SHORT_ENSEMBLE_URL.format(dtime, forecast_type, hr, ft), mode='rb')
@@ -239,10 +254,15 @@ def get_gcs_ensembles(
         final_ds = xr.concat(ds_list, "ensemble")
         final_ds = final_ds.expand_dims(reference_time=[og_time])
 
-        final_ds = aggregate_forecasts(
-            final_ds, aggregate_forecast_method=aggregate_forecast_method, day=days_ahead, hour=hours_ahead
-        )
-        final_ds = final_ds.dropna('feature_id')
+        if keep_time_slices is False:
+            final_ds = aggregate_forecasts(
+                final_ds,
+                aggregate_forecast_method=aggregate_forecast_method,
+                day=days_ahead,
+                hour=hours_ahead,
+            )
+            final_ds = final_ds.dropna('feature_id')
+
         final_ds.to_netcdf(os.path.join(output_path, output_name))
 
     else:
@@ -349,4 +369,37 @@ if __name__ == '__main__':
         days_ahead=0,
         hours_ahead=13,
         aggregate_forecast_method="time_slice",
+    )
+
+    get_gcs_ensembles(
+        dt=dt,
+        hour=hr,
+        ens_type='gfs',
+        feature_ids=streams['ID'].unique(),
+        output_path="../../ensembles/test/gcs",
+        output_name=f"{huc}_ensembles_gfs_all.nc",
+        keep_time_slices=True,
+    )
+
+    get_gcs_ensembles(
+        dt=dt,
+        hour=hr,
+        ens_type='nbm',
+        feature_ids=streams['ID'].unique(),
+        output_path="../../ensembles/test/gcs",
+        output_name=f"{huc}_ensembles_nbm_all.nc",
+        keep_time_slices=True,
+    )
+
+    get_gcs_ensembles(
+        dt=dt,
+        hour=hr,
+        ens_type='srf',
+        feature_ids=streams['ID'].unique(),
+        output_path="../../ensembles/test/gcs",
+        output_name=f"{huc}_ensembles_srf_all.nc",
+        days_ahead=0,
+        hours_ahead=13,
+        aggregate_forecast_method="time_slice",
+        keep_time_slices=True,
     )

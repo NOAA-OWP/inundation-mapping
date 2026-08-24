@@ -34,6 +34,184 @@ Additionally, some reorganization of input data occurred. The primary change was
 
 <br/>
 
+## v4.10.1.0 - 2026-08-21 - [PR#1869](https://github.com/NOAA-OWP/inundation-mapping/pull/1869)
+
+This PR smooths out some outstanding quirks found after merging the CatFIM reorg changes into dev and creates a new CatFIM tool for joining outputs from a secondary run (such as Guam stage-based) into the primary CatFIM outputs.
+
+### Additions
+- `tools/catfim/catfim_combine_final_outputs.py`: Joins the CatFIM outputs from a secondary folder to the outputs in a primary folder. The outputs are merged into new files in the primary folder with a label added to the filename.
+
+### Changes
+- `data/wrds/download_process_wrds.py`:  Fix a bug that was preventing the upstream and downstream trace to work. Update naming conventions. Renamed `main()` to `download_process_wrds()`.
+- `src/bash_variables.env`: Update NWM and Guam threshold and metadata files.
+- `src/process_branch.sh`: Comment change.
+- `tools/catfim/ahps_restricted_sites.csv`: Add restricted site.
+- `tools/catfim/catfim_post_processing.py`: Moved filepath creation to new function `get_output_filepaths()`. Added functionality to save outputs as parquets (as well as the previous CSV and GPKG outputs). Added additional logging to the site GDF compilation section. 
+- `tools/catfim/catfim_process_huc.py`: Updated file saving settings.
+- `tools/catfim/catfim_shared_functions.py`: Adjusted logging priority. Changed some errors to warnings in logging. Updated file saving settings.
+- `tools/catfim/catfim_sites_compare.py`: Update script to handle new column names and file structures of the post-reorg CatFIM outputs (while still backwards compatible with previous outputs since it's a comparison tool).
+- `tools/catfim/generate_categorical_fim.py`: Fixed logging of unfinished HUC list (was causing error). Added HUC list text file functionality.  Updated file save settings and added output parquets. Removed rerun section (for now). 
+- `tools/catfim/generate_categorical_fim_flows.py`: Add logging of segment list (for debugging). Updated file saving settings. 
+- `tools/catfim/generate_categorical_fim_mapping.py`: Fixed logging syntax where `warnings` was used instead of `warning` (was causing error). Added exit if no geometries were found (was causing error). Updated file saving settings. 
+- `tools/tools_shared_functions.py`: Comment change. Updated file reading settings.
+<br />
+
+## v4.10.0.0 - 2026-06-21 - [PR#1862](https://github.com/NOAA-OWP/inundation-mapping/pull/1862)
+
+Fixes SQLite errors caused by geopackage file handling by the OS (introduced in #1805) by using GeoParquet files (sorted by Hilbert curve) created by Python instead of system GDAL commands. Writing to GeoParquet is simplified by adding the capability to `to_file()`. Three new files replace the three GDAL command-line programs `gdal_polygonize.py`, `gdal_rasterize.py`, and `ogr2ogr`. In a couple of intermediate cases where GDAL was called directly and does not accept geoparquet input files, shapefiles were used instead of geopackages.
+
+Bash scripts were also refactored to use bash arrays and use of explicit notation including curly braces around environment variables, quotes around arguments, and double brackets around conditional blocks.
+
+### Additions
+- `src/`
+    - `subset_vectors_to_branches.py`: Replaces GDAL command-line `ogr2ogr`
+    - `utils/`
+        - `io.py`: Redefines geopandas.to_parquet() to automatically sort by Hilbert curve, then adds that functionality to geopandas.to_file() so that GeoParquet files can be written with `to_file()` ignoring certain keyword argumens such as `layer`, and `overwrite` and sets `driver='fiona'` as the default for Geopackage (.gpkg) files. Also specifies the use of `spawn` to force clean process spawning for multiprocessing and prevent segmentation faults.
+        - `polygonize_raster.py`: Converts from raster to vector as a replacement for the GDAL command-line `gdal_polygonize.py`
+        - `rasterize_parquet.py`: Converts from vector to raster as a replacement for the GDAL command-line `gdal_rasterize.py`
+
+### Changes
+##### The files below previously wrote GeoParquet files using `to_parquet()` but were modified to use the new `to_file()`.
+- `data/`
+    - `buildings/get_fema_buildings.py` and `make_buildings_parts_per_huc.py`
+    - `nws/ahps_bench_polys_to_calb_pts.py` and `merge_nws_usgs_point_parquet.py`
+    - `slope/sword_slope_create_parquet_qc.py`
+    - `usgs/acquire_and_preprocess_3dep_dems.py` and `write_parquet_from_calib_pts.py`
+- `src/src_adjust_spatial_obs.py`
+- `tools/catfim/generate_categorical_fim.py`
+
+#### Changed to use geoparquet instead of geopackages and refactored
+- `src/`
+    - `delineate_hydros_and_produce_HAND.sh`, `reachID_grid_to_vector_points.py`, `run_by_branch.sh`, `run_huc.sh`
+
+#### Changed to use geoparquet instead of geopackages
+- `config/`
+    - `deny_branch_zero.lst`, `deny_branches.lst`, `deny_unit.lst`
+- `src/`
+    - `add_crosswalk.py`, `adjust_floodplains.py`, `aggregate_branches_to_huc.py`, `associate_levelpaths_with_levees.py`, `derive_level_paths.py`, `filter_catchments_and_add_attributes.py`, `heal_bridges_osm.py`, `longitudinal_flow_adjustment.py`, `make_stages_and_catchlist.py`, `mask_dem.py`, `mitigate_branch_outlet_backpool.py`, `process_buildings_fimpact.py`, `process_roads_fimpact.py`, `split_flows.py`, `src_adjust_ras2fim_rating.py`, `src_adjust_spatial_obs.py`, `src_adjust_usgs_rating_trace.py`, `src_roughness_optimization.py`, `stream_branches.py`, `usgs_gage_crosswalk.py`, `usgs_gage_unit_setup.py`
+ - `tools/
+     - catfim/`
+         - `vis_categorical_fim.py`
+     - `bridge_inundation.py`, `evaluate_crosswalk.py`, `rating_curve_comparison.py`
+
+#### Refactored
+- `fim_pre_processing.sh`, `fim_pipeline.sh`, `fim_process_huc.sh`, `fim_postprocessing.sh`
+- `src/`
+    - `bash_functions.env`, `calibrate_rating_curves.sh`, `process_branch.sh`
+
+#### Updated deny list
+- `config/deny_unit.lst`: Commented `buildings_subset.gpkg`
+<br />
+
+## v4.9.21.10 - 2026-08-21 -[PR#1930](https://github.com/NOAA-OWP/inundation-mapping/pull/1930)
+
+This PR stops a non-monotonic check from occurring with branch zero, adjusts the attributes, and allows all time slices of gcs ensembles to be downloaded.
+
+### Changes
+- `tools/lofi/probabilistic_get_ensembles_gcs.py`: Allow for all time slices to be downloaded.
+- `tools/lofi/probabilistic_get_inundation.py`: Stop non-monotonic check on branch zero and adjust the attributes used.
+- `tools/lofi/probabilistic_verison.py`: Update version.
+<br />
+
+## v4.9.21.9 - 2026-08-17 - [PR#1876](https://github.com/NOAA-OWP/inundation-mapping/pull/1876)
+
+Updates to LoFI model and optimizations to runtime and memory management.
+
+### Changes
+- `tools/lofi/probabilistic_distribution_parameters.py`: Updated tqdm to work with script or notebooks.
+- `tools/lofi/probabilistic_generate_metric_response_surfaces.py`: Updated tqdm to work with script or notebooks.
+- `tools/lofi/probabilistic_generate_get_ensembles_gcs.py`: Updated tqdm to work with script or notebooks.
+- `tools/lofi/probabilistic_get_ensembles_gcs`: Updated tqdm to work with script or notebooks.
+- `tools/lofi/probabilistic_get_ensembles_nomads`: Updated tqdm to work with script or notebooks.
+- `tools/lofi/probabilistic_inundation.py`: Established base parameters for distributions, checked for monotonically increasing discharge, and refactored to optimize runtime including revisions made in [PR#1912](https://github.com/NOAA-OWP/inundation-mapping/pull/1912/changes)
+- `tools/lofi/probabilistic_version.py`: Updated version.
+- `tools/inundate_gms.py`: Added check to direct dataframe SRC if indexes already exist to avoid expensive reindexing.
+<br/>
+
+## v4.9.21.8 - 2026-08-14 - [PR#1917](https://github.com/NOAA-OWP/inundation-mapping/pull/1917)
+
+This PR fixes a bug in `reset_htable_src.py` where the old calibration columns were not being cleared. Previously, when reset_htable_src.py was executed, the script reset discharge_cms to its original geometric values but did not remove existing calibration columns, such as precalb_discharge_cms.
+
+### Changes
+- `src/reset_htable_src.py`: Updated the reset logic to check for the presence of calibration columns (precalb_discharge_cms, calb_coef_*, calb_applied, etc.) and set their values back to default empty states.
+<br/>
+
+## v4.9.21.7 - 2026-08-14 - [PR#1916](https://github.com/NOAA-OWP/inundation-mapping/pull/1916)
+
+Hotfix to address missing/null slope values for oCONUS domains when using the ransac-derived slope input file. The `add_crosswalk.py` workflow now uses SWORD-derived and then rise/run slope values if missing/null values in the ransac-derived dataset. 
+
+### Changes
+
+- `add_crosswalk.py`: updated logic to use and prioritize three different slope sources to ensure no missing/null values. Priority order: 1) RANSAC-derived slope from hfab 2) IRIS-SWORD-derived slope 3) default rise/run
+<br/>
+
+## v4.9.21.6 - 2026-08-14 - [PR#1842](https://github.com/NOAA-OWP/inundation-mapping/pull/1842)
+
+This PR identifies and removes NWM streams that fall into the whitelist ripple model domain gaps. It also builds a final list of valid Ripple/NWM stream reaches and matching model domains. It removes blacklisted or invalid records, resolves cross-HUC duplicates, removes small disconnected domain fragments, excludes streams insufficiently covered by the retained domain, and preserves short topological bridges. So main goals include:
+
+  - Excludes blacklisted streams
+  - Revalidates stream records using library-path status, HUC assignments, and HUC boundary overlap.
+  - Keeps only model domains belonging to surviving collection/model combinations.
+  - Excludes any island model domain (small model domain that are not connected of the main Ripple domain). Therefore, it Removes disconnected domain components that intersect one or zero streams.
+  - Buffers that domain by 100 metres to tolerate small edge/alignment errors.
+  - Decides which whitelisted streams have adequate spatial coverage:
+ 
+      1.  Includes streams fully inside the ripple domain (within)
+      2.  Includes streams between 2 included streams. The current workflow uses 3 streams.
+      3.  Includes headwaters that at least 50% of downstream tail of stream is inside the domain and downstream_endpoint covered by the domain.
+      4.  Includes the middle streams that at least 60%  of stream is inside the domain and downstream_endpoint covered by the domain.
+
+  - Retains short gaps of up to three reaches when they connect two included reaches.
+  - Flags certain streams spanning multiple individual model domains as “too long.”
+  - Removes domain rows whose intersecting streams are all invalid.
+
+
+### Additions
+`/data/ripple/remove_ripple_blacklisted_streams_and_model_gaps.py`
+
+### Changes
+`/data/ripple/validate_ripple_data.py`
+`/data/ripple/remove_blacklisted_streams_and_ripple_model_domain_gaps.py`
+<br/>
+
+## v4.9.21.5 - 2026-08-14 - [PR#1907](https://github.com/NOAA-OWP/inundation-mapping/pull/1907)
+
+This compares the roughness and slopes of Ohio River streams between FIM 6.1 and 6.2. For large slope changes, it recalculates channel and overbank Manning’s roughness using 6.1 roughness × sqrt(6.2 slope / 6.1 slope), capped at 0.07 and 0.20; otherwise, it retains the 6.2 values.
+It writes comparison CSVs, removes incomplete and manually excluded features, updates the FIM 6.2.1 Manning table (`/src/bash_variables.env`), and finally applies manually reviewed overrides from weird_feature_roughness_updated.csv.
+
+### Changes
+
+- `/tools/analyze_optz_roughness.py`
+- `/src/bash_variables.env`
+
+<br/>
+
+## v4.9.21.4 - 2026-08-14 - [PR#1910](https://github.com/NOAA-OWP/inundation-mapping/pull/1910)
+
+Significantly improves performance and memory usage of the manning subdivision code.
+
+### Additions
+* Streamline manning subdivision. Almost all the computation happens within numpy/C layer. For 19020104 huc, branch 0, the manning subdivision is computed in 525ms. Reusing memory buffers within numpy results in significantly reduced memory usage.
+* Add `use_pandas_3_behavior` decorator. This enables current pandas 3.0 behavior in pandas 2.2+ within a scoped block (function or context).
+
+### Changes
+* Several parts of the computation were modified to improve numerical stability and enforce physical constraints.
+
+I observed that the bottleneck of the original function is actually reading files. I split the file I/O and the computation into separate pieces. Switching to a faster csv parser (pyarrow) halved the runtime.
+
+<br/>
+
+## v4.9.21.3 - 2026-08-14 - [PR#1803](https://github.com/NOAA-OWP/inundation-mapping/pull/1803)
+
+This PR updates the FLASH FIM workflow to make it more efficient for development of a rapidly updating service and expands the capabilites to oCONUS domains.
+
+### Additions
+- `tools/flashfim/optimized_flash_conflation.py`: Added new script to look up FLASH flows via a lookup table rather than using zonal stats to optimize service efficiency. This new script can also process additional domains including Puerto Rico, Virgin Islands, Hawaii, and Guam.
+
+### Changes
+- `tools/flashfim/conflate_flash_flows.py`: Restructured reading of FLASH grib file for efficiency.
+<br/>
+
 ## v4.9.21.2 - 2026-07-24 - [PR#1895](https://github.com/NOAA-OWP/inundation-mapping/pull/1895)
 
 Most notes embedded.
@@ -150,7 +328,6 @@ Fixes a topology error in `associate_levelpaths_with_levees.py` where the negati
 ### Changes
 
 `src/associate_levelpaths_with_levees.py`: Adds `resolution` parameter for buffer creation.
-
 <br/>
 
 ## v4.9.20.0 - 2026-07-11 - [PR#1731](https://github.com/NOAA-OWP/inundation-mapping/pull/1731)
@@ -345,6 +522,7 @@ Mitigates errors introduced into USGS data download script by removing the secti
 - `data/usgs/get_usgs_rating_curves.py`: Adds blank index col back into acceptable sites CSV save code.
 - `src/usgs_gage_unit_setup.py`: Removed code that processes 'None' values in USGS gages.
 - `tools/tools_shared_functions.py`: Commented out section of `aggregate_wbd_hucs()` that assigns column types.
+
 <br/>
 
 ## v4.9.17.4 - 2026-07-08 - [PR#1870](https://github.com/NOAA-OWP/inundation-mapping/pull/1870)

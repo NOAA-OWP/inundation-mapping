@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# import csv
+import csv
 import datetime as dt
 import gc
 import json
@@ -335,7 +335,7 @@ def mask_out_lakes(input_array, huc, raster_src, fim_run_dir):
         return input_array, mask_status
     else:
         # Read in the lakes shapefile
-        preclip_lakes_gdf = gpd.read_file(preclip_lakes_path)
+        preclip_lakes_gdf = gpd.read_file(preclip_lakes_path, engine='fiona')
 
         # Create a binary raster using the shapefile geometry
         lake_mask = geometry_mask(
@@ -1060,8 +1060,10 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
                 crs=src_crs,
             )
 
-            ## TEMP DEBUG: Temporarily removing this section which deals with columns types etc,
-            ## becuase I'm worried it might've introduced errors in the USGS calibration TODO: reimplement if needed
+            # TEMPORARILY DISABLED: Temporarily removing this section which deals with columns types etc,
+            # becuase I'm worried it might've introduced errors in the USGS calibration
+            # TODO: Reimplement after issues are smoothed out
+
             # # Add data type to columns, if needed (usually the ones that are sometimes/always NA)
             # for colname, new_dtype in WRDS_METADATA_COL_TYPES.items():
             #     if colname in site_gdf.columns:

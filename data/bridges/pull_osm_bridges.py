@@ -18,6 +18,7 @@ from networkx import Graph, connected_components
 from osmnx._errors import InsufficientResponseError
 from shapely.geometry import LineString, box, shape
 
+from src.utils.io import write_geodataframe
 from src.utils.shared_functions import get_huc_vars, run_with_mp, setup_mp_file_logger
 
 
@@ -309,7 +310,7 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom, file_logger, sc
         final_gdf = final_gdf.copy()
         final_gdf["osmid"] = final_gdf["osmid"].astype(str)
 
-        final_gdf.to_file(huc_bridge_file, driver="GPKG", index=True, engine='fiona')
+        write_geodataframe(final_gdf, huc_bridge_file, index=True)
 
         return 1, [True]
 

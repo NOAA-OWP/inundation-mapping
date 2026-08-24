@@ -330,13 +330,14 @@ def branch_proc_list(usgs_df, huc_dir, debug_outputs_option, log_file, branch_jo
             branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_' + branch_id + '.tif'
         )
         catchments_poly_path = os.path.join(
-            branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked_' + branch_id + '.gpkg'
+            branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked_' + branch_id + '.parquet'
         )
         htable_path = os.path.join(branch_dir, 'hydroTable_' + branch_id + '.csv')
         dem_reaches_path = os.path.join(
-            branch_dir, 'demDerived_reaches_split_filtered_addedAttributes_crosswalked_' + branch_id + '.gpkg'
+            branch_dir,
+            'demDerived_reaches_split_filtered_addedAttributes_crosswalked_' + branch_id + '.parquet',
         )
-        df = gpd.read_file(dem_reaches_path)
+        df = gpd.read_parquet(dem_reaches_path)
         usgs_elev = usgs_df[((usgs_df['huc'] == huc) & (usgs_df['levpa_id'] == branch_id))]
 
         # Calculate updstream/downstream trace ()

@@ -80,7 +80,7 @@ echo "======================= Start of fim_pipeline.sh =========================
 echo "---- Started: `date -u`"
 
 ## LOAD AND VALIDATE INCOMING ARGUMENTS
-source $srcDir/bash_functions.env
+source ${srcDir}/bash_functions.env
 . $projectDir/fim_pre_processing.sh "$@"
 
 
