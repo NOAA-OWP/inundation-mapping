@@ -115,8 +115,8 @@ rm -f $pp_log_file_name  # If it already exists
 rm -f $pp_error_log_file_name  # If it already exists
 
 # load up enviromental information
-args_file=$outputDestDir/runtime_args.env
-fim_inputs=$outputDestDir/fim_inputs.csv
+args_file=${outputDestDir}/runtime_args.env
+fim_inputs=${outputDestDir}/fim_inputs.csv
 
 source $args_file
 source $outputDestDir/params.env

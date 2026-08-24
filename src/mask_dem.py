@@ -7,85 +7,204 @@ Supports direct in-memory dataset calls as well as standalone CLI execution.
 """
 
 import argparse
+import os
 from pathlib import Path
+from typing import Union
 
+import geopandas as gpd
 import numpy as np
-from osgeo import gdal, ogr
+import pandas as pd
+import rasterio as rio
+from rasterio.mask import mask
+from shapely.geometry import box
 
 
-gdal.UseExceptions()
+def clip_geoms_to_raster_bounds(geoms: list, bounds) -> list:
+    """Clips a list of geometries to the raster bounding box to prevent out-of-bounds masking."""
+    raster_box = box(*bounds)
+    clipped = []
+    for g in geoms:
+        if g is not None and not g.is_empty:
+            inter = g.intersection(raster_box)
+            if not inter.is_empty:
+                clipped.append(inter)
+    return clipped
 
 
 def mask_dem_in_memory(
-    dem_ds: gdal.Dataset,
-    nld_gpkg_path: str,
-    catchments_gpkg_path: str,
-    branch_id_attr: str,
-    current_branch_id: str,
-    branch_zero_id: str,
-    levee_id_attr: str,
-) -> gdal.Dataset:
-    """Masks DEM cells within levee-protected areas directly in RAM."""
-    dem_band = dem_ds.GetRasterBand(1)
-    dem_arr = dem_band.ReadAsArray()
-    nodata = dem_band.GetNoDataValue()
-    if nodata is None:
-        nodata = -9999.0
+    dem_filename: str,
+    nld_filename: str,
+    catchments_filename: str,
+    levee_id_attribute: str = "feature_id",
+    branch_id_attribute: str = "levpa_id",
+    branch_id: Union[int, str] = "0",
+    branch_zero_id: Union[int, str] = "0",
+    levee_levelpaths: str = None,
+) -> tuple[np.ndarray, dict]:
+    """Masks DEM cells within levee-protected areas directly in RAM using Rasterio masking logic from dev.
 
-    driver = gdal.GetDriverByName("MEM")
-    mask_ds = driver.Create("", dem_ds.RasterXSize, dem_ds.RasterYSize, 1, gdal.GDT_Byte)
-    mask_ds.SetGeoTransform(dem_ds.GetGeoTransform())
-    mask_ds.SetProjection(dem_ds.GetProjection())
+    Returns:
+    --------
+    tuple[np.ndarray, dict]:
+        - masked_dem_array: 2D numpy array of masked DEM elevations.
+        - dem_profile: Rasterio dataset profile dictionary for writing.
+    """
+    assert os.path.exists(dem_filename), f"DEM file {dem_filename} does not exist"
+    assert os.path.exists(nld_filename), f"NLD file {nld_filename} does not exist"
 
-    if Path(nld_gpkg_path).is_file():
-        vec_ds = ogr.Open(nld_gpkg_path)
-        if vec_ds:
-            layer = vec_ds.GetLayer()
-            gdal.RasterizeLayer(mask_ds, [1], layer, burn_values=[1])
+    dem_masked = None
+    levee_catchments_masked = None
 
-    levee_mask = mask_ds.GetRasterBand(1).ReadAsArray()
-    masked_dem_arr = np.where(levee_mask == 1, nodata, dem_arr)
+    with rio.open(dem_filename) as dem:
+        dem_profile = dem.profile.copy()
+        nodata = dem.nodata if dem.nodata is not None else -9999.0
+        dem_crs = dem.crs
+        dem_arr = dem.read(1)
 
-    out_ds = driver.Create("", dem_ds.RasterXSize, dem_ds.RasterYSize, 1, dem_band.DataType)
-    out_ds.SetGeoTransform(dem_ds.GetGeoTransform())
-    out_ds.SetProjection(dem_ds.GetProjection())
+        str_branch = str(branch_id)
+        str_branch_zero = str(branch_zero_id)
 
-    out_band = out_ds.GetRasterBand(1)
-    out_band.SetNoDataValue(float(nodata))
-    out_band.WriteArray(masked_dem_arr)
-    out_ds.FlushCache()
+        if str_branch == str_branch_zero:
+            # Mask if branch zero
+            leveed = gpd.read_file(nld_filename, engine="fiona")
+            if leveed.crs != dem_crs:
+                leveed = leveed.to_crs(dem_crs)
+            geoms = [feature for feature in leveed.geometry]
+            geoms = clip_geoms_to_raster_bounds(geoms, dem.bounds)
 
-    return out_ds
+            if len(geoms) > 0:
+                masked_data, _ = mask(dem, geoms, invert=True)
+                dem_masked = masked_data[0]
+
+        elif levee_levelpaths and os.path.exists(levee_levelpaths):
+            # Mask levee-protected areas protected against level path
+            if str(catchments_filename).endswith(".parquet"):
+                catchments = gpd.read_parquet(catchments_filename)
+            else:
+                catchments = gpd.read_file(catchments_filename, engine="fiona")
+
+            levee_levelpaths_df = pd.read_csv(levee_levelpaths)
+            leveed = gpd.read_file(nld_filename, engine="fiona")
+
+            if leveed.crs != dem_crs:
+                leveed = leveed.to_crs(dem_crs)
+
+            # Select levees associated with branch
+            branch_levees = levee_levelpaths_df[
+                levee_levelpaths_df[branch_id_attribute].astype(str) == str_branch
+            ]
+            levelpath_levees = list(branch_levees[levee_id_attribute])
+
+            if len(levelpath_levees) > 0:
+                geoms = [
+                    feature
+                    for i, feature in leveed[
+                        leveed[levee_id_attribute].isin(levelpath_levees)
+                    ].geometry.items()
+                ]
+                geoms = clip_geoms_to_raster_bounds(geoms, dem.bounds)
+
+                if len(geoms) > 0:
+                    masked_data, _ = mask(dem, geoms, invert=True)
+                    dem_masked = masked_data[0]
+
+            # Mask levee-protected areas not protected against level path
+            if catchments.crs != dem_crs:
+                catchments = catchments.to_crs(dem_crs)
+
+            leveed_area_catchments = gpd.overlay(catchments, leveed, how="union")
+
+            # Select levee catchments not associated with level path
+            levee_catchments_to_mask = leveed_area_catchments.loc[
+                ~leveed_area_catchments[levee_id_attribute].isna() & leveed_area_catchments["ID"].isna(), :
+            ]
+
+            geoms = [feature for feature in levee_catchments_to_mask.geometry]
+            geoms = clip_geoms_to_raster_bounds(geoms, dem.bounds)
+
+            if len(geoms) > 0:
+                masked_data, _ = mask(dem, geoms, invert=True)
+                levee_catchments_masked = masked_data[0]
+
+        # Combine masked layers
+        if dem_masked is None:
+            out_masked = levee_catchments_masked if levee_catchments_masked is not None else dem_arr
+        else:
+            if levee_catchments_masked is None:
+                out_masked = dem_masked
+            else:
+                out_masked = np.where(levee_catchments_masked == nodata, nodata, dem_masked)
+
+    return out_masked, dem_profile
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Mask DEM using levee-protected vector polygons.")
-    parser.add_argument("-dem", "--dem", required=True, help="Input DEM raster path")
-    parser.add_argument("-nld", "--nld", required=True, help="Levee vector subset geopackage")
-    parser.add_argument("-catchments", "--catchments", required=True, help="Catchments vector subset")
-    parser.add_argument("-out", "--out", required=True, help="Output masked DEM raster path")
-    parser.add_argument("-b", "--branch-attr", default="levpa_id", help="Branch ID attribute name")
-    parser.add_argument("-i", "--branch-id", default="0", help="Current branch ID")
-    parser.add_argument("-b0", "--branch-zero-id", default="0", help="Branch zero ID")
-    parser.add_argument("-csv", "--csv", required=False, help="Path to levee levelpaths CSV")
-    parser.add_argument("-l", "--levee-attr", default="feature_id", help="Levee ID attribute name")
-
-    args = parser.parse_args()
-
-    ds_dem = gdal.Open(args.dem)
-    out_ds = mask_dem_in_memory(
-        dem_ds=ds_dem,
-        nld_gpkg_path=args.nld,
-        catchments_gpkg_path=args.catchments,
-        branch_id_attr=args.branch_attr,
-        current_branch_id=args.branch_id,
-        branch_zero_id=args.branch_zero_id,
-        levee_id_attr=args.levee_attr,
+def mask_dem(
+    dem_filename: str,
+    nld_filename: str,
+    catchments_filename: str,
+    out_dem_filename: str,
+    levee_id_attribute: str = "feature_id",
+    branch_id_attribute: str = "levpa_id",
+    branch_id: Union[int, str] = "0",
+    branch_zero_id: Union[int, str] = "0",
+    levee_levelpaths: str = None,
+) -> None:
+    """CLI wrapper writing masked DEM output file to disk."""
+    out_masked, dem_profile = mask_dem_in_memory(
+        dem_filename=dem_filename,
+        nld_filename=nld_filename,
+        catchments_filename=catchments_filename,
+        levee_id_attribute=levee_id_attribute,
+        branch_id_attribute=branch_id_attribute,
+        branch_id=branch_id,
+        branch_zero_id=branch_zero_id,
+        levee_levelpaths=levee_levelpaths,
     )
 
-    driver = gdal.GetDriverByName("GTiff")
-    driver.CreateCopy(args.out, out_ds, options=["COMPRESS=LZW", "TILED=YES"])
+    dem_profile.update(BIGTIFF="YES", compress="LZW", tiled=True)
+    with rio.open(out_dem_filename, "w", **dem_profile) as dest:
+        dest.write(out_masked, 1)
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Mask levee-protected areas from DEM")
+    parser.add_argument("-dem", "--dem-filename", help="DEM filename", required=True, type=str)
+    parser.add_argument(
+        "-nld", "--nld-filename", help="NLD levee-protected areas filename", required=True, type=str
+    )
+    parser.add_argument(
+        "-catchments", "--catchments-filename", help="NWM catchments filename", required=True, type=str
+    )
+    parser.add_argument(
+        "-l",
+        "--levee-id-attribute",
+        help="Levee ID attribute name",
+        required=False,
+        default="feature_id",
+        type=str,
+    )
+    parser.add_argument(
+        "-out", "--out-dem-filename", help="DEM filename to be written", required=True, type=str
+    )
+    parser.add_argument(
+        "-b",
+        "--branch-id-attribute",
+        help="Branch ID attribute name",
+        required=False,
+        default="levpa_id",
+        type=str,
+    )
+    parser.add_argument("-i", "--branch-id", help="Branch ID", required=False, default="0")
+    parser.add_argument("-b0", "--branch-zero-id", help="Branch zero ID", required=False, default="0")
+    parser.add_argument(
+        "-csv",
+        "--levee-levelpaths",
+        help="Levee - levelpath layer filename",
+        type=str,
+        required=False,
+        default=None,
+    )
+
+    args = vars(parser.parse_args())
+
+    mask_dem(**args)

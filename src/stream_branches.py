@@ -21,6 +21,7 @@ from shapely.strtree import STRtree
 from tqdm import tqdm
 
 from utils.fim_enums import FIM_exit_codes
+from utils.io import write_geodataframe
 from utils.shared_variables import PREP_CRS
 from utils.spatial import clip, sjoin
 
@@ -97,7 +98,10 @@ class StreamNetwork(gpd.GeoDataFrame):
         if verbose:
             print("Loading file")
 
-        raw_df = gpd.read_file(filename, *args, **kwargs)
+        if os.path.splitext(filename)[1] == ".parquet":
+            raw_df = gpd.read_parquet(filename, *args, **kwargs)
+        else:
+            raw_df = gpd.read_file(filename, *args, **kwargs)
 
         # Reproject
         if raw_df.crs.to_authority() != PREP_CRS.to_authority():
@@ -139,11 +143,7 @@ class StreamNetwork(gpd.GeoDataFrame):
         if verbose:
             print("Writing to {}".format(fileName))
 
-        # sets driver
-        driverDictionary = {".gpkg": "GPKG", ".geojson": "GeoJSON", ".shp": "ESRI Shapefile"}
-        driver = driverDictionary[splitext(fileName)[1]]
-
-        self.to_file(fileName, driver=driver, layer=layer, index=index, engine='fiona')
+        write_geodataframe(self, fileName, layer=layer, index=index)
 
     def set_index_fim(self, reach_id_attribute, drop=True):
         branch_id_attribute = self.branch_id_attribute
@@ -181,21 +181,20 @@ class StreamNetwork(gpd.GeoDataFrame):
         )
         return self
 
-    def drop(self, labels=None, axis=0):
+    def drop(self, labels=None, axis=0, **kwargs):
         branch_id_attribute = self.branch_id_attribute
         attribute_excluded = self.attribute_excluded
         values_excluded = self.values_excluded
 
-        self = super(gpd.GeoDataFrame, self)
-        self = self.drop(labels=labels, axis=axis)
+        # Pass everything cleanly down to GeoDataFrame's drop method
+        df_dropped = super().drop(labels=labels, axis=axis, **kwargs)
 
-        self = StreamNetwork(
-            self,
+        return StreamNetwork(
+            df_dropped,
             branch_id_attribute=branch_id_attribute,
             attribute_excluded=attribute_excluded,
             values_excluded=values_excluded,
         )
-        return self
 
     def rename(self, columns):
         branch_id_attribute = self.branch_id_attribute

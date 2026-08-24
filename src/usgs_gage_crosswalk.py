@@ -91,7 +91,8 @@ class GageCrosswalk(object):
     def catchment_sjoin(self, input_catchment_filename, huc_CRS):
         '''Spatial joins gages to FIM catchments'''
 
-        input_catchments = gpd.read_file(input_catchment_filename, dtype={'HydroID': int})
+        input_catchments = gpd.read_parquet(input_catchment_filename)
+        input_catchments['HydroID'] = input_catchments['HydroID'].astype(int)
         input_catchments.to_crs(huc_CRS, inplace=True)
         self.gages = sjoin(self.gages, input_catchments[['HydroID', 'LakeID', 'geometry']], how='inner')
 
@@ -101,7 +102,7 @@ class GageCrosswalk(object):
         geometry_snapped for sampling DEMs on the thalweg
         '''
 
-        input_flows = gpd.read_file(input_flows_filename)
+        input_flows = gpd.read_parquet(input_flows_filename)
         input_flows['geometry_ln'] = input_flows.geometry
         self.gages = self.gages.merge(input_flows[['HydroID', 'geometry_ln']], on='HydroID')
 

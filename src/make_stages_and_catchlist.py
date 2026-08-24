@@ -2,6 +2,7 @@
 
 import argparse
 from pathlib import Path
+from typing import Union
 
 import geopandas as gpd
 import numpy as np
@@ -23,6 +24,10 @@ def make_stages_and_catchlist_in_memory(
         - catchlist_df: DataFrame with columns ['HydroID', 'S0', 'LengthKm', 'Areasqkm']
         - stage_list: Array of rounded stage heights.
     """
+    # Standardize area column naming if needed
+    if "Areasqkm" not in catchments_gdf.columns and "areasqkm" in catchments_gdf.columns:
+        catchments_gdf = catchments_gdf.rename(columns={"areasqkm": "Areasqkm"})
+
     # 1. Merge catchment area with flowline attributes (S0, LengthKm) via HydroID
     merged = catchments_gdf[["HydroID", "Areasqkm", "geometry"]].merge(
         flows_gdf[["HydroID", "S0", "LengthKm"]], on="HydroID", how="inner"
@@ -44,7 +49,7 @@ def make_stages_and_catchlist_in_memory(
     return catchlist_df, stage_list
 
 
-def write_catchlist_file(catchlist_df: pd.DataFrame, output_path: str) -> None:
+def write_catchlist_file(catchlist_df: pd.DataFrame, output_path: Union[str, Path]) -> None:
     """Writes the catch_list file with the required line-count header."""
     num_catchments = len(catchlist_df)
 
@@ -57,47 +62,64 @@ def write_catchlist_file(catchlist_df: pd.DataFrame, output_path: str) -> None:
 
 
 def make_stages_and_catchlist(
-    input_flows_path: str,
-    input_catchments_path: str,
-    stage_file_path: str,
-    catch_list_path: str,
-    stage_min_meters: float,
-    stage_interval_meters: float,
-    stage_max_meters: float,
+    flows_filename: str,
+    catchments_filename: str,
+    stages_filename: str,
+    catchlist_filename: str,
+    stages_min: float = 0.0,
+    stages_interval: float = 0.1,
+    stages_max: float = 20.0,
 ) -> None:
-    """File I/O wrapper for stages and catchlist generation."""
-    catchments_gdf = gpd.read_file(input_catchments_path, layer="catchments")
-    flows_gdf = gpd.read_file(input_flows_path)
+    """File I/O wrapper supporting Parquet/GPKG inputs for stage and catchlist file generation."""
+    # Read catchments using Parquet or GPKG dynamically
+    if str(catchments_filename).endswith(".parquet"):
+        catchments_gdf = gpd.read_parquet(catchments_filename)
+    else:
+        catchments_gdf = gpd.read_file(catchments_filename, layer="catchments")
+
+    # Read flows using Parquet or GPKG dynamically
+    if str(flows_filename).endswith(".parquet"):
+        flows_gdf = gpd.read_parquet(flows_filename)
+    else:
+        flows_gdf = gpd.read_file(flows_filename)
 
     catchlist_df, stage_list = make_stages_and_catchlist_in_memory(
         catchments_gdf=catchments_gdf,
         flows_gdf=flows_gdf,
-        stage_min_meters=stage_min_meters,
-        stage_interval_meters=stage_interval_meters,
-        stage_max_meters=stage_max_meters,
+        stage_min_meters=float(stages_min),
+        stage_interval_meters=float(stages_interval),
+        stage_max_meters=float(stages_max),
     )
 
-    write_catchlist_file(catchlist_df, catch_list_path)
-    np.savetxt(stage_file_path, stage_list, fmt="%.2f")
+    write_catchlist_file(catchlist_df, catchlist_filename)
+    np.savetxt(stages_filename, stage_list, fmt="%.2f")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Make stage and catchlist files in-memory.")
-    parser.add_argument("-f", "--input-flows", required=True, help="Input flows GPKG")
-    parser.add_argument("-c", "--input-catchments", required=True, help="Input catchments GPKG")
-    parser.add_argument("-s", "--stage-file", required=True, help="Output stage text file")
-    parser.add_argument("-a", "--catch-list", required=True, help="Output catch list text file")
-    parser.add_argument("-m", "--stage-min", type=float, default=0.0, help="Minimum stage")
-    parser.add_argument("-i", "--stage-interval", type=float, default=0.1, help="Stage interval")
-    parser.add_argument("-t", "--stage-max", type=float, default=20.0, help="Maximum stage")
-
-    args = parser.parse_args()
-    make_stages_and_catchlist(
-        input_flows_path=args.input_flows,
-        input_catchments_path=args.input_catchments,
-        stage_file_path=args.stage_file,
-        catch_list_path=args.catch_list,
-        stage_min_meters=args.stage_min,
-        stage_interval_meters=args.stage_interval,
-        stage_max_meters=args.stage_max,
+    parser.add_argument(
+        "-f", "--input-flows", dest="flows_filename", required=True, help="Input flows file (parquet/gpkg)"
     )
+    parser.add_argument(
+        "-c",
+        "--input-catchments",
+        dest="catchments_filename",
+        required=True,
+        help="Input catchments file (parquet/gpkg)",
+    )
+    parser.add_argument(
+        "-s", "--stage-file", dest="stages_filename", required=True, help="Output stage text file"
+    )
+    parser.add_argument(
+        "-a", "--catch-list", dest="catchlist_filename", required=True, help="Output catch list text file"
+    )
+    parser.add_argument("-m", "--stage-min", dest="stages_min", type=float, default=0.0, help="Minimum stage")
+    parser.add_argument(
+        "-i", "--stage-interval", dest="stages_interval", type=float, default=0.1, help="Stage interval"
+    )
+    parser.add_argument(
+        "-t", "--stage-max", dest="stages_max", type=float, default=20.0, help="Maximum stage"
+    )
+
+    args = vars(parser.parse_args())
+    make_stages_and_catchlist(**args)

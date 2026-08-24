@@ -28,6 +28,7 @@ from tools_shared_functions import (
     select_grids,
 )
 
+from src.utils.io import write_geodataframe
 from utils.shared_variables import PREP_PROJECTION, VIZ_PROJECTION
 
 
@@ -357,7 +358,7 @@ def preprocess_nws(source_dir, destination, reference_raster):
             filled_extent = list(ahps_directory.rglob('*_extent_*.tif'))[0]
             domain_gpd = raster_to_feature(grid=filled_extent, profile_override=False, footprint_only=True)
             domain_gpd['nws_lid'] = code
-            domain_gpd.to_file(ahps_directory / f'{code}_domain.shp')
+            write_geodataframe(domain_gpd, ahps_directory / f'{code}_domain.shp')
 
             # Populate attribute information for site
             grids_attributes = pd.DataFrame(data=grids.items(), columns=['magnitude', 'path'])

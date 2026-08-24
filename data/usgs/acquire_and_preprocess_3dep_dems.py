@@ -17,7 +17,8 @@ import pandas as pd
 import src.utils.shared_functions as sf
 import src.utils.shared_validators as val
 from data.create_vrt_file import create_vrt_file
-from src.utils.polygonize_raster import polygonize
+from src.utils.io import write_geodataframe
+from src.utils.polygonize_raster import polygonize_raster
 from src.utils.shared_functions import FIM_Helpers as fh
 
 
@@ -511,8 +512,7 @@ def __polygonize(target_output_folder_path, file_logger):
             )
 
         # Polygonize constant valued raster
-        # subprocess.run(['gdal_polygonize.py', '-8', edge_tif, '-q', '-f', 'GPKG', edge_parquet])
-        polygonize(edge_tif, edge_parquet, connectivity=8, quiet=True)
+        polygonize_raster(edge_tif, edge_parquet, field_name="HydroID", connectivity=8, quiet=True)
 
         gdf = gpd.read_parquet(edge_parquet)
 
@@ -526,7 +526,7 @@ def __polygonize(target_output_folder_path, file_logger):
 
     dem_parquets['DN'] = 1
     dem_dissolved = dem_parquets.dissolve(by='DN')
-    dem_dissolved.to_parquet(dem_domain_file)
+    write_geodataframe(dem_dissolved, dem_domain_file)
 
     if not os.path.exists(dem_domain_file):
         sf.l_print(f" - Polygonizing -- {dem_domain_file} - Failed", file_logger, "error")

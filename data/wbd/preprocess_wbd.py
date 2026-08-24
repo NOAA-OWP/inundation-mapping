@@ -6,6 +6,7 @@ from pathlib import Path
 
 import geopandas as gpd
 
+from utils.io import write_geodataframe
 from utils.shared_variables import DEFAULT_FIM_PROJECTION_CRS
 
 
@@ -37,15 +38,12 @@ def clip_wbd_to_dem_domain(dem: str, wbd_in: str, wbd_out: str, huc_level: int):
 
         # Read input files
         wbd = gpd.read_file(wbd_in, layer=layer)
-        if os.path.splitext(dem)[-1] == '.parquet':
-            dem_domain = gpd.read_parquet(dem)
-        else:
-            dem_domain = gpd.read_file(dem)
+        dem_domain = gpd.read_parquet(dem)
 
         wbd = gpd.clip(wbd, dem_domain)
 
         # Write output file
-        wbd.to_file(wbd_out, layer=layer, crs=DEFAULT_FIM_PROJECTION_CRS, driver='GPKG', engine='fiona')
+        write_geodataframe(wbd, wbd_out, layer=layer, crs=DEFAULT_FIM_PROJECTION_CRS, driver='GPKG')
 
 
 if __name__ == '__main__':

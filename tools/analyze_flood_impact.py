@@ -9,6 +9,7 @@ import pandas as pd
 import rasterio
 from rasterio import features as riofeatures
 
+from src.utils.io import write_geodataframe
 from src.utils.spatial import sjoin
 
 
@@ -106,12 +107,14 @@ def analyze_flood_impact(
     CSI = TP / (TP + FN + FP)
 
     # Save the combined data to new layers in a GeoPackage file
-    impacted_structures_bench.to_file(output_gpkg, layer='benchmark impacted structures', driver="GPKG")
-    impacted_roads_bench.to_file(output_gpkg, layer='benchmark impacted roads', driver="GPKG")
-    impacted_structures_test.to_file(output_gpkg, layer='test impacted structures', driver="GPKG")
-    impacted_roads_test.to_file(output_gpkg, layer='test impacted roads', driver="GPKG")
-    flood_extent_bench.to_file(output_gpkg, layer='benchmark inundation', index=False)
-    flood_extent_test.to_file(output_gpkg, layer='test inundation', index=False)
+    write_geodataframe(
+        impacted_structures_bench, output_gpkg, layer='benchmark impacted structures', driver="GPKG"
+    )
+    write_geodataframe(impacted_roads_bench, output_gpkg, layer='benchmark impacted roads', driver="GPKG")
+    write_geodataframe(impacted_structures_test, output_gpkg, layer='test impacted structures', driver="GPKG")
+    write_geodataframe(impacted_roads_test, output_gpkg, layer='test impacted roads', driver="GPKG")
+    write_geodataframe(flood_extent_bench, output_gpkg, layer='benchmark inundation', index=False)
+    write_geodataframe(flood_extent_test, output_gpkg, layer='test inundation', index=False)
 
     print(f"Structures and roads with impact attribute for benchmark and test data saved to {output_gpkg}.")
 

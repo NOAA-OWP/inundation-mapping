@@ -102,17 +102,16 @@ def process_buildings_fimpact_in_memory(
 def process_buildings_fimpact(
     hand_grid_raster: str, buildings_polygons: str, catchments_path: str, output_path: str
 ) -> None:
-    """CLI / File-based wrapper."""
+    """CLI / File-based wrapper supporting Parquet and GPKG catchment inputs."""
     buildings_gdf = (
         gpd.read_file(buildings_polygons) if os.path.exists(buildings_polygons) else gpd.GeoDataFrame()
     )
 
     if os.path.exists(catchments_path):
-        catchments_gdf = (
-            gpd.read_file(catchments_path, layer="catchments")
-            if "catchments" in gpd.list_layers(catchments_path).name.values
-            else gpd.read_file(catchments_path)
-        )
+        if str(catchments_path).endswith(".parquet"):
+            catchments_gdf = gpd.read_parquet(catchments_path, columns=["HydroID", "feature_id", "geometry"])
+        else:
+            catchments_gdf = gpd.read_file(catchments_path)
     else:
         catchments_gdf = gpd.GeoDataFrame()
 
@@ -141,7 +140,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-c",
         "--catchments_path",
-        help="REQUIRED: Path and file name of the HAND catchments geopackage",
+        help="REQUIRED: Path and file name of the HAND catchments geopackage or parquet",
         required=True,
     )
 

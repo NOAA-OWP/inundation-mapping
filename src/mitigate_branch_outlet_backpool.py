@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import os
 import sys
 import warnings
 from collections import Counter
@@ -15,6 +16,9 @@ from osgeo import gdal, ogr, osr
 from rasterio.mask import mask
 from shapely import ops
 from shapely.geometry import Point
+
+from utils.io import write_geodataframe
+from utils.polygonize_raster import polygonize_raster
 
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
@@ -176,7 +180,6 @@ def polygonize_array_in_memory(arr, transform, crs_wkt, field_name="HydroID") ->
 
     gdal.Polygonize(band, band.GetMaskBand(), layer, 0, ["8CONNECTED=8"], callback=None)
 
-    # Convert OGR Layer to GeoPandas in RAM
     geoms, vals = [], []
     for feat in layer:
         geom_wkt = feat.GetGeometryRef().ExportToWkt()
@@ -337,9 +340,17 @@ def mitigate_branch_outlet_backpool(
     dry_run,
 ):
     """File I/O wrapper calling the in-memory backpool mitigation engine."""
-    split_flows_gdf = gpd.read_file(split_flows_filename, engine="fiona")
-    split_points_gdf = gpd.read_file(split_points_filename, engine="fiona")
-    nwm_streams_gdf = gpd.read_file(nwm_streams_filename, engine="fiona")
+    if str(split_flows_filename).endswith(".parquet"):
+        split_flows_gdf = gpd.read_parquet(split_flows_filename)
+    else:
+        split_flows_gdf = gpd.read_file(split_flows_filename, engine="fiona")
+
+    split_points_gdf = gpd.read_file(split_points_filename)
+
+    if str(nwm_streams_filename).endswith(".parquet"):
+        nwm_streams_gdf = gpd.read_parquet(nwm_streams_filename)
+    else:
+        nwm_streams_gdf = gpd.read_file(nwm_streams_filename, engine="fiona")
 
     with (
         rasterio.open(catchment_pixels_filename) as cp_ds,
@@ -369,8 +380,8 @@ def mitigate_branch_outlet_backpool(
                 with rasterio.open(path, "w", **profile) as dst:
                     dst.write(arr, 1)
 
-            out_flows.to_file(split_flows_filename, driver="GPKG", index=False)
-            out_pts.to_file(split_points_filename, driver="GPKG", index=False)
+            write_geodataframe(out_flows, split_flows_filename, index=False)
+            write_geodataframe(out_pts, split_points_filename, index=False)
 
 
 if __name__ == "__main__":

@@ -15,6 +15,7 @@ from rasterio import features
 from rasterio.warp import Resampling, reproject
 from rasterstats import zonal_stats
 
+from utils.io import write_geodataframe
 from utils.spatial import sjoin
 
 
@@ -40,9 +41,7 @@ def process_non_lidar_osm(osm_gdf, hand_grid_array, hand_grid_profile, non_lidar
         nodata=hand_grid_profile["nodata"],
         all_touched=True,
     )
-    # pull the values out of the geopandas columns so we can use them as floats
     non_lidar_osm_gdf.loc[:, "threshold_hand"] = pd.to_numeric([x.get("max") for x in stats], errors="coerce")
-    # sort in case of overlaps; display threshold hand value at any given location
     non_lidar_osm_gdf = non_lidar_osm_gdf.sort_values(by="threshold_hand", ascending=False)
 
     # Burn the bridges into the HAND grid
@@ -62,15 +61,13 @@ def process_lidar_osm(osm_gdf, hand_grid_array, hand_grid_profile, lidar_buffer,
     if lidar_osm_gdf.empty:
         return None, hand_grid_array
 
-    # if there are some lidar tif files, then we need to read diff file and apply healing
     with rasterio.open(bridge_elev_diff_raster) as diff_grid:
-        diff_grid_array = diff_grid.read(1)  # Read the first band
+        diff_grid_array = diff_grid.read(1)
         diff_grid_transform = diff_grid.transform
         diff_grid_crs = diff_grid.crs
 
         # Ensure CRS and transform match
         if hand_grid_profile["crs"] != diff_grid_crs or hand_grid_profile["transform"] != diff_grid_transform:
-            # Reproject the second raster to match the first
             reprojected_diff_grid_array = np.empty_like(hand_grid_array, dtype=diff_grid_array.dtype)
             reproject(
                 source=diff_grid_array,
@@ -85,7 +82,6 @@ def process_lidar_osm(osm_gdf, hand_grid_array, hand_grid_profile, lidar_buffer,
         else:
             reprojected_diff_grid_array = diff_grid_array
 
-    # Add the diff and HAND grid rasters
     nodata_value = hand_grid_profile.get("nodata", None)
     updated_hand_grid_array = np.where(
         (hand_grid_array == nodata_value) | (reprojected_diff_grid_array == nodata_value),
@@ -93,7 +89,6 @@ def process_lidar_osm(osm_gdf, hand_grid_array, hand_grid_profile, lidar_buffer,
         hand_grid_array + reprojected_diff_grid_array,
     )
 
-    # Get median hand values for each lidar-informed bridge
     lidar_osm_gdf = osm_gdf[osm_gdf["has_lidar_tif"] == "Y"].copy()
     lidar_osm_gdf["geometry"] = lidar_osm_gdf.geometry.buffer(lidar_buffer, resolution=lidar_buffer)
     stats = zonal_stats(
@@ -118,7 +113,7 @@ def heal_bridges_osm_in_memory(
     catchments_gdf,
     bridge_centroids_path,
 ):
-    """Pure In-Memory execution function for integrate into delineate_hydros_and_produce_HAND.py"""
+    """Pure In-Memory execution function for integration into delineate_hydros_and_produce_HAND.py."""
     if not os.path.exists(source_hand_raster):
         print(f"-- no hand grid, {source_hand_raster}")
         return None, None
@@ -148,7 +143,7 @@ def heal_bridges_osm_in_memory(
     else:
         osm_gdf = gpd.GeoDataFrame()
 
-    # Switch the geometry over to the centroid points
+    # Switch geometry over to the centroid points
     if not osm_gdf.empty and "centroid_geometry" in osm_gdf.columns:
         osm_gdf["geometry"] = osm_gdf["centroid_geometry"]
         osm_gdf = osm_gdf.drop(columns="centroid_geometry")
@@ -157,7 +152,6 @@ def heal_bridges_osm_in_memory(
 
         # Spatial Join catchments in RAM
         osm_gdf = sjoin(osm_gdf, catchments_gdf[["HydroID", "feature_id", "order_", "geometry"]], how="inner")
-
         osm_gdf = osm_gdf.drop(columns="index_right", errors="ignore")
 
         # Calculate threatened stage
@@ -174,7 +168,7 @@ def heal_bridges_osm_in_memory(
         osm_gdf["mainstem"] = 0 if str(branch_id) == "0" else 1
 
         if not osm_gdf.empty and bridge_centroids_path:
-            osm_gdf.to_file(bridge_centroids_path, index=False, driver="GPKG")
+            write_geodataframe(osm_gdf, bridge_centroids_path, index=False)
 
     return updated_hand_grid_array, hand_grid_profile
 
@@ -188,12 +182,16 @@ def process_bridges_in_huc(
     catchments,
     bridge_centroids,
 ):
-    """Original File I/O CLI Wrapper"""
+    """File I/O CLI Wrapper supporting both Parquet and GPKG catchment inputs."""
     if not os.path.exists(catchments):
         print(f"-- no catchments file, {catchments}")
         return
 
-    catchments_gdf = gpd.read_file(catchments)
+    # Read catchments using Parquet or GPKG dynamically matching dev
+    if str(catchments).endswith(".parquet"):
+        catchments_gdf = gpd.read_parquet(catchments)
+    else:
+        catchments_gdf = gpd.read_file(catchments)
 
     updated_hand_array, hand_profile = heal_bridges_osm_in_memory(
         source_hand_raster=source_hand_raster,
@@ -274,7 +272,10 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "-p", "--catchments", help="REQUIRED: Path and file name of the catchments geopackage", required=True
+        "-p",
+        "--catchments",
+        help="REQUIRED: Path and file name of the catchments geopackage or parquet",
+        required=True,
     )
 
     parser.add_argument(

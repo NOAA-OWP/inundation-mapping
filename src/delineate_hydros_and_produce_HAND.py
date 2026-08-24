@@ -17,6 +17,31 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+import geopandas as gpd
+import numpy as np
+import pandas as pd
+import rasterio as rio
+import shapely
+from convert_to_int16 import convert_raster_file_to_int16_in_memory
+from evaluate_crosswalk import evaluate_crosswalk_in_memory
+from osgeo import gdal, ogr
+
+# Direct In-Memory Module Imports (NQA comments suppress E402 where sys.path modification is required)
+from accumulate_headwaters import accumulate_headwaters_in_memory
+from add_crosswalk import add_crosswalk_in_memory
+from adjust_thalweg_lateral import adjust_thalweg_lateral_in_memory
+from filter_catchments_and_add_attributes import filter_catchments_and_add_attributes_in_memory
+from heal_bridges_osm import heal_bridges_osm_in_memory
+from make_rem import create_rem_in_memory
+from make_stages_and_catchlist import make_stages_and_catchlist_in_memory, write_catchlist_file
+from mask_dem import mask_dem_in_memory
+from mitigate_branch_outlet_backpool import mitigate_branch_outlet_backpool_in_memory
+from process_buildings_fimpact import process_buildings_fimpact_in_memory
+from process_roads_fimpact import process_roads_fimpact_in_memory
+from reachID_grid_to_vector_points import reachID_grid_to_vector_points_in_memory
+from split_flows import split_flows_in_memory
+from unique_pixel_and_allocation import unique_pixel_allocation_in_memory
+
 
 # --- Setup Python Path for Local Imports (Pre-Import Resolution) ---
 SRC_DIR = Path(__file__).resolve().parent
@@ -29,31 +54,8 @@ TOOLS_DIR = (PROJECT_ROOT / "tools").resolve()
 if str(TOOLS_DIR) not in sys.path:
     sys.path.insert(0, str(TOOLS_DIR))
 
-# Standard GIS & Array Libraries
-import geopandas as gpd  # noqa: E402
-import numpy as np  # noqa: E402
-import pandas as pd  # noqa: E402
-import rasterio as rio  # noqa: E402
-import shapely  # noqa: E402
-from convert_to_int16 import convert_raster_file_to_int16_in_memory  # noqa: E402
-from evaluate_crosswalk import evaluate_crosswalk_in_memory  # noqa: E402
-from osgeo import gdal, ogr  # noqa: E402
-
-# Direct In-Memory Module Imports (NQA comments suppress E402 where sys.path modification is required)
-from accumulate_headwaters import accumulate_headwaters_in_memory  # noqa: E402
-from add_crosswalk import add_crosswalk_in_memory  # noqa: E402
-from adjust_thalweg_lateral import adjust_thalweg_lateral_in_memory  # noqa: E402
-from filter_catchments_and_add_attributes import filter_catchments_and_add_attributes_in_memory  # noqa: E402
-from heal_bridges_osm import heal_bridges_osm_in_memory  # noqa: E402
-from make_rem import create_rem_in_memory  # noqa: E402
-from make_stages_and_catchlist import make_stages_and_catchlist_in_memory, write_catchlist_file  # noqa: E402
-from mask_dem import mask_dem_in_memory  # noqa: E402
-from mitigate_branch_outlet_backpool import mitigate_branch_outlet_backpool_in_memory  # noqa: E402
-from process_buildings_fimpact import process_buildings_fimpact_in_memory  # noqa: E402
-from process_roads_fimpact import process_roads_fimpact_in_memory  # noqa: E402
-from reachID_grid_to_vector_points import reachID_grid_to_vector_points_in_memory  # noqa: E402
-from split_flows import split_flows_in_memory  # noqa: E402
-from unique_pixel_and_allocation import unique_pixel_allocation_in_memory  # noqa: E402
+# Local imports with inline noqa where sys.path dependency exists
+from utils.io import write_geodataframe  # noqa: E402
 from utils.polygonize_raster import polygonize_in_memory  # noqa: E402
 from utils.rasterize_vector import rasterize_vector  # noqa: E402
 
@@ -282,17 +284,23 @@ def delineate_and_produce_hand(
     huc2Identifier = int(huc_number[:2]) if huc_number and len(huc_number) >= 2 else 0
 
     if level == "branch":
-        b_arg = tempCurrentBranchDataDir / f"nwm_subset_streams_levelPaths_{current_branch_id}.gpkg"
-        z_arg = tempCurrentBranchDataDir / f"nwm_catchments_proj_subset_levelPaths_{current_branch_id}.gpkg"
+        b_arg = tempCurrentBranchDataDir / f"nwm_subset_streams_levelPaths_{current_branch_id}.parquet"
+        z_arg = (
+            tempCurrentBranchDataDir / f"nwm_catchments_proj_subset_levelPaths_{current_branch_id}.parquet"
+        )
     else:
         b_arg = tempHucDataDir / "nwm_subset_streams.gpkg"
         z_arg = tempHucDataDir / "nwm_catchments_proj_subset.gpkg"
 
     wbd8_clp_file = tempHucDataDir / "wbd8_clp.gpkg"
 
-    # --- OPTIMIZATION (Fixes #3 & #4): LOAD HUC VECTOR SUBSETS ONCE INTO RAM ---
+    # Load vector datasets
     wbd8_gdf = gpd.read_file(wbd8_clp_file, engine="pyogrio")
-    nwm_streams_gdf = gpd.read_file(b_arg, engine="pyogrio")
+
+    if os.path.splitext(b_arg)[-1].lower() == '.parquet':
+        nwm_streams_gdf = gpd.read_parquet(b_arg)
+    else:
+        nwm_streams_gdf = gpd.read_file(b_arg, engine="pyogrio")
 
     osm_bridges_path = tempHucDataDir / "osm_bridges_subset.gpkg"
     osm_bridges_gdf = (
@@ -305,21 +313,34 @@ def delineate_and_produce_hand(
     )
 
     # --- 1. MASK LEVEE-PROTECTED AREAS FROM DEM (In-Memory Python) ---
-    ds_dem = gdal.Open(str(tempCurrentBranchDataDir / f"dem_meters_{current_branch_id}.tif"))
+    dem_meters_tif = tempCurrentBranchDataDir / f"dem_meters_{current_branch_id}.tif"
+    ds_dem = gdal.Open(str(dem_meters_tif))
     srs_wkt = ds_dem.GetProjectionRef()
+
     levee_subset = tempHucDataDir / "LeveeProtectedAreas_subset.gpkg"
+    levee_levelpaths_csv = tempHucDataDir / "levee_levelpaths.csv"
 
     if mask_leveed_area_toggle == "True" and levee_subset.is_file():
         log_step(f"--> [Step 1] Mask levee-protected areas (In-Memory) {huc_number} {current_branch_id}")
-        ds_dem = mask_dem_in_memory(
-            dem_ds=ds_dem,
-            nld_gpkg_path=str(levee_subset),
-            catchments_gpkg_path=str(z_arg),
-            branch_id_attr=branch_id_attribute,
-            current_branch_id=current_branch_id,
+
+        masked_dem_array, dem_profile = mask_dem_in_memory(
+            dem_filename=str(dem_meters_tif),
+            nld_filename=str(levee_subset),
+            catchments_filename=str(z_arg),
+            levee_id_attribute=levee_id_attribute,
+            branch_id_attribute=branch_id_attribute,
+            branch_id=current_branch_id,
             branch_zero_id=branch_zero_id,
-            levee_id_attr=levee_id_attribute,
+            levee_levelpaths=str(levee_levelpaths_csv) if levee_levelpaths_csv.is_file() else None,
         )
+
+        dem_profile.update(BIGTIFF="YES", compress="LZW", tiled=True)
+        with rio.open(dem_meters_tif, "w", **dem_profile) as dst:
+            dst.write(masked_dem_array, 1)
+
+        # Re-open modified dataset for downstream GDAL operations
+        ds_dem = None
+        ds_dem = gdal.Open(str(dem_meters_tif))
 
     # --- 2. D8 FLOW ACCUMULATIONS (In-Memory pyflwdir) ---
     log_step(f"--> [Step 2] D8 Flow Accumulations (In-Memory pyflwdir) {huc_number} {current_branch_id}")
@@ -479,7 +500,6 @@ def delineate_and_produce_hand(
     flows_gdf = gpd.read_file(flows_path, engine="pyogrio")
     lakes_gdf = gpd.read_file(lakes_file, engine="pyogrio") if lakes_file.is_file() else None
 
-    # --- OPTIMIZATION (Fix #1): KEEP BOTH SPLIT GDFS IN RAM FOR STEP 13 ---
     with rio.open(dem_path) as dem_dataset:
         split_flows_gdf, split_points_gdf = split_flows_in_memory(
             flows_gdf=flows_gdf,
@@ -641,31 +661,25 @@ def delineate_and_produce_hand(
     cr_tif_path = tempCurrentBranchDataDir / f"gw_catchments_reaches_{current_branch_id}.tif"
     catchments_gpkg = tempCurrentBranchDataDir / f"gw_catchments_reaches_{current_branch_id}.gpkg"
 
-    # Polygonize directly to GeoDataFrame in RAM
     catch_gdf = polygonize_in_memory(
         input_raster=str(cr_tif_path), field_name="HydroID", connectivity=8, output_file=str(catchments_gpkg)
     )
 
-    # --- Step 18: PROCESS CATCHMENTS AND MODEL STREAMS STEP 1 (In-Memory) ---
-    log_step(f"--> [Step 18] Process catchments and model streams in-memory {huc_number} {current_branch_id}")
-
-    out_catchments_gpkg = (
+    # --- Step 18: PROCESS CATCHMENTS AND MODEL STREAMS STEP 1 ---
+    out_catchments_parquet = (
         tempCurrentBranchDataDir / f"gw_catchments_reaches_filtered_addedAttributes_{current_branch_id}.gpkg"
     )
-    out_flows_gpkg = tempCurrentBranchDataDir / f"demDerived_reaches_split_filtered_{current_branch_id}.gpkg"
+    out_flows_parquet = (
+        tempCurrentBranchDataDir / f"demDerived_reaches_split_filtered_{current_branch_id}.parquet"
+    )
 
-    # Pass catch_gdf directly from Step 17 without reading from disk
     filt_catch_gdf, filt_flows_gdf = filter_catchments_and_add_attributes_in_memory(
         catchments_gdf=catch_gdf, flows_gdf=split_flows_gdf, wbd_gdf=wbd8_gdf, huc_code=huc_number
     )
 
-    filt_catch_gdf.to_file(
-        out_catchments_gpkg, layer="catchments", driver="GPKG", engine="pyogrio", index=False
-    )
-    filt_flows_gdf.to_file(out_flows_gpkg, driver="GPKG", engine="pyogrio", index=False)
-
-    del catch_gdf, split_flows_gdf
-    gc.collect()
+    # Write via write_geodataframe so Parquet defaults apply
+    write_geodataframe(filt_catch_gdf, out_catchments_parquet, layer="catchments", index=False)
+    write_geodataframe(filt_flows_gdf, out_flows_parquet, index=False)
 
     # --- 19. RASTERIZE NEW CATCHMENTS AGAIN ---
     log_step(f"--> [Step 19] Rasterize filtered catchments {huc_number} {current_branch_id}")
@@ -785,11 +799,11 @@ def delineate_and_produce_hand(
 
     out_catch_path = (
         tempCurrentBranchDataDir
-        / f"gw_catchments_reaches_filtered_addedAttributes_crosswalked_{current_branch_id}.gpkg"
+        / f"gw_catchments_reaches_filtered_addedAttributes_crosswalked_{current_branch_id}.parquet"
     )
     out_flows_path = (
         tempCurrentBranchDataDir
-        / f"demDerived_reaches_split_filtered_addedAttributes_crosswalked_{current_branch_id}.gpkg"
+        / f"demDerived_reaches_split_filtered_addedAttributes_crosswalked_{current_branch_id}.parquet"
     )
     out_src_full_path = tempCurrentBranchDataDir / f"src_full_crosswalked_{current_branch_id}.csv"
     out_src_json_path = tempCurrentBranchDataDir / f"src_{current_branch_id}.json"
@@ -805,7 +819,6 @@ def delineate_and_produce_hand(
         columns={"id": "feature_id", "slope_m_per_m": "SLOPE_HFAB"}
     )
 
-    # --- OPTIMIZATION (Fix #2): RETURN RAM DATAFRAMES DIRECTLY ---
     (
         cross_catch_gdf,
         cross_flows_gdf,
@@ -831,8 +844,15 @@ def delineate_and_produce_hand(
     if len(sml_segs_df) > 0:
         sml_segs_df.to_csv(small_segs_csv, index=False)
 
-    cross_catch_gdf.to_file(out_catch_path, layer="catchments", driver="GPKG", engine="pyogrio", index=False)
-    cross_flows_gdf.to_file(out_flows_path, driver="GPKG", engine="pyogrio", index=False)
+    write_geodataframe(cross_catch_gdf, out_catch_path, index=False)
+    write_geodataframe(cross_flows_gdf, out_flows_path, index=False)
+    # HACK
+    # July 2026: At this point, a good handful of other tools that are not in the pipeline are looking for the .gpkg version.
+    # A search in the code for the phrase 'gw_catchments_reaches_filtered_addedAttribute' shows a large number of tools and scripts
+    # that use the .tif or .gpkg. Not all are identified here but a card will be created to search and fix them.
+    output_catchments_fileName_gpkg = os.path.splitext(out_catch_path)[0] + '.gpkg'
+    write_geodataframe(cross_catch_gdf, output_catchments_fileName_gpkg, layer='catchments', index=False)
+
     src_full_df.to_csv(out_src_full_path, index=False)
     src_crosswalk_df.to_csv(out_cross_path, index=False)
     hydro_table_df.to_csv(out_hydro_path, index=False)
@@ -869,7 +889,6 @@ def delineate_and_produce_hand(
         diff_tif = tempCurrentBranchDataDir / f"bridge_elev_diff_meters_{current_branch_id}.tif"
         centroids_gpkg = tempCurrentBranchDataDir / f"osm_bridge_centroids_{current_branch_id}.gpkg"
 
-        # Pass cross_catch_gdf directly from Step 25
         updated_rem_arr, rem_prof = heal_bridges_osm_in_memory(
             source_hand_raster=str(rem_tif),
             bridge_elev_diff_raster=str(diff_tif),
@@ -888,7 +907,6 @@ def delineate_and_produce_hand(
         gc.collect()
 
     # --- Step 28: PROCESS ROAD FLOOD IMPACTS (In-Memory) ---
-    # --- OPTIMIZATION (Fix #3): PASS PRE-LOADED osm_bridges_gdf FROM RAM ---
     if osm_bridges_gdf is not None and not osm_bridges_gdf.empty:
         log_step(
             f"--> [Step 28] Process road flood impact in-memory for HUC {huc_number} {current_branch_id}"
@@ -907,7 +925,6 @@ def delineate_and_produce_hand(
         )
 
     # --- 29. PROCESS BUILDINGS FIMpact (In-Memory) ---
-    # --- OPTIMIZATION (Fix #4): PASS PRE-LOADED buildings_gdf FROM RAM ---
     if buildings_gdf is not None and not buildings_gdf.empty:
         log_step(f"--> [Step 29] Process buildings FIMpact in-memory {huc_number} {current_branch_id}")
 

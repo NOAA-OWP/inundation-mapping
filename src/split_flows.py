@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import os
 import sys
 from collections import OrderedDict
 from pathlib import Path
@@ -15,7 +16,7 @@ from shapely.ops import split as shapely_ops_split
 
 import build_stream_traversal
 from utils.fim_enums import FIM_exit_codes
-from utils.shared_functions import getDriver
+from utils.io import write_geodataframe
 from utils.shared_variables import FIM_ID
 from utils.spatial import sjoin
 
@@ -261,11 +262,15 @@ def split_flows(
     slope_min,
     lakes_buffer_input,
 ):
-    """File I/O wrapper calling the in-memory splitting engine."""
+    """File I/O wrapper calling the in-memory splitting engine with support for Parquet/Fiona inputs."""
     print("Loading data into RAM...")
     flows_gdf = gpd.read_file(flows_filename, engine="fiona")
     wbd8_gdf = gpd.read_file(wbd8_clp_filename, engine="fiona")
-    nwm_streams_gdf = gpd.read_file(nwm_streams_filename, engine="fiona")
+
+    if str(nwm_streams_filename).endswith(".parquet"):
+        nwm_streams_gdf = gpd.read_parquet(nwm_streams_filename)
+    else:
+        nwm_streams_gdf = gpd.read_file(nwm_streams_filename, engine="fiona")
 
     lakes_gdf = None
     if Path(lakes_filename).exists():
@@ -284,17 +289,15 @@ def split_flows(
         )
 
     print("Writing output files...")
-    if Path(split_flows_filename).exists():
-        Path(split_flows_filename).unlink()
-    if Path(split_points_filename).exists():
-        Path(split_points_filename).unlink()
+    if len(split_flows_gdf) == 0:
+        print("There are no flowlines after stream order filtering.")
+        sys.exit(FIM_exit_codes.NO_FLOWLINES_EXIST.value)
 
-    split_flows_gdf.to_file(
-        split_flows_filename, driver=getDriver(split_flows_filename), index=False, engine="fiona"
-    )
-    split_points_gdf.to_file(
-        split_points_filename, driver=getDriver(split_points_filename), index=False, engine="fiona"
-    )
+    write_geodataframe(split_flows_gdf, split_flows_filename, index=False)
+
+    if len(split_points_gdf) == 0:
+        raise Exception("No points exist.")
+    write_geodataframe(split_points_gdf, split_points_filename, index=False)
 
 
 if __name__ == "__main__":

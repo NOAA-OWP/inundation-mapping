@@ -16,6 +16,7 @@ import pandas as pd
 from dotenv import load_dotenv
 
 from heal_bridges_osm import flow_lookup, flows_from_hydrotable
+from utils.io import write_geodataframe
 from utils.shared_functions import get_huc_vars
 
 
@@ -260,11 +261,11 @@ class HucDirectory(object):
         self.agg_ras_elev_table.append(ras_elev_table)
 
     def aggregate_bridge_pnts(self, branch_path, branch_id):
-        bridge_filename = join(branch_path, f'osm_bridge_centroids_{branch_id}.gpkg')
+        bridge_filename = join(branch_path, f'osm_bridge_centroids_{branch_id}.parquet')
         if not os.path.isfile(bridge_filename):
             return
 
-        bridge_pnts = gpd.read_file(bridge_filename)
+        bridge_pnts = gpd.read_parquet(bridge_filename)
         for col, dtype in self.bridge_dtypes.items():
             bridge_pnts[col] = bridge_pnts[col].astype(dtype)
         if bridge_pnts.empty:
@@ -450,7 +451,7 @@ class HucDirectory(object):
                     agg_ras_elev.to_csv(ras_elev_table_file, index=False)
 
             if bridge_flag:
-                bridge_pnts_file = join(self.huc_dir_path, 'osm_bridge_centroids.gpkg')
+                bridge_pnts_file = join(self.huc_dir_path, 'osm_bridge_centroids.parquet')
                 if os.path.isfile(bridge_pnts_file):
                     os.remove(bridge_pnts_file)
 
@@ -476,7 +477,7 @@ class HucDirectory(object):
                     # Set the CRS if it is not already set
                     if bridge_pnts.crs is None:
                         bridge_pnts.set_crs(get_huc_vars(huc_id)['crs'], inplace=True)
-                    bridge_pnts.to_file(bridge_pnts_file, index=False, engine='fiona')
+                    write_geodataframe(bridge_pnts, bridge_pnts_file, index=False)
 
             if road_flag:
                 roads_fimpact_file = join(self.huc_dir_path, 'osm_roads_fimpact.csv')

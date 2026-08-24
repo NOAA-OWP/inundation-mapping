@@ -8,21 +8,24 @@ import geopandas as gpd
 import numpy as np
 
 from utils.fim_enums import FIM_exit_codes
+from utils.io import write_geodataframe
 from utils.shared_variables import FIM_ID
 
 
 def filter_catchments_and_add_attributes_in_memory(
     catchments_gdf: gpd.GeoDataFrame, flows_gdf: gpd.GeoDataFrame, wbd_gdf: gpd.GeoDataFrame, huc_code: str
 ) -> tuple[gpd.GeoDataFrame, gpd.GeoDataFrame]:
-    """Filters catchments and flowlines and joins all network attributes entirely in RAM."""
+    """Filters catchments and flowlines and joins all network attributes entirely in RAM,
+    incorporating dev stream cleaning and deduplication logic.
+    """
     input_catchments = catchments_gdf.copy()
     input_flows = flows_gdf.copy()
 
-    # Ensure string types for startswith prefix checks
-    input_flows["HydroID_str"] = input_flows["HydroID"].astype(str)
-    input_catchments["HydroID_str"] = input_catchments["HydroID"].astype(str)
+    # Ensure HydroID string formatting for prefix matching
+    if input_flows["HydroID"].dtype != "str":
+        input_flows["HydroID"] = input_flows["HydroID"].astype(str)
 
-    # 1. Determine valid select_flows FIM_IDs matching the target HUC
+    # 1. Filter segments within target HUC boundary using WBD
     wbd_matched = wbd_gdf[wbd_gdf["HUC8"].astype(str).str.contains(huc_code)]
     select_flows = tuple(map(str, map(int, wbd_matched[FIM_ID].dropna().unique())))
 
@@ -30,96 +33,127 @@ def filter_catchments_and_add_attributes_in_memory(
         print(f"No matching FIM_ID found in WBD for HUC {huc_code}.")
         sys.exit(FIM_exit_codes.NO_FLOWLINES_EXIST.value)
 
-    # 2. Filter flows using FIM_ID prefix match
-    output_flows = input_flows[input_flows["HydroID_str"].str.startswith(select_flows)].copy()
+    output_flows = input_flows[input_flows["HydroID"].str.startswith(select_flows)].copy()
 
     if output_flows.empty:
         print("No relevant streams within HUC boundaries after prefix filter.")
         sys.exit(FIM_exit_codes.NO_FLOWLINES_EXIST.value)
 
-    # 3. Filter catchments to match the filtered flow HydroIDs
-    output_catchments = input_catchments[
-        input_catchments["HydroID_str"].isin(output_flows["HydroID_str"])
-    ].copy()
+    # 2. Filter out tiny isolated stream artifacts (from dev)
+    gdf_out = output_flows.copy()
+    gdf_out["NextDownID"] = gdf_out["NextDownID"].astype(int)
+    gdf_out["HydroID"] = gdf_out["HydroID"].astype(int)
 
-    # Clean up temporary string column
-    output_flows = output_flows.drop(columns=["HydroID_str"]).reset_index(drop=True)
-    output_catchments = output_catchments.drop(columns=["HydroID_str"]).reset_index(drop=True)
+    # Streams draining out of watershed / to a lake
+    streams_to_lake = gdf_out[gdf_out["NextDownID"] == -1]
 
-    # 4. MERGE ALL STREAM ATTRIBUTES ONTO CATCHMENTS (NextDownID, LakeID, etc.)
-    # Select key attribute columns present in flows to merge onto catchments
-    flow_attrs = [
-        col
-        for col in ["HydroID", "NextDownID", "LakeID", "From_Node", "To_Node", "S0"]
-        if col in output_flows.columns
-    ]
+    # Streams with no upstream branch
+    nextDownId_set = set(gdf_out["NextDownID"])
+    streams_no_upstream = streams_to_lake[~streams_to_lake["HydroID"].isin(nextDownId_set)]
 
-    # Drop attributes from catchments if they already exist to avoid suffix collision (_x, _y)
-    cols_to_drop = [col for col in flow_attrs if col in output_catchments.columns and col != "HydroID"]
-    if cols_to_drop:
-        output_catchments = output_catchments.drop(columns=cols_to_drop)
+    # Identify super tiny streams (< 20m) with no upstream connectivity
+    streams_no_upstream_tiny = streams_no_upstream[streams_no_upstream["LengthKm"] < 0.02]
+    indices_to_remove = streams_no_upstream_tiny.index
 
-    # Left join network attributes from flows onto catchments via HydroID
-    output_catchments = output_catchments.merge(output_flows[flow_attrs], on="HydroID", how="left")
+    # Remove tiny disconnected streams
+    output_flows_filtered = gdf_out.loc[gdf_out.index.difference(indices_to_remove)].copy()
 
-    # Ensure clean defaults for missing values
-    if "LakeID" in output_catchments.columns:
-        output_catchments["LakeID"] = output_catchments["LakeID"].fillna(-999).astype(np.int64)
-    if "NextDownID" in output_catchments.columns:
-        output_catchments["NextDownID"] = output_catchments["NextDownID"].fillna("-1").astype(str)
+    # Filter out streams smaller than 1 meter
+    output_flows_filtered = output_flows_filtered[output_flows_filtered["LengthKm"] > 0.001]
 
-    # 5. Calculate geometry attributes in-memory (Areas in sq km)
-    output_catchments["Areasqkm"] = (output_catchments.geometry.area / 1e6).astype(np.float32)
+    if output_flows_filtered.empty:
+        print("There are no flowlines in the HUC after stream order and length filtering.")
+        sys.exit(FIM_exit_codes.NO_FLOWLINES_EXIST.value)
 
-    return output_catchments, output_flows
+    output_flows_filtered["HydroID"] = output_flows_filtered["HydroID"].astype(int)
+
+    # 3. Filter and merge attributes onto catchments
+    if input_catchments["HydroID"].dtype != "int":
+        input_catchments["HydroID"] = input_catchments["HydroID"].astype(int)
+
+    # Left join network attributes from filtered flows onto catchments
+    output_catchments = input_catchments.merge(
+        output_flows_filtered.drop(columns=["geometry"], errors="ignore"), on="HydroID", how="inner"
+    )
+
+    if output_catchments.empty:
+        print("There are no catchments remaining after flowline merge.")
+        sys.exit(FIM_exit_codes.NO_FLOWLINES_EXIST.value)
+
+    # 4. Filter out smaller duplicate catchment features (from dev)
+    hydroid_counts = np.bincount(output_catchments["HydroID"].values)
+    duplicate_ids = np.where(hydroid_counts > 1)[0]
+
+    if len(duplicate_ids) > 0:
+        drop_indices = []
+        for dp in duplicate_ids:
+            idx_dup = np.where(output_catchments["HydroID"].values == dp)[0]
+            areas = output_catchments.iloc[idx_dup].geometry.area.values
+            # Keep the largest duplicate feature, mark smaller duplicates for deletion
+            smaller_dup_indices = idx_dup[areas != np.amax(areas)]
+            drop_indices.extend(smaller_dup_indices)
+
+        if drop_indices:
+            output_catchments = output_catchments.drop(output_catchments.index[drop_indices]).reset_index(
+                drop=True
+            )
+
+    # 5. Calculate catchment area in sq km
+    output_catchments["areasqkm"] = (output_catchments.geometry.area / 1e6).astype(np.float32)
+
+    return output_catchments, output_flows_filtered
 
 
 def filter_catchments_and_add_attributes(
-    input_catchments_path: str,
-    input_flows_path: str,
-    output_catchments_path: str,
-    output_flows_path: str,
-    wbd_path: str,
+    input_catchments_filename: str,
+    input_flows_filename: str,
+    output_catchments_filename: str,
+    output_flows_filename: str,
+    wbd_filename: str,
     huc_code: str,
 ) -> None:
-    """File I/O wrapper around the in-memory catchment filtering engine."""
-    print("Loading datasets into RAM...")
-    catchments_gdf = gpd.read_file(input_catchments_path, layer="catchments")
-    flows_gdf = gpd.read_file(input_flows_path)
-    wbd_gdf = gpd.read_file(wbd_path)
+    """File I/O wrapper supporting dev Parquet/Fiona inputs and writing filtered outputs."""
+    # Read inputs using Fiona/Parquet as configured in dev for multiprocessing safety
+    if str(input_catchments_filename).endswith(".parquet"):
+        input_catchments = gpd.read_parquet(input_catchments_filename)
+    else:
+        input_catchments = gpd.read_file(input_catchments_filename, layer="catchments")
+
+    if str(input_flows_filename).endswith(".parquet"):
+        input_flows = gpd.read_parquet(input_flows_filename)
+    else:
+        input_flows = gpd.read_file(input_flows_filename)
+
+    wbd = gpd.read_file(wbd_filename, engine="fiona")
 
     filt_catchments, filt_flows = filter_catchments_and_add_attributes_in_memory(
-        catchments_gdf=catchments_gdf, flows_gdf=flows_gdf, wbd_gdf=wbd_gdf, huc_code=huc_code
+        catchments_gdf=input_catchments, flows_gdf=input_flows, wbd_gdf=wbd, huc_code=huc_code
     )
 
-    print("Writing filtered output layers...")
-    out_c_path = Path(output_catchments_path)
-    out_f_path = Path(output_flows_path)
-
-    if out_c_path.exists():
-        out_c_path.unlink()
-    if out_f_path.exists():
-        out_f_path.unlink()
-
-    filt_catchments.to_file(out_c_path, layer="catchments", driver="GPKG", index=False)
-    filt_flows.to_file(out_f_path, driver="GPKG", index=False)
+    try:
+        write_geodataframe(filt_catchments, output_catchments_filename, index=False)
+        write_geodataframe(filt_flows, output_flows_filename, index=False)
+    except ValueError:
+        print("Error writing filtered output layers.")
+        sys.exit(FIM_exit_codes.NO_FLOWLINES_EXIST.value)
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Filter catchments and add attributes in-memory.")
-    parser.add_argument("-i", "--input-catchments", required=True, help="Input catchments GPKG")
-    parser.add_argument("-f", "--input-flows", required=True, help="Input flows GPKG")
-    parser.add_argument("-c", "--output-catchments", required=True, help="Output catchments GPKG")
-    parser.add_argument("-o", "--output-flows", required=True, help="Output flows GPKG")
-    parser.add_argument("-w", "--wbd", required=True, help="WBD HUC boundary file")
+    parser = argparse.ArgumentParser(description="Filter catchments and add attributes.")
+    parser.add_argument("-i", "--input-catchments-filename", required=True, help="Input catchments path")
+    parser.add_argument("-f", "--input-flows-filename", required=True, help="Input flows path")
+    parser.add_argument("-c", "--output-catchments-filename", required=True, help="Output catchments path")
+    parser.add_argument("-o", "--output-flows-filename", required=True, help="Output flows path")
+    parser.add_argument("-w", "--wbd-filename", required=True, help="WBD HUC boundary file path")
     parser.add_argument("-u", "--huc-code", required=True, help="HUC unit code")
 
     args = parser.parse_args()
+
     filter_catchments_and_add_attributes(
-        input_catchments_path=args.input_catchments,
-        input_flows_path=args.input_flows,
-        output_catchments_path=args.output_catchments,
-        output_flows_path=args.output_flows,
-        wbd_path=args.wbd,
+        input_catchments_filename=args.input_catchments_filename,
+        input_flows_filename=args.input_flows_filename,
+        output_catchments_filename=args.output_catchments_filename,
+        output_flows_filename=args.output_flows_filename,
+        wbd_filename=args.wbd_filename,
         huc_code=args.huc_code,
     )
