@@ -184,7 +184,6 @@ def get_huc_metadata(huc, huc_path):
     nwm_lids = huc_sites_gdf['nws_lid'].tolist()
 
     # Find lid metadata from master list of metadata dictionaries (line 66).
-
     if len(nwm_lids) > 0:
 
         for lid_site_data in metadata_json_list:
@@ -195,6 +194,15 @@ def get_huc_metadata(huc, huc_path):
         if len(huc_metadata_json_list) == 0:
             msg = f"{huc} - Metadata JSON list empty after filtering to lid list {nwm_lids}"
             logging.error(msg)
+
+        # Remove sites from huc_sites_gdf where usgs_data_site_type is null
+        # TODO: This was put in for the AK expansion. Double check that this isn't needlessly removing other sites...
+        # if so we need to narrow this filter a bit. Or if it posed a problem I could make it only run this
+        # filter for AK HUCs.
+        null_sites = huc_sites_gdf[huc_sites_gdf['usgs_data_site_type'].isnull()]['nws_lid'].tolist()
+        huc_sites_gdf = huc_sites_gdf[huc_sites_gdf['usgs_data_site_type'].notnull()].copy()
+
+        logging.info(f"{huc} - Removing {len(null_sites)} sites with null usgs_data_site_type: {null_sites}")
 
     else:
         msg = f"{huc} - No valid LIDs found in lid list, skipping filtering metadata JSON"

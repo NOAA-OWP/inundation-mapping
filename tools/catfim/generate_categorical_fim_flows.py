@@ -174,7 +174,7 @@ def get_threshold_data(huc, huc_path, valid_nwm_lids):
 
 
 def process_threshold_data(
-    catfim_type, valid_lids, sites_gdf, huc, huc_path, output_temp_dir, threshold_huc_df, metadata_json
+    catfim_type, valid_lids, sites_gdf, huc, huc_path, output_folder, threshold_huc_df, metadata_json
 ):
     '''
     By this point some lids have been dropped (such as the restricted sites).
@@ -284,16 +284,11 @@ def process_threshold_data(
     # TODO: should this go in a preprocessing section instead?
     if huc in csf.HUCS_WITHOUT_NWM_TRACE:
 
-        # Remove sites from sites_gdf where usgs_data_site_type is null # TODO: need to move earlier... like before we make the other tables/lists...?
-        null_sites = sites_gdf[sites_gdf['usgs_data_site_type'].isnull()]['nws_lid'].tolist()
-        logging.info(f"{huc} - Removing {len(null_sites)} sites with null usgs_data_site_type: {null_sites}")
-
-        sites_gdf = sites_gdf[sites_gdf['usgs_data_site_type'].notnull()].copy()
-
         logging.info(f"{huc} - Calculating upstream and downstream traces for NWM flowlines...")
 
-        # TODO: Get search from runtime args
-        search = 5
+        csf.load_runtime_args(output_folder)
+        search = os.getenv('SEARCH')
+
         metadata_json = add_upstream_downstream_traces(sites_gdf, metadata_json, nwm_flows_region_df, search)
 
     # ================================
@@ -352,24 +347,37 @@ def add_upstream_downstream_traces(sites_gdf, metadata_json, nwm_flows_region_df
     columns_to_keep = ['nwm_feature_id', 'to', 'order_', 'LengthKM', 'Lake', 'geometry']
     nwm_flows_region_df = nwm_flows_region_df[columns_to_keep]
 
-    logging.info(f'Len sites gdf: {len(sites_gdf)}')  # TEMP DEBUG
-
     # For each USGS site, get the NWM ID of the intersecting flowline
     nwm_flows_region_df = nwm_flows_region_df.to_crs(sites_gdf.crs)
     sites_gdf_with_streams = gpd.sjoin_nearest(
         sites_gdf, nwm_flows_region_df, how="inner", max_distance=200, distance_col="distance"
     ).drop('index_right', axis=1)
 
-    logging.info(f'Len sites gdf with streams: {len(sites_gdf_with_streams)}')  # TEMP DEBUG
+    logging.info('Getting NWM ID of intersecting flowlines...')
+    logging.info(f'Found NWM IDs for {len(sites_gdf_with_streams)} of {len(sites_gdf)} sites')
 
-    # Get nwm_feature_id for 8km upstream and 8km downstream   
+    # Get sites that did NOT get a NWM ID in the crosswalk
+    sites_without_nwm_crosswalk = sites_gdf.loc[~sites_gdf['nws_lid'].isin(sites_gdf_with_streams['nws_lid']), 'nws_lid'].tolist()
+
+    if len(sites_without_nwm_crosswalk) > 0:
+        logging.info(f'Sites without NWM crosswalk: {sites_without_nwm_crosswalk}')
+        # TODO: Do we need to fix anything about the NWM crosswalk?
+
+        msg = 'Unable to crosswalk site location to flowline'
+        for lid in sites_without_nwm_crosswalk:
+            sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no=True)
+
+    # Get nwm_feature_id for the search dist upstream and downstream   
     for index, row in sites_gdf_with_streams.iterrows():
 
         logging.info(f"{row['nws_lid']} - Calculating upstream and downstream traces for NWM flowlines...")
 
         # Get upstream and downstream traces
         trace_up, trace_down = [], []
-        trace_up, trace_down = trace_network(nwm_flows_region_df, row['nwm_feature_id'], search)
+        trace_up, trace_down, msgs = trace_network(nwm_flows_region_df, row['nwm_feature_id'], search)
+
+        # for msg in msgs:  # Verbose for debugging, if needed
+        #     logging.info(msg)
 
         # Add trace to metadata json
         lid_i = row["nws_lid"]
