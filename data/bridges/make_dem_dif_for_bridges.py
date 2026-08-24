@@ -265,7 +265,7 @@ if __name__ == "__main__":
      -j 10
 
     python /foss_fim/data/bridges/make_dem_dif_for_bridges.py \
-     -d data/inputs/dems/3dep_dems/10m_South_Alaska/20260128/ \
+     -d data/inputs/dems/3dep_dems/10m_SouthAlaska/20260128/ \
      -l data/inputs/osm/bridges/lidar_data/20260315/lidar_processing/ \
      -i data/inputs/osm/bridges/bridge_lines/20260315/ \
      -o data/inputs/osm/bridges/DEM_Diffs/20260315/alaska/ \
