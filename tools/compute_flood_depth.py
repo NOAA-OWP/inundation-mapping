@@ -49,6 +49,7 @@ from rasterstats import zonal_stats
 
 from src.heal_bridges_osm import flow_lookup
 from src.process_roads_fimpact import min_hand_excluding_zero
+from src.utils.io import write_geodataframe
 from src.utils.shared_functions import run_with_mp, setup_mp_file_logger
 from tools.road_inundation import stage_lookup
 
@@ -190,7 +191,7 @@ def get_threshold_hand(fim_path, huc, branch, huc_geometries_gdf, file_logger, s
         huc,
         'branches',
         branch,
-        f'gw_catchments_reaches_filtered_addedAttributes_crosswalked_{branch}.gpkg',
+        f'gw_catchments_reaches_filtered_addedAttributes_crosswalked_{branch}.parquet',
     )
 
     with rasterio.open(hand_grid_path, 'r') as hand_grid:
@@ -345,12 +346,12 @@ def flood_depth_main(
         fim_run_dir: Path to FIM outputs directory
         flow_file: Path to CSV flow file with 'feature_id' and 'discharge' columns
         geometry_file: Path to input geometry file (e.g., roads geopackage)
-        output_file_path: Path to output geopackage file
+        output_file_path: Path to output GeoPackage or GeoParquet file
         max_workers: Number of parallel workers for multiprocessing (default: 8)
     """
     # Validate output file extension
-    if not output_file_path.lower().endswith('.gpkg'):
-        raise ValueError("Output file must have a .gpkg extension.")
+    if not os.path.splitext(output_file_path)[-1].lower() in ['.gpkg', '.parquet']:
+        raise ValueError("Output file must have a .gpkg or .parquet extension.")
 
     # Create output directory if needed
     output_dir = os.path.dirname(output_file_path)
@@ -451,7 +452,7 @@ def flood_depth_main(
     final_result_gdf = add_imperial_units(final_result_gdf)
 
     # Save output
-    final_result_gdf.to_file(output_file_path, driver="GPKG")
+    write_geodataframe(final_result_gdf, output_file_path)
 
     print(f'Flood depth analysis completed. Output saved to: {output_file_path}')
     file_logger.info(f'Flood depth analysis completed. Output saved to: {output_file_path}')
@@ -464,7 +465,7 @@ if __name__ == "__main__":
     -fim 'outputs/post_to_huc/my_branch/New/pipeline/'
     -flow 'data/inputs/rating_curve/nwm_recur_flows/nwm3_17C_recurr_50_0_cms.csv'
     -geom "outputs/flood_depth/run_4_hucs/combined.gpkg"
-    -o 'outputs/flood_depth/run_4_hucs/flood_depth_output/new.gpkg
+    -o 'outputs/flood_depth/run_4_hucs/flood_depth_output/new.parquet
     '''
     parser = argparse.ArgumentParser(
         description="Compute flood depth for input geometries using FIM outputs and a flow file."
@@ -487,7 +488,7 @@ if __name__ == "__main__":
         type=str,
     )
     parser.add_argument(
-        "-o", "--output_file_path", help="Path to geopackage output.", required=True, type=str
+        "-o", "--output_file_path", help="Path to GPKG or Parquet output.", required=True, type=str
     )
     parser.add_argument(
         "-j",

@@ -77,8 +77,8 @@ def adjust_floodplains(
 
     catchments = gpd.read_file(nwm_catchments)
     streams = gpd.read_file(nwm_streams)
-    levelpaths = gpd.read_file(nwm_levelpaths)
-    branch_polys = gpd.read_file(branch_polygons)
+    levelpaths = gpd.read_parquet(nwm_levelpaths)
+    branch_polys = gpd.read_parquet(branch_polygons)
 
     branch_poly = branch_polys[branch_polys['levpa_id'] == branch_id]
 

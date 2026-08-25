@@ -10,7 +10,7 @@ import rioxarray as rxr
 import xarray as xr
 from inundate_mosaic_wrapper import produce_mosaicked_inundation
 from probabilistic_inundation import get_subdivided_src
-from tqdm.notebook import tqdm
+from tqdm.auto import tqdm
 
 
 warnings.filterwarnings("ignore")
@@ -75,7 +75,9 @@ def create_flood_maps(
     # Iterate through all combinations of datasets and parameters
     loop_idx = 1
     for N, obank_N, s, huc, flow_path in (
-        pbar := tqdm(product(channel_mannings_n, overbank_mannings_n, slope_adjustments, hucs, flows))
+        pbar := tqdm(
+            product(channel_mannings_n, overbank_mannings_n, slope_adjustments, hucs, flows), leave=False
+        )
     ):
 
         filename = flow_path.split('/')[-1].split('.')[0].replace('flows', 'extent')
@@ -189,7 +191,7 @@ def evaluate_maps(
     os.makedirs(metrics_path, exist_ok=True)
 
     loop_idx = 1
-    for bench in (pbar := tqdm(benchmarks)):
+    for bench in (pbar := tqdm(benchmarks, leave=False)):
 
         pbar.set_description(f"Running benchmark comparisons {loop_idx} of {len(benchmarks)}")
 
@@ -206,7 +208,7 @@ def evaluate_maps(
 
         c_idx = 1
 
-        for c_path in (cbar := tqdm(candidate_maps)):
+        for c_path in (cbar := tqdm(candidate_maps, leave=False)):
 
             metrics_file = os.path.splitext(c_path)[0] + '.feather'
             metrics_output = metrics_path + '/' + metrics_file.split('/')[-1]

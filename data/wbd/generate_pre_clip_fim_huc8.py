@@ -18,6 +18,7 @@ import geopandas as gpd
 from clip_vectors_to_wbd import subset_vector_layers
 from dotenv import load_dotenv
 
+from src.utils.io import write_geodataframe
 from src.utils.shared_functions import FIM_Helpers as fh
 from src.utils.shared_functions import get_huc_vars
 
@@ -400,10 +401,7 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir, copy_from_dir, preclipping_f
 
             # make sure the HUC boundary does not extend beyond DEM
             logging.info(f"Using DEM domain source for {huc}: {dem_domain}")
-            if os.path.splitext(dem_domain)[-1] == '.parquet':
-                dem_domain_gdf = gpd.read_parquet(dem_domain)
-            else:
-                dem_domain_gdf = gpd.read_file(dem_domain, engine="pyogrio", use_arrow=True)
+            dem_domain_gdf = gpd.read_parquet(dem_domain)
             wbd = gpd.clip(wbd, dem_domain_gdf)
 
             logging.info(f"Create wbd buffer for {huc}")
@@ -420,7 +418,8 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir, copy_from_dir, preclipping_f
             )
 
             wbd_streams_buffer = wbd_streams_buffer[['geometry']]
-            wbd_streams_buffer.to_file(
+            write_geodataframe(
+                wbd_streams_buffer,
                 os.path.join(huc_directory, 'wbd_buffered_streams.gpkg'),
                 driver='GPKG',
                 index=False,
@@ -435,7 +434,8 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir, copy_from_dir, preclipping_f
 
             # some hucs do not have landsea
             if not landsea.empty:
-                landsea.to_file(
+                write_geodataframe(
+                    landsea,
                     os.path.join(huc_directory, "LandSea_subset.gpkg"),
                     driver='GPKG',
                     index=False,
@@ -449,7 +449,8 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir, copy_from_dir, preclipping_f
 
             del landsea
 
-            wbd.to_file(
+            write_geodataframe(
+                wbd,
                 os.path.join(huc_directory, wbd_filename),
                 layer='WBDHU8',
                 driver='GPKG',
@@ -460,7 +461,8 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir, copy_from_dir, preclipping_f
 
             wbd_buffer = wbd_buffer[['geometry']]
 
-            wbd_buffer.to_file(
+            write_geodataframe(
+                wbd_buffer,
                 os.path.join(huc_directory, wbd_buffer_filename),
                 driver='GPKG',
                 index=False,

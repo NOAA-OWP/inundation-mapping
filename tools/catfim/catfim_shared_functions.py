@@ -11,6 +11,13 @@ import geopandas as gpd
 import pandas as pd
 from dotenv import load_dotenv
 
+from src.utils.io import write_geodataframe
+
+
+# # Force GDAL to use standard locking and synchronous write modes # TODO: Decide if needed
+# # helps with gpkg.to_file writes
+# os.environ["GDAL_GEO_TRUNCATE_JOURNAL"] = "YES"
+# os.environ["OGR_SQLITE_SYNCHRONOUS"] = "OFF"  # Speeds up network writes
 
 # HUCs have WRDS data available but don't have a upstream/downstream trace
 # (because they're not yet in the NWM) 
@@ -184,6 +191,7 @@ def get_huc_metadata(huc, huc_path):
     nwm_lids = huc_sites_gdf['nws_lid'].tolist()
 
     # Find lid metadata from master list of metadata dictionaries (line 66).
+
     if len(nwm_lids) > 0:
 
         for lid_site_data in metadata_json_list:
@@ -203,6 +211,10 @@ def get_huc_metadata(huc, huc_path):
         huc_sites_gdf = huc_sites_gdf[huc_sites_gdf['usgs_data_site_type'].notnull()].copy()
 
         logging.info(f"{huc} - Removing {len(null_sites)} sites with null usgs_data_site_type: {null_sites}")
+
+    else:
+        msg = f"{huc} - No valid LIDs found in lid list, skipping filtering metadata JSON"
+        logging.warning(msg)
 
     else:
         msg = f"{huc} - No valid LIDs found in lid list, skipping filtering metadata JSON"
@@ -708,7 +720,7 @@ def finalize_sites_mapping_status(
 
     # Save updated sites GDF
     logging.info(f"{huc_function_tag} Saving updated HUC sites GDF to {sites_post_mapping_file_path}")
-    sites_gdf.to_file(sites_post_mapping_file_path, driver='GPKG', engine="fiona", index=False)
+    write_geodataframe(sites_gdf, sites_post_mapping_file_path, index=False)
 
     # ------------------------------------
     # Process HUC library if it is available
@@ -745,7 +757,7 @@ def finalize_sites_mapping_status(
 
     # Save updated library gdf here
     logging.info(f"{huc_function_tag} Saving updated HUC library to {library_post_mapping_file_path}")
-    huc_library_gdf.to_file(library_post_mapping_file_path, driver='GPKG', engine="fiona", index=False)
+    write_geodataframe(huc_library_gdf, library_post_mapping_file_path, index=False)
 
     return
 

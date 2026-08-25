@@ -6,12 +6,20 @@ import warnings
 from datetime import datetime, timezone
 
 import geopandas as gpd
+from fiona.errors import DriverError
 
 import src.utils.shared_functions as sf
 import tools.catfim.catfim_shared_functions as csf
+from src.utils.io import write_geodataframe
 
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
+
+# TODO: Decide if eneded
+# # Force GDAL to use standard locking and synchronous write modes
+# # helps with gpkg.to_file writes
+# os.environ["GDAL_GEO_TRUNCATE_JOURNAL"] = "YES"
+# os.environ["OGR_SQLITE_SYNCHRONOUS"] = "OFF"  # Speeds up network writes
 
 
 """_summary_
@@ -128,7 +136,18 @@ def catfim_post_processing(output_folder):
         hucs_without_sites, hucs_without_library = [], []
         compiled_sites_gdf_list, compiled_library_gdf_list = [], []
 
-        for huc in huc_list:
+        # Put HUCs in order so we can track where we're at in processing
+        huc_list.sort()
+
+        section_start_time = datetime.now(timezone.utc)
+
+        for i, huc in enumerate(huc_list, start=1):
+            # Update progress every n HUCs
+            if i % 200 == 0:
+                duration_msg = sf.calculate_duration_msg(section_start_time)
+                logging.info(f"Processed {i}/{len(huc_list)} HUCs... - {duration_msg}")
+                section_start_time = datetime.now(timezone.utc)  # reset segment timer
+
             huc_path = os.path.join(huc_parent_folder_path, huc)
 
             # Create filepath variables
@@ -139,8 +158,7 @@ def catfim_post_processing(output_folder):
 
             # Sites
             try:
-                with open(sites_post_mapping_file_path, 'r'):
-                    huc_sites_gdf = gpd.read_file(sites_post_mapping_file_path, engine='fiona')
+                huc_sites_gdf = gpd.read_file(sites_post_mapping_file_path, engine='fiona')
 
                 # Reformat output columns (should already be done, but just in case)
                 huc_sites_gdf = csf.rename_output_columns(huc_sites_gdf, csf.COLUMN_RENAME_DICT)
@@ -150,13 +168,12 @@ def catfim_post_processing(output_folder):
 
                 compiled_sites_gdf_list.append(huc_sites_gdf)
 
-            except FileNotFoundError:
+            except DriverError:
                 hucs_without_sites.append(huc)
 
             # Library
             try:
-                with open(library_post_mapping_file_path, 'r'):
-                    huc_library_gdf = gpd.read_file(library_post_mapping_file_path, engine='fiona')
+                huc_library_gdf = gpd.read_file(library_post_mapping_file_path, engine='fiona')
 
                 # Reformat output columns (should already be done, but just in case)
                 huc_library_gdf = csf.rename_output_columns(huc_library_gdf, csf.COLUMN_RENAME_DICT)
@@ -166,7 +183,7 @@ def catfim_post_processing(output_folder):
 
                 compiled_library_gdf_list.append(huc_library_gdf)
 
-            except FileNotFoundError:
+            except DriverError:
                 hucs_without_library.append(huc)
         # End huc loop
 
@@ -218,7 +235,14 @@ def catfim_post_processing(output_folder):
             compiled_sites_gdf.rename(columns={'nws_lid': 'ahps_lid'}, inplace=True)
 
             # Save the compiled GeoDataFrames to GeoPackage files
-            compiled_sites_gdf.to_file(sites_gpkg_path, driver='GPKG', engine='fiona', index=False)
+            write_geodataframe(compiled_sites_gdf, sites_gpkg_path, index=False)
+            # compiled_sites_gdf.to_file( # TODO: Clean up
+            #     sites_gpkg_path,
+            #     driver='GPKG',
+            #     engine='fiona',
+            #     index=False,
+            #     layer_options={"OVERWRITE": "YES"},
+            # )
             logging.info(f"Saved sites GeoPackage to {sites_gpkg_path}")
 
             # Save the GeoDataFrames to GeoParquet files
@@ -239,7 +263,14 @@ def catfim_post_processing(output_folder):
             compiled_library_gdf = gpd.pd.concat(compiled_library_gdf_list, ignore_index=True)
             compiled_library_gdf.rename(columns={'nws_lid': 'ahps_lid'}, inplace=True)
 
-            compiled_library_gdf.to_file(library_gpkg_path, driver='GPKG', engine='fiona', index=False)
+            write_geodataframe(compiled_library_gdf, library_gpkg_path, index=False)
+            # compiled_library_gdf.to_file(  # TODO: Clean up
+            #     library_gpkg_path,
+            #     driver='GPKG',
+            #     engine='fiona',
+            #     index=False,
+            #     layer_options={"OVERWRITE": "YES"},
+            # )
             logging.info(f"Saved library GeoPackage to {library_gpkg_path}")
 
             # Save the GeoDataFrames to GeoParquet files
@@ -302,8 +333,6 @@ def get_output_filepaths(output_folder, catfim_type_name):
         Filepath for final library CSV.
     library_parquet_path - STR
         Filepath for final library Parquet.
-    deleted_file_count - INT?
-        Number of files that the function deletes.
     '''
 
     sites_gpkg_path = os.path.join(output_folder, f"{catfim_type_name}_catfim_sites.gpkg")

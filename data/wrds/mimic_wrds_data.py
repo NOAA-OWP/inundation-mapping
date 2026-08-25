@@ -12,6 +12,8 @@ from dotenv import load_dotenv
 from data.wrds.download_process_wrds import label_data_file
 from tools_shared_functions import get_metadata
 
+from src.utils.io import write_geodataframe
+
 
 def read_format_usgs_data(usgs_data_txt, DEFAULT_DATA_CRS):
     '''
@@ -722,7 +724,7 @@ def mimic_wrds_data(
     # Save joined geodataframe to file for debugging
     debug_output_path = os.path.join(workspace, f'joined_gdf_with_streams_{label}.gpkg')
     try:
-        joined_gdf_with_streams.to_file(debug_output_path, driver='GPKG')
+        write_geodataframe(joined_gdf_with_streams, debug_output_path, driver='GPKG')
         print(f"Saved joined geodataframe to {debug_output_path}")
     except Exception as e:
         print(f"Error saving geodataframe file {debug_output_path}: {e}")

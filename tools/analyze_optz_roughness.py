@@ -2,6 +2,7 @@ import argparse
 import datetime
 import glob
 import os
+import shutil
 from concurrent.futures import ProcessPoolExecutor
 from os.path import join
 
@@ -884,6 +885,339 @@ def analyze_optz_roughness(
 
 
 # *****************************************************************************
+def assign_new_roughness_ohio_river(
+    ohio_roughness_path='/outputs/roughness_optz_v62/ohio_test/Ohio_custom_roughness_final.csv',
+    previous_fim_dirs=('/data/previous_fim/hand_4_9_9_0', '/data/previous_fim/hand_4_9_20_1'),
+    output_dir='/outputs/ohio_test',
+):
+    """Compare roughness and slope of order-8+ streams between FIM 6.1 and 6.2 SRCs.
+
+    Derive slope-adjusted roughness values, exclude flagged or incomplete features,
+    and apply the remaining updates to the 6.2.1 Manning roughness file.
+    """
+
+    # Read the Ohio HUC list that defines the geographic scope of this update.
+    if not os.path.exists(ohio_roughness_path):
+        raise FileNotFoundError(f"{ohio_roughness_path} not found")
+
+    ohio_hucs_df = pd.read_csv(ohio_roughness_path, dtype={'HUC8': 'string'})
+    if 'HUC8' not in ohio_hucs_df.columns:
+        raise ValueError(f"{ohio_roughness_path} is missing required column: HUC8")
+
+    ohio_hucs = _format_huc_series(ohio_hucs_df['HUC8']).dropna().drop_duplicates()
+    if ohio_hucs.empty:
+        raise ValueError(f"{ohio_roughness_path} contains no valid HUC8 values")
+
+    # Map the prior FIM directory names to the version suffixes used in output columns.
+    fim_version_labels = {'hand_4_9_9_0': '6.1', 'hand_4_9_20_1': '6.2'}
+    required_src_cols = ['feature_id', 'HydroID', 'order_', 'SLOPE', 'channel_n', 'overbank_n']
+    output_cols = [
+        'huc',
+        'feature_id',
+        'branch_id_6.1',
+        'HydroID_6.1',
+        'branch_id_6.2',
+        'HydroID_6.2',
+        'slope_6.1',
+        'slope_6.2',
+        'channel_n_6.1',
+        'overbank_n_6.1',
+        'channel_n_6.2',
+        'overbank_n_6.2',
+    ]
+
+    # Reduce an SRC to one order-8+ record per feature for a single FIM version.
+    def summarize_src(src_df, src_path, branch_id, version_label):
+        missing_cols = [col for col in required_src_cols if col not in src_df.columns]
+        if missing_cols:
+            raise ValueError(f"{src_path} is missing required columns: {missing_cols}")
+
+        src_df = src_df[required_src_cols].copy()
+        src_df['feature_id'] = pd.to_numeric(src_df['feature_id'], errors='raise').astype('int64')
+        src_df['order_'] = pd.to_numeric(src_df['order_'], errors='raise')
+        src_df = src_df.loc[src_df['order_'] >= 8]
+
+        attribute_cols = ['SLOPE', 'channel_n', 'overbank_n']
+        varying_attributes = src_df.groupby('feature_id')[attribute_cols].nunique(dropna=False).gt(1)
+        if varying_attributes.any().any():
+            varying_feature_ids = varying_attributes.loc[varying_attributes.any(axis=1)].index.tolist()
+            raise ValueError(
+                f"{src_path} has non-constant slope or roughness values for feature IDs: "
+                f"{varying_feature_ids[:10]}"
+            )
+
+        def sorted_hydro_ids(hydro_ids):
+            hydro_ids = pd.to_numeric(hydro_ids.dropna(), errors='raise').astype('int64')
+            return tuple(sorted(hydro_ids.unique()))
+
+        summary_df = src_df.groupby('feature_id', as_index=False).agg(
+            HydroID=('HydroID', sorted_hydro_ids),
+            slope=('SLOPE', 'first'),
+            channel_n=('channel_n', 'first'),
+            overbank_n=('overbank_n', 'first'),
+        )
+        summary_df['branch_id'] = int(branch_id)
+        return summary_df.rename(
+            columns={
+                'branch_id': f'branch_id_{version_label}',
+                'HydroID': f'HydroID_{version_label}',
+                'slope': f'slope_{version_label}',
+                'channel_n': f'channel_n_{version_label}',
+                'overbank_n': f'overbank_n_{version_label}',
+            }
+        )
+
+    # Read the selected branch SRC from each FIM version and compare features by HUC.
+    huc_comparison_dfs = []
+    for huc in ohio_hucs:
+        version_dfs = {}
+
+        for previous_fim_dir in previous_fim_dirs:
+            fim_version = os.path.basename(os.path.normpath(previous_fim_dir))
+            if fim_version not in fim_version_labels:
+                raise ValueError(f"No output version label configured for {previous_fim_dir}")
+
+            version_label = fim_version_labels[fim_version]
+            branches_dir = join(previous_fim_dir, huc, 'branches')
+            if not os.path.isdir(branches_dir):
+                raise FileNotFoundError(f"{branches_dir} not found")
+
+            numeric_branch_ids = sorted(
+                (
+                    branch_name
+                    for branch_name in os.listdir(branches_dir)
+                    if branch_name.isdigit() and os.path.isdir(join(branches_dir, branch_name))
+                ),
+                key=int,
+            )
+            if len(numeric_branch_ids) < 2:
+                raise ValueError(f"{branches_dir} has fewer than two numeric branch directories")
+
+            branch_id = numeric_branch_ids[1]
+            src_path = join(branches_dir, branch_id, f'src_full_crosswalked_{branch_id}.csv')
+            if not os.path.exists(src_path):
+                raise FileNotFoundError(f"{src_path} not found")
+
+            src_df = pd.read_csv(src_path, low_memory=False)
+            version_dfs[version_label] = summarize_src(src_df, src_path, branch_id, version_label)
+
+        missing_versions = {'6.1', '6.2'}.difference(version_dfs)
+        if missing_versions:
+            raise ValueError(f"Missing previous FIM inputs for versions: {sorted(missing_versions)}")
+
+        huc_comparison_df = version_dfs['6.1'].merge(version_dfs['6.2'], on='feature_id', how='outer')
+        huc_comparison_df.insert(0, 'huc', huc)
+        huc_comparison_dfs.append(huc_comparison_df)
+
+    # Combine all HUC comparisons and calculate the slope-based 6.2 roughness updates.
+    comparison_df = pd.concat(huc_comparison_dfs, ignore_index=True)
+    comparison_df['huc'] = _format_huc_series(comparison_df['huc'])
+    comparison_df = comparison_df[output_cols].sort_values(['huc', 'feature_id']).reset_index(drop=True)
+    comparison_no_hydroid_df = comparison_df.drop(columns=['HydroID_6.1', 'HydroID_6.2'])
+    comparison_no_hydroid_df['slope_ratio'] = np.sqrt(
+        comparison_no_hydroid_df['slope_6.2'] / comparison_no_hydroid_df['slope_6.1']
+    )
+
+    use_v62_roughness = comparison_no_hydroid_df['slope_ratio'] < 1.8
+    comparison_no_hydroid_df['channel_n_6.2_updated'] = np.where(
+        use_v62_roughness,
+        comparison_no_hydroid_df['channel_n_6.2'],
+        comparison_no_hydroid_df['channel_n_6.1'] * comparison_no_hydroid_df['slope_ratio'],
+    )
+    comparison_no_hydroid_df['overbank_n_6.2_updated'] = np.where(
+        use_v62_roughness,
+        comparison_no_hydroid_df['overbank_n_6.2'],
+        comparison_no_hydroid_df['overbank_n_6.1'] * comparison_no_hydroid_df['slope_ratio'],
+    )
+    comparison_no_hydroid_df['channel_n_6.2_updated'] = comparison_no_hydroid_df[
+        'channel_n_6.2_updated'
+    ].clip(upper=0.07)
+    comparison_no_hydroid_df['overbank_n_6.2_updated'] = comparison_no_hydroid_df[
+        'overbank_n_6.2_updated'
+    ].clip(upper=0.2)
+
+    rounded_cols = ['slope_ratio', 'channel_n_6.2_updated', 'overbank_n_6.2_updated']
+    comparison_no_hydroid_df[rounded_cols] = comparison_no_hydroid_df[rounded_cols].round(3)
+
+    # Save complete comparison tables for review before applying exclusions.
+    os.makedirs(output_dir, exist_ok=True)
+    comparison_df.to_csv(join(output_dir, 'ohio_roughness_comparison.csv'), index=False)
+    comparison_no_hydroid_df.to_csv(join(output_dir, 'ohio_roughness_comparison_no_hydroid.csv'), index=False)
+    # Remove manually excluded features and incomplete rows from the update set.
+    excluded_feature_ids = [
+        3406043,
+        3406169,
+        3406173,
+        3406189,
+        3406199,
+        3407545,
+        3407549,
+        3407551,
+        3407553,
+        3407555,
+        3408267,
+        3408273,
+        3408277,
+        3408281,
+        3408285,
+        3408289,
+        3408293,
+        3408311,
+        3786927,
+        3821215,
+        3821223,
+        3821227,
+        3821235,
+        3821237,
+        3821241,
+        3821243,
+        3821249,
+        3821257,
+        3821261,
+        3821263,
+        3821269,
+        3821271,
+        3821279,
+        3824127,
+        3824131,
+        3824135,
+        10109591,
+        10109599,
+        10109617,
+        10161894,
+        10161904,
+        10161914,
+        10161916,
+        10161924,
+        10161928,
+        10161934,
+        10161942,
+        10161960,
+        10357902,
+        10358690,
+        10358696,
+        10358704,
+        11050844,
+        11050846,
+        15429786,
+        15429794,
+        15434062,
+        15434116,
+        19440347,
+        19443465,
+        19453097,
+        19453103,
+        25109349,
+    ]
+    roughness_update_fids_excluded_df = comparison_no_hydroid_df.loc[
+        ~comparison_no_hydroid_df['feature_id'].isin(excluded_feature_ids)
+    ].dropna()
+    roughness_update_fids_excluded_df.to_csv(
+        join(output_dir, 'ohio_roughness_update_fids_excluded.csv'), index=False
+    )
+
+    # Apply the filtered roughness values to the matching features in the Manning table.
+    optz_mannings_path = join(output_dir, 'optz_mannings_v6_2_1.csv')
+    if not os.path.exists(optz_mannings_path):
+        raise FileNotFoundError(f"{optz_mannings_path} not found")
+
+    optz_mannings_df = pd.read_csv(optz_mannings_path)
+    required_mannings_cols = ['feature_id', 'channel_n', 'overbank_n']
+    missing_mannings_cols = [col for col in required_mannings_cols if col not in optz_mannings_df.columns]
+    if missing_mannings_cols:
+        raise ValueError(f"{optz_mannings_path} is missing required columns: {missing_mannings_cols}")
+
+    optz_mannings_df['feature_id'] = pd.to_numeric(optz_mannings_df['feature_id'], errors='raise').astype(
+        'int64'
+    )
+    roughness_update_fids_excluded_df['feature_id'] = pd.to_numeric(
+        roughness_update_fids_excluded_df['feature_id'], errors='raise'
+    ).astype('int64')
+    updated_roughness_df = roughness_update_fids_excluded_df.set_index('feature_id')
+    update_mask = optz_mannings_df['feature_id'].isin(updated_roughness_df.index)
+    optz_mannings_df.loc[update_mask, 'channel_n'] = optz_mannings_df.loc[update_mask, 'feature_id'].map(
+        updated_roughness_df['channel_n_6.2_updated']
+    )
+    optz_mannings_df.loc[update_mask, 'overbank_n'] = optz_mannings_df.loc[update_mask, 'feature_id'].map(
+        updated_roughness_df['overbank_n_6.2_updated']
+    )
+    optz_mannings_df.to_csv(optz_mannings_path, index=False)
+
+    # Apply the manually reviewed feature roughness values and save a new version.
+    weird_roughness_path = join(output_dir, 'weird_feature_roughness_updated.csv')
+    if not os.path.exists(weird_roughness_path):
+        raise FileNotFoundError(f"{weird_roughness_path} not found")
+
+    weird_roughness_df = pd.read_csv(weird_roughness_path)
+    missing_weird_cols = [col for col in required_mannings_cols if col not in weird_roughness_df.columns]
+    if missing_weird_cols:
+        raise ValueError(f"{weird_roughness_path} is missing required columns: {missing_weird_cols}")
+
+    weird_roughness_df['feature_id'] = pd.to_numeric(weird_roughness_df['feature_id'], errors='raise').astype(
+        'int64'
+    )
+    for col in ['channel_n', 'overbank_n']:
+        weird_roughness_df[col] = pd.to_numeric(weird_roughness_df[col], errors='raise')
+    if weird_roughness_df['feature_id'].duplicated().any():
+        duplicate_feature_ids = weird_roughness_df.loc[
+            weird_roughness_df['feature_id'].duplicated(keep=False), 'feature_id'
+        ].drop_duplicates()
+        raise ValueError(
+            f"{weird_roughness_path} has duplicate feature IDs: " f"{duplicate_feature_ids.head(10).tolist()}"
+        )
+
+    weird_roughness_df = weird_roughness_df.set_index('feature_id')
+    weird_update_mask = optz_mannings_df['feature_id'].isin(weird_roughness_df.index)
+    optz_mannings_df.loc[weird_update_mask, 'channel_n'] = optz_mannings_df.loc[
+        weird_update_mask, 'feature_id'
+    ].map(weird_roughness_df['channel_n'])
+    optz_mannings_df.loc[weird_update_mask, 'overbank_n'] = optz_mannings_df.loc[
+        weird_update_mask, 'feature_id'
+    ].map(weird_roughness_df['overbank_n'])
+
+    updated_mannings_path = join(output_dir, 'optz_mannings_v6_2_1.csv')
+    optz_mannings_df.to_csv(updated_mannings_path, index=False)
+
+    # return comparison_df, comparison_no_hydroid_df
+
+
+# *****************************************************************************
+def copy_ohio_nwm_subset_streams(
+    ohio_roughness_path='/outputs/ohio_test/Ohio_custom_roughness.csv',
+    pre_clip_huc8_dir='/data/inputs/pre_clip_huc8/20260708',
+    output_dir='/outputs/roughness_optz_v62/ohio_test',
+):
+    """Copy the NWM subset streams GeoPackage for each listed Ohio HUC."""
+
+    if not os.path.exists(ohio_roughness_path):
+        raise FileNotFoundError(f"{ohio_roughness_path} not found")
+
+    ohio_hucs_df = pd.read_csv(ohio_roughness_path, dtype={'HUC8': 'string'})
+    if 'HUC8' not in ohio_hucs_df.columns:
+        raise ValueError(f"{ohio_roughness_path} is missing required column: HUC8")
+
+    ohio_hucs = _format_huc_series(ohio_hucs_df['HUC8']).dropna().drop_duplicates()
+    if ohio_hucs.empty:
+        raise ValueError(f"{ohio_roughness_path} contains no valid HUC8 values")
+
+    copy_paths = {}
+    for huc in ohio_hucs:
+        source_path = join(pre_clip_huc8_dir, huc, 'nwm_subset_streams.gpkg')
+        if not os.path.isfile(source_path):
+            raise FileNotFoundError(f"{source_path} not found")
+
+        copy_paths[huc] = (source_path, join(output_dir, f'nwm_subset_streams_{huc}.gpkg'))
+
+    os.makedirs(output_dir, exist_ok=True)
+    copied_paths = {}
+    for huc, (source_path, destination_path) in copy_paths.items():
+        shutil.copy2(source_path, destination_path)
+        copied_paths[huc] = destination_path
+
+    return copied_paths
+
+
+# *****************************************************************************
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description="Analyze optimized manning roughness for in-channel and overbank"
@@ -902,7 +1236,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '-cluster_csv_path',
         '--cluster_csv_path',
-        help='Path to a nwm_flow_clusters, e.g. /inputs/rating_curve/nwm_recur_flows/recurrence_flows_nwm_v3_CONUS_100_interval_added_clusters.csv',
+        help='Path to a nwm_flow_clusters, '
+        'e.g. /inputs/rating_curve/nwm_recur_flows/recurrence_flows_nwm_v3_CONUS_100_interval_added_clusters.csv',
         required=True,
         type=str,
     )

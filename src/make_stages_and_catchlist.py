@@ -19,8 +19,8 @@ def make_stages_and_catchlist(
     stages_interval,
     stages_max,
 ):
-    flows = gpd.read_file(flows_filename)
-    catchments = gpd.read_file(catchments_filename)
+    flows = gpd.read_parquet(flows_filename)
+    catchments = gpd.read_parquet(catchments_filename)
 
     # Reconcile flows and catchments hydroids
     flows = flows.merge(catchments[['HydroID']], on='HydroID', how='inner')

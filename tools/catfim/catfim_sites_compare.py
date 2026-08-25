@@ -13,8 +13,15 @@ import pandas as pd
 from pyproj import CRS
 from shapely import wkt
 
+from src.utils.io import write_geodataframe
+
 
 pd.options.mode.chained_assignment = None  # default='warn'
+
+# Force GDAL to use standard locking and synchronous write modes
+# helps with gpkg.to_file writes
+os.environ["GDAL_GEO_TRUNCATE_JOURNAL"] = "YES"
+os.environ["OGR_SQLITE_SYNCHRONOUS"] = "OFF"  # Speeds up network writes
 
 HV_CRS = CRS('EPSG:3857')
 
@@ -146,6 +153,8 @@ def compile_catfim_sites(sorted_path_list):
         if '.gpkg' in sites_filepath:
             # Read in site GPKG
             sites_df = gpd.read_file(sites_filepath)
+            # sites_df = gpd.read_file(sites_filepath, engine='fiona')
+
         elif '.csv' in sites_filepath:
             # Read in site CSV
             sites_df = pd.read_csv(sites_filepath)
@@ -476,17 +485,13 @@ def read_format_catfim_library(catfim_library_filepath):
 
     if '.gpkg' in catfim_library_filepath:
         # Read in site GPKG
-        print(
-            f'Library file stored as GPKG, creating geometry column - {catfim_library_filepath}'
-        )  # TEMP DEBUG
+        print(f'Library file stored as GPKG, creating geometry column - {catfim_library_filepath}')
 
-        library_gdf = gpd.read_file(catfim_library_filepath)
+        library_gdf = gpd.read_file(catfim_library_filepath, engine='fiona')
 
     elif '.csv' in catfim_library_filepath:
         # Read in site CSV
-        print(
-            f'Library file stored as CSV, creating geometry column - {catfim_library_filepath}'
-        )  # TEMP DEBUG
+        print(f'Library file stored as CSV, creating geometry column - {catfim_library_filepath}')
 
         library_table = pd.read_csv(catfim_library_filepath)
 
@@ -878,9 +883,12 @@ def generate_spatial_difference_maps(
 
         # Save the sites GDF as a GeoPackage
         comparison_gpkg_save_path = comparison_table_save_path.replace('.csv', '.gpkg')
-        compare_sites_gdf.to_file(comparison_gpkg_save_path, layer='points', driver='GPKG')
+        write_geodataframe(compare_sites_gdf, comparison_gpkg_save_path, layer='points', driver='GPKG')
 
         print(f'Saved comparison site GPKG to {comparison_gpkg_save_path}')
+
+        # TODO: Do we need to add something to ensure colnames are uniform here?
+        # Changed huc8 -> huc and wfo -> WFO
 
         # Add back in the metadata columns
         removed_geom = removed_geom.merge(
@@ -905,8 +913,12 @@ def generate_spatial_difference_maps(
             # Move geometry to the last column
             added_geom = added_geom[[col for col in added_geom.columns if col != 'geometry'] + ['geometry']]
 
-            added_geom.to_file(
-                gained_coverage_gpkg_save_path, index=False, layer='gained_coverage', driver='GPKG'
+            write_geodataframe(
+                added_geom,
+                gained_coverage_gpkg_save_path,
+                index=False,
+                layer='gained_coverage',
+                driver='GPKG',
             )
             print(f'Saved gained coverage GPKG to {gained_coverage_gpkg_save_path}')
 
@@ -922,8 +934,8 @@ def generate_spatial_difference_maps(
                 [col for col in removed_geom.columns if col != 'geometry'] + ['geometry']
             ]
 
-            removed_geom.to_file(
-                lost_coverage_gpkg_save_path, index=False, layer='lost_coverage', driver='GPKG'
+            write_geodataframe(
+                removed_geom, lost_coverage_gpkg_save_path, index=False, layer='lost_coverage', driver='GPKG'
             )
             print(f'Saved lost coverage GPKG to {lost_coverage_gpkg_save_path}')
 

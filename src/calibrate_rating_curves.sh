@@ -95,8 +95,8 @@ if [ "$bathymetry_adjust" = "True" ]; then
     echo -e $startDiv"Performing Bathymetry Adjustment routine"
     # Run bathymetry adjustment routine
     aibathy_toggle=${ai_toggle} #:-0}
-    python3 $srcDir/bathymetric_adjustment.py \
-        -huc_dir $tempHucDataDir \
+    python3 ${srcDir}/bathymetric_adjustment.py \
+        -huc_dir ${tempHucDataDir} \
         -bathy_ehydro $bathy_file_ehydro \
         -bathy_aibased $bathy_file_aibased \
         -ait $aibathy_toggle
@@ -106,8 +106,8 @@ fi
 if [ "$src_bankfull_toggle" = "True" ]; then
     echo -e $startDiv"Estimating bankfull stage in SRCs"
     # Run SRC bankfull estimation routine routine
-    python3 $srcDir/identify_src_bankfull.py \
-        -huc_dir $tempHucDataDir \
+    python3 ${srcDir}/identify_src_bankfull.py \
+        -huc_dir ${tempHucDataDir} \
         -flows $bankfull_flows_file \
         -jb $jobBranchLimit
 fi
@@ -134,8 +134,8 @@ fi
 if [ "$src_adjust_usgs" = "True" ] && [ "$src_subdiv_toggle" = "True" ]; then
     echo -e $startDiv"Performing SRC adjustments using USGS rating curve database"
     # Run SRC Optimization routine using USGS rating curve data (WSE and flow @ NWM recur flow values)
-    python3 $srcDir/src_adjust_usgs_rating_trace.py \
-        -huc_dir $tempHucDataDir \
+    python3 ${srcDir}/src_adjust_usgs_rating_trace.py \
+        -huc_dir ${tempHucDataDir} \
         -usgs_rc $usgs_rating_curve_csv \
         -usgs_sites $usgs_acceptable_gages_path \
         -nwm_recur $nwm_recur_file \
@@ -146,8 +146,8 @@ fi
 if [ "$src_adjust_ras2fim" = "True" ] && [ "$src_subdiv_toggle" = "True" ]; then
     echo -e $startDiv"Performing SRC adjustments using ras2fim rating curve database"
     # Run SRC Optimization routine using ras2fim rating curve data (WSE and flow @ NWM recur flow values)
-    python3 $srcDir/src_adjust_ras2fim_rating.py \
-        -huc_dir $tempHucDataDir \
+    python3 ${srcDir}/src_adjust_ras2fim_rating.py \
+        -huc_dir ${tempHucDataDir} \
         -ras_rc $ras_rating_curve_csv_filename \
         -nwm_recur $nwm_recur_file \
         -jb $jobBranchLimit

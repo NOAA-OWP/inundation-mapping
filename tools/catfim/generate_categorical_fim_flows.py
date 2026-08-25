@@ -20,7 +20,10 @@ import tools.catfim.catfim_shared_functions as csf
 
 
 gpd.options.io_engine = "pyogrio"
-
+# Force GDAL to use standard locking and synchronous write modes
+# helps with gpkg.to_file writes
+os.environ["GDAL_GEO_TRUNCATE_JOURNAL"] = "YES"
+os.environ["OGR_SQLITE_SYNCHRONOUS"] = "OFF"  # Speeds up network writes
 
 """
 Sites_gdf:
@@ -35,7 +38,7 @@ Sites_gdf:
 """
 
 # TODO: This file could be renamed to something like generate_categorical_fim_thresholds
-# as "flows" is not descriptive enough. Note: Renaming it will maintian its history.
+# as "flows" is not descriptive enough. Note: Renaming it will maintain its history.
 
 
 def get_threshold_data(huc, huc_path, valid_nwm_lids):
@@ -234,29 +237,31 @@ def process_threshold_data(
     # ================================
     # Validate function inputs
 
-    # Log an error and exit if the metadata JSON is empty
+    huc_library_df = pd.DataFrame()
+
+    # Log a warning and exit if the metadata JSON is empty
     if len(metadata_json) == 0:
         msg = f'{huc} - Process Threshold Data - Metadata JSON empty, unable to process threshold data.'
-        logging.error(msg)
-        return sites_gdf, None
+        logging.warning(msg)
+        return sites_gdf, huc_library_df
 
-    # Log an error and exit if the valid_lids is empty
+    # Log a warning and exit if the valid_lids is empty
     if len(valid_lids) == 0:
         msg = f'{huc} - Process Threshold Data - Valid LIDs list is empty, unable to process threshold data.'
-        logging.error(msg)
-        return sites_gdf, None
+        logging.warning(msg)
+        return sites_gdf, huc_library_df
 
-    # Log an error and exit if the threshold_huc_df is empty
+    # Log a warning and exit if the threshold_huc_df is empty
     if len(threshold_huc_df) == 0:
         msg = f'{huc} - Process Threshold Data - threshold_huc_df is empty, unable to process threshold data.'
-        logging.error(msg)
-        return sites_gdf, None
+        logging.warning(msg)
+        return sites_gdf, huc_library_df
 
-    # Log an error and exit if the sites_gdf is empty
+    # Log a warning and exit if the sites_gdf is empty
     if len(sites_gdf) == 0:
         msg = f'{huc} - Process Threshold Data - sites_gdf is empty, unable to process threshold data.'
-        logging.error(msg)
-        return sites_gdf, None
+        logging.warning(msg)
+        return sites_gdf, huc_library_df
 
     # ================================
     # Create filepath variables
@@ -264,19 +269,14 @@ def process_threshold_data(
     segments_file_path = os.path.join(huc_path, "features_segments.csv")
 
     # ================================
-    # Load the flows dataframe based on the HUC
+    # Load the flows geodataframe based on the HUC
 
-    nwm_flows_region_df = gpd.read_file(sf.get_huc_vars(huc)['streams'])
+    nwm_flows_region_df = gpd.read_file(sf.get_huc_vars(huc)['streams'], engine='fiona')
 
     # Note: CONUS + Hawaii + Puerto Rico falls through to get_huc_vars' 'else' case, which might be
     # slow to load as it is 1.8 GiB.
-
-    # TODO: Rob: This should be changed to loading something_path at the HUC level for flow data,
-    # because the CONUS flow file it is 1.6 GiB and is a bit slow to load.
-    #
-    # Emily: I'm not certain that any of our FIM output flowlines files will be correct for this
-    # application. However, we could potentially use the preclip workflow to create
-    # HUC-level flow files for each HUC. I think this is a task to add to the CatFIM Epic.
+    # TODO: Would be good to read in a smaller flows file. However, it doens't look like
+    # any of the HUC-level FIM output flowlines files would be correct for this application.
 
     # ================================
     # Calculate the upstream and downstream trace if the HUCs are in the hucs_without_nwm_trace list
@@ -659,7 +659,7 @@ def __get_sb_library_data_per_lid(huc, lid, sites_gdf, lid_threshold_data):
     for magnitude_type in csf.MAGNITUDES_TYPES:
         try:
             # -------------
-            logging.info(f"{huc} : {lid} : {magnitude_type} - Building initial library rec")
+            # logging.info(f"{huc} : {lid} : {magnitude_type} - Building initial library rec")  # too verbose
 
             # Get stage value (will be float type, rounded to 2 decimal points)
             stage_value = stages[magnitude_type]
@@ -985,9 +985,9 @@ def __get_fb_discharge_and_library_data_per_lid(huc, lid, sites_gdf, lid_thresho
     for magnitude_type in csf.MAGNITUDES_TYPES:
         try:
             # -------------
-            logging.info(
-                f"{huc} : {lid} : {magnitude_type} - Building initial library rec and discharge data"
-            )
+            # logging.info(  # too verbose
+            # f"{huc} : {lid} : {magnitude_type} - Building initial library rec and discharge data"
+            # )
 
             # Get flow value (will be float type, rounded to 2 decimal points)
             flow_value = flows[magnitude_type]
