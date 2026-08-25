@@ -1,6 +1,42 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.____ - 2026-07-__ - [PR#1869](https://github.com/NOAA-OWP/inundation-mapping/pull/1869)
+
+Smooths out some outstanding quirks found after merging the CatFIM reorg changes into dev and creates a new CatFIM tool for joining outputs from a secondary run (such as Guam stage-based) into the primary CatFIM outputs.
+## v4.9.x.x - 2026-07-27 - [PR#1899](https://github.com/NOAA-OWP/inundation-mapping/pull/1899)
+
+Adds three new HUC8s in Alaska for Fairbanks (19080306 and 19080307) and Juneau (19010301). These data are derived from IFSAR 5-meter DTMs acquired from State of Alaska Division of Geological and Geophysical Surveys (DGGS) and vector features (flowlines, catchments, and lakes) from GEOGLOWS. These data are combined into a subregion called "North Alaska" to differentiate them from the "South Alaska" subregion around Anchorage based on DEMs from 3DEP and NHDPlusHR vector data. The two subregion data are combined into one "Alaska" region where possible. This naming convention has been propagated through the codebase as well as the EFS inputs. To generate the new inputs, preclipped vectors, bridge DEM diffs and pit filled DEM folders from 20260619 were duplicated and renamed 20260708. New versions of those data were created for the three new HUCs and copied into their respective 20260708 folders.
+
+Additionally, some reorganization of input data occurred. The primary change was to create a VRT folder in `/data/inputs/dems` where all of the DEM VRT, pit fill VRT, and DEM domain polygon files are contained in a single directory, now identified by region (previously each DEM_domain file was located in its own region's DEM folder). The VRT creation script was modified so that the VRT can be generated from multiple folders, for example, the VRT for Alaska includes both the "North Alaska" and "South Alaska" regions.
+
+### Additions
+
+- `src/data/preprocess_NorthAlaska.py`: unzips, mosaics, and preprocesses IFSAR 5-meter DTM data to 10-meters
+
+### Changes
+- `.github/PULL_REQUEST_TEMPLATE.md`: fix spelling error
+- `config/huc_lists/full_huc_list.lst`: added new HUCs to full HUC list
+- `data/`
+    - `bridges/make_dem_dif_for_bridges.py`, `get_sample_data.py`, `wbd/preprocess_wbd.py`: update subregion name(s)
+    - `create_DEM_domain_and_VRT_files.py`: updated `create_vrt_file.py` to produce DEM domain polygon (copied from `acquire_and_preprocess_3dep_dems.py`)
+    - `nfhl/download_fema_nfhl.py`: update URL
+    - `nhdplus/`
+        - `preprocess_nhdplus.py` and `preprocess_nhdplus.py`: removed creation of DEM domain polygon `__polygonize`
+    - `wbd/`
+        - `clip_vectors_to_wbd.py`: Updated to work with GEOGLOWS data
+        - `generate_pre_clip_fim_huc8.py`: Updated comments
+- `src/`
+    - `bash_variables.env`: Updated preclip date to 20260708 and updated new files/locations
+    - `run_huc.sh`: Handle missing pit_fill file and clean up
+- `tools/`
+    - `catfim/`
+        - `generate_categorical_fim_flows.py`: Added new HUCs
+        - `viz_categorical_fim.py`: Out of date -- note added. 
+    - `run_test_case.py`: Added lakes mask for new subregion
+
+<br/>
+
 ## v4.10.1.0 - 2026-08-21 - [PR#1869](https://github.com/NOAA-OWP/inundation-mapping/pull/1869)
 
 This PR smooths out some outstanding quirks found after merging the CatFIM reorg changes into dev and creates a new CatFIM tool for joining outputs from a secondary run (such as Guam stage-based) into the primary CatFIM outputs.
@@ -9,6 +45,14 @@ This PR smooths out some outstanding quirks found after merging the CatFIM reorg
 - `tools/catfim/catfim_combine_final_outputs.py`: Joins the CatFIM outputs from a secondary folder to the outputs in a primary folder. The outputs are merged into new files in the primary folder with a label added to the filename.
 
 ### Changes
+- `src/process_branch.sh`: Comment change.
+- `tools/catfim/catfim_post_processing.py`: Moved filepath creation to new function `get_output_filepaths()`. Added functionality to save outputs as parquets (as well as the previous CSV and GPKG outputs).
+- `tools/catfim/catfim_shared_functions.py`: Adjusted logging priority.
+- `tools/catfim/generate_categorical_fim.py`: Fixed logging of unfinished HUC list (was causing error).
+- `tools/tools_shared_functions.py`: Comment change.
+
+<br/>
+
 - `data/wrds/download_process_wrds.py`:  Fix a bug that was preventing the upstream and downstream trace to work. Update naming conventions. Renamed `main()` to `download_process_wrds()`.
 - `src/bash_variables.env`: Update NWM and Guam threshold and metadata files.
 - `src/process_branch.sh`: Comment change.
@@ -481,6 +525,7 @@ This pull request updates the source of the slope data to use the values provide
 <br/>
 
 ## v4.9.18.0 - 2026-07-08 - [PR#1881](https://github.com/NOAA-OWP/inundation-mapping/pull/1881)
+## v4.9.____ - 2026-07-__ - [PR#1881](https://github.com/NOAA-OWP/inundation-mapping/pull/1881)
 
 Mitigates errors introduced into USGS data download script by removing the section of `get_metadata()` that assigns column types based on a preexisting dictionary. Reverts a few of the changes in [PR 1873](https://github.com/NOAA-OWP/inundation-mapping/pull/1873) because those were temporary workarounds to handle the column type quirks that this PR mitigates.
 
@@ -503,6 +548,7 @@ Updated the taudem shell execution to instead use python subprocess calls. This 
 - `src/run_by_branch.sh`: updated taudem call to use new python subprocess script; retained all input variables
 - `src/run_huc.sh`: updated taudem call to use new python subprocess script; retained all input variables; retained all input variables
 - `fim_process_huc.sh`: Fixed discovered error handling error
+
 <br/>
 
 ## v4.9.17.3 - 2026-07-02 - [PR#1868](https://github.com/NOAA-OWP/inundation-mapping/pull/1868)

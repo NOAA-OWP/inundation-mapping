@@ -189,11 +189,6 @@ def preprocess_region(
         with rio.open(os.path.join(target_dem_folder, f'HUC8_{huc}_dem.tif'), 'w', **meta) as dst:
             dst.write(elevation_data, 1)
 
-    create_vrt_file(target_dem_folder, 'hand_seamless_3dep_dems.vrt')
-
-    # Create DEM_Domain.parquet
-    __polygonize(target_dem_folder)
-
     # Extract and reproject NHDPlus streams
     nhd_flowline = os.path.join(nhd_path, 'NHDFlowline.shp')
 

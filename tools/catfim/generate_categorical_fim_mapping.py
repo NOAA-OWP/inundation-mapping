@@ -901,6 +901,11 @@ def run_sb_inundation(
     branch_catchments_file_available = False
     branch_hydrotable_available = False
 
+    # Set these to False initially and if at least one valid data source is found they will be changed to True
+    branch_rem_available = False
+    branch_catchments_file_available = False
+    branch_hydrotable_available = False
+
     for branch in branches:
 
         # Prepare branch-specific file paths

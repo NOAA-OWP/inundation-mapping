@@ -892,12 +892,12 @@ def generate_spatial_difference_maps(
 
         # Add back in the metadata columns
         removed_geom = removed_geom.merge(
-            before_gdf[[id_col, mag_col, 'huc', 'name', 'WFO', 'rfc', 'state', 'county']],
+            before_gdf[[id_col, mag_col, 'huc8', 'name', 'wfo', 'rfc', 'state', 'county']],
             on=[id_col, mag_col],
             how='left',
         )
         added_geom = added_geom.merge(
-            before_gdf[[id_col, mag_col, 'huc', 'name', 'WFO', 'rfc', 'state', 'county']],
+            before_gdf[[id_col, mag_col, 'huc8', 'name', 'wfo', 'rfc', 'state', 'county']],
             on=[id_col, mag_col],
             how='left',
         )

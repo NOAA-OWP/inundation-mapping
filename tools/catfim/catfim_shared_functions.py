@@ -19,6 +19,10 @@ from src.utils.io import write_geodataframe
 # os.environ["GDAL_GEO_TRUNCATE_JOURNAL"] = "YES"
 # os.environ["OGR_SQLITE_SYNCHRONOUS"] = "OFF"  # Speeds up network writes
 
+# HUCs have WRDS data available but don't have a upstream/downstream trace
+# (because they're not yet in the NWM) 
+HUCS_WITHOUT_NWM_TRACE = ['19080306', '19080307', '19010301']
+
 # Global vars, shared by all related py files.
 MAGNITUDES_TYPES = ['action', 'minor', 'moderate', 'major', 'record']
 
@@ -198,6 +202,19 @@ def get_huc_metadata(huc, huc_path):
         if len(huc_metadata_json_list) == 0:
             msg = f"{huc} - Metadata JSON list empty after filtering to lid list {nwm_lids}"
             logging.error(msg)
+
+        # Remove sites from huc_sites_gdf where usgs_data_site_type is null
+        # TODO: This was put in for the AK expansion. Double check that this isn't needlessly removing other sites...
+        # if so we need to narrow this filter a bit. Or if it posed a problem I could make it only run this
+        # filter for AK HUCs.
+        null_sites = huc_sites_gdf[huc_sites_gdf['usgs_data_site_type'].isnull()]['nws_lid'].tolist()
+        huc_sites_gdf = huc_sites_gdf[huc_sites_gdf['usgs_data_site_type'].notnull()].copy()
+
+        logging.info(f"{huc} - Removing {len(null_sites)} sites with null usgs_data_site_type: {null_sites}")
+
+    else:
+        msg = f"{huc} - No valid LIDs found in lid list, skipping filtering metadata JSON"
+        logging.warning(msg)
 
     else:
         msg = f"{huc} - No valid LIDs found in lid list, skipping filtering metadata JSON"

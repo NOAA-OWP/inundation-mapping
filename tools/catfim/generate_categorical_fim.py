@@ -142,6 +142,11 @@ def process_generate_categorical_fim(
     print("================================")
 
     try:
+    overall_start_time = datetime.now(timezone.utc)
+    dt_string = overall_start_time.strftime("%m/%d/%Y %H:%M:%S")
+    print("================================")
+
+    try:
 
         load_dotenv('/foss_fim/src/bash_variables.env')
 
@@ -294,12 +299,14 @@ def process_generate_categorical_fim(
         # Create HUC dictionary and NWM sites GeoDataFrame
 
         wbd_file = os.getenv("input_wbd_layer")
+        # TODO: AK CATFIM - currently reads in WBD_National_HUC8.gpkg, need to make a new version of WBD_National_HUC8_HAND_domain_20251209.gpkg and have bash_vaeiables.env read that in instead
 
         huc_dictionary, nwm_sites_all_gdf = aggregate_wbd_hucs(
             metadata_json_list, wbd_file, retain_attributes=True
         )
         if len(huc_dictionary) == 0:
             raise Exception("The metadata pickle file does not have any applicable HUCs")
+            # TODO: Currently this check doesn't work because we are not feeding a HUC list into aggregate_wbd_hucs.
 
         # Dictionary of {col_name: col_type}
         colname_dict = {
@@ -557,7 +564,56 @@ def process_generate_categorical_fim(
         if len(unfinished_huc_list) > 0:
             logging.warning(
                 f"{len(unfinished_huc_list)}/{len(valid_fim_hucs)} HUC(s) did not complete processing, possibly due to multiproc collision"
-            )
+        #     )
+        #     logging.info("Re-running CatFIM HUC processing for the following unfinished HUC(s):")
+        #     logging.info(", ".join(unfinished_huc_list))
+
+        #     # Remove all finished (failed or sucessful) HUCs from the task arg list
+        #     # Filtered list
+        #     task_args_list_unfinished = [d for d in task_args_list if d["huc"] in unfinished_huc_list]
+
+        #     second_failed_HUCs_list, second_sucessful_HUCs_list = [], []
+
+        #     with ProcessPoolExecutor(max_workers=number_jobs) as executor:
+        #         futures_dict = [executor.submit(process_huc, **arg) for arg in task_args_list_unfinished]
+
+        #         for future in as_completed(futures_dict):
+        #             # if future is not None:  # we don't have anything to return at this time.
+
+        #             # Return whether the HUC-level processing was sucessful.
+        #             if not future.exception():
+        #                 huc, is_success = future.result()
+        #                 if is_success is False:
+        #                     second_failed_HUCs_list.append(huc)
+        #                     logging.error(f"HUC {huc} FAILED IN PROCESS POOL RERUN")
+        #                 else:
+        #                     second_sucessful_HUCs_list.append(huc)
+        #                     logging.info(f"HUC {huc} FINISHED IN PROCESS POOL RERUN")
+        #             else:
+        #                 logging.error(future.exception())
+
+        #     second_finished_huc_list = second_failed_HUCs_list + second_sucessful_HUCs_list
+
+        #     if len(second_finished_huc_list) == 0:
+        #         logging.warning(
+        #             f"None of the {len(unfinished_huc_list)} re-run HUC(s) finished processing in the second ProcessPoolExecutor run"
+        #         )
+        #     else:
+        #         logging.info(
+        #             f"{len(second_finished_huc_list)}/{len(unfinished_huc_list)} HUCs finished running in the second ProcessPoolExecutor run"
+        #         )
+        #         logging.info(
+        #             f"Of the HUC(s) that finished, {len(second_sucessful_HUCs_list)} succeeded and {len(second_failed_HUCs_list)} finished but failed"
+        #         )
+
+        # # End muliproc rerun
+
+        logging.info("Completed CatFIM HUC multiprocessing!")
+        logging.info(f"{sf.calculate_duration_msg(section_start_dt)}")
+
+        # Print number of failed HUCs
+        if len(failed_HUCs_list) > 0:
+            logging.error(f"{len(failed_HUCs_list)} HUCs failed. See logs for info.")
 
         # End of HUC multiprocessing
 

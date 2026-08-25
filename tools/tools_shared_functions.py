@@ -1009,6 +1009,7 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
 
     # Import huc8 layer as geodataframe and retain necessary columns
     print("Reading WBD...")
+    print(f"WBD path: {wbd_huc8_path}")  # TEMP DEBUG
     huc8_all = gpd.read_file(wbd_huc8_path, layer='WBDHU8')
     # print("WBD read.")
 

@@ -234,7 +234,7 @@ def process_huc(huc, output_folder):
                 sites_gdf,
                 huc,
                 huc_path,
-                output_temp_dir,
+                output_folder,
                 threshold_huc_df,
                 metadata_json,
             )
