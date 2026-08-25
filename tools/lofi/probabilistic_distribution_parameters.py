@@ -8,7 +8,8 @@ import traceback
 import warnings
 from datetime import datetime
 from glob import glob
-from typing import Generator, List, Tuple, Union
+from collections.abc import Generator
+from typing import Union
 
 import dask
 import geopandas as gpd
@@ -17,7 +18,6 @@ import pandas as pd
 import xarray as xr
 from dask.distributed import Client, Lock, as_completed
 from lmoments3 import distr
-from numba import njit
 from scipy import stats
 from shared_functions import FIM_Helpers as fh
 from tqdm.auto import tqdm
@@ -53,8 +53,7 @@ def __setup_logger(output_folder_path):
     return start_time
 
 
-@njit(fastmath=True)
-def LNSE(q_flow: np.array, q_flow_pred: np.array, q_mean: float, length: int) -> float:
+def LNSE(q_flow: np.array, q_flow_pred: np.array, q_mean: float) -> float:
     """Calculate the log nash-sutcliffe efficiency (LNSE)
 
     Parameters
@@ -73,21 +72,24 @@ def LNSE(q_flow: np.array, q_flow_pred: np.array, q_mean: float, length: int) ->
     float
         LNSE (log nash-sutcliffe efficiency)
     """
-
-    flow_og, flow_avg = 0.0, 0.0
-    for idx in range(length):
-        flow_og += (np.log(q_flow[idx]) - np.log(q_flow_pred[idx])) ** 2
-        flow_avg += (np.log(q_flow[idx]) - np.log(q_mean)) ** 2
+    tmp = q_flow / q_mean
+    np.log(tmp, out=tmp)
+    np.square(tmp, out=tmp)
+    flow_avg = np.sum(tmp)
 
     if flow_avg == 0:
-        return 0
+        return 0.0
     else:
-        return 1 - (flow_og / flow_avg)
+        np.divide(q_flow, q_flow_pred, out=tmp)
+        np.log(tmp, out=tmp)
+        np.square(tmp, out=tmp)
+        flow_og = np.sum(tmp)
+        return 1.0 - (flow_og / flow_avg)
 
 
 def get_score(
     sorted_flows: np.array, lmoment_distribution: Generator, scipy_distribution: Generator
-) -> Tuple[str, float, dict]:
+) -> tuple[str, float, dict]:
     """Get LNSE score given distributions
 
     Parameters
@@ -101,7 +103,7 @@ def get_score(
 
     Returns
     -------
-    Tuple[str, float, dict]
+    tuple[str, float, dict]
         Name of distribution, LNSE score, and distribution parameters
 
     """
@@ -141,7 +143,7 @@ def get_score(
     q_predicted = q_predicted[gt_zero_mask]
 
     # Calculate LNSE
-    lnse = LNSE(q_flow_filt, q_predicted, q_mean, len(q_flow_filt))
+    lnse = LNSE(q_flow_filt, q_predicted, q_mean)
 
     return lmoment_distribution.name, lnse, params
 
@@ -151,7 +153,7 @@ def fit_distributions(
     num_flows: int,
     output_file_name: str,
     lock: dask.distributed.Lock,
-    stream_ids: List = None,
+    stream_ids: list = None,
     recurrence_flows_file: str = None,
 ):
     """Fit probability distributions for recreating flow duration curve for NWM retrospective flows
@@ -166,7 +168,7 @@ def fit_distributions(
         Name of tile to save the DataFrame
     lock : Lock
         Mechanism to avoid ServerDisconnected errors
-    stream_ids : List, default=None
+    stream_ids : list, default=None
         List of stream ids to process
     recurrence_flows_file : str, default=None
         Path to the recurrence flows NetCDF file
@@ -195,7 +197,7 @@ def fit_distributions(
             warnings.simplefilter("ignore")
 
             def get_streamflows(
-                lock: Lock, index: int, num_flows: int, count: int, stream_ids: List = None
+                lock: Lock, index: int, num_flows: int, count: int, stream_ids: list = None
             ) -> Union[xr.Dataset, xr.DataArray]:
                 """
                 Get streamflows from service with 5 attempts
@@ -210,7 +212,7 @@ def fit_distributions(
                     Number of flows to select from dataset
                 count : int
                     Number of connections to NWM retrospective dataset
-                stream_ids : List, default=None
+                stream_ids : list, default=None
                     List of stream ids to process
                 """
 
