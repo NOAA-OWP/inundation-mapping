@@ -1,126 +1,110 @@
 #!/usr/bin/env python3
 """
-make_rem.py
------------
-Calculates Relative Elevation Model (REM / HAND) using GDAL in-memory datasets.
-Supports direct in-memory dataset calls as well as standalone CLI execution.
+src/make_rem.py
+---------------
+Calculates REM / HAND (Relative Elevation Model / Height Above Nearest Drainage)
+in RAM using Numba-accelerated minimum elevation dictionary mapping across
+pixel watersheds and thalweg cells.
 """
 
-import argparse
-
 import numpy as np
+from numba import njit, typed, types
 from osgeo import gdal
-from scipy.ndimage import minimum
 
 
-gdal.UseExceptions()
+@njit
+def _make_catchment_min_dict(flat_dem, catchment_min_dict, flat_catchments, thalweg_window, dem_ndv):
+    """Populates dictionary of pixel catchment IDs to minimum thalweg elevation."""
+    for i in range(len(flat_catchments)):
+        cm = flat_catchments[i]
+        elev = flat_dem[i]
+
+        # Strictly ignore background/NoData catchment IDs and NoData DEM pixels
+        if cm > 0 and thalweg_window[i] == 1 and elev != dem_ndv and not np.isnan(elev):
+            if cm in catchment_min_dict:
+                if elev < catchment_min_dict[cm]:
+                    catchment_min_dict[cm] = elev
+            else:
+                catchment_min_dict[cm] = elev
+    return catchment_min_dict
+
+
+@njit
+def _calculate_rem(flat_dem, catchment_min_dict, flat_catchments, global_min_elev, dem_ndv):
+    """Subtracts mapped thalweg minimum elevation from DEM for each catchment cell."""
+    rem_window = np.full(len(flat_dem), fill_value=dem_ndv, dtype=np.float32)
+    for i in range(len(flat_catchments)):
+        elev = flat_dem[i]
+        cm = flat_catchments[i]
+
+        # Only compute for valid terrain and valid catchments
+        if cm > 0 and elev != dem_ndv and not np.isnan(elev):
+            if cm in catchment_min_dict:
+                min_elev = catchment_min_dict[cm]
+            else:
+                min_elev = global_min_elev
+
+            if min_elev != dem_ndv and not np.isnan(min_elev):
+                rem_window[i] = elev - min_elev
+    return rem_window
 
 
 def create_rem_in_memory(
     dem_ds: gdal.Dataset,
     pixel_watersheds_ds: gdal.Dataset,
     thalweg_ds: gdal.Dataset,
-    nodata_val: float = -9999.0,
+    nodata_val: float = None,
 ) -> gdal.Dataset:
-    """
-    Computes Relative Elevation Model (REM) in RAM using vectorized array lookups.
-    Safely handles negative NoData values in catchment raster.
-    """
+    """Calculates unmasked relative elevation model (HAND) in RAM matching original Numba logic."""
     dem_band = dem_ds.GetRasterBand(1)
-    dem_arr = dem_band.ReadAsArray().astype(np.float32)
-    dem_nodata = dem_band.GetNoDataValue()
 
-    cat_band = pixel_watersheds_ds.GetRasterBand(1)
-    cat_arr = cat_band.ReadAsArray().astype(np.int32)
-    cat_nodata = cat_band.GetNoDataValue()
-
-    thalweg_arr = thalweg_ds.GetRasterBand(1).ReadAsArray()
-
-    # Valid mask for DEM and Catchments (catchments must be > 0)
-    valid_dem = (dem_arr != dem_nodata) if dem_nodata is not None else np.ones_like(dem_arr, dtype=bool)
-    valid_cat = (cat_arr != cat_nodata) & (cat_arr > 0) if cat_nodata is not None else (cat_arr > 0)
-    valid_mask = valid_dem & valid_cat
-
-    # Mask thalweg cells to extract stream elevation per catchment
-    stream_mask = (thalweg_arr > 0) & valid_mask
-
-    # Extract unique positive catchment IDs
-    cat_ids = np.unique(cat_arr[valid_cat])
-
-    if len(cat_ids) == 0:
-        rem_arr = np.full_like(dem_arr, nodata_val, dtype=np.float32)
+    # Dynamically extract NoData from GDAL band, fallback to -999999.0 or passed nodata_val
+    band_ndv = dem_band.GetNoDataValue()
+    if band_ndv is not None:
+        dem_ndv = float(band_ndv)
+    elif nodata_val is not None:
+        dem_ndv = float(nodata_val)
     else:
-        # Extract minimum stream elevation per catchment zone
-        stream_cat_ids = np.unique(cat_arr[stream_mask])
+        dem_ndv = -999999.0
 
-        if len(stream_cat_ids) > 0:
-            min_stream_elevs = minimum(dem_arr, labels=cat_arr, index=stream_cat_ids)
-        else:
-            min_stream_elevs = np.array([])
+    flat_dem = dem_band.ReadAsArray().ravel().astype(np.float32)
 
-        # Build 1D direct lookup array
-        max_cat_id = int(cat_arr[valid_cat].max()) if np.any(valid_cat) else 0
-        lookup = np.full(max_cat_id + 1, np.nan, dtype=np.float32)
+    ws_band = pixel_watersheds_ds.GetRasterBand(1)
+    flat_catchments = ws_band.ReadAsArray().ravel().astype(np.int32)
 
-        if len(stream_cat_ids) > 0:
-            lookup[stream_cat_ids] = min_stream_elevs
+    if thalweg_ds is not None:
+        thalweg_band = thalweg_ds.GetRasterBand(1)
+        thalweg_window = thalweg_band.ReadAsArray().ravel().astype(np.int32)
+    else:
+        thalweg_window = np.ones_like(flat_catchments, dtype=np.int32)
 
-        # Fallback for catchments without stream pixels: use catchment minimum DEM
-        missing_cats = np.setdiff1d(cat_ids, stream_cat_ids)
-        if len(missing_cats) > 0:
-            fallback_elevs = minimum(dem_arr, labels=cat_arr, index=missing_cats)
-            lookup[missing_cats] = fallback_elevs
+    # 1. Build catchment minimum elevation dictionary using Numba
+    catchment_min_dict = typed.Dict.empty(types.int32, types.float32)
+    catchment_min_dict = _make_catchment_min_dict(
+        flat_dem, catchment_min_dict, flat_catchments, thalweg_window, dem_ndv
+    )
 
-        # --- FIX: Clip negative/NoData values to 0 to prevent negative index out-of-bounds ---
-        cat_safe = np.where(valid_cat, cat_arr, 0)
+    # 2. Global fallback minimum
+    if len(catchment_min_dict) > 0:
+        global_min_elev = float(min(catchment_min_dict.values()))
+    else:
+        valid_dem = flat_dem[(flat_dem != dem_ndv) & (~np.isnan(flat_dem)) & (flat_catchments > 0)]
+        global_min_elev = float(valid_dem.min()) if len(valid_dem) > 0 else dem_ndv
 
-        # Vectorized Broadcast: Map Catchment ID to Stream Elevation across entire 2D Grid
-        thalweg_elev_grid = lookup[cat_safe]
+    # 3. Calculate REM array
+    rem_flat = _calculate_rem(flat_dem, catchment_min_dict, flat_catchments, global_min_elev, dem_ndv)
+    rem_arr = rem_flat.reshape((dem_ds.RasterYSize, dem_ds.RasterXSize))
 
-        # Calculate REM: DEM Elevation - Thalweg/Stream Elevation
-        rem_arr = np.where(valid_mask & ~np.isnan(thalweg_elev_grid), dem_arr - thalweg_elev_grid, nodata_val)
-
-        # Floor negative noise values to 0.0
-        rem_arr = np.where((rem_arr != nodata_val) & (rem_arr < 0), 0.0, rem_arr)
-
-    # Package GDAL MEM Dataset
-    cols = dem_ds.RasterXSize
-    rows = dem_ds.RasterYSize
+    # 4. Construct GDAL In-Memory Dataset
     driver = gdal.GetDriverByName("MEM")
+    cols, rows = dem_ds.RasterXSize, dem_ds.RasterYSize
+    out_ds = driver.Create("", cols, rows, 1, gdal.GDT_Float32)
+    out_ds.SetGeoTransform(dem_ds.GetGeoTransform())
+    out_ds.SetProjection(dem_ds.GetProjectionRef())
 
-    rem_ds = driver.Create("", cols, rows, 1, gdal.GDT_Float32)
-    rem_ds.SetGeoTransform(dem_ds.GetGeoTransform())
-    rem_ds.SetProjection(dem_ds.GetProjectionRef())
+    out_band = out_ds.GetRasterBand(1)
+    out_band.SetNoDataValue(dem_ndv)
+    out_band.WriteArray(rem_arr)
+    out_ds.FlushCache()
 
-    out_band = rem_ds.GetRasterBand(1)
-    out_band.SetNoDataValue(nodata_val)
-    out_band.WriteArray(rem_arr.astype(np.float32))
-
-    return rem_ds
-
-
-def rel_dem(dem_path: str, pixel_watersheds_path: str, out_rem_path: str, thalweg_path: str):
-    """File-based CLI wrapper for backward compatibility."""
-    dem_ds = gdal.Open(dem_path)
-    pw_ds = gdal.Open(pixel_watersheds_path)
-    th_ds = gdal.Open(thalweg_path)
-
-    rem_ds = create_rem_in_memory(dem_ds, pw_ds, th_ds)
-
-    driver = gdal.GetDriverByName("GTiff")
-    driver.CreateCopy(out_rem_path, rem_ds, options=["COMPRESS=LZW", "TILED=YES"])
-
-
-def main():
-    parser = argparse.ArgumentParser(description="Create Relative Elevation Model (REM / HAND)")
-    parser.add_argument("-d", "--dem", required=True, help="DEM raster path")
-    parser.add_argument("-w", "--watersheds", required=True, help="Pixel watersheds raster path")
-    parser.add_argument("-o", "--output", required=True, help="Output REM raster path")
-    parser.add_argument("-t", "--thalweg", required=True, help="Thalweg stream raster path")
-
-    args = parser.parse_args()
-    rel_dem(args.dem, args.watersheds, args.output, args.thalweg)
-
-
-if __name__ == "__main__":
-    main()
+    return out_ds

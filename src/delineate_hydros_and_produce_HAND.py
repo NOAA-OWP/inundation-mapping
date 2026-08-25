@@ -195,13 +195,17 @@ def gdal_multiply_in_memory(ds_a: gdal.Dataset, ds_b: gdal.Dataset, nodata_val: 
 
 
 def gdal_rem_zero_mask_in_memory(
-    rem_ds: gdal.Dataset, catch_ds: gdal.Dataset, nodata_val: float
+    rem_ds: gdal.Dataset, catch_ds: gdal.Dataset, nodata_val: float = -9999.0
 ) -> gdal.Dataset:
     arr_a = rem_ds.GetRasterBand(1).ReadAsArray().astype(np.float32, copy=False)
     arr_b = catch_ds.GetRasterBand(1).ReadAsArray().astype(np.float32, copy=False)
 
     ndv_float = float(nodata_val)
+
+    # Valid mask: REM >= 0 AND Catchment ID > 0
     mask = (arr_a >= 0) & (arr_b > 0)
+
+    # Fill unmasked pixels with ndv_float (-9999.0), NOT -32768
     calc_res = np.where(mask, arr_a, ndv_float).astype(np.float32, copy=False)
 
     driver = gdal.GetDriverByName("MEM")
@@ -547,10 +551,15 @@ def delineate_and_produce_hand(
 
     with rio.open(stream_pixels_tif) as src_stream_pixels:
         flows_pts_gdf = reachID_grid_to_vector_points_in_memory(
-            raster_dataset=src_stream_pixels, id_field_name="featureID"
+            raster=src_stream_pixels, index_option="featureID", output_points_filename=str(flows_points_gpkg)
         )
 
-    flows_pts_gdf.to_file(flows_points_gpkg, driver="GPKG", engine="pyogrio", index=False)
+    if flows_pts_gdf is None or flows_pts_gdf.empty:
+        raise ValueError(
+            f"[Step 11 ERROR] flows_points_pixels_{current_branch_id}.gpkg is empty! "
+            "Check demDerived_streamPixels.tif generation."
+        )
+
     del flows_pts_gdf
     gc.collect()
 
@@ -691,7 +700,7 @@ def delineate_and_produce_hand(
             / f"gw_catchments_reaches_filtered_addedAttributes_{current_branch_id}.tif"
         ),
         attribute="HydroID",
-        init_value=0,
+        init_value=ndv,  # <--- MUST be ndv (-9999), NOT 0!
     )
 
     # --- 20. MASK SLOPE TO CATCHMENTS ---
@@ -960,23 +969,16 @@ def delineate_and_produce_hand(
             del hw_gdf
             gc.collect()
 
-    # --- 31. CONVERSION TO INT16 (In-Memory) ---
+    # --- Step 31: CONVERT REM TO INT16 ---
     if huc2Identifier == 19:
         log_step("--> [Step 31] Skipping Int16 Conversion for Alaska HUC")
     else:
-        log_step(
-            f"--> [Step 31] Convert GW Catchments and REM to Int16 in-memory {huc_number} {current_branch_id}"
-        )
+        log_step(f"--> [Step 31] Convert REM to Int16 in-memory {huc_number} {current_branch_id}")
 
         rem_zero_tif = tempCurrentBranchDataDir / f"rem_zeroed_masked_{current_branch_id}.tif"
-        gw_catch_tif = (
-            tempCurrentBranchDataDir
-            / f"gw_catchments_reaches_filtered_addedAttributes_{current_branch_id}.tif"
-        )
 
-        for tif_file in [rem_zero_tif, gw_catch_tif]:
-            if tif_file.is_file():
-                convert_raster_file_to_int16_in_memory(str(tif_file))
+        if rem_zero_tif.is_file():
+            convert_raster_file_to_int16_in_memory(str(rem_zero_tif), nodata_out=-9999)
 
     print(f"=== [SUCCESS] Completed delineate_hydros_and_produce_HAND for HUC {huc_number} ===")
 

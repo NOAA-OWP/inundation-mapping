@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # This script may move to before subdivision routine.
 # Consider it after FIM6.0 release
-# Note: This routine does not Update any in-channel or over-bank variablesin SRCs and HTs.
+# Note: This routine does not Update any in-channel or over-bank variables in SRCs and HTs.
 
 import datetime as dt
 import os
@@ -15,20 +15,12 @@ import numpy as np
 import pandas as pd
 
 
-#################################
-# CRITICAL TODO: July 4, 2026:  In the event of an exception, the log file will not exist
-# and its details as well.
-# This needs a try/except with printing to log and at least a one liner
-# saying including the word "exception or error", which can be picked up automatically
-# by the rollup to fim_process_huc.sh or process_rerun_calibration_huc.sh
-################################
-
-
 # -------------------------------------------------------
 # Reseting stage column in SRCs for fixing thalweg notches
 def reset_stage(srcs_df):
-    # Re-inject grouping column for hydroid
-    srcs_df['HydroID'] = srcs_df.name
+    # Re-inject grouping column for HydroID if dropped by Pandas 2.0+ include_groups=False
+    if 'HydroID' not in srcs_df.columns:
+        srcs_df['HydroID'] = srcs_df.name
 
     stage_interval = 0.3048  # float(os.getenv('stage_interval_meters'))
 
@@ -41,8 +33,9 @@ def reset_stage(srcs_df):
 # -------------------------------------------------------
 # Extending src_df with linear_extrapolation for missing stages in thalweg notches
 def extend_src_linear_extrapolation(srcs_df, stages_full):
-    # Re-inject grouping column for hydroid
-    srcs_df['HydroID'] = srcs_df.name
+    # Re-inject grouping column for HydroID if dropped by Pandas 2.0+ include_groups=False
+    if 'HydroID' not in srcs_df.columns:
+        srcs_df['HydroID'] = srcs_df.name
 
     # Number of the last rows of src to include in extrapolation
     num_rows = 3
@@ -54,18 +47,15 @@ def extend_src_linear_extrapolation(srcs_df, stages_full):
     if len(existing_stages) == len(stages_full):
         return srcs_df
 
-    # Prepare existing src_df
-    # existing = srcs_df.sort_values('Stage')
     existing_src = srcs_df.set_index('Stage')
 
     # Build DataFrame for all target stages
     extended_src = pd.DataFrame({'Stage': stages_full})
-    extended_src['HydroID'] = srcs_df['HydroID'].iloc[0]
+    extended_src['HydroID'] = srcs_df['HydroID'].iloc[0] if 'HydroID' in srcs_df.columns else srcs_df.name
     extended_src = extended_src.set_index('Stage')
 
     # For each value column, interpolate/extrapolate as needed
     for col in src_cols:
-        # Columns to extrapolate
         col_variables = [
             'Number of Cells',
             'SurfaceArea (m2)',
@@ -76,15 +66,8 @@ def extend_src_linear_extrapolation(srcs_df, stages_full):
             'WetArea (m2)',
             'HydraulicRadius (m)',
             'Discharge (m3s-1)',
-            # 'Discharge (m3s-1)_subdiv',
         ]
-        # if np.issubdtype(srcs_df[col].dtype, np.number):
-        # if srcs_df[col].iloc[-1] != srcs_df[col].iloc[-2]:
         if col in col_variables:
-            # Only use non-NaN values for fitting
-            # x = existing_src.index.values[-num_rows:]
-            # y = existing_src[col].values[-num_rows:]
-            # coeffs = np.polyfit(x, y, 1)
             mask = ~np.isnan(existing_src.index.values[-num_rows:]) & ~np.isnan(
                 existing_src[col].values[-num_rows:]
             )
@@ -102,19 +85,15 @@ def extend_src_linear_extrapolation(srcs_df, stages_full):
             else:  # Not enough data or constant x-values
                 last_valid = existing_src[col].iloc[-1]
                 extended_src[col] = last_valid
-            # extended_src[col] = np.polyval(coeffs, extended_src.index.values)
 
             # Overwrite with original values where available
             for stage in existing_src.index.values:
                 extended_src.at[stage, col] = existing_src.at[stage, col]
 
         else:  # Repeat last value for missing
-            # Fill with NaN first
             extended_src[col] = np.nan
-            # Assign existing values
             for stage in existing_src.index.values:
                 extended_src.at[stage, col] = existing_src.at[stage, col]
-            # Find missing stages and fill with last value
             existing_stages_sorted = np.sort(existing_src.index.values)
             last_value = existing_src[col].loc[existing_stages_sorted[-1]]
 
@@ -130,22 +109,6 @@ def extend_src_linear_extrapolation(srcs_df, stages_full):
 # -------------------------------------------------------
 # Correcting thalweg notches in SRC
 def correct_thalweg_notches(huc_dir, huc, stage_interval):
-    """Function for correcting thalweg notches in synthetic rating curves.
-    For GMS branches, it will correct each hydroID SRC in serial based
-    that shows thalweg notches behavior within in-channel stages.
-
-        Parameters
-        ----------
-        huc_dir : str
-            Directory path for huc output.
-        huc : str
-            HUC-8 string.
-
-        Returns
-        ----------
-        log_text : str
-
-    """
     log_text = f'Processing thalweg notches in SRCs for HUC {huc}\n'
 
     # Get src_full from each branch
@@ -174,11 +137,16 @@ def correct_thalweg_notches(huc_dir, huc, stage_interval):
         src_df2 = src_df.copy()
         src_df2 = src_df2.drop_duplicates(subset=['HydroID', 'Stage'], keep='first').reset_index(drop=True)
 
-        # Removing thalweg notche rows from SRCs and
+        # Removing thalweg notch rows from SRCs and
         # Applying extend_src_linear_extrapolation to add missing rows
         cond_ThalwegNRows = (src_df2['Number of Cells'] == 0) & (src_df2['Stage'] > 0)
         if cond_ThalwegNRows.sum() > 0:
             src_df_skipTwNRows = src_df2[~cond_ThalwegNRows].copy()
+
+            # Ensure HydroID is a column before groupby
+            if 'HydroID' not in src_df_skipTwNRows.columns:
+                src_df_skipTwNRows = src_df_skipTwNRows.reset_index()
+
             src_df_skipTwNRows_gb = (
                 src_df_skipTwNRows.groupby('HydroID', group_keys=False)
                 .apply(reset_stage, include_groups=False)
@@ -187,13 +155,18 @@ def correct_thalweg_notches(huc_dir, huc, stage_interval):
 
             src_df3 = src_df_skipTwNRows_gb.copy()
 
-            # Applying extend_src_linear_extrapolation to add missing rows
-            # Identify the standard stages
-            print(f'Fixing for thalweg nothes for  HUC {huc} Branch: {branch}')
+            # Ensure HydroID is present as a column in src_df3 before second groupby
+            if 'HydroID' not in src_df3.columns:
+                if src_df3.index.name == 'HydroID':
+                    src_df3 = src_df3.reset_index()
+                elif 'HydroID' in src_df3.index.names:
+                    src_df3 = src_df3.reset_index()
+
+            print(f'Fixing for thalweg notches for HUC {huc} Branch: {branch}')
 
             stages_full = np.array([round(i * stage_interval, 4) for i in range(84)])
 
-            # Apply extend_src_linear_extrapolation to each src_df
+            # Apply extend_src_linear_extrapolation to each src_df group
             src_df3 = (
                 src_df3.groupby('HydroID', group_keys=False)
                 .apply(
@@ -227,177 +200,73 @@ def correct_thalweg_notches(huc_dir, huc, stage_interval):
         src_df = src_df5.copy()
         src_df.to_csv(src, index=False)
 
-        # # Adjusting hydro tables for thalweg notches
-        # # Reporting in the log file
-        # log_text += f'Adjusting Thalweg Notches in hydroTable for HUC {huc} Branch {branch}'
-
-        # ht_branch_path = join(fim_huc_dir, 'branches', str(branch), f'hydroTable_{branch}.csv')
-        # ht_df = pd.read_csv(ht_branch_path, low_memory=False)
-        # ht_df = ht_df.drop_duplicates(subset=['HydroID', 'stage'], keep='first').reset_index(drop=True)
-        # ht_df[cols_int] = ht_df[cols_int].astype(int)
-
-        # ## Use the subdivision discharge column when it is being applied
-        # if 'subdiv_discharge_cms' in ht_df.columns:
-        #     ht_df['subdiv_discharge_cms'] = src_df['Discharge (m3s-1)_subdiv']
-        # ht_df['Number of Cells'] = src_df['Number of Cells']
-        # ht_df['SurfaceArea (m2)'] = src_df['SurfaceArea (m2)']
-        # ht_df['BedArea (m2)'] = src_df['BedArea (m2)']
-        # ht_df['TopWidth (m)'] = src_df['TopWidth (m)']
-        # ht_df['WettedPerimeter (m)'] = src_df['WettedPerimeter (m)']
-        # ht_df['HydraulicRadius (m)'] = src_df['HydraulicRadius (m)']
-        # ht_df['WetArea (m2)'] = src_df['WetArea (m2)']
-        # ht_df['Volume (m3)'] = src_df['Volume (m3)']
-        # ht_df['discharge_cms'] = src_df['Discharge (m3s-1)']
-
-        # # Write ht back to file
-        # ht_df.to_csv(ht_branch_path, index=False)
-
     return log_text
 
 
 # --------------------------------------------------------
 # Apply thalweg notches adjustment
-def apply_thalweg_notches_adjustment(huc_dir, huc, stage_interval, log_file_path):  # bankfull_flows_file,
-    """
-    Function for applying thalweg notches adjustment to synthetic rating curves.
-
-    Note: Any failure in here will be logged when it can be but will not abort the Multi-Proc
-
-        Parameters
-        ----------
-        Please refer to correct_src_thalweg_notches and
-        process_thalweg_notches functions parameters.
-
-        Returns
-        ----------
-        log_text : str
-    """
+def apply_thalweg_notches_adjustment(huc_dir, huc, stage_interval, log_file_path):
     log_text = ""
 
     try:
         msg = f"Correcting rating curve for thalweg notches for HUC : {huc}\n"
         log_text += msg
         print(msg)
-        # raise Exception("Rob is tesing an exception before correct_thalweg (sort of)")
-        log_text += correct_thalweg_notches(huc_dir, huc, stage_interval)  # bankfull_flows_file
+        log_text += correct_thalweg_notches(huc_dir, huc, stage_interval)
 
-    # except Exception as ex:
     except Exception:
         err_msg = f"An error has occurred while processing thalweg notches for huc {huc}\n"
         log_text += err_msg
         log_text += traceback.format_exc()
 
-        # this goes back to calibrate_rating_curve.sh which rolls up to its parent "tee"
-        # Then it can be scanned in the error system based on solely the "tee" file
         print(err_msg)
         print(traceback.format_exc())
-
-        # re raise ex ?  # TODO: Do we want to stop processing the huc if we get an error here?
-        # If yes, we need to raise ex, make sure to write your log_text if you need to.
-        # raise Exception("Rob is tesing an exception reraise (sort of ) in thalweg")
-
-        # for now.. lets just print the exception so it can be auto picked up the .sh
-        # chain.
 
     try:
         with open(log_file_path, "a") as log_file:
             log_file.write(log_text + '\n')
     except Exception:
-        # this goes back to calibrate_rating_curve.sh which rolls up to its parent "tee"
-        # Then it can be scanned in the error system based on solely the "tee" file
         print(f"Error trying to write to the log file of {log_file_path}")
         print(traceback.format_exc())
 
-        # ok. maybe not here for a rethrow
-
 
 # -------------------------------------------------------
-def process_thalweg_notches_adjustment(huc_dir):  # stage_interval,
-    """
-    Function for correcting thalweg notches in synthetic rating curves using Multi-Proc function
-    for each HUC8. For GMS branches, it will correct each hydroID SRC in serial based that
-    has thalweg notches.
-
-        Parameters
-        ----------
-        huc_dir : str
-            Directory path for huc output.
-        strm_order : int
-            stream order on or higher for which you want to apply thalweg notches in SRC adjustment.
-            default = 4
-    """
-    # Set up log file
+def process_thalweg_notches_adjustment(huc_dir):
     log_dir = os.path.join(huc_dir, "logs", "src_calibrations")
     if not os.path.isdir(log_dir):
         os.makedirs(log_dir)
     log_file_path = os.path.join(log_dir, 'thalweg_notches_adjustment.log')
 
     try:
-
         print(f'Writing progress to log file here: {log_file_path}')
-        ## Create a time var to log run time
         begin_time = dt.datetime.now(dt.timezone.utc)
-
-        ## Initiate log file
-
-        #  TODO: Fix THIS... it is an open file ~~~~
 
         with open(log_file_path, "w") as log_file:
             log_file.write('START TIME: ' + str(begin_time) + '\n')
             log_file.write('#########################################################\n\n')
 
-        # Let log_text build up starting here until the bottom.
         log_text = ""
-
-        stage_interval = 0.3048  # float(os.getenv('stage_interval_meters'))
+        stage_interval = 0.3048
 
         huc = os.path.basename(os.path.normpath(huc_dir))
         apply_thalweg_notches_adjustment(huc_dir, huc, stage_interval, log_file_path)
 
-        ## Record run time and close log file
         end_time = dt.datetime.now(dt.timezone.utc)
         log_text += 'END TIME: ' + str(end_time) + '\n'
         tot_run_time = end_time - begin_time
         log_text += 'TOTAL RUN TIME: ' + str(tot_run_time).split('.')[0]
-        log_file.close()
 
     except Exception as ex:
-        # this goes back to calibrate_rating_curve.sh which rolls up to its parent "tee"
-        # Then it can be scanned in the error system based on solely the "tee" file
         print(f"An exception occurred while processing thalweg notch adjustments for {huc_dir}.")
         print(f"Details: {traceback.format_exc()}")
-
-        # TODO: catch the details and log as well as print. ??
         raise ex
 
 
 if __name__ == '__main__':
-
-    """
-    Parameters
-    ----------
-    huc_dir : str
-        Directory path for huc output. Log file will be placed in
-        huc/logs/src_calibrations/thalweg_notch_adjustment.log.
-    stage_interval : int
-
-    Sample Usage
-    ----------
-    python3 /foss_fim/src/thalweg_notches_src_adjustment.py -huc_dir /outputs/fim_run_dir/huc_dir
-        -j $jobLimit -sor 4
-    """
     parser = ArgumentParser(description="thalweg notches in SRC Adjustment")
     parser.add_argument('-huc_dir', '--huc_dir', help='Path to huc dir', required=True, type=str)
-    # parser.add_argument(
-    #     '-i',
-    #     '--stage_interval',
-    #     help="stage_interval which equals 0.3048",
-    #     required=True,
-    #     type=int,
-    # )
 
     args = vars(parser.parse_args())
-
     huc_dir = args['huc_dir']
 
-    process_thalweg_notches_adjustment(huc_dir)  # stage_interval,
+    process_thalweg_notches_adjustment(huc_dir)
