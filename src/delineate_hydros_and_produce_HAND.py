@@ -195,27 +195,29 @@ def gdal_multiply_in_memory(ds_a: gdal.Dataset, ds_b: gdal.Dataset, nodata_val: 
 
 
 def gdal_rem_zero_mask_in_memory(
-    rem_ds: gdal.Dataset, catch_ds: gdal.Dataset, nodata_val: float = -9999.0
+    ds_rem: gdal.Dataset, ds_gw_catchments_reaches: gdal.Dataset, nodata_out: float = -9999.0
 ) -> gdal.Dataset:
-    arr_a = rem_ds.GetRasterBand(1).ReadAsArray().astype(np.float32, copy=False)
-    arr_b = catch_ds.GetRasterBand(1).ReadAsArray().astype(np.float32, copy=False)
+    """Replicates gdal_calc.py --calc='(A*(A>=0)*(B>0))' --NoDataValue=-9999."""
+    rem_arr = ds_rem.GetRasterBand(1).ReadAsArray().astype(np.float32)
+    reach_arr = ds_gw_catchments_reaches.GetRasterBand(1).ReadAsArray().astype(np.int32)
 
-    ndv_float = float(nodata_val)
+    # Replicate gdal_calc formula:
+    # A >= 0 preserves positive REM; B > 0 sets background terrain to 0.0
+    calc_res = rem_arr * (rem_arr >= 0) * (reach_arr > 0)
 
-    # Valid mask: REM >= 0 AND Catchment ID > 0
-    mask = (arr_a >= 0) & (arr_b > 0)
+    # Assign nodata_out (-9999) ONLY outside reach catchments (B <= 0)
+    out_arr = np.where(reach_arr > 0, calc_res, nodata_out)
 
-    # Fill unmasked pixels with ndv_float (-9999.0), NOT -32768
-    calc_res = np.where(mask, arr_a, ndv_float).astype(np.float32, copy=False)
-
+    # Package GDAL MEM Dataset
     driver = gdal.GetDriverByName("MEM")
-    out_ds = driver.Create("", rem_ds.RasterXSize, rem_ds.RasterYSize, 1, gdal.GDT_Float32)
-    out_ds.SetGeoTransform(rem_ds.GetGeoTransform())
-    out_ds.SetProjection(rem_ds.GetProjectionRef())
+    cols, rows = ds_rem.RasterXSize, ds_rem.RasterYSize
+    out_ds = driver.Create("", cols, rows, 1, gdal.GDT_Float32)
+    out_ds.SetGeoTransform(ds_rem.GetGeoTransform())
+    out_ds.SetProjection(ds_rem.GetProjectionRef())
 
     band = out_ds.GetRasterBand(1)
-    band.SetNoDataValue(ndv_float)
-    band.WriteArray(calc_res)
+    band.SetNoDataValue(float(nodata_out))
+    band.WriteArray(out_arr)
     out_ds.FlushCache()
 
     return out_ds
@@ -644,7 +646,10 @@ def delineate_and_produce_hand(
     ds_gw_reach = gdal.Open(str(tempCurrentBranchDataDir / f"gw_catchments_reaches_{current_branch_id}.tif"))
     ds_rem_zero = gdal_rem_zero_mask_in_memory(ds_rem, ds_gw_reach, nodata_val=ndv)
     persist_dataset(
-        ds_rem_zero, tempCurrentBranchDataDir / f"rem_zeroed_masked_{current_branch_id}.tif", srs_wkt
+        ds_rem_zero,
+        tempCurrentBranchDataDir / f"rem_zeroed_masked_{current_branch_id}.tif",
+        srs_wkt,
+        force=True,
     )
 
     ds_rem = None
@@ -752,7 +757,20 @@ def delineate_and_produce_hand(
             f"--> [Step 22] Additional masking to REM raster to remove ocean/Glake areas {huc_number} {current_branch_id}"
         )
         ds_landsea = gdal.Open(str(landsea_tif))
-        ds_rem_zero = gdal_multiply_in_memory(ds_rem_zero, ds_landsea, nodata_val=ndv)
+
+        arr_rem = ds_rem_zero.GetRasterBand(1).ReadAsArray().astype(np.float32)
+        arr_ls = ds_landsea.GetRasterBand(1).ReadAsArray().astype(np.float32)
+
+        # Landsea mask: multiply REM where landsea is valid, retain ndv elsewhere
+        calc_ls = np.where((arr_ls != ndv) & (arr_rem != ndv), arr_rem * arr_ls, ndv).astype(np.float32)
+
+        driver = gdal.GetDriverByName("MEM")
+        ds_rem_zero = driver.Create("", ds_rem_zero.RasterXSize, ds_rem_zero.RasterYSize, 1, gdal.GDT_Float32)
+        ds_rem_zero.SetGeoTransform(ds_dem_cond.GetGeoTransform())
+        ds_rem_zero.SetProjection(ds_dem_cond.GetProjectionRef())
+        ds_rem_zero.GetRasterBand(1).SetNoDataValue(ndv)
+        ds_rem_zero.GetRasterBand(1).WriteArray(calc_ls)
+
         persist_dataset(
             ds_rem_zero, tempCurrentBranchDataDir / f"rem_zeroed_masked_{current_branch_id}.tif", srs_wkt
         )

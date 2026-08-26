@@ -3,90 +3,109 @@
 adjust_thalweg_lateral.py
 -------------------------
 Adjusts stream thalweg elevations based on lateral minimum zonal statistics.
-Supports direct in-memory dataset calls as well as standalone CLI execution.
+Matches dev branch logic.
 """
 
 import argparse
 
 import numpy as np
+from numba import njit, typed, types
 from osgeo import gdal
-from scipy.ndimage import distance_transform_edt, minimum
 
 
-gdal.UseExceptions()
+@njit
+def _make_zone_min_dict_numba(elevation_window, zone_window, cost_window, cost_tolerance):
+    zone_min_dict = typed.Dict.empty(types.int32, types.float32)
+    n = elevation_window.size
+
+    for i in range(n):
+        if cost_window[i] <= cost_tolerance:
+            elev_val = elevation_window[i]
+            if elev_val > 0:  # Ignore bad/NoData elevation values
+                zone_id = types.int32(zone_window[i])
+                if zone_id in zone_min_dict:
+                    if elev_val < zone_min_dict[zone_id]:
+                        zone_min_dict[zone_id] = elev_val
+                else:
+                    zone_min_dict[zone_id] = elev_val
+
+    return zone_min_dict
+
+
+@njit
+def _minimize_thalweg_elevation_numba(
+    dem_array, zone_window, thalweg_window, zone_min_dict, lateral_elevation_threshold
+):
+    dem_to_return = np.copy(dem_array)
+    n = dem_array.size
+
+    for i in range(n):
+        if thalweg_window[i] == 1:  # CRITICAL: ONLY adjust actual stream thalweg pixels!
+            zone_id = types.int32(zone_window[i])
+            if zone_id in zone_min_dict:
+                zone_min_elevation = zone_min_dict[zone_id]
+                dem_thalweg_elevation = dem_array[i]
+                elevation_difference = dem_thalweg_elevation - zone_min_elevation
+
+                if (zone_min_elevation < dem_thalweg_elevation) and (
+                    elevation_difference <= lateral_elevation_threshold
+                ):
+                    dem_to_return[i] = zone_min_elevation
+
+    return dem_to_return
 
 
 def adjust_thalweg_lateral_in_memory(
     dem_ds: gdal.Dataset,
     stream_pixels_ds: gdal.Dataset,
     allocation_ds: gdal.Dataset,
-    distance_ds: gdal.Dataset = None,
+    distance_ds: gdal.Dataset,
     distance_threshold: float = 50.0,
-    elev_threshold: float = 0.0,
+    elev_threshold: float = 2.0,
 ) -> gdal.Dataset:
-    """Vectorized lateral thalweg elevation adjustment using SciPy zonal minimums."""
+    """In-memory thalweg lateral minimum adjustment matching dev logic."""
     dem_band = dem_ds.GetRasterBand(1)
-    dem_arr = dem_band.ReadAsArray().astype(np.float32)
+    dem_arr = dem_band.ReadAsArray().astype(np.float32).ravel()
     dem_nodata = dem_band.GetNoDataValue()
 
-    stream_arr = stream_pixels_ds.GetRasterBand(1).ReadAsArray()
-    allo_arr = allocation_ds.GetRasterBand(1).ReadAsArray().astype(np.int32)
+    stream_arr = stream_pixels_ds.GetRasterBand(1).ReadAsArray().astype(np.int32).ravel()
+    allo_arr = allocation_ds.GetRasterBand(1).ReadAsArray().astype(np.int32).ravel()
+    dist_arr = distance_ds.GetRasterBand(1).ReadAsArray().astype(np.float32).ravel()
 
-    # Distance calculation or lookup
-    if distance_ds is not None:
-        dist_arr = distance_ds.GetRasterBand(1).ReadAsArray()
-    else:
-        dist_arr = distance_transform_edt(stream_arr == 0)
+    # 1. Build zone minimum dictionary (matching dev)
+    zone_min_dict = _make_zone_min_dict_numba(
+        elevation_window=dem_arr,
+        zone_window=allo_arr,
+        cost_window=dist_arr,
+        cost_tolerance=int(distance_threshold),
+    )
 
-    # Valid mask for DEM
-    valid_dem_mask = (dem_arr != dem_nodata) if dem_nodata is not None else np.ones_like(dem_arr, dtype=bool)
+    # 2. Minimize elevations ONLY on thalweg pixels (matching dev)
+    adjusted_dem_flat = _minimize_thalweg_elevation_numba(
+        dem_array=dem_arr,
+        zone_window=allo_arr,
+        thalweg_window=stream_arr,
+        zone_min_dict=zone_min_dict,
+        lateral_elevation_threshold=float(elev_threshold),
+    )
 
-    # Compute Zonal Minimum Elevation per Stream Allocation Zone
-    labels = np.unique(allo_arr[allo_arr > 0])
+    adjusted_dem_2d = adjusted_dem_flat.reshape((dem_ds.RasterYSize, dem_ds.RasterXSize))
 
-    if len(labels) == 0:
-        min_elevs = np.array([])
-    else:
-        min_elevs = minimum(dem_arr, labels=allo_arr, index=labels)
-
-    max_label = allo_arr.max() if allo_arr.size > 0 else 0
-    lookup = np.full(max_label + 1, np.nan, dtype=np.float32)
-    lookup[labels] = min_elevs
-
-    zonal_min_grid = lookup[allo_arr]
-
-    # Vectorized Condition Check
-    adjustment_mask = (dist_arr <= distance_threshold) & valid_dem_mask & ~np.isnan(zonal_min_grid)
-
-    if elev_threshold > 0:
-        adjustment_mask &= dem_arr - zonal_min_grid <= elev_threshold
-
-    dem_adj_arr = dem_arr.copy()
-    dem_adj_arr[adjustment_mask] = np.minimum(dem_arr[adjustment_mask], zonal_min_grid[adjustment_mask])
-
-    # Package GDAL MEM Dataset
-    cols = dem_ds.RasterXSize
-    rows = dem_ds.RasterYSize
+    # Package GDAL MEM dataset
     driver = gdal.GetDriverByName("MEM")
-
-    out_ds = driver.Create("", cols, rows, 1, gdal.GDT_Float32)
+    out_ds = driver.Create("", dem_ds.RasterXSize, dem_ds.RasterYSize, 1, gdal.GDT_Float32)
     out_ds.SetGeoTransform(dem_ds.GetGeoTransform())
     out_ds.SetProjection(dem_ds.GetProjectionRef())
 
     out_band = out_ds.GetRasterBand(1)
     if dem_nodata is not None:
         out_band.SetNoDataValue(dem_nodata)
-    out_band.WriteArray(dem_adj_arr)
+    out_band.WriteArray(adjusted_dem_2d)
 
     return out_ds
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Adjust thalweg lateral elevations.")
-    # Add CLI arguments here if executing standalone...
-
-
-def main():
     parser = argparse.ArgumentParser(description="Adjust thalweg lateral minimum elevation.")
     parser.add_argument("-e", "--dem", required=True, help="Input DEM raster path")
     parser.add_argument("-s", "--stream-pixels", required=True, help="Input stream pixels raster path")
@@ -106,15 +125,11 @@ def main():
     out_ds = adjust_thalweg_lateral_in_memory(
         dem_ds=dem_ds,
         stream_pixels_ds=sp_ds,
-        allo_ds=allo_ds,
-        dist_ds=dist_ds,
-        max_dist=args.max_dist,
+        allocation_ds=allo_ds,
+        distance_ds=dist_ds,
+        distance_threshold=args.max_dist,
         elev_threshold=args.threshold,
     )
 
     driver = gdal.GetDriverByName("GTiff")
-    driver.CreateCopy(args.output, out_ds, options=["COMPRESS=LZW", "TILED=YES"])
-
-
-if __name__ == "__main__":
-    main()
+    driver.CreateCopy(args.output, out_ds, options=["COMPRESS=LZW", "TILED=YES", "BIGTIFF=YES"])
