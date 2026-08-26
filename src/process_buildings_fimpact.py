@@ -22,7 +22,7 @@ def process_buildings_fimpact(
 
     Parameters:
     - source_hand_raster (str): REQUIRED. Path to the source HAND raster file
-    - buildings_polygons (str): REQUIRED. Path to a GeoPackage (GPKG) file containing the buildings segments.
+    - buildings_polygons (str): REQUIRED. Path to a GeoParquet file containing the buildings segments.
     - catchments (srr): REQUIRED. Path to HAND catchment
     - output_path (str): REQUIRED. Path where the output CSV file will be saved.
 
@@ -40,22 +40,43 @@ def process_buildings_fimpact(
     catchments_df['feature_id'] = catchments_df['feature_id'].astype(int).astype(str)
     catchments_df['HydroID'] = catchments_df['HydroID'].astype(int).astype(str)
 
-    # split buildings by HAND catchment boundaries so each piece has the correct HydroID
-    buildings_gdf = gpd.overlay(buildings_gdf, catchments_df, how="intersection")
-    buildings_gdf = buildings_gdf.explode(index_parts=True).reset_index(drop=True)
-
     if not buildings_gdf.empty:
-        buildings_gdf['branch'] = branch_id
+        original_count = len(buildings_gdf)
 
         with rasterio.open(hand_grid_raster, 'r') as hand_grid:
             hand_grid_profile = hand_grid.profile
             hand_grid_array = hand_grid.read(1)
+
+            # Cheap prefilter: drop buildings whose HAND value is outside the max stage
+            # (> 25m) before the expensive overlay() and zonal_stats() calls below. Uses
+            # rasterio's built-in point sampler rather than zonal_stats, since rasterizing
+            # every building polygon just to check if it's obviously out of range is wasteful.
+            pts = buildings_gdf.geometry.representative_point()
+            hand_at_point = np.array([v[0] for v in hand_grid.sample(zip(pts.x, pts.y))])
 
         # HAND uses 0 to mark channel cells, which we need to exclude from the min threshold.
         # remap 0 -> nodata once here (single vectorized pass over the raster) so the built-in
         # `min` stat below can exclude it natively, instead of a per-feature python callback.
         nodata = hand_grid_profile['nodata']
         hand_grid_array = np.where(hand_grid_array == 0, nodata, hand_grid_array)
+
+        # sample() returns the raster's nodata value for out-of-bounds/nodata points; treat
+        # those as NaN and keep them, and use ~(> 25) rather than (<= 25) so NaN is kept, not
+        # dropped -- a single sampled point isn't proof the whole building has no valid HAND
+        # coverage, so those cases are left for the real overlay() + zonal_stats() + dropna()
+        # pipeline below to resolve. We only prune the unambiguous, definitively >25 cases here.
+        hand_at_point = np.where(hand_at_point == nodata, np.nan, hand_at_point)
+        buildings_gdf = buildings_gdf[~(hand_at_point > 25)]
+
+        removed_pct = (original_count - len(buildings_gdf)) / original_count * 100
+        print(f'{branch_id}: HAND prefilter removed {removed_pct:.1f}% of {original_count} buildings')
+
+    # split buildings by HAND catchment boundaries so each piece has the correct HydroID
+    buildings_gdf = gpd.overlay(buildings_gdf, catchments_df, how="intersection")
+    buildings_gdf = buildings_gdf.explode(index_parts=True).reset_index(drop=True)
+
+    if not buildings_gdf.empty:
+        buildings_gdf['branch'] = branch_id
 
         # Call zonal_stats with the built-in min stat
         with rasterio.Env():
