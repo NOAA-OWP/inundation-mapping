@@ -3,8 +3,10 @@ import logging
 import os
 import re
 from typing import Optional
-from tools_shared_functions import filter_usgs_by_acceptance_criteria
+
 import pandas as pd
+from tools_shared_functions import filter_usgs_by_acceptance_criteria
+
 
 """
 Step 3 of the data preparation for ML calibration coefficient workflow:
@@ -42,11 +44,7 @@ def ensure_dir(directory: str) -> None:
     os.makedirs(directory, exist_ok=True)
 
 
-def aggregate_usgs_elevations(
-    fim_dir: str,
-    output_dir: str,
-    apply_filter: bool = True,
-) -> pd.DataFrame:
+def aggregate_usgs_elevations(fim_dir: str, output_dir: str, apply_filter: bool = True) -> pd.DataFrame:
     """
     Scans HUC directories within a FIM run output directory, filters USGS records
     by acceptance criteria, and aggregates usgs_elev_table.csv.
@@ -71,8 +69,7 @@ def aggregate_usgs_elevations(
 
     ensure_dir(output_dir)
     huc_list = [
-        h for h in os.listdir(fim_dir)
-        if re.search(r"^\d{6,8}$", h) and not h.startswith(OCONUS_PREFIXES)
+        h for h in os.listdir(fim_dir) if re.search(r"^\d{6,8}$", h) and not h.startswith(OCONUS_PREFIXES)
     ]
     huc_list.sort()
 
@@ -84,8 +81,7 @@ def aggregate_usgs_elevations(
         if os.path.isfile(elev_table_path):
             try:
                 df = pd.read_csv(
-                    elev_table_path,
-                    dtype={"location_id": str, "HydroID": str, "huc": str, "feature_id": int},
+                    elev_table_path, dtype={"location_id": str, "HydroID": str, "huc": str, "feature_id": int}
                 )
                 df["huc"] = str(huc).zfill(8)
 
@@ -93,7 +89,9 @@ def aggregate_usgs_elevations(
                     if filter_usgs_by_acceptance_criteria is not None:
                         df = filter_usgs_by_acceptance_criteria(df)
                     else:
-                        logger.warning("'filter_usgs_by_acceptance_criteria' unavailable. Skipping acceptance filter.")
+                        logger.warning(
+                            "'filter_usgs_by_acceptance_criteria' unavailable. Skipping acceptance filter."
+                        )
 
                 merged_tables.append(df)
             except Exception as e:
@@ -106,7 +104,9 @@ def aggregate_usgs_elevations(
 
         output_csv_path = os.path.join(output_dir, "agg_usgs_elev_table.csv")
         agg_df.to_csv(output_csv_path, index=False)
-        logger.info(f"Aggregated {len(merged_tables)} USGS elevation tables ({len(agg_df):,} records) into: {output_csv_path}")
+        logger.info(
+            f"Aggregated {len(merged_tables)} USGS elevation tables ({len(agg_df):,} records) into: {output_csv_path}"
+        )
         return agg_df
     else:
         logger.warning("No 'usgs_elev_table.csv' files found.")
@@ -136,11 +136,7 @@ def aggregate_branch_observations(df: pd.DataFrame) -> pd.DataFrame:
     df = df.drop_duplicates(subset=["huc8", "branch_id", "feature_id", "calb_coef_final"])
 
     group_cols = ["huc8", "branch_id", "feature_id"]
-    agg_dict = {
-        col: "first"
-        for col in df.columns
-        if col not in group_cols and col != "calb_coef_final"
-    }
+    agg_dict = {col: "first" for col in df.columns if col not in group_cols and col != "calb_coef_final"}
     agg_dict["calb_coef_final"] = "median"
 
     return df.groupby(group_cols, as_index=False).agg(agg_dict)
@@ -186,8 +182,7 @@ def run_ml_prep(
 
     logger.info(f"Loading extracted features from '{features_csv_path}'...")
     reaches_var = pd.read_csv(
-        features_csv_path,
-        dtype={"huc8": str, "HydroID": str, "feature_id": int, "branch_id": int},
+        features_csv_path, dtype={"huc8": str, "HydroID": str, "feature_id": int, "branch_id": int}
     )
     reaches_var["huc8"] = reaches_var["huc8"].str.zfill(8)
 
@@ -211,8 +206,8 @@ def run_ml_prep(
     if not usgs_elev.empty and not usgs_rating.empty:
         usgs_elev["HydroID"] = usgs_elev["HydroID"].astype(str)
         usgs_elev["branch_id"] = usgs_elev["levpa_id"].astype(int)
-        
-        # For USGS rating curve adjustments, a non-null 'submitter' does not 
+
+        # For USGS rating curve adjustments, a non-null 'submitter' does not
         # guarantee the reach contains a USGS gage (e.g. adjustments may be propagated along the reach).
         # Join with 'usgs_elev_table' to isolate reaches with gages.
         usgs_gage = usgs_rating.merge(
@@ -220,9 +215,13 @@ def run_ml_prep(
             on=["feature_id", "HydroID", "branch_id"],
             how="inner",
         )
-        final_usgs = usgs_gage.drop_duplicates(subset=["huc8", "branch_id", "feature_id"]).reset_index(drop=True)
+        final_usgs = usgs_gage.drop_duplicates(subset=["huc8", "branch_id", "feature_id"]).reset_index(
+            drop=True
+        )
     else:
-        final_usgs = usgs_rating.drop_duplicates(subset=["huc8", "branch_id", "feature_id"]).reset_index(drop=True)
+        final_usgs = usgs_rating.drop_duplicates(subset=["huc8", "branch_id", "feature_id"]).reset_index(
+            drop=True
+        )
 
     logger.info(f"Processed USGS ratings: {len(final_usgs):,} branch reaches.")
 
@@ -240,7 +239,9 @@ def run_ml_prep(
     all_calibrations = pd.concat([final_ras2fim, final_point_obs, final_usgs], ignore_index=True)
     clean_calb_csv = os.path.join(output_dir, "clean_calb_train_data.csv")
     all_calibrations.to_csv(clean_calb_csv, index=False)
-    logger.info(f"Saved aggregated training calibrations ({len(all_calibrations):,} records) to: {clean_calb_csv}")
+    logger.info(
+        f"Saved aggregated training calibrations ({len(all_calibrations):,} records) to: {clean_calb_csv}"
+    )
 
     # Merge with CONUS constant environmental inputs
     if const_inputs_path and os.path.exists(const_inputs_path):
@@ -255,13 +256,17 @@ def run_ml_prep(
         ml_input = all_calibrations.merge(const, on=["feature_id", "huc8"], how="left")
         ml_parquet_out = os.path.join(output_dir, "ml_training_input.parquet")
         ml_input.to_parquet(ml_parquet_out, index=False)
-        logger.info(f"-> Saved ML Training Dataset ({ml_input.shape[0]:,} rows, {ml_input.shape[1]} columns): {ml_parquet_out}")
+        logger.info(
+            f"-> Saved ML Training Dataset ({ml_input.shape[0]:,} rows, {ml_input.shape[1]} columns): {ml_parquet_out}"
+        )
 
         # Inference dataset
         prediction_input = uncalibrated_reaches.merge(const, on=["feature_id", "huc8"], how="left")
         pred_parquet_out = os.path.join(output_dir, "prediction_input.parquet")
         prediction_input.to_parquet(pred_parquet_out, index=False)
-        logger.info(f"-> Saved Ungauged Prediction Dataset ({prediction_input.shape[0]:,} rows, {prediction_input.shape[1]} columns): {pred_parquet_out}")
+        logger.info(
+            f"-> Saved Ungauged Prediction Dataset ({prediction_input.shape[0]:,} rows, {prediction_input.shape[1]} columns): {pred_parquet_out}"
+        )
 
     logger.info("All datasets successfully prepared!")
     return True
@@ -272,11 +277,19 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description="Clean calibration observations and merge CONUS constants for ML training."
     )
-    parser.add_argument('-i', '--features_csv', help='Input feature CSV from Stage 2.', required=True, type=str)
-    parser.add_argument('-d', '--fim_dir', help='Root FIM directory containing HUC subfolders.', required=True, type=str)
-    parser.add_argument('-c', '--const_inputs', help='Path to conus_constant_inputs.parquet.', default=None, type=str)
+    parser.add_argument(
+        '-i', '--features_csv', help='Input feature CSV from Stage 2.', required=True, type=str
+    )
+    parser.add_argument(
+        '-d', '--fim_dir', help='Root FIM directory containing HUC subfolders.', required=True, type=str
+    )
+    parser.add_argument(
+        '-c', '--const_inputs', help='Path to conus_constant_inputs.parquet.', default=None, type=str
+    )
     parser.add_argument('-o', '--output_dir', help='Output directory.', default='./ml_output', type=str)
-    parser.add_argument('--no-filter', dest='apply_filter', action='store_false', help='Disable USGS acceptance filter.')
+    parser.add_argument(
+        '--no-filter', dest='apply_filter', action='store_false', help='Disable USGS acceptance filter.'
+    )
 
     args = parser.parse_args()
 

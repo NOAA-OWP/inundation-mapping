@@ -3,14 +3,15 @@ import argparse
 import logging
 import os
 import shutil
-import uuid
 import tempfile
+import uuid
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from typing import List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+
 
 """
 Step 1 of the data preparation for ML calibration coefficient workflow:
@@ -131,9 +132,7 @@ def process_single_huc_hydrotable(task_info: Tuple[str, str]) -> Optional[str]:
         static_df = hydro_df.groupby(group_keys, as_index=False, sort=False).agg(attrib_agg)
 
         # Fit rating curve: Q = a * H^b --> ln(Q) = ln(a) + b * ln(H)
-        valid_rc = hydro_df[
-            (hydro_df['stage'] > 0) & (hydro_df['precalb_discharge_cms'] > 0)
-        ].copy()
+        valid_rc = hydro_df[(hydro_df['stage'] > 0) & (hydro_df['precalb_discharge_cms'] > 0)].copy()
 
         if not valid_rc.empty:
             valid_rc['log_H'] = np.log(valid_rc['stage'])
@@ -141,13 +140,17 @@ def process_single_huc_hydrotable(task_info: Tuple[str, str]) -> Optional[str]:
             valid_rc['log_H_sq'] = valid_rc['log_H'] ** 2
             valid_rc['log_H_log_Q'] = valid_rc['log_H'] * valid_rc['log_Q']
 
-            rc_sums = valid_rc.groupby(group_keys, sort=False).agg(
-                n=('log_H', 'count'),
-                sum_x=('log_H', 'sum'),
-                sum_y=('log_Q', 'sum'),
-                sum_xx=('log_H_sq', 'sum'),
-                sum_xy=('log_H_log_Q', 'sum'),
-            ).reset_index()
+            rc_sums = (
+                valid_rc.groupby(group_keys, sort=False)
+                .agg(
+                    n=('log_H', 'count'),
+                    sum_x=('log_H', 'sum'),
+                    sum_y=('log_Q', 'sum'),
+                    sum_xx=('log_H_sq', 'sum'),
+                    sum_xy=('log_H_log_Q', 'sum'),
+                )
+                .reset_index()
+            )
 
             # Require at least 2 points for valid linear fit
             valid_fit = rc_sums[rc_sums['n'] >= 2].copy()
@@ -158,7 +161,9 @@ def process_single_huc_hydrotable(task_info: Tuple[str, str]) -> Optional[str]:
                 (valid_fit['n'] * valid_fit['sum_xy'] - valid_fit['sum_x'] * valid_fit['sum_y']) / denom,
                 np.nan,
             )
-            valid_fit['intercept'] = (valid_fit['sum_y'] - valid_fit['b'] * valid_fit['sum_x']) / valid_fit['n']
+            valid_fit['intercept'] = (valid_fit['sum_y'] - valid_fit['b'] * valid_fit['sum_x']) / valid_fit[
+                'n'
+            ]
             valid_fit['a'] = np.exp(valid_fit['intercept'])
 
             rc_df = valid_fit[group_keys + ['a', 'b']]
@@ -269,7 +274,7 @@ def run_hydro_extraction(
         max_workers = min(16, max(1, (os.cpu_count() or 4) - 1))
 
     logger.info(f"Processing with {max_workers} parallel CPU workers...")
-    
+
     # Safe temp directory
     with tempfile.TemporaryDirectory(prefix="Htable_chunks_", dir=temp_dir) as safe_temp_dir:
         tasks = [(f, safe_temp_dir) for f in file_list]
@@ -304,10 +309,20 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description="Extract hydrotable features and rating curve (a, b) parameters."
     )
-    parser.add_argument('-r', '--root_dir', help='Root directory containing HUC8 run folders.', required=True, type=str)
-    parser.add_argument('-f', '--target_filename', help='Target hydrotable filename.', default='hydrotable.csv', type=str)
+    parser.add_argument(
+        '-r', '--root_dir', help='Root directory containing HUC8 run folders.', required=True, type=str
+    )
+    parser.add_argument(
+        '-f', '--target_filename', help='Target hydrotable filename.', default='hydrotable.csv', type=str
+    )
     parser.add_argument('-o', '--output_file', help='Full path for output CSV.', required=True, type=str)
-    parser.add_argument('-t', '--temp_dir', help='Temporary directory for worker chunks.', default='./temp_hydro_chunks', type=str)
+    parser.add_argument(
+        '-t',
+        '--temp_dir',
+        help='Temporary directory for worker chunks.',
+        default='./temp_hydro_chunks',
+        type=str,
+    )
     parser.add_argument('-w', '--workers', help='Number of worker processes.', default=None, type=int)
 
     args = parser.parse_args()

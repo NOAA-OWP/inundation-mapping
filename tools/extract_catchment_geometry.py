@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
+
 """
 Step 2 of the data preparation for ML calibration coefficient workflow.
 Extracts catchment attributes (areasqkm and LengthKm) from branch GeoPackages
@@ -93,10 +94,7 @@ def fetch_branch_attributes(task: Tuple[str, str, str]) -> Optional[pd.DataFrame
 
 
 def run_gpkg_extraction(
-    input_csv: str,
-    root_dir: str,
-    output_file: str,
-    max_threads: Optional[int] = None,
+    input_csv: str, root_dir: str, output_file: str, max_threads: Optional[int] = None
 ) -> bool:
     """
     Extracts geometry attributes from all branch GPKGs and merges with features from step 1.
@@ -122,7 +120,9 @@ def run_gpkg_extraction(
     logger.info("=" * 80)
 
     if not os.path.isfile(input_csv):
-        logger.error(f"Input feature file '{input_csv}' does not exist. Run Step 1 first (htable_feature_extractor.py).")
+        logger.error(
+            f"Input feature file '{input_csv}' does not exist. Run Step 1 first (htable_feature_extractor.py)."
+        )
         return False
 
     ensure_dir(os.path.dirname(os.path.abspath(output_file)))
@@ -168,7 +168,9 @@ def run_gpkg_extraction(
         final_df['LengthKm'] = np.nan
 
     matched_area = final_df['areasqkm'].notna().sum()
-    logger.info(f"Geometry coverage: {matched_area:,} / {len(final_df):,} reaches ({matched_area / len(final_df) * 100:.1f}%) matched.")
+    logger.info(
+        f"Geometry coverage: {matched_area:,} / {len(final_df):,} reaches ({matched_area / len(final_df) * 100:.1f}%) matched."
+    )
 
     final_df.to_csv(output_file, index=False)
     logger.info(f"[Step 2 Complete] Geometry-enriched features saved to: {output_file}")
@@ -181,9 +183,13 @@ if __name__ == '__main__':
         description="Extract areasqkm and LengthKm from branch GeoPackages and merge with hydro features."
     )
     parser.add_argument('-i', '--input_csv', help='Input feature CSV from Step 1.', required=True, type=str)
-    parser.add_argument('-r', '--root_dir', help='Root directory containing HUC8 run folders.', required=True, type=str)
+    parser.add_argument(
+        '-r', '--root_dir', help='Root directory containing HUC8 run folders.', required=True, type=str
+    )
     parser.add_argument('-o', '--output_file', help='Output enriched CSV filepath.', required=True, type=str)
-    parser.add_argument('-w', '--workers', help='Number of worker threads for GPKG reading.', default=None, type=int)
+    parser.add_argument(
+        '-w', '--workers', help='Number of worker threads for GPKG reading.', default=None, type=int
+    )
 
     args = parser.parse_args()
 
