@@ -77,37 +77,47 @@ def does_s3_bucket_exist(s3_client, bucket_name):
     if s3_client is None:
         raise Exception("S3 Client not instantiated")
 
-    # strip start and end slashs if exist
-    bucket_name = bucket_name.strip("")
+    # strip start and end slashes if exist
+    bucket_name = bucket_name.strip('/')
     is_success = False
-    try:
-        s3_client.head_bucket(Bucket=bucket_name)
-        # resp = client.head_bucket(Bucket=bucket_name)
-        # print(resp)
-        is_success = True  # no exception?  means it exist
-        return_msg = ""
-    except s3_client.exceptions.NoSuchBucket:
-        return_msg = f"S3 Bucket '{bucket_name}' does not exist."
-        is_success = False
-    except botocore.exceptions.ClientError as ex:
-        error_code = int(ex.response['Error']['Code'])
-        if error_code == 404:
-            return_msg = f"Bucket '{bucket_name}' does not exist."
+    max_attempts = 5
+    backoff_base = 1
+    for attempt in range(max_attempts):
+        try:
+            s3_client.head_bucket(Bucket=bucket_name)
+            is_success = True  # no exception?  means it exist
+            return_msg = ""
+            break
+        except s3_client.exceptions.NoSuchBucket:
+            return_msg = f"S3 Bucket '{bucket_name}' does not exist."
             is_success = False
-        elif error_code == 403:
-            return_msg = f"Access denied to bucket '{bucket_name}'. Check permissions."
-            is_success = False
-        else:  # forward it to aws exceptions to see if it recognizes the exception
-            return_msg, type_known = awssf.aws_exception_handler(ex)
-            if type_known is False:
-                raise Exception(return_msg)
-            is_success = False
-
-    except Exception as ex:
-        # Check if our aws_exception_handler knows what it is.
-        # if it finds it, it returns a nice user friendly message
-        return_msg, _ = awssf.aws_exception_handler(ex)
-        raise Exception(return_msg)
+            break
+        except botocore.exceptions.ClientError as ex:
+            error_code = int(ex.response['Error']['Code'])
+            if error_code == 404:
+                return_msg = f"Bucket '{bucket_name}' does not exist."
+                is_success = False
+                break
+            elif error_code == 403:
+                return_msg = f"Access denied to bucket '{bucket_name}'. Check permissions."
+                is_success = False
+                break
+            else:  # forward it to aws exceptions to see if it recognizes the exception
+                return_msg, type_known = awssf.aws_exception_handler(ex)
+                if type_known is False:
+                    raise Exception(return_msg)
+                is_success = False
+                break
+        except ConnectionError as ex:
+            # Transient network error, retry with exponential backoff
+            if attempt == max_attempts - 1:
+                raise Exception(f"Failed to connect to S3 after {max_attempts} attempts: {ex}")
+            time.sleep(backoff_base * (2 ** attempt))
+        except Exception as ex:
+            # Check if our aws_exception_handler knows what it is.
+            # if it finds it, it returns a nice user friendly message
+            return_msg, _ = awssf.aws_exception_handler(ex)
+            raise Exception(return_msg)
 
     return is_success, return_msg
 
