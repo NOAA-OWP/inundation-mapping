@@ -104,9 +104,7 @@ def aggregate_usgs_elevations(fim_dir: str, output_dir: str, apply_filter: bool 
 
         output_csv_path = os.path.join(output_dir, "agg_usgs_elev_table.csv")
         agg_df.to_csv(output_csv_path, index=False)
-        logger.info(
-            f"Aggregated {len(merged_tables)} USGS elevation tables ({len(agg_df):,} records) into: {output_csv_path}"
-        )
+
         return agg_df
     else:
         logger.warning("No 'usgs_elev_table.csv' files found.")
@@ -180,7 +178,6 @@ def run_ml_prep(
 
     ensure_dir(output_dir)
 
-    logger.info(f"Loading extracted features from '{features_csv_path}'...")
     reaches_var = pd.read_csv(
         features_csv_path, dtype={"huc8": str, "HydroID": str, "feature_id": int, "branch_id": int}
     )
