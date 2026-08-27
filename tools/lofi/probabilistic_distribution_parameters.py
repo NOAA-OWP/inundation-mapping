@@ -6,9 +6,9 @@ import os
 import time
 import traceback
 import warnings
+from collections.abc import Generator
 from datetime import datetime
 from glob import glob
-from collections.abc import Generator
 from typing import Union
 
 import dask
@@ -21,7 +21,6 @@ from lmoments3 import distr
 from scipy import stats
 from shared_functions import FIM_Helpers as fh
 from tqdm.auto import tqdm
-
 
 NWM_V3_ZARR_URL = 'https://noaa-nwm-retrospective-3-0-pds.s3.amazonaws.com/CONUS/zarr/chrtout.zarr'
 
