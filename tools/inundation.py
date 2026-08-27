@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 
 import argparse
-import os
 from os.path import splitext
-from typing import List, Optional, Tuple, Union
+from typing import Optional, Union
 from warnings import warn
 
 import fiona
@@ -12,7 +11,6 @@ import numpy as np
 import pandas as pd
 import rasterio
 import xarray as xr
-from numba import njit, typed, types
 from rasterio.mask import mask
 from shapely.geometry import shape
 
@@ -251,14 +249,14 @@ def __inundate_in_huc(
     depth_rst: rasterio.io.DatasetWriter,
     inundation_rst: rasterio.io.DatasetWriter,
     hucCode: int,
-    catchmentStagesDict: typed.Dict,
+    catchmentStagesDict: tuple,
     depths: str,
     inundation_raster: str,
     quiet: Optional[bool] = False,
     window: Optional[bool] = None,
     inundation_nodata: Optional[int] = None,
     min_value=30,
-) -> Tuple[str, str, str]:
+) -> tuple[str, str, str]:
     """
     Inundate within the chosen scope
 
@@ -274,8 +272,8 @@ def __inundate_in_huc(
         Dataset to write inundation extent to
     hucCode : str
         Catchment processing unit to inundate
-    catchmentStagesDict : typed.Dict
-        Numba compatible dictionary with HydroID as a key and flood stage as a value
+    catchmentStagesDict : tuple
+        Ordered array mapping with HydroID as a key and flood stage as a value
     depths : str
         Name of inundation depth dataset
     inundation_raster : str
@@ -297,12 +295,10 @@ def __inundate_in_huc(
     if hucCode is not None:
         __vprint("Inundating {} ...".format(hucCode), not quiet)
 
-    rem, catchments = __go_fast_mapping(
+    rem, catchments = _fast_inundate(
         rem_array,
         catchments_array,
         catchmentStagesDict,
-        rem_array.shape[1],
-        rem_array.shape[0],
         inundation_nodata,
         min_value,
     )
@@ -316,69 +312,56 @@ def __inundate_in_huc(
     return inundation_raster, depths, None
 
 
-@njit(nogil=True, fastmath=True, cache=True)
-def __go_fast_mapping(
-    rem: np.ndarray,
-    catchments: np.ndarray,
-    catchment_stages_dict: typed.Dict,
-    x: int,
-    y: int,
-    nodata_c: int,
-    min_value: Union[int, float],
-) -> Tuple[np.ndarray, np.ndarray]:
+def _fast_inundate(rem, catchment, stage_dict, nodata_c, min_value):
     """
-    Numba optimization for determining flood depth and flood
-
     Parameters
-    ----------
-    rem : np.ndarray
-        Relative elevation model values which will be replaced by inundation depth values
-    catchments : np.ndarray
-        Rasterized catchments represented by HydroIDs to be replaced with inundation values
-    catchment_stages_dict :  typed.Dict
-        Numba compatible dictionary with HydroID as a key and flood stage as a value
-    x : int
-        Shape of longitude coordinates
-    y : int
-        Shape of latitude coordinates
-    nodata_c : int
-        Nodata value to use for catchment values
-
-    Returns
-    -------
-    Tuple[np.ndarray, np.ndarray]
-        Arrays representing inundation depths and extents
-
+        ----------
+        rem : np.ndarray
+            Relative elevation model values which will be replaced by inundation depth values
+        catchments : np.ndarray
+            Rasterized catchments represented by HydroIDs to be replaced with inundation values
+        catchment_stages_dict : tuple
+            Ordered array mapping with HydroID as a key and flood stage as a value
+        x : int
+            Shape of longitude coordinates
+        y : int
+            Shape of latitude coordinates
+        nodata_c : int
+            Nodata value to use for catchment values
     """
-    # Iterate through each latitude and longitude
-    for i in range(y):
-        for j in range(x):
-            # If catchments are nodata
-            if catchments[i, j] != nodata_c:
-                # catchments in stage dict
-                if catchments[i, j] in catchment_stages_dict:
+    valid = catchment != nodata_c
 
-                    if rem[i, j] >= 0:
+    vc = catchment[valid]
+    vr = rem[valid]
 
-                        depth = catchment_stages_dict[catchments[i, j]] - rem[i, j]
+    keys, values = stage_dict
+    idx = np.searchsorted(keys, vc)
+    mask = idx != len(keys)
+    
+    depths = values[idx[mask]]
+    np.subtract(depths, vr, out=depths, where=mask)
 
-                        # If the depth is greater than approximately 1/10th of a foot
-                        if depth < min_value:
-                            catchments[i, j] *= -1  # set HydroIDs to negative
-                            rem[i, j] = 0
-                        else:
-                            rem[i, j] = depth
-                    else:
-                        rem[i, j] = 0
-                        catchments[i, j] *= -1  # set HydroIDs to negative
-                else:
-                    rem[i, j] = 0
-                    catchments[i, j] *= -1
-            else:
-                rem[i, j] = 0
-                catchments[i, j] = nodata_c
+    #mask = mask & (vr >= 0) & (depths >= min_value)
+    tmp = vr >= 0
+    np.logical_and(mask, tmp, out=mask)
+    np.greater_equal(depths, min_value, out=tmp)
+    np.logical_and(mask, tmp, out=mask)
+    del tmp
+    np.copyto(vr, depths, where=mask)
+    
+    mask = np.logical_not(mask, out=mask)
+    vr[mask] = 0
+    vc[mask] *= -1
+    del mask
 
-    return rem, catchments
+    # Copy back to rem and catchment arrays
+    rem[valid] = vr
+    catchment[valid] = vc
+
+    np.logical_not(valid, out=valid)
+    rem[valid] = 0
+    catchment[valid] = nodata_c
+    return rem, catchment
 
 
 def __make_windows_generator(
@@ -386,7 +369,7 @@ def __make_windows_generator(
     catchments: rasterio.io.DatasetReader,
     catchment_poly: Union[str, gpd.GeoDataFrame],
     mask_type: str,
-    catchmentStagesDict: typed.Dict,
+    catchmentStagesDict: tuple,
     inundation_raster: str,
     depths: str,
     quiet: bool,
@@ -411,8 +394,8 @@ def __make_windows_generator(
         File name or GeoDataFrame containing catchment polygon data
     mask_type: str
         Specifies what type of mask procedure to use
-    catchmentStagesDict : numba dictionary
-        Numba compatible dictionary with HydroID as a key and flood stage as a value
+    catchmentStagesDict : tuple
+        Ordered array mapping with HydroID as a key and flood stage as a value
     inundation_raster : str
         Name of inundation extent raster to output
     depths : str
@@ -445,8 +428,8 @@ def __make_windows_generator(
         Dataset to write inundation extent data to
     hucCode : str
         Code representing the huc processing unit
-    catchmentStagesDict : typed.Dict
-        Numba compatible dictionary with HydroID as a key and flood stage as a value
+    catchmentStagesDict : tuple
+        Ordered array mapping with HydroID as a key and flood stage as a value
     depths : str
         Name of inundation depth raster to output
     inundation_raster : str
@@ -470,14 +453,15 @@ def __make_windows_generator(
             break
 
         # make windows
-        for huc in hucs:
-            # returns hucCode if current huc is in hucSet (at least starts with)
-            def __return_huc_in_hucSet(hucCode, hucSet):
-                for hs in hucSet:
-                    if hs.startswith(hucCode):
-                        return hucCode
+        # returns hucCode if current huc is in hucSet (at least starts with)
+        def __return_huc_in_hucSet(hucCode, hucSet):
+            for hs in hucSet:
+                if hs.startswith(hucCode):
+                    return hucCode
 
-                return None
+            return None
+        
+        for huc in hucs:
 
             if __return_huc_in_hucSet(huc['properties'][hucColName], hucSet) is None:
                 continue
@@ -490,10 +474,7 @@ def __make_windows_generator(
                 elif mask_type == "filter":
 
                     if isinstance(catchment_poly, str):
-                        if os.path.splitext(catchment_poly)[-1].lower() == '.parquet':
-                            catchment_poly = gpd.read_parquet(catchment_poly)
-                        else:
-                            catchment_poly = gpd.read_file(catchment_poly)
+                        catchment_poly = gpd.read_file(catchment_poly)
                     elif isinstance(catchment_poly, gpd.GeoDataFrame):
                         pass
                     elif isinstance(catchment_poly, None):
@@ -598,7 +579,7 @@ def __subset_hydroTable_to_forecast(
     subset_hucs=None,
     process_int16=True,
     precalb_option: bool = False,
-) -> Tuple[typed.Dict, List[str]]:
+) -> tuple[tuple, list[str]]:
     """
     Subset hydrotable with forecast
 
@@ -615,8 +596,8 @@ def __subset_hydroTable_to_forecast(
 
     Returns
     -------
-    Tuple[typed.Dict, List[str]]
-        Numba catchment stages dictionary and list of hucs
+    Tuple[tuple, List[str]]
+        catchment stages dictionary and list of hucs
 
     """
     if isinstance(hydroTable, str):
@@ -719,15 +700,20 @@ def __subset_hydroTable_to_forecast(
 
     else:
 
-        # initialize dictionary
-        catchmentStagesDict = (
-            typed.Dict.empty(types.int16, types.int16)
-            if process_int16
-            else typed.Dict.empty(types.int32, types.float32)
-        )
+        hid_groups = hydroTable.groupby(level='HydroID')
+
+        # initialize arrays for dictionary mapping
+        if process_int16:
+            catchmentStages_keys = np.empty(hid_groups.ngroups, dtype='int16')
+            catchmentStages_vals = np.empty(hid_groups.ngroups, dtype='int16')
+        else:
+            catchmentStages_keys = np.empty(hid_groups.ngroups, dtype='int32')
+            catchmentStages_vals = np.empty(hid_groups.ngroups, dtype='float32')
+
+
 
         # interpolate stages
-        for hid, sub_table in hydroTable.groupby(level='HydroID'):
+        for i, (hid, sub_table) in enumerate(hydroTable.groupby(level='HydroID')):
             if precalb_option:
                 interpolated_stage = np.interp(
                     sub_table.loc[:, 'discharge'].unique(),
@@ -742,16 +728,24 @@ def __subset_hydroTable_to_forecast(
                 )
 
             # add this interpolated stage to catchment stages dict
-            h = round(interpolated_stage[0], 4)
+            h = interpolated_stage[0]
 
-            hid = types.int16(np.int16(str(hid)[4:])) if process_int16 else types.int32(hid)
-            h = types.int16(np.round(h * 1000)) if process_int16 else types.float32(h)
-            catchmentStagesDict[hid] = h
+            if process_int16:
+                catchmentStages_keys[i] = np.int16(str(hid)[4:])
+                catchmentStages_vals[i] = np.int16(round(h * 1000))
+            else:
+                catchmentStages_keys[i] = np.int32(hid)
+                catchmentStages_vals[i] = np.float32(h)
 
         # huc set
         hucSet = [str(i) for i in hydroTable.index.get_level_values('HUC').unique().to_list()]
 
-        return catchmentStagesDict, hucSet
+        # sort catchmentStages for efficient lookup
+        sort_idx = np.argsort(catchmentStages_keys)
+        catchmentStages_keys = catchmentStages_keys[sort_idx]
+        catchmentStages_vals = catchmentStages_vals[sort_idx]
+
+        return (catchmentStages_keys, catchmentStages_vals), hucSet
 
 
 def read_nwm_forecast_file(forecast_file, rename_headers: Optional[bool] = True) -> pd.DataFrame:
@@ -807,14 +801,12 @@ def create_src_subset_csv(hydro_table: str, catchmentStagesDict: dict, src_table
     hydro_table: str
         Filepath for synthetic rating curve
     catchmentStagesDict: dict
-        Catchment stages dictionary
+        Catchment stages mapping
     src_table: str
         Output filepath for subset synthetic rating curve
 
     """
-    src_df = pd.DataFrame.from_dict(catchmentStagesDict, orient='index')
-    src_df = src_df.reset_index()
-    src_df.columns = ['HydroID', 'stage_inund']
+    src_df = pd.DataFrame({'HydroID': catchmentStagesDict[0], 'stage_inund': catchmentStagesDict[1]})
     htable_req_cols = ['HUC', 'feature_id', 'HydroID', 'stage', 'discharge_cms', 'LakeID']
     df_htable = pd.read_csv(
         hydro_table,
