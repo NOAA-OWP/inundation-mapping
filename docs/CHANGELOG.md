@@ -1,6 +1,14 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.x.x.x - 2026-08-27 - [PR#1935](https://github.com/NOAA-OWP/inundation-mapping/pull/1935)
+
+Remove numba runtime dependency for LoFi.
+
+### Changes
+- `tools/lofi/probabilistic_distribution_parameters.py`: Replace numba code with vectorized numpy.
+- `tools/inundation.py`: Replace numba code with vectorized numpy.
+
 ## v4.10.1.0 - 2026-08-21 - [PR#1869](https://github.com/NOAA-OWP/inundation-mapping/pull/1869)
 
 This PR smooths out some outstanding quirks found after merging the CatFIM reorg changes into dev and creates a new CatFIM tool for joining outputs from a secondary run (such as Guam stage-based) into the primary CatFIM outputs.
