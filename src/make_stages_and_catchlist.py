@@ -1,125 +1,120 @@
 #!/usr/bin/env python3
 
 import argparse
-from pathlib import Path
-from typing import Union
 
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 def make_stages_and_catchlist_in_memory(
-    catchments_gdf: gpd.GeoDataFrame,
-    flows_gdf: gpd.GeoDataFrame,
-    stage_min_meters: float = 0.0,
-    stage_interval_meters: float = 0.1,
-    stage_max_meters: float = 20.0,
+    catchments: gpd.GeoDataFrame,
+    flows: gpd.GeoDataFrame,
+    stages_min: float = 0.0,
+    stages_interval: float = 0.10,
+    stages_max: float = 20.0,
 ) -> tuple[pd.DataFrame, np.ndarray]:
-    """Generates the 4-column catchlist DataFrame and 1D stage sequence in RAM.
-
-    Returns
-    -------
-    tuple[pd.DataFrame, np.ndarray]
-        - catchlist_df: DataFrame with columns ['HydroID', 'S0', 'LengthKm', 'Areasqkm']
-        - stage_list: Array of rounded stage heights.
     """
-    # Standardize area column naming if needed
-    if "Areasqkm" not in catchments_gdf.columns and "areasqkm" in catchments_gdf.columns:
-        catchments_gdf = catchments_gdf.rename(columns={"areasqkm": "Areasqkm"})
+    In-memory adaptation of dev make_stages_and_catchlist.
+    Guarantees that the row order of 'flows' (starting with 15440004) is preserved 100%.
+    """
+    # 1. Calculate stages matching dev calculation
+    stages_max_calc = stages_max + stages_interval
+    stages = np.round(np.arange(stages_min, stages_max_calc, stages_interval), 4)
 
-    # 1. Merge catchment area with flowline attributes (S0, LengthKm) via HydroID
-    merged = catchments_gdf[["HydroID", "Areasqkm", "geometry"]].merge(
-        flows_gdf[["HydroID", "S0", "LengthKm"]], on="HydroID", how="inner"
+    # 2. Work on copies and enforce consistent integer HydroIDs
+    flows = flows.copy()
+    catchments = catchments.copy()
+
+    flows['HydroID'] = flows['HydroID'].astype(int)
+    catchments['HydroID'] = catchments['HydroID'].astype(int)
+
+    # 3. Extract areasqkm with exact dev fallback
+    try:
+        catch_areas = catchments[['HydroID', 'areasqkm']].drop_duplicates(subset=['HydroID'])
+    except KeyError:
+        areas = (catchments['geometry'].area / 10**6).tolist()
+        hids = catchments['HydroID'].tolist()
+        catch_areas = pd.DataFrame({'HydroID': hids, 'areasqkm': areas}).drop_duplicates(subset=['HydroID'])
+
+    # 4. Filter catchments to only HydroIDs existing in flows (reconcile)
+    valid_hydroids = set(flows['HydroID'])
+    catch_areas = catch_areas[catch_areas['HydroID'].isin(valid_hydroids)]
+
+    # 5. Merge areas onto flows. 'left' merge guarantees 'flows' sequence is strictly maintained.
+    mergedflows_catchments = flows.merge(catch_areas, on='HydroID', how='left')
+
+    # 6. Extract final lists directly from the merged DataFrame
+    hydroIDs = mergedflows_catchments['HydroID'].tolist()
+    slopes = mergedflows_catchments['S0'].tolist()
+    lengthkm = mergedflows_catchments['LengthKm'].tolist()
+    areasqkm = mergedflows_catchments['areasqkm'].tolist()
+
+    catchlist_df = pd.DataFrame(
+        {'HydroID': hydroIDs, 'S0': slopes, 'LengthKm': lengthkm, 'areasqkm': areasqkm}
     )
 
-    # Clean and sort
-    merged = merged.drop_duplicates(subset=["HydroID"]).sort_values("HydroID")
-
-    # Reorder columns explicitly to match TauDEM catchhydrogeo expectations
-    catchlist_df = merged[["HydroID", "S0", "LengthKm", "Areasqkm"]].copy()
-
-    # Ensure integer type for HydroID
-    catchlist_df["HydroID"] = catchlist_df["HydroID"].astype(np.int64)
-
-    # 2. Generate stage sequence
-    num_steps = int(np.round((stage_max_meters - stage_min_meters) / stage_interval_meters)) + 1
-    stage_list = np.round(np.linspace(stage_min_meters, stage_max_meters, num_steps), 2)
-
-    return catchlist_df, stage_list
+    return catchlist_df, stages
 
 
-def write_catchlist_file(catchlist_df: pd.DataFrame, output_path: Union[str, Path]) -> None:
-    """Writes the catch_list file with the required line-count header."""
-    num_catchments = len(catchlist_df)
+def write_stages_file(stages: np.ndarray, stages_filename: str) -> None:
+    """Writes stage list to text file matching dev formatting."""
+    with open(stages_filename, 'w') as f:
+        f.write("Stage\n")
+        for stage in stages:
+            f.write("{}\n".format(stage))
 
-    with open(output_path, "w", encoding="utf-8") as f:
-        # Line 1: Total number of catchments
-        f.write(f"{num_catchments}\n")
-        # Lines 2+: HydroID S0 LengthKm Areasqkm
-        for _, row in catchlist_df.iterrows():
-            f.write(f"{int(row['HydroID'])} {row['S0']} {row['LengthKm']} {row['Areasqkm']}\n")
+
+def write_catchlist_file(catchlist_df: pd.DataFrame, catchlist_filename: str) -> None:
+    """Writes catchlist to text file matching dev formatting."""
+    len_of_hydroIDs = len(catchlist_df)
+    hydroIDs = catchlist_df['HydroID'].tolist()
+    slopes = catchlist_df['S0'].tolist()
+    lengthkm = catchlist_df['LengthKm'].tolist()
+    areasqkm = catchlist_df['areasqkm'].tolist()
+
+    with open(catchlist_filename, 'w') as f:
+        f.write("{}\n".format(len_of_hydroIDs))
+        for h, s, l, a in zip(hydroIDs, slopes, lengthkm, areasqkm):
+            f.write("{} {} {} {}\n".format(h, s, l, a))
 
 
 def make_stages_and_catchlist(
-    flows_filename: str,
-    catchments_filename: str,
-    stages_filename: str,
-    catchlist_filename: str,
-    stages_min: float = 0.0,
-    stages_interval: float = 0.1,
-    stages_max: float = 20.0,
-) -> None:
-    """File I/O wrapper supporting Parquet/GPKG inputs for stage and catchlist file generation."""
-    # Read catchments using Parquet or GPKG dynamically
-    if str(catchments_filename).endswith(".parquet"):
-        catchments_gdf = gpd.read_parquet(catchments_filename)
-    else:
-        catchments_gdf = gpd.read_file(catchments_filename, layer="catchments")
+    flows_filename,
+    catchments_filename,
+    stages_filename,
+    catchlist_filename,
+    stages_min,
+    stages_interval,
+    stages_max,
+):
+    flows = gpd.read_parquet(flows_filename)
+    catchments = gpd.read_parquet(catchments_filename)
 
-    # Read flows using Parquet or GPKG dynamically
-    if str(flows_filename).endswith(".parquet"):
-        flows_gdf = gpd.read_parquet(flows_filename)
-    else:
-        flows_gdf = gpd.read_file(flows_filename)
-
-    catchlist_df, stage_list = make_stages_and_catchlist_in_memory(
-        catchments_gdf=catchments_gdf,
-        flows_gdf=flows_gdf,
-        stage_min_meters=float(stages_min),
-        stage_interval_meters=float(stages_interval),
-        stage_max_meters=float(stages_max),
+    catchlist_df, stages = make_stages_and_catchlist_in_memory(
+        catchments=catchments,
+        flows=flows,
+        stages_min=stages_min,
+        stages_interval=stages_interval,
+        stages_max=stages_max,
     )
 
+    write_stages_file(stages, stages_filename)
     write_catchlist_file(catchlist_df, catchlist_filename)
-    np.savetxt(stages_filename, stage_list, fmt="%.2f")
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Make stage and catchlist files in-memory.")
-    parser.add_argument(
-        "-f", "--input-flows", dest="flows_filename", required=True, help="Input flows file (parquet/gpkg)"
-    )
-    parser.add_argument(
-        "-c",
-        "--input-catchments",
-        dest="catchments_filename",
-        required=True,
-        help="Input catchments file (parquet/gpkg)",
-    )
-    parser.add_argument(
-        "-s", "--stage-file", dest="stages_filename", required=True, help="Output stage text file"
-    )
-    parser.add_argument(
-        "-a", "--catch-list", dest="catchlist_filename", required=True, help="Output catch list text file"
-    )
-    parser.add_argument("-m", "--stage-min", dest="stages_min", type=float, default=0.0, help="Minimum stage")
-    parser.add_argument(
-        "-i", "--stage-interval", dest="stages_interval", type=float, default=0.1, help="Stage interval"
-    )
-    parser.add_argument(
-        "-t", "--stage-max", dest="stages_max", type=float, default=20.0, help="Maximum stage"
-    )
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='make_stages_and_catchlist.py')
+    parser.add_argument('-f', '--flows-filename', help='flows-filename', required=True)
+    parser.add_argument('-c', '--catchments-filename', help='catchments-filename', required=True)
+    parser.add_argument('-s', '--stages-filename', help='stages-filename', required=True)
+    parser.add_argument('-a', '--catchlist-filename', help='catchlist-filename', required=True)
+    parser.add_argument('-m', '--stages-min', help='stages-min', required=True, type=float)
+    parser.add_argument('-i', '--stages-interval', help='stages-interval', required=True, type=float)
+    parser.add_argument('-t', '--stages-max', help='stages-max', required=True, type=float)
 
     args = vars(parser.parse_args())
     make_stages_and_catchlist(**args)

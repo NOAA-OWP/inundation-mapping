@@ -116,6 +116,7 @@ def rasterize_vector(
 
     # 7. Update profile metadata
     profile.update(dtype=out_dtype, count=1)
+    profile.update(dtype=out_dtype, count=1, nodata=init_value)
 
     # 8. Persist to disk if requested
     if output_raster_path:

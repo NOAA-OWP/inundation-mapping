@@ -176,7 +176,8 @@ python3 ${srcDir}/delineate_hydros_and_produce_HAND.py \
     -d "${tempHucDataDir}" \
     -b $tempCurrentBranchDataDir \
     -cb $current_branch_id \
-    -b0 $branch_zero_id
+    -b0 $branch_zero_id \
+    -n $ndv
 
 ## USGS CROSSWALK ##
 if [[ -f "${tempHucDataDir}/usgs_subset_gages.gpkg" ]]; then

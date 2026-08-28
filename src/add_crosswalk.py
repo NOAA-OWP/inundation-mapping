@@ -67,14 +67,14 @@ def add_crosswalk_in_memory(
     )
     input_nwmflows = input_nwmflows.set_index("feature_id")
 
-    # Get stream midpoint
-    hydroID = input_flows["HydroID"].tolist()
-    stream_midpoint = [geom.interpolate(0.5, normalized=True) for geom in input_flows.geometry]
+    # Get stream midpoint (using input_flows BEFORE any deletion or scope variable reset)
+    flows_reset = input_flows.reset_index(drop=True)
+    hydroID = flows_reset["HydroID"].tolist()
+    stream_midpoint = [geom.interpolate(0.5, normalized=True) for geom in flows_reset.geometry]
 
     input_flows_midpoint = gpd.GeoDataFrame(
         {"HydroID": hydroID, "geometry": stream_midpoint}, crs=input_flows.crs, geometry="geometry"
-    )
-    input_flows_midpoint = input_flows_midpoint.set_index("HydroID")
+    ).set_index("HydroID")
 
     # Create crosswalk
     crosswalk = gpd.sjoin_nearest(
@@ -109,6 +109,12 @@ def add_crosswalk_in_memory(
 
     del input_flows
 
+    # Truncate in-memory float64 precision drift on reach lengths to match GDAL disk precision
+    if "LengthKm" in output_flows.columns:
+        output_flows["LengthKm"] = output_flows["LengthKm"].astype(float).round(6)
+    if "LENGTHKM" in output_flows.columns:
+        output_flows["LENGTHKM"] = output_flows["LENGTHKM"].astype(float).round(6)
+
     # Ensure lowercase 'areasqkm' on catchments
     if "areasqkm" not in output_catchments.columns:
         if "Areasqkm" in output_catchments.columns:
@@ -116,16 +122,14 @@ def add_crosswalk_in_memory(
         else:
             output_catchments["areasqkm"] = output_catchments.geometry.area / (1000**2)
 
-    # Prevent pyogrio field name collisions on save
+    # Prevent field name collisions
     if "areasqkm" in output_flows.columns:
         output_flows = output_flows.drop(columns=["areasqkm"])
     if "Areasqkm" in output_flows.columns:
         output_flows = output_flows.drop(columns=["Areasqkm"])
 
     output_flows = output_flows.merge(output_catchments.filter(items=["HydroID", "areasqkm"]), on="HydroID")
-
     output_flows = output_flows.drop_duplicates(subset="HydroID")
-
     output_flows["ManningN"] = mannings_n
 
     if output_flows.NextDownID.dtype != "int":
@@ -135,7 +139,6 @@ def add_crosswalk_in_memory(
     print("Adjusting model reach rating curves")
     sml_segs_rows = []
 
-    # Replace small segment geometry with neighboring stream
     for stream_index in output_flows.index:
         row = output_flows.loc[stream_index]
         if row["areasqkm"] < min_catchment_area and row["LengthKm"] < min_stream_length and row["LakeID"] < 0:
@@ -264,17 +267,32 @@ def add_crosswalk_in_memory(
 
     input_src_base = input_src_base.rename(columns=lambda x: x.strip(" "))
     input_src_base = input_src_base.apply(pd.to_numeric, **{"errors": "coerce"})
-    input_src_base["TopWidth (m)"] = input_src_base["SurfaceArea (m2)"] / input_src_base["LENGTHKM"] / 1000
-    input_src_base["WettedPerimeter (m)"] = input_src_base["BedArea (m2)"] / input_src_base["LENGTHKM"] / 1000
-    input_src_base["WetArea (m2)"] = input_src_base["Volume (m3)"] / input_src_base["LENGTHKM"] / 1000
+
+    # Force 6-decimal rounding on base geometry inputs to match dev CSV string precision
+    input_src_base["LENGTHKM"] = pd.to_numeric(input_src_base["LENGTHKM"], errors="coerce").round(6)
+    input_src_base["Volume (m3)"] = pd.to_numeric(input_src_base["Volume (m3)"], errors="coerce").round(6)
+    input_src_base["BedArea (m2)"] = pd.to_numeric(input_src_base["BedArea (m2)"], errors="coerce").round(6)
+    input_src_base["SurfaceArea (m2)"] = pd.to_numeric(
+        input_src_base["SurfaceArea (m2)"], errors="coerce"
+    ).round(6)
+    input_src_base["TopWidth (m)"] = (
+        input_src_base["SurfaceArea (m2)"] / input_src_base["LENGTHKM"] / 1000
+    ).round(6)
+    input_src_base["WettedPerimeter (m)"] = (
+        input_src_base["BedArea (m2)"] / input_src_base["LENGTHKM"] / 1000
+    ).round(6)
+    input_src_base["WetArea (m2)"] = (
+        input_src_base["Volume (m3)"] / input_src_base["LENGTHKM"] / 1000
+    ).round(6)
+
     input_src_base["HydraulicRadius (m)"] = (
         input_src_base["WetArea (m2)"] / input_src_base["WettedPerimeter (m)"]
-    )
-    input_src_base["HydraulicRadius (m)"] = input_src_base["HydraulicRadius (m)"].fillna(0)
+    ).fillna(0)
+
     input_src_base["Discharge (m3s-1)"] = (
-        input_src_base["WetArea (m2)"]
+        input_src_base["WetArea (m2)"].astype(np.float64)
         * pow(input_src_base["HydraulicRadius (m)"], 2.0 / 3)
-        * pow(input_src_base["SLOPE"], 0.5)
+        * pow(input_src_base["SLOPE"].astype(np.float64), 0.5)
         / input_src_base["ManningN"]
     )
 
@@ -519,7 +537,6 @@ def add_crosswalk(
 
     write_geodataframe(output_catchments, output_catchments_fileName, index=False)
 
-    # Legacy export: create .gpkg copy alongside primary output format
     output_catchments_fileName_gpkg = os.path.splitext(output_catchments_fileName)[0] + ".gpkg"
     write_geodataframe(output_catchments, output_catchments_fileName_gpkg, index=False)
 

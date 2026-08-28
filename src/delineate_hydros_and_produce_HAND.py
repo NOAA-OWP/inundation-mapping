@@ -33,7 +33,11 @@ from adjust_thalweg_lateral import adjust_thalweg_lateral_in_memory
 from filter_catchments_and_add_attributes import filter_catchments_and_add_attributes_in_memory
 from heal_bridges_osm import heal_bridges_osm_in_memory
 from make_rem import create_rem_in_memory
-from make_stages_and_catchlist import make_stages_and_catchlist_in_memory, write_catchlist_file
+from make_stages_and_catchlist import (
+    make_stages_and_catchlist_in_memory,
+    write_catchlist_file,
+    write_stages_file,
+)
 from mask_dem import mask_dem_in_memory
 from mitigate_branch_outlet_backpool import mitigate_branch_outlet_backpool_in_memory
 from process_buildings_fimpact import process_buildings_fimpact_in_memory
@@ -102,13 +106,22 @@ def log_step(message: str) -> None:
 
 
 def load_config_from_env_files() -> dict:
-    config = dict(os.environ)
+    """Loads all parameters strictly from params_template.env and bash_variables.env.
+
+    Ensures nested variables (like ${inputsDir}) are fully expanded.
+    """
+    config = {}
+
+    # 1. First, seed base system environment paths so ${inputsDir}, ${srcDir}, etc. can resolve
+    config.update(dict(os.environ))
     config.setdefault("projectDir", str(PROJECT_ROOT))
     config.setdefault("srcDir", str(SRC_DIR))
     config.setdefault("toolsDir", str(PROJECT_ROOT / "tools"))
 
+    # Define env files
     env_files = [PROJECT_ROOT / "config" / "params_template.env", SRC_DIR / "bash_variables.env"]
 
+    # 2. Parse key-value pairs from .env files (OVERWRITING os.environ defaults)
     for env_file in env_files:
         if env_file.is_file():
             with open(env_file, "r", encoding="utf-8") as f:
@@ -116,21 +129,24 @@ def load_config_from_env_files() -> dict:
                     line = line.strip()
                     if not line or line.startswith("#"):
                         continue
-                    m = re.match(r'^(?:export\s+)?([A-Za-z0-9_]+)\s*=\s*(.*)$', line)
+                    m = re.match(r"^(?:export\s+)?([A-Za-z0-9_]+)\s*=\s*(.*)$", line)
                     if m:
                         key = m.group(1).strip()
                         val = m.group(2).rsplit("#", 1)[0].strip().strip('"').strip("'")
                         config[key] = val
 
-    pattern = re.compile(r'\$\{?([A-Za-z0-9_]+)\}?')
-    for _ in range(5):
+    # 3. Resolve nested variable interpolations (e.g. ${inputsDir}/path)
+    pattern = re.compile(r"\$\{?([A-Za-z0-9_]+)\}?")
+    for _ in range(10):  # Increase depth iterations to handle deeply nested variables
         updated = False
         for k, v in list(config.items()):
             matches = pattern.findall(str(v))
             for var_name in matches:
                 if var_name in config:
-                    new_v = v.replace(f"${{{var_name}}}", config[var_name]).replace(
-                        f"${var_name}", config[var_name]
+                    new_v = (
+                        str(v)
+                        .replace(f"${{{var_name}}}", config[var_name])
+                        .replace(f"${var_name}", config[var_name])
                     )
                     if new_v != v:
                         config[k] = new_v
@@ -142,10 +158,15 @@ def load_config_from_env_files() -> dict:
     return config
 
 
-def persist_dataset(src_ds: gdal.Dataset, dst_path: str, srs_wkt: str = None, force: bool = True):
+def persist_dataset(
+    src_ds: gdal.Dataset, dst_path: str, srs_wkt: str = None, force: bool = True, nodata_val: float = None
+):
     """Flushes in-memory rasters to disk using multi-threaded CPU compression."""
     if not force and os.path.exists(dst_path):
         return
+
+    if nodata_val is not None:
+        src_ds.GetRasterBand(1).SetNoDataValue(float(nodata_val))
 
     driver = gdal.GetDriverByName("GTiff")
     dst_ds = driver.CreateCopy(str(dst_path), src_ds, options=TIFF_WRITE_OPTIONS)
@@ -195,20 +216,32 @@ def gdal_multiply_in_memory(ds_a: gdal.Dataset, ds_b: gdal.Dataset, nodata_val: 
 
 
 def gdal_rem_zero_mask_in_memory(
-    ds_rem: gdal.Dataset, ds_gw_catchments_reaches: gdal.Dataset, nodata_out: float = -9999.0
+    ds_rem: gdal.Dataset, ds_gw_catchments_reaches: gdal.Dataset, nodata_val: float = -9999.0
 ) -> gdal.Dataset:
-    """Replicates gdal_calc.py --calc='(A*(A>=0)*(B>0))' --NoDataValue=-9999."""
-    rem_arr = ds_rem.GetRasterBand(1).ReadAsArray().astype(np.float32)
-    reach_arr = ds_gw_catchments_reaches.GetRasterBand(1).ReadAsArray().astype(np.int32)
+    """
+    Replicates dev gdal_calc.py --calc='(A*(A>=0)*(B>0))' --NoDataValue="${ndv}" exactly.
+    Uses dynamic nodata_val passed from env configuration.
+    """
+    band_a = ds_rem.GetRasterBand(1)
+    rem_arr = band_a.ReadAsArray().astype(np.float32)
+    rem_ndv = band_a.GetNoDataValue()
+    if rem_ndv is None:
+        rem_ndv = nodata_val
 
-    # Replicate gdal_calc formula:
-    # A >= 0 preserves positive REM; B > 0 sets background terrain to 0.0
-    calc_res = rem_arr * (rem_arr >= 0) * (reach_arr > 0)
+    reach_arr = ds_gw_catchments_reaches.GetRasterBand(1).ReadAsArray()
 
-    # Assign nodata_out (-9999) ONLY outside reach catchments (B <= 0)
-    out_arr = np.where(reach_arr > 0, calc_res, nodata_out)
+    # Match dev expression: (A * (A >= 0) * (B > 0))
+    # B > 0 defines active catchments
+    valid_reach = reach_arr > 0
+    valid_rem = (rem_arr != rem_ndv) & ~np.isnan(rem_arr)
 
-    # Package GDAL MEM Dataset
+    # Apply multiplication logic
+    calc_res = np.where(valid_rem & (rem_arr >= 0.0), rem_arr, 0.0)
+
+    # Assign dynamic nodata_val strictly outside catchments (B <= 0)
+    out_arr = np.where(valid_reach, calc_res, nodata_val).astype(np.float32)
+
+    # Build GDAL Memory Dataset matching input DEM profile
     driver = gdal.GetDriverByName("MEM")
     cols, rows = ds_rem.RasterXSize, ds_rem.RasterYSize
     out_ds = driver.Create("", cols, rows, 1, gdal.GDT_Float32)
@@ -216,7 +249,7 @@ def gdal_rem_zero_mask_in_memory(
     out_ds.SetProjection(ds_rem.GetProjectionRef())
 
     band = out_ds.GetRasterBand(1)
-    band.SetNoDataValue(float(nodata_out))
+    band.SetNoDataValue(float(nodata_val))
     band.WriteArray(out_arr)
     out_ds.FlushCache()
 
@@ -255,37 +288,56 @@ def delineate_and_produce_hand(
     temp_branch_dir: str,
     current_branch_id: str,
     branch_zero_id: str,
+    ndv: float,
 ):
+
     cfg = load_config_from_env_files()
 
+    srcDir = Path(cfg.get("srcDir", str(SRC_DIR)))
     tempHucDataDir = Path(temp_huc_dir)
     tempCurrentBranchDataDir = Path(temp_branch_dir)
     tempCurrentBranchDataDir.mkdir(parents=True, exist_ok=True)
 
-    srcDir = Path(cfg.get("srcDir", str(SRC_DIR)))
-    taudemDir = cfg.get("taudemDir", "/dependencies/taudem/bin")
-    taudemDir2 = cfg.get("taudemDir2", "/dependencies/taudem_accelerated_flowDirections/taudem/build/bin")
+    taudemDir = Path(os.environ["taudemDir"])
+    taudemDir2 = Path(os.environ["taudemDir2"])
+    evaluate_crosswalk = os.environ["evaluateCrosswalk"]
 
-    ndv = float(cfg.get("ndv", "-9999"))
-    ncores_fd = cfg.get("ncores_fd", "1")
-    ncores_gw = cfg.get("ncores_gw", "1")
-    mask_leveed_area_toggle = cfg.get("mask_leveed_area_toggle", "False")
-    branch_id_attribute = cfg.get("branch_id_attribute", "levpa_id")
-    levee_id_attribute = cfg.get("levee_id_attribute", "feature_id")
-    thalweg_lateral_elev_threshold = cfg.get("thalweg_lateral_elev_threshold", "2")
-    max_split_distance_meters = cfg.get("max_split_distance_meters", "1500")
-    slope_min = cfg.get("slope_min", "0.00001")
-    lakes_buffer_dist_meters = cfg.get("lakes_buffer_dist_meters", "150")
-    stage_min_meters = cfg.get("stage_min_meters", "0")
-    stage_interval_meters = cfg.get("stage_interval_meters", "0.1")
-    stage_max_meters = cfg.get("stage_max_meters", "20")
-    is_healed_hand = cfg.get("healed_hand_hydrocondition", "false").lower() == "true"
-    manning_n = cfg.get("manning_n", "0.05")
-    min_catchment_area = cfg.get("min_catchment_area", "0")
-    min_stream_length = cfg.get("min_stream_length", "0")
-    iris_sword_slope = cfg.get("iris_sword_slope", "0.0001")
-    hfab_ransac_slope = cfg.get("hfab_ransac_slope", "0.0001")
-    evaluate_crosswalk = cfg.get("evaluateCrosswalk", "0")
+    def get_req(key: str, cast_type=str):
+        """Strict parameter lookup from env config."""
+        if key not in cfg:
+            raise KeyError(
+                f"CRITICAL ERROR: Parameter '{key}' was not found in params_template.env or bash_variables.env!"
+            )
+        val = cfg[key]
+        if cast_type == bool:
+            return val.lower() == "true"
+        return cast_type(val)
+
+    # Core Parameters (Extracted strictly from env files)
+    ncores_fd = get_req("ncores_fd", str)
+    ncores_gw = get_req("ncores_gw", str)
+    mask_leveed_area_toggle = get_req("mask_leveed_area_toggle", str)
+    branch_id_attribute = get_req("branch_id_attribute", str)
+    levee_id_attribute = get_req("levee_id_attribute", str)
+    thalweg_lateral_elev_threshold = get_req("thalweg_lateral_elev_threshold", float)
+
+    # Step 9 Splitting & Spatial Parameters
+    max_split_distance_meters = get_req("max_split_distance_meters", float)
+    slope_min = get_req("slope_min", float)
+    lakes_buffer_dist_meters = get_req("lakes_buffer_dist_meters", float)
+
+    # Rating Curve Parameters
+    stage_min_meters = get_req("stage_min_meters", float)
+    stage_interval_meters = get_req("stage_interval_meters", float)
+    stage_max_meters = get_req("stage_max_meters", float)
+    is_healed_hand = get_req("healed_hand_hydrocondition", bool)
+    manning_n = get_req("manning_n", float)
+    min_catchment_area = get_req("min_catchment_area", float)
+    min_stream_length = get_req("min_stream_length", float)
+
+    # Model/Crosswalk Paths & Slopes
+    iris_sword_slope = get_req("iris_sword_slope", str)
+    hfab_ransac_slope = get_req("hfab_ransac_slope", str)
 
     huc2Identifier = int(huc_number[:2]) if huc_number and len(huc_number) >= 2 else 0
 
@@ -433,6 +485,9 @@ def delineate_and_produce_hand(
 
     # --- 6. FLOW CONDITION STREAMS (TauDEM C++ Subprocess) ---
     log_step(f"--> [Step 6] Flow Condition Thalweg {huc_number} {current_branch_id}")
+
+    dem_cond_tif = tempCurrentBranchDataDir / f"dem_thalwegCond_{current_branch_id}.tif"
+
     run_python_script(
         srcDir / "run_taudem_subprocess.py",
         [
@@ -444,9 +499,10 @@ def delineate_and_produce_hand(
             "-z",
             tempCurrentBranchDataDir / f"dem_lateral_thalweg_adj_{current_branch_id}.tif",
             "-zfdc",
-            tempCurrentBranchDataDir / f"dem_thalwegCond_{current_branch_id}.tif",
+            dem_cond_tif,
         ],
     )
+    ds_dem_cond = gdal.Open(str(dem_cond_tif))
 
     # --- 7. D8 SLOPES (TauDEM C++ Subprocess) ---
     log_step(f"--> [Step 7] D8 Slopes from DEM {huc_number} {current_branch_id}")
@@ -567,6 +623,7 @@ def delineate_and_produce_hand(
 
     # --- 12. GAGE WATERSHED FOR PIXELS (TauDEM C++ Subprocess) ---
     log_step(f"--> [Step 12] Gage Watershed for Pixels {huc_number} {current_branch_id}")
+    gw_pixels_tif = tempCurrentBranchDataDir / f"gw_catchments_pixels_{current_branch_id}.tif"
     run_python_script(
         srcDir / "run_taudem_subprocess.py",
         [
@@ -578,15 +635,16 @@ def delineate_and_produce_hand(
             "-p",
             tempCurrentBranchDataDir / f"flowdir_d8_burned_filled_{current_branch_id}.tif",
             "-gw",
-            tempCurrentBranchDataDir / f"gw_catchments_pixels_{current_branch_id}.tif",
+            gw_pixels_tif,
             "-o",
             tempCurrentBranchDataDir / f"flows_points_pixels_{current_branch_id}.gpkg",
             "-id",
             tempCurrentBranchDataDir / f"idFile_{current_branch_id}.txt",
         ],
     )
+    ds_gw_catchments_pixels = gdal.Open(str(gw_pixels_tif))
 
-    # --- Step 13: CATCH AND MITIGATE BRANCH OUTLET BACKPOOL ERROR (Pure In-Memory) ---
+    # --- Step 13: CATCH AND MITIGATE BRANCH OUTLET BACKPOOL ERROR ---
     log_step(
         f"--> [Step 13] Catching and mitigating branch outlet backpool issue {huc_number} {current_branch_id}"
     )
@@ -623,33 +681,51 @@ def delineate_and_produce_hand(
     del split_points_gdf, masked_cr_arr, masked_cp_arr
     gc.collect()
 
-    # --- 14. D8 REM ---
-    log_step(f"--> [Step 14] D8 REM {huc_number} {current_branch_id}")
-    ds_dem_cond = gdal.Open(str(tempCurrentBranchDataDir / f"dem_thalwegCond_{current_branch_id}.tif"))
-    ds_gw_pixels = gdal.Open(str(tempCurrentBranchDataDir / f"gw_catchments_pixels_{current_branch_id}.tif"))
+    # Re-open modified GDAL handle after Step 13 mitigation
+    ds_gw_catchments_pixels = None
+    ds_gw_catchments_pixels = gdal.Open(str(cp_tif_path))
+
+    # --- STEP 14: CREATE REM IN MEMORY ---
+    log_step(f"--> [Step 14] D8 REM (In-Memory) {huc_number} {current_branch_id}")
+
+    # Re-open modified pixel catchments dataset after Step 13 backpool mitigation
+    ds_gw_catchments_pixels = None
+    ds_gw_catchments_pixels = gdal.Open(
+        str(tempCurrentBranchDataDir / f"gw_catchments_pixels_{current_branch_id}.tif")
+    )
+
+    # Step 2 stream pixels dataset MUST be passed as thalweg_ds
+    ds_streams = gdal.Open(str(tempCurrentBranchDataDir / f"demDerived_streamPixels_{current_branch_id}.tif"))
+
+    # Extract dynamic NoData directly from input DEM dataset
+    dem_ndv = ds_dem_cond.GetRasterBand(1).GetNoDataValue()
+    if dem_ndv is None:
+        dem_ndv = ndv
 
     ds_rem = create_rem_in_memory(
-        dem_ds=ds_dem_cond, pixel_watersheds_ds=ds_gw_pixels, thalweg_ds=ds_streams, nodata_val=ndv
+        dem_ds=ds_dem_cond,
+        pixel_watersheds_ds=ds_gw_catchments_pixels,
+        thalweg_ds=ds_streams,
+        nodata_val=dem_ndv,
     )
 
     rem_tif_path = tempCurrentBranchDataDir / f"rem_{current_branch_id}.tif"
-    persist_dataset(ds_rem, rem_tif_path, srs_wkt=srs_wkt, force=True)
-
-    ds_gw_pixels = None
-    if ds_streams:
-        ds_streams = None
+    persist_dataset(ds_rem, rem_tif_path, srs_wkt, force=True, nodata_val=dem_ndv)
 
     # --- 15. ZERO & MASK REM TO CATCHMENTS (In-Memory GDAL) ---
     log_step(
         f"--> [Step 15] Bring negative values in REM to zero and mask (In-Memory) {huc_number} {current_branch_id}"
     )
     ds_gw_reach = gdal.Open(str(tempCurrentBranchDataDir / f"gw_catchments_reaches_{current_branch_id}.tif"))
+
+    # Matches dev gdal_calc.py with Float32 output and NoData = ndv (-9999.0)
     ds_rem_zero = gdal_rem_zero_mask_in_memory(ds_rem, ds_gw_reach, nodata_val=ndv)
     persist_dataset(
         ds_rem_zero,
         tempCurrentBranchDataDir / f"rem_zeroed_masked_{current_branch_id}.tif",
         srs_wkt,
         force=True,
+        nodata_val=ndv,
     )
 
     ds_rem = None
@@ -663,7 +739,7 @@ def delineate_and_produce_hand(
         log_step(f"--> [Step 16] Rasterize ocean/Glake polygon {huc_number} {current_branch_id}")
         rasterize_vector(
             vector_path_or_gdf=str(landsea_subset),
-            template_raster_path=str(tempCurrentBranchDataDir / f"rem_{current_branch_id}.tif"),
+            template_raster_path=str(rem_tif_path),
             output_raster_path=str(landsea_tif),
             burn_value=ndv,
             init_value=1,
@@ -680,8 +756,11 @@ def delineate_and_produce_hand(
     )
 
     # --- Step 18: PROCESS CATCHMENTS AND MODEL STREAMS STEP 1 ---
+    log_step(f"--> [Step 18] Filter catchments and add attributes {huc_number} {current_branch_id}")
+
     out_catchments_parquet = (
-        tempCurrentBranchDataDir / f"gw_catchments_reaches_filtered_addedAttributes_{current_branch_id}.gpkg"
+        tempCurrentBranchDataDir
+        / f"gw_catchments_reaches_filtered_addedAttributes_{current_branch_id}.parquet"
     )
     out_flows_parquet = (
         tempCurrentBranchDataDir / f"demDerived_reaches_split_filtered_{current_branch_id}.parquet"
@@ -691,12 +770,13 @@ def delineate_and_produce_hand(
         catchments_gdf=catch_gdf, flows_gdf=split_flows_gdf, wbd_gdf=wbd8_gdf, huc_code=huc_number
     )
 
-    # Write via write_geodataframe so Parquet defaults apply
-    write_geodataframe(filt_catch_gdf, out_catchments_parquet, layer="catchments", index=False)
+    # Persist to disk for external tools (usgs_gage_crosswalk, etc.)
+    write_geodataframe(filt_catch_gdf, out_catchments_parquet, index=False)
     write_geodataframe(filt_flows_gdf, out_flows_parquet, index=False)
 
     # --- 19. RASTERIZE NEW CATCHMENTS AGAIN ---
     log_step(f"--> [Step 19] Rasterize filtered catchments {huc_number} {current_branch_id}")
+
     rasterize_vector(
         vector_path_or_gdf=filt_catch_gdf,
         template_raster_path=str(tempCurrentBranchDataDir / f"rem_{current_branch_id}.tif"),
@@ -705,23 +785,42 @@ def delineate_and_produce_hand(
             / f"gw_catchments_reaches_filtered_addedAttributes_{current_branch_id}.tif"
         ),
         attribute="HydroID",
-        init_value=ndv,  # <--- MUST be ndv (-9999), NOT 0!
+        init_value=0,
+        dtype=np.dtype(np.int32),
     )
 
     # --- 20. MASK SLOPE TO CATCHMENTS ---
     log_step(f"--> [Step 20] Mask slopes to catchments {huc_number} {current_branch_id}")
-    ds_slopes = gdal.Open(str(tempCurrentBranchDataDir / f"slopes_d8_dem_meters_{current_branch_id}.tif"))
-    ds_catch_filt = gdal.Open(
-        str(
-            tempCurrentBranchDataDir
-            / f"gw_catchments_reaches_filtered_addedAttributes_{current_branch_id}.tif"
-        )
+
+    slopes_path = tempCurrentBranchDataDir / f"slopes_d8_dem_meters_{current_branch_id}.tif"
+    catch_path = (
+        tempCurrentBranchDataDir / f"gw_catchments_reaches_filtered_addedAttributes_{current_branch_id}.tif"
     )
-    ds_slopes_masked = gdal_multiply_in_memory(ds_slopes, ds_catch_filt, nodata_val=ndv)
+
+    ds_slopes = gdal.Open(str(slopes_path))
+    ds_catch_filt = gdal.Open(str(catch_path))
+
+    slp_arr = ds_slopes.GetRasterBand(1).ReadAsArray().astype(np.float32)
+    cat_arr = ds_catch_filt.GetRasterBand(1).ReadAsArray().astype(np.int32)
+
+    # Preserve physical slope where catchment ID > 0, set outside to NoData
+    masked_slopes = np.where(cat_arr > 0, slp_arr, ndv).astype(np.float32)
+
+    driver = gdal.GetDriverByName("MEM")
+    ds_slopes_masked = driver.Create("", ds_slopes.RasterXSize, ds_slopes.RasterYSize, 1, gdal.GDT_Float32)
+    ds_slopes_masked.SetGeoTransform(ds_slopes.GetGeoTransform())
+    ds_slopes_masked.SetProjection(ds_slopes.GetProjectionRef())
+
+    band = ds_slopes_masked.GetRasterBand(1)
+    band.SetNoDataValue(float(ndv))
+    band.WriteArray(masked_slopes)
+    ds_slopes_masked.FlushCache()
+
     persist_dataset(
         ds_slopes_masked,
         tempCurrentBranchDataDir / f"slopes_d8_dem_meters_masked_{current_branch_id}.tif",
         srs_wkt,
+        force=True,
     )
 
     ds_slopes = None
@@ -737,17 +836,31 @@ def delineate_and_produce_hand(
     catch_list_txt = tempCurrentBranchDataDir / f"catch_list_{current_branch_id}.txt"
     stage_txt = tempCurrentBranchDataDir / f"stage_{current_branch_id}.txt"
 
+    # PASS GEODATAFRAMES DIRECTLY IN RAM
     catchlist_df, stage_list = make_stages_and_catchlist_in_memory(
-        catchments_gdf=filt_catch_gdf,
-        flows_gdf=filt_flows_gdf,
-        stage_min_meters=float(stage_min_meters),
-        stage_interval_meters=float(stage_interval_meters),
-        stage_max_meters=float(stage_max_meters),
+        catchments=filt_catch_gdf,
+        flows=filt_flows_gdf,
+        stages_min=float(stage_min_meters),
+        stages_interval=float(stage_interval_meters),
+        stages_max=float(stage_max_meters),
     )
 
     write_catchlist_file(catchlist_df, str(catch_list_txt))
-    np.savetxt(stage_txt, stage_list, fmt="%.2f")
+    write_stages_file(stage_list, str(stage_txt))
+    del catchlist_df, stage_list
+    gc.collect()
 
+    # --- Step 21: MAKE CATCHMENT AND STAGE FILES ---
+    catchlist_df, stage_list = make_stages_and_catchlist_in_memory(
+        catchments=filt_catch_gdf,
+        flows=filt_flows_gdf,
+        stages_min=float(stage_min_meters),
+        stages_interval=float(stage_interval_meters),
+        stages_max=float(stage_max_meters),
+    )
+
+    write_catchlist_file(catchlist_df, str(catch_list_txt))
+    write_stages_file(stage_list, str(stage_txt))
     del catchlist_df, stage_list
     gc.collect()
 
@@ -839,12 +952,16 @@ def delineate_and_produce_hand(
 
     src_base_df = pd.read_csv(src_base_csv, dtype=object)
 
+    # Enforce float64 precision on slope datasets matching dev calculation precision
     iris_df = pd.read_parquet(iris_sword_slope).rename(
         columns={"slope_iris_sword": "SLOPE_IRIS_SWORD", "id": "feature_id"}
     )
+    iris_df["SLOPE_IRIS_SWORD"] = iris_df["SLOPE_IRIS_SWORD"].astype(np.float64)
+
     hfab_slopes_df = pd.read_parquet(hfab_ransac_slope)[["id", "slope_m_per_m"]].rename(
         columns={"id": "feature_id", "slope_m_per_m": "SLOPE_HFAB"}
     )
+    hfab_slopes_df["SLOPE_HFAB"] = hfab_slopes_df["SLOPE_HFAB"].astype(np.float64)
 
     (
         cross_catch_gdf,
@@ -1011,6 +1128,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("-cb", "--current-branch-id", type=str, required=True, help="Current branch ID")
     parser.add_argument("-b0", "--branch-zero-id", type=str, required=True, help="Branch zero ID")
+    parser.add_argument("-n", "--ndv", type=float, required=True, help="No data value")
 
     args = parser.parse_args()
     delineate_and_produce_hand(
@@ -1020,4 +1138,5 @@ if __name__ == "__main__":
         temp_branch_dir=args.temp_branch_dir,
         current_branch_id=args.current_branch_id,
         branch_zero_id=args.branch_zero_id,
+        ndv=args.ndv,
     )

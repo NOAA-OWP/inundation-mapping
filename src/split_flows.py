@@ -112,6 +112,7 @@ def split_flows_in_memory(
         .explode(index_parts=True)
         .reset_index(drop=True)
     )
+
     flows = flows[~flows.is_empty]
 
     if len(flows) == 0:
