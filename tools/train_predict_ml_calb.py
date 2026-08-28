@@ -26,7 +26,7 @@ This script:
 - Saves the trained model and feature importances.
 """
 
-logger = logging.getLogger("ML_calb.TrainPredict")
+logger = logging.getLogger("ML_calb")
 
 # environmental, catchment, and rating curve features
 DEFAULT_FEATURES: List[str] = [
@@ -104,10 +104,10 @@ def setup_logger(output_dir: str) -> str:
     )
 
     root_logger = logging.getLogger("ML_calb")
-    root_logger.setLevel(logging.INFO)
+    root_logger.setLevel(logging.DEBUG)
 
     file_handler = logging.FileHandler(log_file, encoding="utf-8")
-    file_handler.setLevel(logging.INFO)
+    file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(formatter)
     root_logger.addHandler(file_handler)
 
@@ -140,14 +140,14 @@ def load_dataset(file_path: str) -> pd.DataFrame:
     if not os.path.isfile(file_path):
         raise FileNotFoundError(f"Dataset not found at '{file_path}'.")
 
-    logger.info(f"Loading dataset from: {file_path}")
+    logger.debug(f"Loading dataset from: {file_path}")
 
     df = pd.read_parquet(file_path)
 
     # Sanitize column names ('D50[mm]' to 'D50_mm_')
     df.columns = df.columns.str.replace(r'[^a-zA-Z0-9_]', '_', regex=True)
 
-    logger.info(f"Loaded {len(df):,} rows and {len(df.columns)} columns.")
+    logger.debug(f"Loaded {len(df):,} rows and {len(df.columns)} columns.")
     return df
 
 
@@ -182,7 +182,7 @@ def prepare_training_data(
     if min_stream_order is not None and "StreamOrde" in data.columns:
         initial_count = len(data)
         data = data[data["StreamOrde"] >= min_stream_order].copy()
-        logger.info(
+        logger.debug(
             f"Filtered by StreamOrde >= {min_stream_order}: "
             f"{len(data):,} / {initial_count:,} records retained."
         )
@@ -191,7 +191,7 @@ def prepare_training_data(
     if target_col in data.columns:
         y_raw = data[target_col]
     elif "calb_coef_final" in data.columns:
-        logger.info("Computing log10-transformed target 'log_calb' from 'calb_coef_final'...")
+        logger.debug("Computing log10-transformed target 'log_calb' from 'calb_coef_final'...")
         valid_mask = data["calb_coef_final"] > 0
         data = data[valid_mask].copy()
         data["log_calb"] = np.log10(data["calb_coef_final"])
@@ -292,12 +292,12 @@ def train_and_evaluate_model(
     metrics["train_mae"] = float(mean_absolute_error(y_train, train_preds))
     metrics["train_medae"] = float(median_absolute_error(y_train, train_preds))
 
-    logger.info("=" * 60)
-    logger.info("TRAIN SET PERFORMANCE:")
-    logger.info(f"  R2 Score:     {metrics['train_r2']:.4f}")
-    logger.info(f"  RMSE:         {metrics['train_rmse']:.4f}")
-    logger.info(f"  MAE:          {metrics['train_mae']:.4f}")
-    logger.info(f"  Median AE:    {metrics['train_medae']:.4f}")
+    logger.debug("=" * 60)
+    logger.debug("TRAIN SET PERFORMANCE:")
+    logger.debug(f"  R2 Score:     {metrics['train_r2']:.4f}")
+    logger.debug(f"  RMSE:         {metrics['train_rmse']:.4f}")
+    logger.debug(f"  MAE:          {metrics['train_mae']:.4f}")
+    logger.debug(f"  Median AE:    {metrics['train_medae']:.4f}")
 
     # Test set metrics
     if X_test is not None and y_test is not None and len(X_test) > 0:
@@ -313,17 +313,17 @@ def train_and_evaluate_model(
         metrics["test_linear_rmse"] = float(np.sqrt(mean_squared_error(y_test_linear, test_preds_linear)))
         metrics["test_linear_mae"] = float(mean_absolute_error(y_test_linear, test_preds_linear))
 
-        logger.info("-" * 60)
-        logger.info("TEST SET PERFORMANCE (log-scale):")
-        logger.info(f"  R2 Score:     {metrics['test_r2']:.4f}")
-        logger.info(f"  RMSE:         {metrics['test_rmse']:.4f}")
-        logger.info(f"  MAE:          {metrics['test_mae']:.4f}")
-        logger.info(f"  Median AE:    {metrics['test_medae']:.4f}")
-        logger.info("TEST SET PERFORMANCE (linear calb_coef scale):")
-        logger.info(f"  Linear RMSE:  {metrics['test_linear_rmse']:.4f}")
-        logger.info(f"  Linear MAE:   {metrics['test_linear_mae']:.4f}")
+        logger.debug("-" * 60)
+        logger.debug("TEST SET PERFORMANCE (log-scale):")
+        logger.debug(f"  R2 Score:     {metrics['test_r2']:.4f}")
+        logger.debug(f"  RMSE:         {metrics['test_rmse']:.4f}")
+        logger.debug(f"  MAE:          {metrics['test_mae']:.4f}")
+        logger.debug(f"  Median AE:    {metrics['test_medae']:.4f}")
+        logger.debug("TEST SET PERFORMANCE (linear calb_coef scale):")
+        logger.debug(f"  Linear RMSE:  {metrics['test_linear_rmse']:.4f}")
+        logger.debug(f"  Linear MAE:   {metrics['test_linear_mae']:.4f}")
 
-    logger.info("=" * 60)
+    logger.debug("=" * 60)
     return best_model, metrics
 
 
@@ -349,7 +349,7 @@ def save_model_artifacts(
     # Save model in standard XGBoost JSON format
     model_json_path = os.path.join(output_dir, "xgboost_calb_model.json")
     model.save_model(model_json_path)
-    logger.info(f"Saved trained model to: {model_json_path}")
+    logger.debug(f"Saved trained model to: {model_json_path}")
 
     # Extract and save feature importances
     importances = model.feature_importances_
@@ -361,18 +361,18 @@ def save_model_artifacts(
 
     fi_path = os.path.join(output_dir, "feature_importance.csv")
     fi_df.to_csv(fi_path, index=False)
-    logger.info(f"Saved feature importances to: {fi_path}")
+    logger.debug(f"Saved feature importances to: {fi_path}")
 
-    logger.info("Top 10 Most Important Features:")
+    logger.debug("Top 10 Most Important Features:")
     for idx, row in fi_df.head(10).iterrows():
-        logger.info(f"  {row['feature']:<25} : {row['importance']:.4f}")
+        logger.debug(f"  {row['feature']:<25} : {row['importance']:.4f}")
 
     # Save metrics summary
     if metrics:
         metrics_df = pd.DataFrame([metrics])
         metrics_path = os.path.join(output_dir, "evaluation_metrics.csv")
         metrics_df.to_csv(metrics_path, index=False)
-        logger.info(f"Saved evaluation metrics to: {metrics_path}")
+        logger.debug(f"Saved evaluation metrics to: {metrics_path}")
 
 
 def predict_all_reaches(
@@ -397,7 +397,7 @@ def predict_all_reaches(
     pd.DataFrame
         Cleaned DataFrame with predictions.
     """
-    logger.info(f"Generating predictions for {len(predict_df):,} reaches...")
+    logger.debug(f"Generating predictions for {len(predict_df):,} reaches...")
 
     df_out = predict_df.copy()
 
@@ -468,13 +468,13 @@ def run_pipeline(
     os.makedirs(output_dir, exist_ok=True)
     log_file = setup_logger(output_dir)
 
-    logger.info("=" * 80)
-    logger.info("STARTING ML CALIBRATION COEFFICIENT TRAINING & PREDICTION PIPELINE")
-    logger.info(f"Min Stream Order:     {min_stream_order}")
-    logger.info(f"Test Size:            {test_size}")
-    logger.info(f"Tune Hyperparams:     {tune_hyperparameters}")
-    logger.info(f"Random State:         {random_state}")
-    logger.info("=" * 80)
+    logger.debug("=" * 80)
+    logger.debug("STARTING ML CALIBRATION COEFFICIENT TRAINING & PREDICTION PIPELINE")
+    logger.debug(f"Min Stream Order:     {min_stream_order}")
+    logger.debug(f"Test Size:            {test_size}")
+    logger.debug(f"Tune Hyperparams:     {tune_hyperparameters}")
+    logger.debug(f"Random State:         {random_state}")
+    logger.debug("=" * 80)
 
     try:
         # Load and Prepare Training Data
@@ -491,13 +491,13 @@ def run_pipeline(
             X_train, X_test, y_train, y_test = train_test_split(
                 X, y, test_size=test_size, random_state=random_state
             )
-            logger.info(
+            logger.debug(
                 f"Split data into Train ({len(X_train):,} samples) and Test ({len(X_test):,} samples)."
             )
         else:
             X_train, y_train = X, y
             X_test, y_test = None, None
-            logger.info(f"Training on all {len(X_train):,} samples (test_size=0).")
+            logger.debug(f"Training on all {len(X_train):,} samples (test_size=0).")
 
         # Train Model & Evaluate
         model, metrics = train_and_evaluate_model(
@@ -517,10 +517,10 @@ def run_pipeline(
         # Generate Predictions
         pred_source_file = predict_file if predict_file and os.path.isfile(predict_file) else None
         if pred_source_file:
-            logger.info(f"Loading dedicated prediction dataset from: {pred_source_file}")
+            logger.debug(f"Loading dedicated prediction dataset from: {pred_source_file}")
             predict_df = load_dataset(pred_source_file)
         else:
-            logger.info("Using full input dataset for prediction generation.")
+            logger.debug("Using full input dataset for prediction generation.")
             predict_df = train_raw_df
 
         output_pred_path = os.path.join(output_dir, output_pred_filename)
@@ -529,10 +529,8 @@ def run_pipeline(
         )
 
         elapsed = time.time() - start_time
-        logger.info("=" * 80)
         logger.info(f"PIPELINE COMPLETED SUCCESSFULLY in {int(elapsed // 60)}m {int(elapsed % 60)}s!")
         logger.info(f"Predictions: {output_pred_path}")
-        logger.info("=" * 80)
         return True
 
     except Exception as e:
