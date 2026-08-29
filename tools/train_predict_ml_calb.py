@@ -35,7 +35,6 @@ DEFAULT_FEATURES: List[str] = [
     'LengthKm',
     'TotDASqKM',
     'StreamOrde',
-    'slope',
     'ArbolateSu',
     'Sinuosity',
     'silt_mean_0_5_r250',
@@ -125,12 +124,12 @@ def setup_logger(output_dir: str) -> str:
 
 def load_dataset(file_path: str) -> pd.DataFrame:
     """
-    Load dataset from Parquet or CSV file and sanitize column names for XGBoost.
+    Load dataset from Parquet.
 
     Parameters
     ----------
     file_path : str
-        Path to file (.parquet or .csv).
+        Path to file.
 
     Returns
     -------
@@ -189,13 +188,13 @@ def prepare_training_data(
 
     # Prepare target variable
     if target_col in data.columns:
-        y_raw = data[target_col]
+        actual_target = target_col
     elif "calb_coef_final" in data.columns:
         logger.debug("Computing log10-transformed target 'log_calb' from 'calb_coef_final'...")
         valid_mask = data["calb_coef_final"] > 0
         data = data[valid_mask].copy()
         data["log_calb"] = np.log10(data["calb_coef_final"])
-        y_raw = data["log_calb"]
+        actual_target = data["log_calb"]
     else:
         raise ValueError(
             f"Target column '{target_col}' or 'calb_coef_final' not found in dataset columns: "
@@ -439,9 +438,9 @@ def run_pipeline(
     Parameters
     ----------
     train_file : str
-        Path to training dataset (.parquet or .csv).
+        Path to training dataset.
     predict_file : Optional[str], optional
-        Path to prediction dataset (.parquet or .csv). Defaults to train_file if None.
+        Path to prediction dataset. Defaults to train_file if None.
     output_dir : str, optional
         Output directory for outputs and logs.
     output_pred_filename : str, optional
