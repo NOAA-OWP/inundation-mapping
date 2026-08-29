@@ -104,6 +104,7 @@ def setup_logger(output_dir: str) -> str:
 
     root_logger = logging.getLogger("ML_calb")
     root_logger.setLevel(logging.DEBUG)
+    root_logger.handlers.clear()
 
     file_handler = logging.FileHandler(log_file, encoding="utf-8")
     file_handler.setLevel(logging.DEBUG)
@@ -187,19 +188,17 @@ def prepare_training_data(
         )
 
     # Prepare target variable
-    if target_col in data.columns:
-        actual_target = target_col
-    elif "calb_coef_final" in data.columns:
-        logger.debug("Computing log10-transformed target 'log_calb' from 'calb_coef_final'...")
-        valid_mask = data["calb_coef_final"] > 0
-        data = data[valid_mask].copy()
-        data["log_calb"] = np.log10(data["calb_coef_final"])
-        actual_target = data["log_calb"]
-    else:
-        raise ValueError(
-            f"Target column '{target_col}' or 'calb_coef_final' not found in dataset columns: "
-            f"{list(data.columns)}"
-        )
+    if target_col not in data.columns:
+        if "calb_coef_final" in data.columns:
+            logger.debug("Computing log10-transformed target 'log_calb' from 'calb_coef_final'...")
+            valid_mask = data["calb_coef_final"] > 0
+            data = data[valid_mask].copy()
+            data[target_col] = np.log10(data["calb_coef_final"])
+        else:
+            raise ValueError(
+                f"Target column '{target_col}' or 'calb_coef_final' not found in dataset columns: "
+                f"{list(data.columns)}"
+            )
 
     # Verify feature availability
     available_features = [f for f in feature_names if f in data.columns]
@@ -397,6 +396,13 @@ def predict_all_reaches(
         Cleaned DataFrame with predictions.
     """
     logger.debug(f"Generating predictions for {len(predict_df):,} reaches...")
+    
+    # check for missing features
+    missing = set(features) - set(predict_df.columns)
+    if missing:
+        raise KeyError(
+            f"Prediction dataset is missing {len(missing)} required feature(s): {sorted(missing)}"
+        )
 
     df_out = predict_df.copy()
 
@@ -514,10 +520,9 @@ def run_pipeline(
         save_model_artifacts(model=model, features=selected_features, output_dir=output_dir, metrics=metrics)
 
         # Generate Predictions
-        pred_source_file = predict_file if predict_file and os.path.isfile(predict_file) else None
-        if pred_source_file:
-            logger.debug(f"Loading dedicated prediction dataset from: {pred_source_file}")
-            predict_df = load_dataset(pred_source_file)
+        if predict_file:
+            logger.debug(f"Loading dedicated prediction dataset from: {predict_file}")
+            predict_df = load_dataset(predict_file)
         else:
             logger.debug("Using full input dataset for prediction generation.")
             predict_df = train_raw_df
