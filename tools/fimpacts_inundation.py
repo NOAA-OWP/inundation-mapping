@@ -197,10 +197,11 @@ def inundation_status(
 
 if __name__ == "__main__":
     # sample usage
-    # python foss_fim/tools/road_inundation.py
+    # python foss_fim/tools/fimpacts_inundation.py
     # -y outputs/roads/test2_05030104
-    # -o outputs/roads/test2_05030104/roads_inundation.parquet
+    # -o outputs/roads/test2_05030104/buildings_inundation.parquet
     # -f data/inputs/rating_curve/nwm_recur_flows/nwm3_17C_recurr_50_0_cms.csv
+    # -t buildings
 
     # Parse arguments
     parser = argparse.ArgumentParser(
