@@ -1,16 +1,9 @@
 import argparse
-import glob
-import os
-import re
 from pathlib import Path
 
 import geopandas as gpd
 import numpy as np
-import pandas as pd
 import rasterio
-import xarray as xr
-from rasterio import features
-from rasterio.warp import Resampling, reproject
 from rasterstats import zonal_stats
 
 
@@ -23,7 +16,7 @@ def process_buildings_fimpact(
     Parameters:
     - source_hand_raster (str): REQUIRED. Path to the source HAND raster file
     - buildings_polygons (str): REQUIRED. Path to a GeoParquet file containing the buildings segments.
-    - catchments (srr): REQUIRED. Path to HAND catchment
+    - catchments (str): REQUIRED. Path to HAND catchment GeoParquet file
     - output_path (str): REQUIRED. Path where the output CSV file will be saved.
 
     """
@@ -117,7 +110,7 @@ if __name__ == "__main__":
         python foss_fim/src/process_buildings_fimpact.py
         -g outputs/buildings/02050206/branches/0/rem_zeroed_masked_0.tif
         -r outputs/buildings/02050206/buildings_subset.parquet
-        -c outputs/roads/02050206/branches/0/gw_catchments_reaches_filtered_addedAttributes_crosswalked_0.gpkg
+        -c outputs/roads/02050206/branches/0/gw_catchments_reaches_filtered_addedAttributes_crosswalked_0.parquet
         -o outputs/buildings/02050206/branches/0/buildings_fimpact_0.csv
 
     '''
@@ -131,15 +124,12 @@ if __name__ == "__main__":
     parser.add_argument(
         '-r',
         '--buildings_polygons',
-        help='REQUIRED: Path to a GPKG file containing the buildings polygons ',
+        help='REQUIRED: Path to a Geoparquet file containing the buildings polygons ',
         required=True,
     )
 
     parser.add_argument(
-        '-c',
-        '--catchments_path',
-        help='REQUIRED: Path and file name of the HAND catchments geopackage',
-        required=True,
+        '-c', '--catchments_path', help='REQUIRED: Path to the HAND catchments GeoParquet file', required=True
     )
 
     parser.add_argument(

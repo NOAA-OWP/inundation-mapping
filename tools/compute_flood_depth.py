@@ -45,19 +45,22 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio
+from dotenv import load_dotenv
 from rasterstats import zonal_stats
 
 from src.heal_bridges_osm import flow_lookup
 from src.utils.io import write_geodataframe
 from src.utils.shared_functions import run_with_mp, setup_mp_file_logger
 from tools.road_inundation import stage_lookup
+from tools.tools_shared_variables import CMS_TO_CFS, METERS_TO_FEET, MM_TO_METERS
 
+
+projectDir = os.getenv('projectDir')
+
+load_dotenv(f'{projectDir}/config/params_template.env')
 
 # Constants
-MAX_HAND_THRESHOLD_M = 25  # Maximum HAND value in HydroTable (meters)
-METERS_TO_FEET = 3.28084
-CMS_TO_CFS = 35.3147
-MM_TO_METERS = 1000
+MAX_HAND_THRESHOLD_M = float(os.getenv('stage_max_meters'))  # Maximum HAND value in HydroTable (meters)
 
 
 def add_imperial_units(final_result_gdf):
