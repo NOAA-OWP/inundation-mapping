@@ -15,7 +15,10 @@ This PR closes issue #1864, by applying these improvements:
 
 - **Simplified and sped up `data/buildings/make_buildings_parts_per_huc.py`**: for each state's building parquet file, intersecting HUCs are now found per row group using only that row group's bbox metadata (read from the parquet footer, no building data read). Each row group is then read exactly once, and its buildings are written out to every HUC it actually intersects.
 
+- **HAND-based building prefilter**: `process_buildings_fimpact.py` now samples each building's HAND value via rasterio's point sampler and drops any building whose value exceeds 25m before the expensive overlay() and zonal_stats() calls. 
 
+
+The PR also improves `tools/compute_flood_depth.py`: get_threshold_hand() now reads the GeoParquet catchments via `gpd.read_parquet()` instead of `gpd.read_file()`, a duplicate per-branch hydrotable read was removed, and `--geometry_file` now supports GeoParquet as well.
 
 ### Changes
 - `config/params_template.env` — added the `process_buildings_fimpact` toggle.
@@ -26,7 +29,7 @@ This PR closes issue #1864, by applying these improvements:
 - `src/delineate_hydros_and_produce_HAND.sh` — buildings FIMpact step now gated by the new toggle and reads the parquet buildings subset.
 - `src/process_buildings_fimpact.py` — zonal stats sped up via vectorized nodata handling.
 - `src/process_roads_fimpact.py` — same zonal stats optimization applied to roads.
-- `tools/compute_flood_depth.py` — same zonal stats optimization applied here too.
+- `tools/compute_flood_depth.py` — same zonal stats optimization, plus GeoParquet fixes and a duplicate hydrotable read removed.
 - `tools/fimpacts_inundation.py` — now reads the input feature file as GeoParquet or GeoPackage depending on extension, since this shared function handles both buildings (now `.parquet`) and roads (still `.gpkg`).
 - `src/utils/huc_process_error_report.py` — reworded a log message.
 
