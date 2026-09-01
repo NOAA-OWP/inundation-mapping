@@ -19,7 +19,8 @@ def optimized_flash_flow_conflation(model, lookup_table, domain, timestep):
 
     Args:
         model (str): The model for which to produce a flows DataFrame
-        lookup_table (pd.DataFrame): Lookup table defining FLASH pixel index for each feature_id. Available as CSV in the FIM S3 bucket
+        lookup_table (pd.DataFrame): lookup_table (pandas.DataFrame): A pandas DataFrame with feature_id as index and 
+                        the following columns: row_idx, col_idx, and area_scale. Available as CSV in the FIM S3 bucket
                         ~/inputs/flash_fim/flash_lookup_table_final.csv
         domain (str): Domain of FLASH model, i.e. "CONUS", "CARIB", "HAWAII", or "GUAM
         timestep (str): Timestep to pull data from. Pulls either "latest" or archived data using a specific timestep
@@ -113,7 +114,7 @@ if __name__ == "__main__":
     # Read in lookup table
     lookup_table = pd.read_csv(
         args.lookup_table,
-        usecols=["row_idx", "col_idx", "feature_id"],
+        usecols=["feature_id", "row_idx", "col_idx", "area_scale"],
         dtype={'feature_id': 'Int64', 'row_idx': 'Int64', 'col_idx': 'Int64'}
         index_col="feature_id"
     ).dropna(subset=["row_idx", "col_idx"])
