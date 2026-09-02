@@ -180,7 +180,7 @@ def generate_streamflow_percentiles(
         return rv
 
 
-# TODO: Replace this code with LoFi Optimization PR [1912](https://github.com/NOAA-OWP/inundation-mapping/pull/1910)
+# TODO: Replace this code with future LoFI Optimization
 def analyze_nonmonotonic_src(srcs_df):
     """
     Check for any non-monotonically increasing discharge and enforce monotonicity.
@@ -250,9 +250,153 @@ def analyze_nonmonotonic_src(srcs_df):
     return srcs_df
 
 
-# TODO: Replace this code with LoFI Optimization PR When Modeling Parity is achieved [1910](https://github.com/NOAA-OWP/inundation-mapping/pull/1910)
 @use_pandas_3_behavior()
-def get_subdivided_src(hydrofabric_dir, huc, branch, channel_manning, overbank_manning, slope_adj):
+def compute_manning_subdivision(df_src, eps=1e-5):
+    # Extract columns as numpy arrays. Ordering must not change during computation
+    # The following variables should be views (ie memory not owned by this function)
+    vstage = df_src['Stage'].to_numpy()
+    vstage_bf = df_src['Stage_bankfull'].to_numpy()
+    vvol = df_src['Volume (m3)'].to_numpy()
+    vvol_bf = df_src['Volume_bankfull'].to_numpy()
+    vsurf_area_bf = df_src['SurfArea_bankfull'].to_numpy()
+    vbedarea = df_src['BedArea (m2)'].to_numpy()
+    vbedarea_bf = df_src['BedArea_bankfull'].to_numpy()
+    vlengthkm = df_src['LENGTHKM'].to_numpy()
+    vslope_main = df_src['SLOPE'].to_numpy()
+    vq_orig = df_src['Discharge (m3s-1)'].to_numpy()
+    vchann = df_src['channel_n'].to_numpy()
+    vobn = df_src['overbank_n'].to_numpy()
+
+    # The memory buffers in the following code are allocated and managed very carefully.
+    # Please understand how memory is allocated and used before making *any* changes.
+    # References to arrays are cleared when they are no longer needed in order
+    # to keep each array referenced by only 1 reference.
+    lengthm = vlengthkm * 1000
+    mask = vstage <= vstage_bf
+    delta_stage = vstage - vstage_bf
+
+    vol_chan = delta_stage * vsurf_area_bf
+    np.add(vol_chan, vvol_bf, out=vol_chan)  # Estimated channel volume
+    np.minimum(vol_chan, vvol, out=vol_chan)  # ensure that estimated doesn't exceed actual volume
+    np.copyto(vol_chan, vvol, where=mask)  # Use actual volume where stage is below bankfull
+
+    # Compute volume overbank
+    vol_obank = vvol - vol_chan
+    np.maximum(vol_obank, 0.0, out=vol_obank)  # Ensure that vol_obank is always positive
+    np.putmask(vol_obank, mask, 0.0)  # Set overbank to 0 where stage doesn't exceed bankfull
+
+    wetarea_chan = np.divide(vol_chan, lengthm, out=vol_chan)
+    del vol_chan
+
+    # Compute channel bedarea
+    bedarea_chan = np.where(mask, vbedarea, vbedarea_bf)
+    np.minimum(bedarea_chan, vbedarea_bf, out=bedarea_chan, where=mask)
+
+    bedarea_obank = vbedarea - bedarea_chan
+    np.maximum(bedarea_obank, 0.0, out=bedarea_obank)
+    np.putmask(bedarea_obank, mask, 0.0)
+
+    wettedperim_chan = bedarea_chan / lengthm
+    np.multiply(delta_stage, 2, out=delta_stage)
+    np.add(wettedperim_chan, delta_stage, out=wettedperim_chan, where=mask)
+    del delta_stage, bedarea_chan
+
+    np.maximum(wettedperim_chan, eps, out=wettedperim_chan)
+    hydraulicrad_chan = np.divide(wetarea_chan, wettedperim_chan, out=wettedperim_chan)
+    del wettedperim_chan
+
+    hydraulicrad_chan = np.maximum(hydraulicrad_chan, 0.0, out=hydraulicrad_chan)
+    np.power(hydraulicrad_chan, 2 / 3, out=hydraulicrad_chan)
+
+    # Compute channel discharge
+    q_chan = np.multiply(wetarea_chan, hydraulicrad_chan, out=wetarea_chan)
+    del wetarea_chan
+
+    slope = np.maximum(vslope_main, eps, out=hydraulicrad_chan)
+    np.sqrt(slope, out=slope)
+    del hydraulicrad_chan
+
+    np.multiply(q_chan, slope, out=q_chan)
+    np.divide(q_chan, vchann, out=q_chan)
+
+    wetarea_obank = np.divide(vol_obank, lengthm, out=vol_obank)
+    del vol_obank
+
+    wettedperim_obank = np.divide(bedarea_obank, lengthm, out=bedarea_obank)
+    np.maximum(wettedperim_obank, eps, out=wettedperim_obank)
+    del bedarea_obank
+
+    hydraulicrad_obank = np.divide(wetarea_obank, wettedperim_obank, out=wettedperim_obank)
+    np.maximum(hydraulicrad_obank, 0.0, out=hydraulicrad_obank)
+    np.power(hydraulicrad_obank, 2 / 3, out=hydraulicrad_obank)
+
+    q_obank = np.multiply(wetarea_obank, hydraulicrad_obank, out=wetarea_obank)
+    del wetarea_obank, hydraulicrad_obank
+
+    np.maximum(vslope_main, eps, out=slope)
+    np.sqrt(slope, out=slope)
+
+    np.multiply(q_obank, slope, out=q_obank)
+    np.divide(q_obank, vobn, out=q_obank)
+    del slope
+
+    # Compute total discharge
+    q_total = np.add(q_chan, q_obank, out=q_chan)
+    del q_chan, q_obank
+    np.equal(vstage, 0, out=mask)
+    np.putmask(q_total, mask, 0.0)
+
+    subdiv_applied = np.isnan(vstage_bf, out=mask)
+    np.putmask(q_total, subdiv_applied, vq_orig)
+    np.logical_not(subdiv_applied, out=subdiv_applied)
+    return subdiv_applied, q_total
+
+
+@use_pandas_3_behavior()
+def read_crosswalk(hydrofabric_dir, huc, branch):
+    read_cols = [
+        'Stage',
+        'Stage_bankfull',
+        'Volume (m3)',
+        'Volume_bankfull',
+        'SurfArea_bankfull',
+        'BedArea (m2)',
+        'BedArea_bankfull',
+        'LENGTHKM',
+        'SLOPE',
+        'channel_n',
+        'overbank_n',
+        'Bathymetry_source',
+        'HydroID',
+        'Discharge (m3s-1)',
+    ]
+    path = os.path.join(hydrofabric_dir, huc, 'branches', branch, f"src_full_crosswalked_{branch}.csv")
+    df_src = pd.read_csv(path, engine='pyarrow', usecols=read_cols)
+    return df_src
+
+
+@use_pandas_3_behavior()
+def get_computed_subdivisions(df_src):
+    subdiv_applied, final_discharge = compute_manning_subdivision(df_src)
+
+    # We copy because we want to release df_src afterward
+    df_computed = pd.DataFrame(
+        {
+            'HydroID': df_src['HydroID'],
+            'stage': df_src['Stage'],
+            'Bathymetry_source': df_src['Bathymetry_source'],
+            'subdiv_applied': subdiv_applied,
+            'subdiv_discharge_cms': final_discharge,
+            'discharge_cms': final_discharge,  # create a copy of vmann modified discharge (used to track future changes)
+        },
+        copy=False,
+    )
+
+    return df_computed
+
+
+@use_pandas_3_behavior()
+def get_subdivided_src(hydrofabric_dir, huc, branch, channel_manning_adj, overbank_manning_adj, slope_adj):
     """
     Method for subdividing a synthetic rating curve based on the high water threshold
 
@@ -264,182 +408,32 @@ def get_subdivided_src(hydrofabric_dir, huc, branch, channel_manning, overbank_m
         Huc to process probabilistic FIM
     branch: str
         Name of final mosaiced probabilistic FIM
-    channel_manning: float
+    channel_manning_adj: float
         Value for channel manning roughness
-    overbank_manning: float
+    overbank_manning_adj: float
         Value for overbank manning roughness
     slope_adj: float
         Adjustment of the calculated slope
-
-    Returns
-    -------
-    pd.DataFrame
-        DataFrame with synthetic rating curve fields.
-
     """
-
-    with fsspec.open(
-        os.path.join(hydrofabric_dir, huc, 'branches', branch, f"src_full_crosswalked_{branch}.csv"),
-        mode='rt',
-        encoding='utf-8',
-    ) as f:  # Use 'rt' for text mode, and specify encoding
-        df_src = pd.read_csv(f)
-
-    df_src = df_src.drop(
-        [
-            'subdiv_applied',
-            'Discharge (m3s-1)_subdiv',
-            'Volume_chan (m3)',
-            'Volume_obank (m3)',
-            'BedArea_chan (m2)',
-            'BedArea_obank (m2)',
-            'WettedPerimeter_chan (m)',
-            'WettedPerimeter_obank (m)',
-        ],
-        axis=1,
-        errors='ignore',
-    )
-
-    with fsspec.open(
-        os.path.join(hydrofabric_dir, huc, "hydrotable.parquet"), mode='rb'
-    ) as f:  # Use 'rt' for text mode, and specify encoding
-        df_htable = pd.read_parquet(f, filters=[('branch_id', '==', int(branch))])
-    df_htable = df_htable.reset_index()
-    df_htable = df_htable.astype({'HUC': str, 'HydroID': int})
-
-    # Subdivide Geometry ----------------------------------------------------------------------------------
-    df_src['Volume_chan (m3)'] = np.where(
-        df_src['Stage'] <= df_src['Stage_bankfull'],
-        df_src['Volume (m3)'],
-        (
-            df_src['Volume_bankfull']
-            + ((df_src['Stage'] - df_src['Stage_bankfull']) * df_src['SurfArea_bankfull'])
-        ),
-    )
-    df_src['BedArea_chan (m2)'] = np.where(
-        df_src['Stage'] <= df_src['Stage_bankfull'], df_src['BedArea (m2)'], df_src['BedArea_bankfull']
-    )
-    df_src['WettedPerimeter_chan (m)'] = np.where(
-        df_src['Stage'] <= df_src['Stage_bankfull'],
-        (df_src['BedArea_chan (m2)'] / df_src['LENGTHKM'] / 1000),
-        (df_src['BedArea_chan (m2)'] / df_src['LENGTHKM'] / 1000)
-        + ((df_src['Stage'] - df_src['Stage_bankfull']) * 2),
-    )
-
-    # Calculate overbank volume & bed area
-    df_src['Volume_obank (m3)'] = np.where(
-        df_src['Stage'] > df_src['Stage_bankfull'], (df_src['Volume (m3)'] - df_src['Volume_chan (m3)']), 0.0
-    )
-    df_src['BedArea_obank (m2)'] = np.where(
-        df_src['Stage'] > df_src['Stage_bankfull'],
-        (df_src['BedArea (m2)'] - df_src['BedArea_chan (m2)']),
-        0.0,
-    )
-    df_src['WettedPerimeter_obank (m)'] = df_src['BedArea_obank (m2)'] / df_src['LENGTHKM'] / 1000
-
-    # Subdivide Geometry ----------------------------------------------------------------------------------
-    df_src['channel_n'] = df_src['channel_n'] + channel_manning
-    df_src['overbank_n'] = df_src['overbank_n'] + overbank_manning
+    df_src = read_crosswalk(hydrofabric_dir, huc, branch)
+    df_src['channel_n'] = df_src['channel_n'] + channel_manning_adj
+    df_src['overbank_n'] = df_src['overbank_n'] + overbank_manning_adj
     df_src['SLOPE'] = df_src['SLOPE'] + slope_adj
-    df_src['subdiv_applied'] = ~df_src['Stage_bankfull'].isnull()  # creat
-
-    # Subdivide Manning Eq --------------------------------------------------------------------------------
-    df_src = df_src.drop(
-        ['WetArea_chan (m2)', 'HydraulicRadius_chan (m)', 'Discharge_chan (m3s-1)', 'Velocity_chan (m/s)'],
-        axis=1,
-        errors='ignore',
-    )  # drop these cols (in case subdiv was previously performed)
-    df_src['WetArea_chan (m2)'] = df_src['Volume_chan (m3)'] / df_src['LENGTHKM'] / 1000
-    df_src['HydraulicRadius_chan (m)'] = df_src['WetArea_chan (m2)'] / df_src['WettedPerimeter_chan (m)']
-    df_src['HydraulicRadius_chan (m)'] = df_src['HydraulicRadius_chan (m)'].fillna(0)
-    df_src['Discharge_chan (m3s-1)'] = (
-        df_src['WetArea_chan (m2)']
-        * pow(df_src['HydraulicRadius_chan (m)'], 2.0 / 3)
-        * pow(np.maximum(df_src['SLOPE'], np.repeat(1e-5, df_src.shape[0])), 0.5)
-        / df_src['channel_n']
-    )
-    df_src['Velocity_chan (m/s)'] = df_src['Discharge_chan (m3s-1)'] / df_src['WetArea_chan (m2)']
-    df_src['Velocity_chan (m/s)'] = df_src['Velocity_chan (m/s)'].fillna(0)
-
-    # Calculate discharge (overbank) using Manning's equation
-    df_src = df_src.drop(
-        [
-            'WetArea_obank (m2)',
-            'HydraulicRadius_obank (m)',
-            'Discharge_obank (m3s-1)',
-            'Velocity_obank (m/s)',
-        ],
-        axis=1,
-        errors='ignore',
-    )  # drop these cols (in case subdiv was previously performed)
-    df_src['WetArea_obank (m2)'] = df_src['Volume_obank (m3)'] / df_src['LENGTHKM'] / 1000
-    df_src['HydraulicRadius_obank (m)'] = df_src['WetArea_obank (m2)'] / df_src['WettedPerimeter_obank (m)']
-    df_src = df_src.replace([np.inf, -np.inf], np.nan)  # need to replace inf instances (divide by 0)
-    df_src['HydraulicRadius_obank (m)'] = df_src['HydraulicRadius_obank (m)'].fillna(0)
-    df_src['Discharge_obank (m3s-1)'] = (
-        df_src['WetArea_obank (m2)']
-        * pow(df_src['HydraulicRadius_obank (m)'], 2.0 / 3)
-        * pow(np.maximum(df_src['SLOPE'], np.repeat(1e-5, df_src.shape[0])), 0.5)
-        / df_src['overbank_n']
-    )
-    df_src['Velocity_obank (m/s)'] = df_src['Discharge_obank (m3s-1)'] / df_src['WetArea_obank (m2)']
-    df_src['Velocity_obank (m/s)'] = df_src['Velocity_obank (m/s)'].fillna(0)
-
-    # Calcuate the total of the subdivided discharge (channel + overbank)
-    df_src = df_src.drop(
-        ['Discharge (m3s-1)_subdiv'], axis=1, errors='ignore'
-    )  # drop these cols (in case subdiv was previously performed)
-    df_src['Discharge (m3s-1)_subdiv'] = df_src['Discharge_chan (m3s-1)'] + df_src['Discharge_obank (m3s-1)']
-    df_src.loc[df_src['Stage'] == 0, ['Discharge (m3s-1)_subdiv']] = 0
-
-    # Subdivide Manning Eq --------------------------------------------------------------------------------
-
-    # Use the default discharge column when vmann is not being applied
-    df_src['Discharge (m3s-1)_subdiv'] = np.where(
-        df_src['subdiv_applied'] is False, df_src['Discharge (m3s-1)'], df_src['Discharge (m3s-1)_subdiv']
-    )  # reset the discharge value back to the original if vmann=false
-
-    hid = df_src['HydroID'].to_numpy()
-
-    if branch != '0':
-        df_src = df_src.groupby(['HydroID', 'feature_id'], group_keys=False).apply(
-            analyze_nonmonotonic_src, include_groups=False
-        )
-
-    df_src['HydroID'] = hid
-
-    df_src = df_src[
-        [
-            'HydroID',
-            'Stage',
-            'Bathymetry_source',
-            'subdiv_applied',
-            'channel_n',
-            'overbank_n',
-            'Discharge (m3s-1)_subdiv',
-        ]
-    ]
-
-    df_src = df_src.rename(columns={'Stage': 'stage', 'Discharge (m3s-1)_subdiv': 'subdiv_discharge_cms'})
-    df_src['discharge_cms'] = df_src[
-        'subdiv_discharge_cms'
-    ]  # create a copy of vmann modified discharge (used to track future changes)
+    df_computed = get_computed_subdivisions(df_src)
+    del df_src
 
     # drop the previously modified discharge column to be replaced with updated version
-    df_htable = df_htable.drop(
-        [
-            'subdiv_applied',
-            'discharge_cms',
-            'overbank_n',
-            'channel_n',
-            'subdiv_discharge_cms',
-            'Bathymetry_source',
-        ],
-        axis=1,
-        errors='ignore',
+    path = os.path.join(hydrofabric_dir, huc, "hydrotable.parquet")
+
+    htable_cols = ['HydroID', 'feature_id', 'HUC', 'branch_id', 'stage', 'SurfaceArea (m2)', 'LakeID']
+    df_htable = pd.read_parquet(
+        path, engine='pyarrow', filters=[('branch_id', '==', int(branch))], columns=htable_cols
     )
+    df_htable = df_htable.reset_index()
+    df_htable = df_htable.astype({'HUC': "string[pyarrow]", 'HydroID': int, 'feature_id': "string[pyarrow]"})
+
     df_htable = df_htable.merge(
-        df_src, how='left', left_on=['HydroID', 'stage'], right_on=['HydroID', 'stage']
+        df_computed, how='left', left_on=['HydroID', 'stage'], right_on=['HydroID', 'stage']
     )
 
     df_htable['branch_id'] = int(branch)
@@ -572,12 +566,12 @@ def inundate_probabilistic(
 
     # Apply inundation map to each percentile
     for percentile, val in percentiles.items():
-        channel_n = channel_dist.ppf(1 - int(percentile) / 100)
-        overbank_n = obank_dist.ppf(1 - int(percentile) / 100)
+        channel_n_adj = channel_dist.ppf(1 - int(percentile) / 100)
+        overbank_n_adj = obank_dist.ppf(1 - int(percentile) / 100)
         slope_adj = slope_dist.ppf(int(percentile) / 100)
 
         if percentile == '50':
-            channel_n, overbank_n, slope_adj = 0, 0, 0
+            channel_n_adj, overbank_n_adj, slope_adj = 0, 0, 0
 
         # Establish directory to save the final mosaiced inundation
         final_inundation_path = os.path.join(
@@ -590,7 +584,9 @@ def inundate_probabilistic(
 
         h_tables = []
         for branch in all_branches:
-            h_table = get_subdivided_src(hydrofabric_dir, huc, branch, channel_n, overbank_n, slope_adj)
+            h_table = get_subdivided_src(
+                hydrofabric_dir, huc, branch, channel_n_adj, overbank_n_adj, slope_adj
+            )
             h_tables.append(h_table)
 
         final_src = pd.concat(h_tables)
