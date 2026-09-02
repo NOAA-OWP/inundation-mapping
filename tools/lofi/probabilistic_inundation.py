@@ -347,7 +347,7 @@ def compute_manning_subdivision(df_src, eps=1e-5):
     np.putmask(q_total, mask, 0.0)
 
     subdiv_applied = np.isnan(vstage_bf, out=mask)
-    np.putmask(q_total, subdiv_applied, vq_orig)
+    np.copyto(q_total, vq_orig, where=subdiv_applied)
     np.logical_not(subdiv_applied, out=subdiv_applied)
     return subdiv_applied, q_total
 
