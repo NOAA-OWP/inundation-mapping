@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.10.x.x - 2026-09-02 - [PR##1942](https://github.com/NOAA-OWP/inundation-mapping/pull/1942)
+## v4.10.1.1 - 2026-09-03 - [PR##1942](https://github.com/NOAA-OWP/inundation-mapping/pull/1942)
 
 This PR smooths out some outstanding quirks found after merging the CatFIM reorg changes into dev and creates a new CatFIM tool for joining outputs from a secondary run (such as Guam stage-based) into the primary CatFIM outputs.
 
