@@ -631,7 +631,7 @@ def inundate_probabilistic(
         "precalb_discharge_cms"
     ]
 
-    full_p_table = df_htable.merge(pd.concat(branch_percentile_df), how='left', right_on=["HydroID", "stage"], left_index=True)
+    full_p_table = df_htable.merge(pd.concat(branch_percentile_df), how='left', left_on=["HydroID", "stage"], right_index=True)
     for percentile in percentiles:
         # Establish directory to save the final mosaiced inundation
         final_inundation_path = os.path.join(
