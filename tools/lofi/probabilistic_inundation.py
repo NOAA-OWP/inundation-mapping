@@ -595,7 +595,7 @@ def inundate_probabilistic(
     # Apply inundation map to each percentile
     branch_percentile_df = []
     for branch, htable_branch in df_htable.groupby("branch_id", as_index=False):
-        crosswalk = read_crosswalk(hydrofabric_dir, huc, branch)
+        crosswalk = read_crosswalk(hydrofabric_dir, huc, str(branch))
 
         # Copy the channel_n, overbank_n, and SLOPE values
         adj_copies = crosswalk[adj_cols].copy()
