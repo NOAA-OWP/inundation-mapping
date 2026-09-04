@@ -1,6 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.10.1.2 - 2026-09-04 - [PR#1943](https://github.com/NOAA-OWP/inundation-mapping/pull/1943)
+
+`preprocess_nhdplus()` called `__polygonize()` with one argument while that function has always
+required two (`target_output_folder_path`, `file_logger`), so the Guam / AmericanSamoa preprocessing
+run raised a `TypeError` right after the VRT was built and never produced `DEM_Domain.parquet`.
+
+### Changes
+- `data/nhdplus/preprocess_nhdplus.py`: Set up a file logger with `setup_mp_file_logger()` and pass it to
+  `__polygonize()`, matching the call in `data/usgs/acquire_and_preprocess_3dep_dems.py`.
+<br />
+
 ## v4.10.1.1 - 2026-09-03 - [PR##1942](https://github.com/NOAA-OWP/inundation-mapping/pull/1942)
 
 This PR smooths out some outstanding quirks found after merging the CatFIM reorg changes into dev and creates a new CatFIM tool for joining outputs from a secondary run (such as Guam stage-based) into the primary CatFIM outputs.
