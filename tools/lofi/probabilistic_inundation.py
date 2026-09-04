@@ -666,7 +666,7 @@ def inundate_probabilistic(
 
     # percentiles
     percentile_files = [
-        f'{base_output_path}/extent_{file}_v10_day{day}_hour{hour}.tif' for file in percentiles.keys()
+        f'{base_output_path}/extent_{file}_v10_day{day}_hour{hour}.tif' for file in percentiles
     ]
 
     # For every percentile inundation map convert values to percentile
