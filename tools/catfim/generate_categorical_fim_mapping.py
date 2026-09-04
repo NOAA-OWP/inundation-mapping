@@ -453,8 +453,8 @@ def run_fb_mapping(
                 if "." in magnitude:
                     continue
 
-            logging.info(" ")
-            # logging.info(f"{huc} : {ahps_site} - {magnitude}")  # too verbose
+                # logging.info(" ")
+                logging.info(f"{huc} : {ahps_site} - {magnitude}")  # too verbose
 
                 # Create a site/magnitude specific flows csv and drop unnecessary colunmns
                 magnitude_flows_df_filtered = magnitude_flows_df[
@@ -474,29 +474,28 @@ def run_fb_mapping(
                 tif_name = ahps_site + '_' + magnitude + '_extent.tif'
                 output_extent_tif = os.path.join(output_mapping_dir, tif_name)
 
-            logging.info(f"{huc} : {ahps_site} : {magnitude} - Begin inundation for {tif_name}")
-            try:
-                job_number_inundate = 1
+                logging.info(f"{huc} : {ahps_site} : {magnitude} - Begin inundation for {tif_name}")
+                try:
+                    job_number_inundate = 1
 
-                run_fb_inundation(
-                    huc,
-                    ahps_site,
-                    magnitude,
-                    fim_run_dir,
-                    magnitude_flows_csv_path,  # Can be a CSV path or a dataframe, using a csv path for now
-                    output_extent_tif,
-                    job_number_inundate,
-                )
+                    run_fb_inundation(
+                        huc,
+                        ahps_site,
+                        magnitude,
+                        fim_run_dir,
+                        magnitude_flows_csv_path,  # Can be a CSV path or a dataframe, using a csv path for now
+                        output_extent_tif,
+                        job_number_inundate,
+                    )
 
-            except Exception:
-                logging.critical(
-                    "A critical error occurred while attempting HAND inundation"
-                    f" for {huc} - {ahps_site} - {magnitude}"
-                )
-                logging.critical(traceback.format_exc())
-                sys.exit(1)
+                except Exception:
+                    logging.critical(
+                        "A critical error occurred while attempting HAND inundation"
+                        f" for {huc} - {ahps_site} - {magnitude}"
+                    )
+                    logging.critical(traceback.format_exc())
+                    sys.exit(1)
             # End of HAND magnitude loop
-
 
     # End of site loop
 

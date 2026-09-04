@@ -187,9 +187,8 @@ def process_generate_categorical_fim(
         local_vals = (
             locals()  # lst_hucs argument is used but passed via locals() so VSCode thinks it is not in use.
         )
-        # valid_fim_hucs, dropped_huc_lst, nwm_meta_file, threshold_file = __validate_inputs(local_vals)
 
-        adj_valid_fim_hucs, dropped_huc_lst, nwm_meta_file, threshold_file = __validate_inputs(local_vals)
+        adj_valid_fim_hucs, dropped_huc_lst, nwm_meta_file, threshold_file, inundate_hand, inundate_hr, hr_preference = __validate_inputs(local_vals)
 
         # Note: this will handle a huc list arg of "all". If valid_fim_hucs is empty, it will thrown an exception
         # valid_fim_hucs are hucs that have valid huc folders in the fim output dir.
