@@ -616,6 +616,7 @@ def inundate_probabilistic(
             h_table = h_table.rename(columns={n: f"{n}.{percentile}" for n in h_table.columns if n.startswith("discharge_cms")})
             h_tables.append(h_table)
         p_table = pd.concat(h_tables, axis=1)
+        del h_tables
         branch_percentile_df.append(p_table)
 
         # flow_df = pd.DataFrame(
@@ -632,6 +633,7 @@ def inundate_probabilistic(
     ]
 
     full_p_table = df_htable.merge(pd.concat(branch_percentile_df), how='left', left_on=["HydroID", "stage"], right_index=True)
+    del branch_percentile_df
     for percentile in percentiles:
         # Establish directory to save the final mosaiced inundation
         final_inundation_path = os.path.join(
@@ -646,7 +648,7 @@ def inundate_probabilistic(
         subhdf = full_p_table[htable_req_static_cols + [pcol]]
         subhdf = subhdf.rename(columns={pcol: "discharge_cms"})
 
-        flow_df = percentile_values[percentile]
+        flow_df = percentile_values[percentile].to_frame()
 
         produce_mosaicked_inundation(
             hydrofabric_dir,
