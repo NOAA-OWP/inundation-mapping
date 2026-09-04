@@ -80,6 +80,73 @@ def get_fim_probability_distributions(
     return channel_dist, obank_dist, slope_dist
 
 
+def generate_streamflow_percentiles_vec(
+        ensemble_streamflow, params_weibull, percentiles
+):
+    """Vectorize the computation of weibull distribution"""
+    percentiles = pd.DataFrame(columns=percentiles, index=ensemble_streamflow.indexes['feature_id'], dtype=float)
+
+    # For features that have no params, copy first ensemble streamflow
+    weibull_nomask = ~percentiles.index.isin(params_weibull.index)
+    percentiles.loc[weibull_nomask] = ensemble_streamflow.sel(feature_id=weibull_nomask, ensemble="1").to_numpy()[:, np.newaxis]
+
+    inter_ids = percentiles.index.intersection(params_weibull.index)
+    ensemble_subset = ensemble_streamflow.sel(feature_id=inter_ids)
+    # weibull_subset = params_weibull.loc[inter_ids]
+
+    # wv = weibull_min(c=weibull_subset['param.c'].to_numpy(),
+    #                  loc=weibull_subset['param.loc'].to_numpy(),
+    #                  scale=weibull_subset['param.scale'].to_numpy())
+
+    # If all values from ensemble streamflow forecasts are not identical or virtually the same
+    if not np.allclose(ensemble_subset, ensemble_subset[0, 0]):
+
+        # Impute any values that are nan with the mean of the numeric values
+        ensemble_subset = ensemble_subset.fillna(ensemble_subset.mean(dim='ensemble'))
+        # likelihoods = wv.sf(ensemble_subset)
+
+        # Scale the likelihoods to equal 1 and then generate a dataset given their likelihood
+        # scaled_likelihoods = np.squeeze(likelihoods / np.sum(likelihoods)) * np.linspace(1, 0.9, 6)
+
+        # minlik = scaled_likelihoods.min(axis=1)
+        # maxlik = scaled_likelihoods.max(axis=1)
+
+        # Interpolate streamflow values so that member 1 represents the 50th percentile
+        # top = np.interp([10, 25, 50], [10, 50], [minlik, scaled_likelihoods[0]])[::-1]
+
+        # top_scaled = np.interp(
+        #     top,
+        #     [minlik, scaled_likelihoods[0]],
+        #     [np.max(ensemble_subset), ensemble_subset[0]],
+        # )
+        top_scaled = np.interp(
+            [10, 25, 50], 
+            [10, 50], 
+            [ensemble_subset.max(), ensemble_subset[0, 0]]
+        )[::-1]
+
+        # bottom = np.interp([50, 75, 90], [50, 90], [scaled_likelihoods[0], maxlik])[::-1]
+        # bottom_scaled = np.interp(
+        #     bottom,
+        #     [scaled_likelihoods[0], maxlik],
+        #     [ensemble_subset[0], np.min(ensemble_subset)],
+        # )
+
+        bottom_scaled = np.interp(
+            [50, 75, 90],
+            [50, 90],
+            [ensemble_subset[0, 0], ensemble_subset.min()],
+        )[::-1]
+
+        percentile_values = np.hstack([bottom_scaled, top_scaled[1:]])
+        np.maximum(0, percentile_values, out=percentile_values)
+        percentiles.loc[inter_ids] = percentile_values
+    else:
+        percentiles.loc[inter_ids] = max(0, ensemble_subset[0,0])
+
+    return percentiles
+    
+
 def generate_streamflow_percentiles(
     feature: int, ensemble_forecast: xr.Dataset, params_weibull: pd.DataFrame
 ) -> Dict[str, Union[int, float]]:
