@@ -1371,6 +1371,8 @@ def __setup_sites_gdf(sites_gdf, catfim_type):
     sites_gdf.insert(loc=2, column="mapped", value="not set")
     sites_gdf.insert(loc=3, column="status", value="not set")
     sites_gdf.insert(loc=4, column="warnings", value="")
+    sites_gdf.insert(loc=5, column="model", value="")
+    sites_gdf.insert(loc=6, column="model_version", value="")
 
     # Drop list fields (downstream_nwm_features and upstream_nwm_features) to streamline GDF processing
     # TODO: Maybe we don't drop this because then we wouldn't have to read the metadata json list in later when this data is needed...?

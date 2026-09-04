@@ -540,7 +540,7 @@ def process_generate_categorical_fim(
                 f"{len(unfinished_huc_list)}/{len(valid_fim_hucs)} HUC(s) did not complete processing, possibly due to multiproc collision"
             )
             logging.info("Re-running CatFIM HUC processing for the following unfinished HUC(s):")
-            logging.info(*unfinished_huc_list, sep=", ")
+            logging.info(unfinished_huc_list)
 
             # Remove all finished (failed or sucessful) HUCs from the task arg list
             # Filtered list
@@ -579,7 +579,6 @@ def process_generate_categorical_fim(
                 logging.info(
                     f"Of the HUC(s) that finished, {len(second_sucessful_HUCs_list)} succeeded and {len(second_failed_HUCs_list)} finished but failed"
                 )
-
         # End muliproc rerun
 
         logging.info("Completed CatFIM HUC multiprocessing!")
@@ -1217,31 +1216,23 @@ def __validate_inputs(received_locals_dict):
             " Re-run without the -mod command or run flow-based CatFIM to utilize this feature."
         )
 
-    if model not in ['hand', 'hr', 'hra', 'handhr', 'handhra']:
+    if model not in ['hand', 'hr', 'hrp', 'handhr', 'handhrp']:
         raise Exception(
             f"Invalid model type provided: {model}"
-            " Expected one of the following: 'hand', 'hr', 'hra', 'handhr', 'handhra'"
-            " Re-run without a valid -mod command."
+            " Expected one of the following: 'hand', 'hrp', 'hr', 'handhrp', 'handhr'"
+            " Re-run with a valid -mod command."
         )
     
-    # Whether to inundate HAND models
-    # Set to true if the model tag contains 'hand' (model = hand, handhr, handhra)
-    # TODO: Add in this functionality or remove the option to not toggle HAND
+    # Whether to inundate HAND models - Set to true if the model tag contains 'hand' (model = hand, handhr, handhrp)
     inundate_hand = 'hand' in model
 
-    # Whether to run HEC-RAS
-    # Set to true if the model tag contains 'hr' (model = hr, hra, handhr, handhra)
+    # Whether to run HEC-RAS - Set to true if the model tag contains 'hr' (model = hr, hrp, handhr, handhrp)
     inundate_hr = 'hr' in model
 
-    # If the model tag ends with 'a' (for 'all'), HEC-RAS preference is True (which means we will only run one HEC-RAS model per site)
-    # If not, we will run ALL available HEC-RAS models for each site
-    # (which is meant to be mainly for debugging and comparison and not recommended for full CatFIM runs).
-    if model.endswith('a'):
-        # no preference, run all
-        hr_preference = False
-    else:
-        # use preference, only run one hec ras model
-        hr_preference = True
+    # Whether to run all available HEC-RAS and HAND models or to just run the preferred HEC-RAS model when available and otherwise run the HAND model.
+    # If the model tag ends with 'p', HEC-RAS preference is True (which means we will only run one HEC-RAS model per site)
+    # If not, we will run ALL available HEC-RAS models for each site (not recommended for full CatFIM runs).
+    hr_preference = 'p' in model
 
     return valid_fim_hucs, dropped_huc_lst, nwm_meta_file, threshold_file, inundate_hand, inundate_hr, hr_preference
 
@@ -1529,10 +1520,10 @@ if __name__ == '__main__':
         '--model',
         help='OPTIONAL: Define which model(s) to run between HAND and HEC-RAS. Currently only for flow-based CatFIM.'
         ' hand : run HAND only (default)'
-        ' hr : run HEC-RAS only - use one HEC-RAS model per site'
-        ' hra : run HEC-RAS only - use ALL available HEC-RAS models (not recommended for large runs)'
-        ' handhr : run HAND and HEC-RAS - use one HEC-RAS model per site, prioritize HEC-RAS over HAND'
-        ' handhra : run HAND and HEC RAS - use ALL available HEC-RAS models, keep HEC-RAS and HAND sites (not recommended for large runs)',
+        ' hrp : run HEC-RAS only - with model preference (use one HEC-RAS model per site)'
+        ' hr : run HEC-RAS only - without model preference (use ALL available HEC-RAS models, not recommended for large runs)'
+        ' handhrp : run HAND and HEC-RAS - with model preference (use one HEC-RAS model per site, prioritize HEC-RAS over HAND'
+        ' handhr : run HAND and HEC RAS - without model preference (use ALL available HEC-RAS models, keep HEC-RAS and HAND sites, not recommended for large runs)',
         required=False,
         default="hand",
     )

@@ -563,12 +563,20 @@ def finalize_sites_mapping_status(
 
         lid_status_new, lid_mapped_new = None, None
 
+        lid_model_list_str, lid_model_version_list_str = None, None
+
         # Create the new mapped and status values for this site based on whether it is in the mapped sites list
         if lid in mapped_sites_list:
             # If site is in mapped list, update mapped to "yes" and update status if it is not already
             # If we have mapped sites, we know mapping_completed is True so we don't need to check for it
-
             lid_mapped_new = "yes"
+
+            # Get a list of which model type(s) were mapped (HAND, HEC-RAS)
+            lid_model_list = huc_library_gdf[huc_library_gdf['nws_lid'] == lid]['model'].unique().tolist()
+            lid_model_version_list = huc_library_gdf[huc_library_gdf['nws_lid'] == lid]['model_version'].unique().tolist()
+
+            lid_model_list_str = "; ".join(lid_model_list)
+            lid_model_version_list_str = "; ".join(lid_model_version_list)
 
             if lid_status != "not set":  # Status val available (possible error)
                 lid_status_new = f"{lid_status}; {site_status_error_message}"
@@ -669,6 +677,10 @@ def finalize_sites_mapping_status(
         # Update the sites gdf with the new mapped and status values for this site
         sites_gdf.at[index, "status"] = lid_status_new
         sites_gdf.at[index, "mapped"] = lid_mapped_new
+
+        sites_gdf.at[index, "model"] = lid_model_list_str
+        sites_gdf.at[index, "model_version"] = lid_model_version_list_str
+
     # End of literating sites gdf loop
 
     # At this point, we should have a sites_gdf that has updated values for the 'mapped' and 'status' columns

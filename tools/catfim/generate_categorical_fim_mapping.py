@@ -348,7 +348,21 @@ def run_fb_mapping(
                     ]
                     try:
                         # Use subprocess to run flows2fim fim
-                        subprocess.run(subprocess_cmd)  # TODO: Implement additional error catching?
+                        result = subprocess.run(
+                            subprocess_cmd,
+                            capture_output=True,
+                            text=True, 
+                            check=True
+                        )
+
+                    except FileNotFoundError:
+                        logging.critical("A critical error occurred while attempting HEC-RAS inundation: flows2fim fim command not found.")
+                        sys.exit(1)
+
+                    except subprocess.CalledProcessError as e:
+                        # Raised if the command ran but failed (non-zero exit code)
+                        logging.critical(f"Command failed with exit code {e.returncode}: {e.stderr}")
+                        sys.exit(1) # TODO: Decide if critical (and exit) or just error (and continue)
 
                     except Exception:
                         logging.critical(
@@ -357,11 +371,48 @@ def run_fb_mapping(
                         )
                         logging.critical(traceback.format_exc())
                         sys.exit(1)
+
+                    if not os.path.exists(output_extent_tif):
+                        logging.error(f'{huc} : {ahps_site} : {magnitude} - TIF not found after inundation: {os.path.basename(output_extent_tif)}')
+                        continue
+
+                    # ---------------------
+                    # Update the nodataval, mask out lakes from inundated tif and re-save tif
+
+                    logging.info(f'{huc} : {ahps_site} : {magnitude} - Masking out lakes and updating nodataval from {os.path.basename(output_extent_tif)}')
+
+                    # Open the source raster file
+                    with rasterio.open(output_extent_tif, mode='r+', IGNORE_COG_LAYOUT_BREAK='YES') as output_extent_src:
+
+                        # Read the raster data array and copy the metadata profile
+                        output_extent_array = output_extent_src.read(1)
+                        profile = output_extent_src.profile
+
+                        # Update the profile and the array values to be in int16 data type (and have the correct nodata val)
+                        profile.update(dtype="int16", nodata=csf.ELEV_NODATA_VALUE)
+                        output_extent_array = output_extent_array.astype(np.int16)
+
+                        # Reassign existing old nodata pixel values to the new nodata value
+                        if output_extent_src.nodata is not None:
+                            output_extent_array[output_extent_array == output_extent_src.nodata] = csf.ELEV_NODATA_VALUE
+
+                        # Mask out the lakes
+                        output_extent_array_masked, mask_status = mask_out_lakes(
+                            output_extent_array, huc, output_extent_src, fim_run_dir
+                        )
+
+                        if mask_status:
+                            logging.info(f'{huc} : {ahps_site} : {magnitude} - Masking status: {mask_status}')
+
+                    # Write the modified data into the new GeoTIFF file
+                    with rasterio.open(output_extent_tif, "w", **profile) as dst:
+                        dst.write(output_extent_array_masked, 1)
+
+                    # If at least one extent tif was made, set hr_site_tifs_produced to true
+                    if os.path.exists(output_extent_tif):
+                        hr_site_tifs_produced = True # TODO: is there a better way to check for success?
+                        hr_site_tifs_produced = bool(hr_site_tifs_produced)
             # End of HEC-RAS model/magnitude loop
-
-            hr_site_tifs_produced = True # TODO: is there a better way to check for success?
-            hr_site_tifs_produced = bool(hr_site_tifs_produced)
-
         # End of HEC-RAS inundation for site
 
         # Determine whether to run HAND for the site
@@ -1485,13 +1536,17 @@ def post_process_huc_mapping(huc, catfim_type, sites_gdf, huc_library_df, output
             )
             continue
 
-        # If stage based, the file names looks like this:
+        # If stage based (always HAND), the file names looks like this:
         #      masm1_major_extent.tif  (non-interval, whole number)
         #      masm1_major_20.6_extent.tif  (non-interval, float)
         #      masm1_major_20.0fti_extent.tif (interval)
         #
-        # If flow based, the file name looks like this:
+        # If flow based and HAND, the file name looks like this:
         #      masm1_action_extent.tif
+        #
+        # If flow based and HEC-RAS, the file name looks like this:
+        #      masm1_action_ble_12100202_MiddleGuadalupe_extent_hr.tif
+        #      {nws_lid}_{magnitude}_{model_name}_extent_hr.tif
 
         try:
             # Get site, magnitude, and interval data from the tif name
@@ -1502,15 +1557,19 @@ def post_process_huc_mapping(huc, catfim_type, sites_gdf, huc_library_df, output
 
             if tif_file_name.endswith("_hr.tif"):
                 model = 'HEC-RAS'
-                # Pull the model name from the tif -> tif_file_name = f'{nws_lid}_{magnitude}_{model_name}_extent_hr.tif'
 
+                # Pull the model version from the tif name
                 hr_tif_prefix = nws_lid + '_' + magnitude + '_'  
                 hr_tif_suffix = '_extent_hr.tif'
                 model_version = tif_file_name.removeprefix(hr_tif_prefix).removesuffix(hr_tif_suffix)
 
             else:
                 model = 'HAND'
-                model_version = 'HAND' # TODO: input version?
+
+                # Pull the model version from the FIM run directory filename
+                fim_run_dir = os.getenv("FIM_RUN_DIR")
+                fim_run_name = os.path.basename(os.path.dirname(fim_run_dir))
+                model_version = fim_run_name
 
             # Check whether the tif is an interval (indicated by "fti" in the file name)
             # (carefully, we only check part 3 because "ft" can be part of the site name)
@@ -1611,34 +1670,12 @@ def post_process_huc_mapping(huc, catfim_type, sites_gdf, huc_library_df, output
 
     elif catfim_type == 'fb':
 
-        # if hr_preference is True:
-        #     # There should be only one inundation polygon per magnitude/nws_lid combo
-
-        #     # Could iterate through just in case...
-
-
-        #     # reformatted_geom_list_df will have filled-in model and model_version columns
-        #     # Drop the bla
-
-        #     # Join the inundated multipolgyon dataframe to the HUC library dataframe
-        #     huc_library_df = huc_library_df.merge(
-        #         reformatted_geom_list_df, on=['nws_lid', 'magnitude'], how='left'
-        #     ) # TODO: Do we need to update the HUC library with model info? Test...
-
-        # else:
-    
-        # There could be several inundation polygons per magnitude/nws_lid combos (HAND and multiple HEC-RAS)
-        # TODO: test multiple HEC-RAS models at once
-
         logging.info(
             f"{huc} - Post-Process HUC Mapping - Flow-based - Updating HUC library to include enough rows for model types"
         )
 
         # Get the lid, mag, and model vals from the HR DF so we can add the new HR records to the HUC library
         huc_library_data_list = []
-
-        logging.info(f"Len of huc_library_df, BEFORE adding extra rows: {len(huc_library_df)}")
-        logging.info(f"Len of reformatted_geom_list_df: {len(reformatted_geom_list_df)}")
 
         for index, row in reformatted_geom_list_df.iterrows():
 
@@ -1661,9 +1698,6 @@ def post_process_huc_mapping(huc, catfim_type, sites_gdf, huc_library_df, output
 
         # Make the new library df (with enough rows for all the models and versions in the geom list)
         huc_library_df = pd.DataFrame(huc_library_data_list)
-
-        logging.info(f"Len of huc_library_data_list, AFTER adding extra rows: {len(huc_library_data_list)}")
-        logging.info(f"Len of huc_library_df, AFTER adding extra rows: {len(huc_library_df)}")
 
         # Join the inundated multipolgyon dataframe to the HUC library dataframe
         huc_library_df = huc_library_df.merge(
