@@ -25,6 +25,7 @@ import geopandas as gp
 import numpy as np
 import pandas as pd
 from fsspec.core import url_to_fs
+from fsspec.implementations.local import LocalFileSystem
 from tqdm import tqdm
 
 
@@ -929,6 +930,24 @@ def s3_or_local_glob(path: str) -> list:
     """
     fs, pth = url_to_fs(path)
     return fs.glob(pth)
+
+
+def is_local_path(path: str) -> bool:
+    """
+    Checks if path is a local path.
+
+    Parameters
+    ----------
+    path: str
+        Path to check
+
+    Returns
+    -------
+    bool
+        True if path is a local path
+    """
+    fs, _ = url_to_fs(path)
+    return isinstance(fs, LocalFileSystem)
 
 
 def read_huc_file_list_or_array_of_hucs(hucs):
