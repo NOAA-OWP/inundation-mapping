@@ -18,7 +18,7 @@ from shapely.geometry import shape
 from tqdm.auto import tqdm
 
 from utils.io import write_geodataframe
-from utils.shared_functions import s3_or_local_glob, use_pandas_3_behavior
+from utils.shared_functions import s3_or_local_glob, s3_or_local_path_exists, is_local_path, use_pandas_3_behavior
 
 
 def get_fim_probability_distributions(
@@ -248,73 +248,73 @@ def generate_streamflow_percentiles(
 
 
 # TODO: Replace this code with future LoFI Optimization
-def analyze_nonmonotonic_src(srcs_df):
-    """
-    Check for any non-monotonically increasing discharge and enforce monotonicity.
+# def analyze_nonmonotonic_src(srcs_df):
+#     """
+#     Check for any non-monotonically increasing discharge and enforce monotonicity.
 
-    Parameters
-    ----------
-    srcs_df : pd.DataFrame
-        Original synthetic rating curve DataFrame.
+#     Parameters
+#     ----------
+#     srcs_df : pd.DataFrame
+#         Original synthetic rating curve DataFrame.
 
-    Returns
-    -------
-    pd.DataFrame
-        Synthetic rating curve DataFrame equal to original or adjusted for discharge monotonicity.
+#     Returns
+#     -------
+#     pd.DataFrame
+#         Synthetic rating curve DataFrame equal to original or adjusted for discharge monotonicity.
 
-    """
+#     """
 
-    srcs_df.loc[srcs_df['Stage'] == 0, 'Discharge (m3s-1)_subdiv'] = 0
+#     srcs_df.loc[srcs_df['Stage'] == 0, 'Discharge (m3s-1)_subdiv'] = 0
 
-    cond_chan = srcs_df['bankfull_proxy'] == 'channel'
-    srcs_df_chan = srcs_df[cond_chan]
-    non_monotonic_index = srcs_df_chan.index[srcs_df_chan['Discharge (m3s-1)_subdiv'].diff().lt(0)].tolist()
+#     cond_chan = srcs_df['bankfull_proxy'] == 'channel'
+#     srcs_df_chan = srcs_df[cond_chan]
+#     non_monotonic_index = srcs_df_chan.index[srcs_df_chan['Discharge (m3s-1)_subdiv'].diff().lt(0)].tolist()
 
-    # Recalculate 'Discharge' values before the last non-monotonic row
-    # Note: No change has been applied on WetArea, Volume, LENGTHKM
-    if non_monotonic_index:
-        # Get the target values from the last non-monotonic index
-        target_idx = non_monotonic_index[-1]
-        target_numCells = srcs_df.loc[target_idx, 'Number of Cells']
-        target_SurfaceArea = srcs_df.loc[target_idx, 'SurfaceArea (m2)']
-        target_BedArea = srcs_df.loc[target_idx, 'BedArea (m2)']
+#     # Recalculate 'Discharge' values before the last non-monotonic row
+#     # Note: No change has been applied on WetArea, Volume, LENGTHKM
+#     if non_monotonic_index:
+#         # Get the target values from the last non-monotonic index
+#         target_idx = non_monotonic_index[-1]
+#         target_numCells = srcs_df.loc[target_idx, 'Number of Cells']
+#         target_SurfaceArea = srcs_df.loc[target_idx, 'SurfaceArea (m2)']
+#         target_BedArea = srcs_df.loc[target_idx, 'BedArea (m2)']
 
-        # Define the slice (up to but not including target_idx)
-        row_slice = slice(0, target_idx)
+#         # Define the slice (up to but not including target_idx)
+#         row_slice = slice(0, target_idx)
 
-        # Assign target values to the selected rows
-        srcs_df.loc[row_slice, 'Number of Cells'] = target_numCells
-        srcs_df.loc[row_slice, 'SurfaceArea (m2)'] = target_SurfaceArea
-        srcs_df.loc[row_slice, 'BedArea (m2)'] = target_BedArea
+#         # Assign target values to the selected rows
+#         srcs_df.loc[row_slice, 'Number of Cells'] = target_numCells
+#         srcs_df.loc[row_slice, 'SurfaceArea (m2)'] = target_SurfaceArea
+#         srcs_df.loc[row_slice, 'BedArea (m2)'] = target_BedArea
 
-        # Recalculate discharge variables
-        length_km = srcs_df.loc[row_slice, 'LENGTHKM']
-        # Avoid division by zero
-        length_km = length_km.replace(0, np.nan)
+#         # Recalculate discharge variables
+#         length_km = srcs_df.loc[row_slice, 'LENGTHKM']
+#         # Avoid division by zero
+#         length_km = length_km.replace(0, np.nan)
 
-        target_TopWidth = target_SurfaceArea / length_km / 1000
-        target_WettedPerimeter = target_BedArea / length_km / 1000
+#         target_TopWidth = target_SurfaceArea / length_km / 1000
+#         target_WettedPerimeter = target_BedArea / length_km / 1000
 
-        wet_area = srcs_df.loc[row_slice, 'WetArea (m2)']
-        target_HydraulicRadius = wet_area / target_WettedPerimeter
+#         wet_area = srcs_df.loc[row_slice, 'WetArea (m2)']
+#         target_HydraulicRadius = wet_area / target_WettedPerimeter
 
-        srcs_df.loc[row_slice, 'TopWidth (m)'] = target_TopWidth
-        srcs_df.loc[row_slice, 'WettedPerimeter (m)'] = target_WettedPerimeter
-        srcs_df.loc[row_slice, 'HydraulicRadius (m)'] = target_HydraulicRadius
-        srcs_df['HydraulicRadius (m)'] = srcs_df['HydraulicRadius (m)'].fillna(0)
+#         srcs_df.loc[row_slice, 'TopWidth (m)'] = target_TopWidth
+#         srcs_df.loc[row_slice, 'WettedPerimeter (m)'] = target_WettedPerimeter
+#         srcs_df.loc[row_slice, 'HydraulicRadius (m)'] = target_HydraulicRadius
+#         srcs_df['HydraulicRadius (m)'] = srcs_df['HydraulicRadius (m)'].fillna(0)
 
-        # Recalculate Discharge (m3s-1) for the selected rows
-        srcs_df.loc[row_slice, 'Discharge (m3s-1)_subdiv'] = (
-            wet_area
-            * (srcs_df.loc[row_slice, 'HydraulicRadius (m)'] ** (2.0 / 3))
-            * pow(
-                np.maximum(srcs_df.loc[row_slice, 'SLOPE'], np.repeat(1e-5, srcs_df.loc[row_slice].shape[0])),
-                0.5,
-            )
-            / srcs_df['channel_n']
-        )
+#         # Recalculate Discharge (m3s-1) for the selected rows
+#         srcs_df.loc[row_slice, 'Discharge (m3s-1)_subdiv'] = (
+#             wet_area
+#             * (srcs_df.loc[row_slice, 'HydraulicRadius (m)'] ** (2.0 / 3))
+#             * pow(
+#                 np.maximum(srcs_df.loc[row_slice, 'SLOPE'], np.repeat(1e-5, srcs_df.loc[row_slice].shape[0])),
+#                 0.5,
+#             )
+#             / srcs_df['channel_n']
+#         )
 
-    return srcs_df
+#     return srcs_df
 
 
 @use_pandas_3_behavior()
@@ -438,76 +438,42 @@ def read_crosswalk(hydrofabric_dir, huc, branch):
         'Discharge (m3s-1)',
     ]
     path = os.path.join(hydrofabric_dir, huc, 'branches', branch, f"src_full_crosswalked_{branch}.csv")
-    df_src = pd.read_csv(path, engine='pyarrow', usecols=read_cols)
+    df_src = pd.read_csv(path, engine='pyarrow', usecols=read_cols, dtype={'HydroID': 'string[pyarrow]'})
     return df_src
 
 
 @use_pandas_3_behavior()
-def get_computed_subdivisions(df_src):
-    subdiv_applied, final_discharge = compute_manning_subdivision(df_src)
-
-    # We copy because we want to release df_src afterward
-    df_computed = pd.DataFrame(
-        {
-            'HydroID': df_src['HydroID'],
-            'stage': df_src['Stage'],
-            'Bathymetry_source': df_src['Bathymetry_source'],
-            'subdiv_applied': subdiv_applied,
-            'subdiv_discharge_cms': final_discharge,
-            'discharge_cms': final_discharge,  # create a copy of vmann modified discharge (used to track future changes)
-        },
-        copy=False,
-    )
-
-    return df_computed
-
-
-@use_pandas_3_behavior()
-def get_subdivided_src(hydrofabric_dir, huc, branch, channel_manning_adj, overbank_manning_adj, slope_adj):
+def get_subdivided_src(crosswalk, hydrotable):
     """
     Method for subdividing a synthetic rating curve based on the high water threshold
 
     Parameters
     ----------
-    hydrofabric_dir: str
-        Directory with the hydrofabric directories
-    huc: str
-        Huc to process probabilistic FIM
-    branch: str
-        Name of final mosaiced probabilistic FIM
-    channel_manning_adj: float
-        Value for channel manning roughness
-    overbank_manning_adj: float
-        Value for overbank manning roughness
-    slope_adj: float
-        Adjustment of the calculated slope
+    crosswalk: pd.DataFrame
+        Crosswalk dataframe
+    hydrotable: pd.DataFrame
+        Hydrotable dataframe
     """
-    df_src = read_crosswalk(hydrofabric_dir, huc, branch)
-    df_src['channel_n'] = df_src['channel_n'] + channel_manning_adj
-    df_src['overbank_n'] = df_src['overbank_n'] + overbank_manning_adj
-    df_src['SLOPE'] = df_src['SLOPE'] + slope_adj
-    df_computed = get_computed_subdivisions(df_src)
-    del df_src
+    _, final_discharge = compute_manning_subdivision(crosswalk)
 
-    # drop the previously modified discharge column to be replaced with updated version
-    path = os.path.join(hydrofabric_dir, huc, "hydrotable.parquet")
-
-    htable_cols = ['HydroID', 'feature_id', 'HUC', 'branch_id', 'stage', 'SurfaceArea (m2)', 'LakeID']
-    df_htable = pd.read_parquet(
-        path, engine='pyarrow', filters=[('branch_id', '==', int(branch))], columns=htable_cols
+    # We copy because we want to release df_src afterward
+    df_computed = pd.DataFrame(
+        {
+            'HydroID': crosswalk['HydroID'],
+            'stage': crosswalk['Stage'],
+            #'subdiv_discharge_cms': final_discharge,
+            'discharge_cms': final_discharge,  # create a copy of vmann modified discharge (used to track future changes)
+        },
+        copy=False,
     )
-    df_htable = df_htable.reset_index()
-    df_htable = df_htable.astype({'HUC': "string[pyarrow]", 'HydroID': int, 'feature_id': "string[pyarrow]"})
+    df_computed = df_computed.set_index(["HydroID", "stage"])
+    return df_computed
 
-    df_htable = df_htable.merge(
+    df_htable = hydrotable.merge(
         df_computed, how='left', left_on=['HydroID', 'stage'], right_on=['HydroID', 'stage']
     )
-
-    df_htable['branch_id'] = int(branch)
-    df_htable['HydroID'] = df_htable['HydroID'].astype(str)
-    df_htable['feature_id'] = df_htable['feature_id'].astype(str)
+    df_htable = df_htable.set_index(['HydroID', 'stage'])
     df_htable['precalb_discharge_cms'] = 0
-
     return df_htable
 
 
@@ -585,34 +551,15 @@ def inundate_probabilistic(
     params_weibull = parameters.loc[parameters_df['distribution_name'] == 'weibull_min']
     params_weibull = params_weibull.set_index('feature_id')
 
-    # Fim outputs directory
-    fim_outputs_dir = outputs_dir
-
     # Masks for HUC Domain
     mask_path = os.path.join(hydrofabric_dir, huc, 'wbd.gpkg')
 
     # Percentiles and data to add
-    percentiles = {'90': 10, '75': 25, '50': 50, '25': 75, '10': 90}
-    percentile_values = {'feature_id': [], '90': [], '75': [], '50': [], '25': [], '10': []}
-
-    features = ensembles.coords['feature_id']
-
-    # For each feature in the provided ensembles
+    #percentiles = {'90': 10, '75': 25, '50': 50, '25': 75, '10': 90}
+    percentiles = (90, 75, 50, 25, 10)
 
     # Generate streamflow likelihoods for each feature
-    for feat in map(int, features):
-        ensemble_forecast = ensembles.sel({'feature_id': feat})
-
-        res = generate_streamflow_percentiles(
-            feature=feat, ensemble_forecast=ensemble_forecast, params_weibull=params_weibull
-        )
-
-        percentile_values['feature_id'].append(res['feature_id'])
-        percentile_values['90'].append(res['90'])
-        percentile_values['75'].append(res['75'])
-        percentile_values['50'].append(res['50'])
-        percentile_values['25'].append(res['25'])
-        percentile_values['10'].append(res['10'])
+    percentile_values = generate_streamflow_percentiles_vec(ensembles, params_weibull, percentiles)
 
     magnitude = ensembles.attrs['magnitude'] if 'magnitude' in ensembles.attrs else None
 
@@ -622,53 +569,90 @@ def inundate_probabilistic(
 
     # Make directories if they do not exist
     output_file_name = os.path.basename(mosaic_prob_output_name)
-    base_output_path = os.path.join(fim_outputs_dir, huc)
+    base_output_path = os.path.join(outputs_dir, huc)
 
     # Create directory if it does not exist
-    os.makedirs(base_output_path, exist_ok=True)
+    if is_local_path(base_output_path):
+        os.makedirs(base_output_path, exist_ok=True)
 
     # Find the original hydrotable
     all_branches = s3_or_local_glob(os.path.join(hydrofabric_dir, huc, "branches", "*"))
     all_branches = list(map(os.path.basename, all_branches))
 
+    htable_cols = ['HydroID', 'feature_id', 'HUC', 'branch_id', 'stage', 'SurfaceArea (m2)', 'LakeID']
+    df_htable = pd.read_parquet(
+        os.path.join(hydrofabric_dir, huc, "hydrotable.parquet"),
+        engine='pyarrow',
+        columns=htable_cols
+    )
+    df_htable = df_htable.reset_index()
+    df_htable = df_htable.astype({'HUC': "string[pyarrow]", 'HydroID': 'string[pyarrow]', 'feature_id': "string[pyarrow]"})
+    df_htable["precalb_discharge_cms"] = 0
+
+    adj_cols = ['channel_n', 'overbank_n', 'SLOPE']
+    crosswalk_static_cols = ['HydroID', 'Stage', 'Bathymetry_source']
+
     # Apply inundation map to each percentile
-    for percentile, val in percentiles.items():
-        channel_n_adj = channel_dist.ppf(1 - int(percentile) / 100)
-        overbank_n_adj = obank_dist.ppf(1 - int(percentile) / 100)
-        slope_adj = slope_dist.ppf(int(percentile) / 100)
+    branch_percentile_df = []
+    for branch, htable_branch in df_htable.groupby("branch_id", as_index=False):
+        crosswalk = read_crosswalk(hydrofabric_dir, huc, branch)
 
-        if percentile == '50':
-            channel_n_adj, overbank_n_adj, slope_adj = 0, 0, 0
+        # Copy the channel_n, overbank_n, and SLOPE values
+        adj_copies = crosswalk[adj_cols].copy()
 
+        # Collect all the subdivided hydrotables
+        h_tables = []
+        for percentile in percentiles:
+            if percentile == 50:
+                crosswalk[adj_cols] = adj_copies
+            else:
+                channel_n_adj = channel_dist.ppf(1 - percentile / 100)
+                overbank_n_adj = obank_dist.ppf(1 - percentile / 100)
+                slope_adj = slope_dist.ppf(percentile / 100)
+                # Adjust the channel, overbank, and slope parameters
+                crosswalk[adj_cols] = adj_copies + [channel_n_adj, overbank_n_adj, slope_adj]
+
+            h_table = get_subdivided_src(crosswalk, htable_branch)
+            h_table = h_table.rename(columns={n: f"{n}.{percentile}" for n in h_table.columns if n.startswith("discharge_cms")})
+            h_tables.append(h_table)
+        p_table = pd.concat(h_tables, axis=1)
+        branch_percentile_df.append(p_table)
+
+        # flow_df = pd.DataFrame(
+        #     {"feature_id": percentile_values['feature_id'], "discharge": percentile_values[percentile]}
+        # )
+    htable_req_static_cols = [
+        "branch_id",
+        "feature_id",
+        "HydroID",
+        "stage",
+        "HUC",
+        "LakeID",
+        "precalb_discharge_cms"
+    ]
+
+    full_p_table = df_htable.merge(pd.concat(branch_percentile_df), how='left', right_on=["HydroID", "stage"], left_index=True)
+    for percentile in percentiles:
         # Establish directory to save the final mosaiced inundation
         final_inundation_path = os.path.join(
             base_output_path, f'extent_{percentile}_v10_day{day}_hour{hour}.tif'
         )
 
         # Skip if the file exists
-        if os.path.exists(final_inundation_path) and not overwrite:
+        if not overwrite and s3_or_local_path_exists(final_inundation_path):
             continue
 
-        h_tables = []
-        for branch in all_branches:
-            h_table = get_subdivided_src(
-                hydrofabric_dir, huc, branch, channel_n_adj, overbank_n_adj, slope_adj
-            )
-            h_tables.append(h_table)
+        pcol = f"discharge_cms.{percentile}"
+        subhdf = full_p_table[htable_req_static_cols + [pcol]]
+        subhdf = subhdf.rename(columns={pcol: "discharge_cms"})
 
-        final_src = pd.concat(h_tables)
-
-        flow_df = pd.DataFrame(
-            {"feature_id": percentile_values['feature_id'], "discharge": percentile_values[percentile]}
-        )
-
-        flow_df = flow_df.set_index('feature_id')
+        flow_df = percentile_values[percentile]
 
         produce_mosaicked_inundation(
             hydrofabric_dir,
             huc,
             flow_df,
-            hydro_table_df=final_src,
+            hydro_table_df=subhdf,
             inundation_raster=final_inundation_path,
             mask=mask_path,
             verbose=not quiet,
