@@ -3,12 +3,14 @@
 import argparse
 import os
 import sys
+from datetime import datetime, timezone
 
 import geopandas as gpd
 import py7zr
 import rasterio as rio
 from osgeo import gdal
 
+import src.utils.shared_functions as sf
 from data.create_vrt_file import create_vrt_file
 from data.derive_headwaters import findHeadWaterPoints
 from data.nfhl.download_fema_nfhl import download_nfhl_wrapper
@@ -192,7 +194,11 @@ def preprocess_region(
     create_vrt_file(target_dem_folder, 'hand_seamless_3dep_dems.vrt')
 
     # Create DEM_Domain.parquet
-    __polygonize(target_dem_folder)
+    file_dt_string = datetime.now(timezone.utc).strftime("%Y_%m_%d-%H_%M_%S")
+    log_file_path = os.path.join(target_dem_folder, f"preprocess_nhdplus_{region}-{file_dt_string}.log")
+    file_logger = sf.setup_mp_file_logger(log_file_path, f"preprocess_nhdplus_{region}")
+
+    __polygonize(target_dem_folder, file_logger)
 
     # Extract and reproject NHDPlus streams
     nhd_flowline = os.path.join(nhd_path, 'NHDFlowline.shp')
