@@ -28,6 +28,7 @@ from tools_shared_functions import (
     select_grids,
 )
 
+from src.utils.io import write_geodataframe
 from utils.shared_variables import PREP_PROJECTION, VIZ_PROJECTION
 
 
@@ -91,7 +92,7 @@ def preprocess_nws(source_dir, destination, reference_raster):
         # Get metadata of site and search for NWM segments x miles upstream/x miles downstream
         select_by = 'nws_lid'
         selector = [code]
-        metadata_list, metadata_df = get_metadata(
+        metadata_list, metadata_df, err_msg = get_metadata(
             metadata_url,
             select_by,
             selector,
@@ -182,7 +183,7 @@ def preprocess_nws(source_dir, destination, reference_raster):
         # Adjust datum to NAVD88 if needed
         if datum_data.get('vcs') in ['NGVD29', 'NGVD 1929', 'NGVD,1929']:
             # Get the datum adjustment to convert NGVD to NAVD. Sites not in contiguous US are previously removed otherwise the region needs changed.
-            datum_adj_ft = ngvd_to_navd_ft(datum_info=datum_data)
+            datum_adj_ft, __ = ngvd_to_navd_ft(datum_info=datum_data)
             datum88 = round(datum + datum_adj_ft, 2)
         else:
             datum88 = datum
@@ -357,7 +358,7 @@ def preprocess_nws(source_dir, destination, reference_raster):
             filled_extent = list(ahps_directory.rglob('*_extent_*.tif'))[0]
             domain_gpd = raster_to_feature(grid=filled_extent, profile_override=False, footprint_only=True)
             domain_gpd['nws_lid'] = code
-            domain_gpd.to_file(ahps_directory / f'{code}_domain.shp')
+            write_geodataframe(domain_gpd, ahps_directory / f'{code}_domain.shp')
 
             # Populate attribute information for site
             grids_attributes = pd.DataFrame(data=grids.items(), columns=['magnitude', 'path'])

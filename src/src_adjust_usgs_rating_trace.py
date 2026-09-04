@@ -10,9 +10,17 @@ import pandas as pd
 
 from src_roughness_optimization import update_rating_curve
 from tools.tools_shared_functions import filter_usgs_by_acceptance_criteria
-from utils.shared_functions import check_file_age, concat_huc_csv
+from utils.shared_functions import check_file_age
 from utils.shared_variables import USGS_CALB_TRACE_DIST
 
+
+#################################
+# TODO: July 4, 2026:  In the event of an exception, the log file will not exist
+# and its details as well.
+# This needs a try/except with printing to log and at least a one liner
+# saying including the word "exception or error", which can be picked up automatically
+# by the rollup to fim_process_huc.sh or process_rerun_calibration_huc.sh
+################################
 
 '''
 The script ingests a USGS rating curve csv and a NWM flow recurrence interval database.
@@ -96,10 +104,16 @@ def create_usgs_rating_database(
 
     # If all records filtered out, write log and return empty dataframe
     if len(usgs_rc_df) == 0:
-        log_text += '\n[WARNING] All gages were removed after filtering criteria.\n'
+        msg = "[WARNING] All gages were removed after filtering criteria."
+        log_text += f'\n {msg} \n'
         log_usgs_db = open(os.path.join(log_dir, 'log_usgs_rc_database.log'), "w")
         log_usgs_db.write(log_text)
         log_usgs_db.close()
+
+        # this goes back to calibrate_rating_curve.sh which rolls up to its parent "tee"
+        # Then it can be scanned in the error system based on solely the "tee" file
+        print(msg)
+
         return pd.DataFrame()
     # calculate hand elevation
     usgs_rc_df['hand'] = usgs_rc_df['elevation_navd88_m'] - usgs_rc_df['hand_datum']
@@ -316,13 +330,14 @@ def branch_proc_list(usgs_df, huc_dir, debug_outputs_option, log_file, branch_jo
             branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_' + branch_id + '.tif'
         )
         catchments_poly_path = os.path.join(
-            branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked_' + branch_id + '.gpkg'
+            branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked_' + branch_id + '.parquet'
         )
         htable_path = os.path.join(branch_dir, 'hydroTable_' + branch_id + '.csv')
         dem_reaches_path = os.path.join(
-            branch_dir, 'demDerived_reaches_split_filtered_addedAttributes_crosswalked_' + branch_id + '.gpkg'
+            branch_dir,
+            'demDerived_reaches_split_filtered_addedAttributes_crosswalked_' + branch_id + '.parquet',
         )
-        df = gpd.read_file(dem_reaches_path)
+        df = gpd.read_parquet(dem_reaches_path)
         usgs_elev = usgs_df[((usgs_df['huc'] == huc) & (usgs_df['levpa_id'] == branch_id))]
 
         # Calculate updstream/downstream trace ()

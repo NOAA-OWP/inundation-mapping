@@ -16,11 +16,15 @@ from tools_shared_functions import filter_nwm_segments_by_stream_order, flow_dat
 
 # foss_fim imports
 import data.wrds.download_process_wrds as dpw
+import src.utils.shared_functions as sf
 import tools.catfim.catfim_shared_functions as csf
 
 
 gpd.options.io_engine = "pyogrio"
-
+# Force GDAL to use standard locking and synchronous write modes
+# helps with gpkg.to_file writes
+os.environ["GDAL_GEO_TRUNCATE_JOURNAL"] = "YES"
+os.environ["OGR_SQLITE_SYNCHRONOUS"] = "OFF"  # Speeds up network writes
 
 """
 Sites_gdf:
@@ -35,7 +39,7 @@ Sites_gdf:
 """
 
 # TODO: This file could be renamed to something like generate_categorical_fim_thresholds
-# as "flows" is not descriptive enough. Note: Renaming it will maintian its history.
+# as "flows" is not descriptive enough. Note: Renaming it will maintain its history.
 
 
 def get_threshold_data(huc, huc_path, valid_nwm_lids):
@@ -241,29 +245,31 @@ def process_threshold_data(
     # ================================
     # Validate function inputs
 
-    # Log an error and exit if the metadata JSON is empty
+    huc_library_df = pd.DataFrame()
+
+    # Log a warning and exit if the metadata JSON is empty
     if len(metadata_json) == 0:
         msg = f'{huc} - Process Threshold Data - Metadata JSON empty, unable to process threshold data.'
-        logging.error(msg)
-        return sites_gdf, None
+        logging.warning(msg)
+        return sites_gdf, huc_library_df
 
-    # Log an error and exit if the valid_lids is empty
+    # Log a warning and exit if the valid_lids is empty
     if len(valid_lids) == 0:
         msg = f'{huc} - Process Threshold Data - Valid LIDs list is empty, unable to process threshold data.'
-        logging.error(msg)
-        return sites_gdf, None
+        logging.warning(msg)
+        return sites_gdf, huc_library_df
 
-    # Log an error and exit if the threshold_huc_df is empty
+    # Log a warning and exit if the threshold_huc_df is empty
     if len(threshold_huc_df) == 0:
         msg = f'{huc} - Process Threshold Data - threshold_huc_df is empty, unable to process threshold data.'
-        logging.error(msg)
-        return sites_gdf, None
+        logging.warning(msg)
+        return sites_gdf, huc_library_df
 
-    # Log an error and exit if the sites_gdf is empty
+    # Log a warning and exit if the sites_gdf is empty
     if len(sites_gdf) == 0:
         msg = f'{huc} - Process Threshold Data - sites_gdf is empty, unable to process threshold data.'
-        logging.error(msg)
-        return sites_gdf, None
+        logging.warning(msg)
+        return sites_gdf, huc_library_df
 
     # ================================
     # Create filepath variables
@@ -271,26 +277,14 @@ def process_threshold_data(
     segments_file_path = os.path.join(huc_path, "features_segments.csv")
 
     # ================================
-    # Load the flows dataframe based on the HUC
+    # Load the flows geodataframe based on the HUC
 
-    if huc[:4] == '2201':  # Guam
-        nwm_flows_region_df = gpd.read_file(os.getenv('input_nhd_flows_Guam'))
-    elif huc[:4] == '2203':  # American Samoa
-        nwm_flows_region_df = gpd.read_file(os.getenv('input_nhd_flows_AmericanSamoa'))
-    elif huc[:2] == '19':  # Alaska
-        nwm_flows_region_df = gpd.read_file(os.getenv('input_nwm_flows_Alaska'))
-    else:  # CONUS + Hawaii + Puerto Rico
-        nwm_flows_region_df = gpd.read_file(os.getenv('input_nwm_flows'))  # might be slow, it is 1.8 GiB
+    nwm_flows_region_df = gpd.read_file(sf.get_huc_vars(huc)['streams'], engine='fiona')
 
-    # Note: 'else' assumes that any HUC not meeting the above criteria is CONUS, HI, or PR. If an
-    # valid HUC makes it this far (unlikely), it will fall out later in the processing.
-
-    # TODO: Rob: This should be changed to loading something_path at the HUC level for flow data,
-    # because the CONUS flow file it is 1.6 GiB and is a bit slow to load.
-    #
-    # Emily: I'm not certain that any of our FIM output flowlines files will be correct for this
-    # application. However, we could potentially use the preclip workflow to create
-    # HUC-level flow files for each HUC. I think this is a task to add to the CatFIM Epic.
+    # Note: CONUS + Hawaii + Puerto Rico falls through to get_huc_vars' 'else' case, which might be
+    # slow to load as it is 1.8 GiB.
+    # TODO: Would be good to read in a smaller flows file. However, it doens't look like
+    # any of the HUC-level FIM output flowlines files would be correct for this application.
 
     # ================================
     # Compile intermediate library data for all valid site/magnitude combinations in the HUC
@@ -423,12 +417,6 @@ def __create_sb_huc_library_data(
       consistency with the status messaging. In the future, we can look into optimising this
       a bit more (aka making it into just one function for flow- and stage-based CatFIM).
 
-    - TODO: of course, SB needs the data from the stage row, but down the road
-      it also nees some data from the flow row. See __adjust_datum_ft.
-      SO.. As we iterate through lids, makes sure they have both rows.
-
-    SB will use the segments file, but segments will be created anyways as a checkpoint.
-    TODO: Rob, do we mean that SB will NOT use the segments file? typo?
     '''
 
     # Initialize output dataframes
@@ -471,6 +459,8 @@ def __create_sb_huc_library_data(
         # Get the stream segments for the site
         segments_lst = __get_segments(lid_metadata, nwm_flows_region_df)
 
+        logging.info(f"{huc} : {lid} - Found {len(segments_lst)} stream segments for site")
+
         # Update the mapped and status columns of the sites_gdf if we are missing NWM stream segments
         if not segments_lst or len(segments_lst) == 0:
             err_msg = 'Missing nwm stream segments'
@@ -479,6 +469,8 @@ def __create_sb_huc_library_data(
             continue
 
         elif len(segments_lst) > 0:
+            logging.info(f"{huc} : {lid} - Stream segments: {segments_lst}")
+
             # Turn segments_lst from a simple list of feature IDs into a dataframe and add a lid column
             lid_seg_df = pd.DataFrame(data=segments_lst, columns=["feature_id"])
             lid_seg_df["lid"] = lid
@@ -589,7 +581,7 @@ def __get_sb_library_data_per_lid(huc, lid, sites_gdf, lid_threshold_data):
     for magnitude_type in csf.MAGNITUDES_TYPES:
         try:
             # -------------
-            logging.info(f"{huc} : {lid} : {magnitude_type} - Building initial library rec")
+            # logging.info(f"{huc} : {lid} : {magnitude_type} - Building initial library rec")  # too verbose
 
             # Get stage value (will be float type, rounded to 2 decimal points)
             stage_value = stages[magnitude_type]
@@ -776,6 +768,9 @@ def __create_fb_huc_library_data(
         # Get the stream segments for the site
         segments_lst = __get_segments(lid_metadata, nwm_flows_region_df)
 
+        logging.info(f"{huc} : {lid} - Found {len(segments_lst)} stream segments for site")  # TEMP DEBUG
+        logging.info(f"{huc} : {lid} - Stream segments: {segments_lst}")  # TEMP DEBUG
+
         # Update the mapped and status columns of the sites_gdf if we are missing NWM stream segments
         if not segments_lst or len(segments_lst) == 0:
             err_msg = 'No NWM stream segments affiliated with site'  # previously said: 'Missing nwm stream segments'
@@ -912,9 +907,9 @@ def __get_fb_discharge_and_library_data_per_lid(huc, lid, sites_gdf, lid_thresho
     for magnitude_type in csf.MAGNITUDES_TYPES:
         try:
             # -------------
-            logging.info(
-                f"{huc} : {lid} : {magnitude_type} - Building initial library rec and discharge data"
-            )
+            # logging.info(  # too verbose
+            # f"{huc} : {lid} : {magnitude_type} - Building initial library rec and discharge data"
+            # )
 
             # Get flow value (will be float type, rounded to 2 decimal points)
             flow_value = flows[magnitude_type]

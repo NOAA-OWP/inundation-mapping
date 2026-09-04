@@ -17,6 +17,8 @@ import pandas as pd
 import src.utils.shared_functions as sf
 import src.utils.shared_validators as val
 from data.create_vrt_file import create_vrt_file
+from src.utils.io import write_geodataframe
+from src.utils.polygonize_raster import polygonize_raster
 from src.utils.shared_functions import FIM_Helpers as fh
 
 
@@ -104,7 +106,7 @@ def acquire_and_preprocess_3dep_dems(
             This program supports multiple procs if multiple procs/cores are available.
 
         - repair (True / False):
-            If repair is True then look for output DEMs that are missing or are too small (under 10mg).
+            If repair is True then look for output DEMs that are missing.
             This happens often as there can be instabilty when running long running processes.
             USGS calls and networks can blip and some of the full BED can take many, many hours.
             It will also look for DEMs that were missed entirely on previous runs.
@@ -112,7 +114,7 @@ def acquire_and_preprocess_3dep_dems(
         - skip_polygons (bool)
              If True, then we will not attempt to create polygon files for each dem file. If false,
              an domain gpkg which covers the extent of all included features merged. It will automatically
-             be named DEM_Domain.gpkg and saved in the same folderd as the target_output_folder_path.
+             be named DEM_Domain.parquet and saved in the same folder as the target_output_folder_path.
 
         - target_projection (String)
              Projection of the output DEMS and polygons (if included)
@@ -239,8 +241,7 @@ def acquire_and_preprocess_3dep_dems(
     print(
         '---- NOTE: Remember to scan the log file for any failures. If you find errors in the'
         ' log file, delete the output file and repair. When running in repair mode, it will scan for'
-        ' missing files and will also reload any file that is under 5 MiB as it will assume it'
-        ' failed on earlier attempts.'
+        ' missing files.'
     )
     print()
 
@@ -373,8 +374,7 @@ def __download_usgs_dem_file(
             - base_cmd (str)
                  The basic GDAL command with string formatting wholes for key values.
             - repair (bool)
-                 If True, and the file does not exist or is too small (under 10mb),
-                 it will attempt to download.
+                 If True, and the file does not exist, it will attempt to download.
 
         Returns:
         ----------
@@ -400,24 +400,11 @@ def __download_usgs_dem_file(
     # This is part of the convention of using run_with_mp
     processed_successfully = 1  # True
 
-    # It does happen where the final output size can be very small (or all no-data)
-    # which is related to to the spatial extents of the dem and the vrt combined.
-    # so, super small .tifs are correct.
-
-    # TODO: This is a bit goofy but when in repair mode, it sees if the file is smaller than 10 Mib
-    # and it if is, it assumes it is in error and attempts to reload it.
-    # We really could use something smarter.
-    # If the previous download failed, it is always ends up under 5 MiB
-
-    if (repair) and (os.path.exists(target_file)):
-        num_bytes = 5 * 100000  # 5 MiB
-        if os.path.getsize(target_file) < num_bytes:
-            os.remove(target_file)
-        else:
-            msg = f" - Downloading -- {target_file_name_raw} - Skipped (already exists (see retry flag))"
-            sf.l_print(msg, file_logger, "info", screen_queue)
-            rtn_dic["success"] = "Skipped"
-            return processed_successfully, rtn_dic
+    if repair and os.path.exists(target_file):
+        msg = f" - Downloading -- {target_file_name_raw} - Skipped (already exists (see repair flag))"
+        sf.l_print(msg, file_logger, "info", screen_queue)
+        rtn_dic["success"] = "Skipped"
+        return processed_successfully, rtn_dic
 
     file_dt_string = datetime.now(timezone.utc).strftime("%Y_%m_%d-%H_%M_%S")
     msg = f" - Downloading -- {target_file_name_raw} - Started: {file_dt_string}"
@@ -478,7 +465,7 @@ def __polygonize(target_output_folder_path, file_logger):
     Note: If you have to re-run this tool to repair some DEMs, this section must be re-run and is by default.
 
     """
-    dem_domain_file = os.path.join(target_output_folder_path, 'DEM_Domain.gpkg')
+    dem_domain_file = os.path.join(target_output_folder_path, 'DEM_Domain.parquet')
 
     msg = f" - Polygonizing -- {dem_domain_file} - Started (be patient, it can take a while)"
     sf.l_print(msg, file_logger, "info")
@@ -493,12 +480,12 @@ def __polygonize(target_output_folder_path, file_logger):
 
     dem_files.sort()
 
-    dem_gpkgs = gpd.GeoDataFrame()
+    dem_parquets = gpd.GeoDataFrame()
 
     for n, dem_file in enumerate(dem_files):
         sf.l_print(f"Polygonizing: {dem_file}", file_logger, "info")
         edge_tif = f'{os.path.splitext(dem_file)[0]}_edge.tif'
-        edge_gpkg = f'{os.path.splitext(edge_tif)[0]}.gpkg'
+        edge_parquet = f'{os.path.splitext(edge_tif)[0]}.parquet'
 
         # Calculate a constant valued raster from valid DEM cells
         if not os.path.exists(edge_tif):
@@ -525,21 +512,21 @@ def __polygonize(target_output_folder_path, file_logger):
             )
 
         # Polygonize constant valued raster
-        subprocess.run(['gdal_polygonize.py', '-8', edge_tif, '-q', '-f', 'GPKG', edge_gpkg])
+        polygonize_raster(edge_tif, edge_parquet, field_name="HydroID", connectivity=8, quiet=True)
 
-        gdf = gpd.read_file(edge_gpkg)
+        gdf = gpd.read_parquet(edge_parquet)
 
         if n == 0:
-            dem_gpkgs = gdf
+            dem_parquets = gdf
         else:
-            dem_gpkgs = pd.concat([dem_gpkgs, gdf])
+            dem_parquets = pd.concat([dem_parquets, gdf])
 
         os.remove(edge_tif)
-        os.remove(edge_gpkg)
+        os.remove(edge_parquet)
 
-    dem_gpkgs['DN'] = 1
-    dem_dissolved = dem_gpkgs.dissolve(by='DN')
-    dem_dissolved.to_file(dem_domain_file, driver='GPKG', engine='fiona')
+    dem_parquets['DN'] = 1
+    dem_dissolved = dem_parquets.dissolve(by='DN')
+    write_geodataframe(dem_dissolved, dem_domain_file)
 
     if not os.path.exists(dem_domain_file):
         sf.l_print(f" - Polygonizing -- {dem_domain_file} - Failed", file_logger, "error")
@@ -649,8 +636,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '-rp',
         '--repair',
-        help='OPTIONAL: If included, it process only file names missing output DEMs or if the output DEM'
-        ' is too small (under 5 MB), which does happen. Read all inline notes about this feature',
+        help='OPTIONAL: If included, it process only file names missing output DEMs'
+        ' which happen. Read all inline notes about this feature.',
         required=False,
         action='store_true',
         default=False,

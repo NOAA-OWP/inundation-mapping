@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 
 import argparse
+import os
 
 import geopandas as gpd
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+
+from src.utils.io import write_geodataframe
 
 
 gpd.options.io_engine = "pyogrio"
@@ -113,7 +116,7 @@ def evaluate_continuity(
         fig.savefig(plot_file)
 
     if stream_network_outfile is not None:
-        stream_network.to_file(stream_network_outfile, index=False, driver='GPKG', engine='fiona')
+        write_geodataframe(stream_network, stream_network_outfile, index=False)
 
     return stream_network
 
@@ -132,7 +135,11 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--stream-network-file', help='Stream Network', required=True)
     parser.add_argument('-f', '--forecast-file', help='Forecast File', required=True)
     parser.add_argument(
-        '-o', '--stream-network-outfile', help='Stream Network Outfile', required=False, default=None
+        '-o',
+        '--stream-network-outfile',
+        help='Stream Network Outfile (Path to GPKG or Parquet output.)',
+        required=False,
+        default=None,
     )
     parser.add_argument(
         '-c',

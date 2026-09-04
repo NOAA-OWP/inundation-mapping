@@ -7,9 +7,11 @@ import warnings
 from posixpath import dirname
 
 import geopandas as gpd
+import numpy as np
 import pandas as pd
 from shapely.geometry import Point
 
+from utils.io import write_geodataframe
 from utils.shared_variables import PREP_CRS
 
 
@@ -86,10 +88,9 @@ class Gage2Branch(object):
 
         # Create gages attribute
         self.gages.location_id.fillna(self.gages.nws_lid, inplace=True)
-        self.gages.loc[self.gages['nws_lid'] == 'Bogus_ID', 'nws_lid'] = None
 
     def sort_into_branch(self, nwm_subset_streams_levelPaths):
-        nwm_reaches = gpd.read_file(nwm_subset_streams_levelPaths)
+        nwm_reaches = gpd.read_parquet(nwm_subset_streams_levelPaths)
         nwm_reaches = nwm_reaches.rename(columns={'ID': 'feature_id'})
 
         if not self.gages[self.gages.feature_id.isnull()].empty:
@@ -105,6 +106,8 @@ class Gage2Branch(object):
             del nwm_reaches_union
 
         # Left join gages with NWM streams to get the level path
+        # If the feature_id is Null, change it to a large neg so it won't won't merge
+        self.gages.feature_id.replace(np.nan, "-999999999", inplace=True)
         self.gages.feature_id = self.gages.feature_id.astype(int)
         self.gages = self.gages.merge(
             nwm_reaches[['feature_id', 'levpa_id', 'order_']], on='feature_id', how='left'
@@ -118,7 +121,7 @@ class Gage2Branch(object):
         return self.gages
 
     def write(self, out_name):
-        self.gages.to_file(out_name, driver='GPKG', index=False, engine='fiona')
+        write_geodataframe(self.gages, out_name, index=False)
 
     @staticmethod
     def sjoin_nearest_to_nwm(pnt, lines, union):
@@ -199,9 +202,7 @@ if __name__ == '__main__':
         usgs_gage_subset.write(output_filename)
 
         # Create seperate output for branch zero
-        output_filename_zero = (
-            os.path.splitext(output_filename)[0] + '_' + bzero_id + os.path.splitext(output_filename)[-1]
-        )
+        output_filename_zero = os.path.splitext(output_filename)[0] + '_' + bzero_id + '.parquet'
         usgs_gage_subset.branch_zero(bzero_id)
         usgs_gage_subset.write(output_filename_zero)
 

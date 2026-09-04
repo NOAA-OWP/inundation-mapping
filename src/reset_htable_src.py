@@ -53,7 +53,10 @@ def process_branch(sub_branch_path, branch, huc_id):
 
     # If the merge failed, Exit gracefully.
     if recalc_df.empty:
-        print(f"Warning: Merge failed for branch {branch}. No matching CatchId/HydroID found. Skipping.")
+        print(
+            f"Warning: Merge failed for branch {branch} for huc_id {huc_id}."
+            " No matching CatchId/HydroID found. Skipping."
+        )
         return
 
     recalc_df.rename(columns={'default_SLOPE': 'SLOPE', 'default_ManningN': 'ManningN'}, inplace=True)
@@ -137,6 +140,31 @@ def process_branch(sub_branch_path, branch, huc_id):
     input_hydro_table['discharge_cms'] = input_hydro_table['Discharge (m3s-1)']
     input_hydro_table['default_discharge_cms'] = input_hydro_table['Discharge (m3s-1)']
     input_hydro_table['subdiv_discharge_cms'] = pd.NA
+
+    # Reset calibration columns to default states
+    na_cols = [
+        'precalb_discharge_cms',
+        'calb_coef_usgs',
+        'calb_coef_spatial',
+        'calb_coef_ras2fim',
+        'calb_coef_final',
+        'last_updated',
+        'submitter',
+        'obs_source',
+        'channel_n',
+        'overbank_n',
+        'Bathymetry_source',
+    ]
+    for col in na_cols:
+        if col in input_hydro_table.columns:
+            input_hydro_table[col] = pd.NA
+
+    if 'calb_applied' in input_hydro_table.columns:
+        input_hydro_table['calb_applied'] = False
+
+    if 'subdiv_applied' in input_hydro_table.columns:
+        input_hydro_table['subdiv_applied'] = False
+
     input_hydro_table.drop(columns=['Discharge (m3s-1)'], inplace=True)
 
     # Save updated files

@@ -13,6 +13,7 @@ import rasterio
 from dotenv import load_dotenv
 
 from src_roughness_optimization import update_rating_curve
+from utils.io import write_geodataframe
 from utils.shared_variables import (
     DEFAULT_FIM_PROJECTION_CRS,
     DOWNSTREAM_THRESHOLD,
@@ -23,6 +24,14 @@ from utils.shared_variables import (
 
 gpd.options.io_engine = "pyogrio"
 
+
+#################################
+# TODO: July 4, 2026:  In the event of an exception, the log file will not exist
+# and its details as well.
+# This needs a try/except with printing to log and at least a one liner
+# saying including the word "exception or error", which can be picked up automatically
+# by the rollup to fim_process_huc.sh or process_rerun_calibration_huc.sh
+################################
 
 # Import variables from .env file
 load_dotenv('/foss_fim/src/bash_variables.env')
@@ -133,9 +142,9 @@ def process_points(args):
         ## Intermediate output for debugging
         if optional_outputs:
             branch_debug_pts_out_gpkg = os.path.join(
-                branch_dir, 'export_water_edge_df_' + branch_id + '.gpkg'
+                branch_dir, 'export_water_edge_df_' + branch_id + '.parquet'
             )
-            water_edge_df.to_file(branch_debug_pts_out_gpkg, driver='GPKG', index=False, engine='fiona')
+            write_geodataframe(water_edge_df, branch_debug_pts_out_gpkg, index=False)
 
         # print('Processing points for HUC: ' + str(huc) + '  Branch: ' + str(branch_id))
         ## Get median HAND value for appropriate groups.
@@ -215,11 +224,9 @@ def ingest_points_layer(huc_dir, branch_jobs, debug_outputs_option, log_file):
     if debug_outputs_option:
         huc_debug_pts_out = os.path.join(huc_dir, 'debug_water_edge_df_' + huc + '.csv')
         water_edge_df.to_csv(huc_debug_pts_out)
-        huc_debug_pts_out_gpkg = os.path.join(huc_dir, 'export_water_edge_df_' + huc + '.gpkg')
-        water_edge_df.to_file(huc_debug_pts_out_gpkg, driver='GPKG', index=False, engine='fiona')
-        # write parquet file using ".to_parquet() method"
+        # write file
         parquet_filepath = os.path.join(huc_dir, 'debug_water_edge_df_' + huc + '.parquet')
-        water_edge_df.to_parquet(parquet_filepath, index=False)
+        write_geodataframe(water_edge_df, parquet_filepath, index=False)
 
     procs_list = []
     huc_branches_dir = os.path.join(huc_dir, 'branches')
@@ -232,7 +239,7 @@ def ingest_points_layer(huc_dir, branch_jobs, debug_outputs_option, log_file):
         )
         htable_path = os.path.join(branch_dir, 'hydroTable_' + branch_id + '.csv')
         catchments_poly_path = os.path.join(
-            branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked_' + branch_id + '.gpkg'
+            branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked_' + branch_id + '.parquet'
         )
         hydroid_prefix_path = os.path.join(branch_dir, 'hydroid_prefix.txt')
 

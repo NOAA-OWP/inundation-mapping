@@ -15,11 +15,12 @@ from run_test_case import Test_Case
 from shapely.validation import make_valid
 from tools_shared_functions import compute_stats_from_contingency_table
 
-import utils.fim_logger as fl
-from utils.shared_variables import VIZ_PROJECTION
+import src.utils.fim_logger as fl
+from src.utils.io import write_geodataframe
+from src.utils.shared_variables import VIZ_PROJECTION
 
 
-warnings.filterwarnings("ignore", category=FutureWarning, module="gdal")
+warnings.filterwarnings("ignore", category=FutureWarning)
 gpd.options.io_engine = "pyogrio"
 
 
@@ -79,6 +80,8 @@ def assemble_hydro_alpha_for_single_huc(stats, huc8, mag, bench):
     )
 
     FLOG.trace(f"Assemble hydro for huc is {huc8} for {mag} and  {bench}")
+
+    stats_df_list = []
 
     for dicts in stats:
         tot_pop = dicts['tn'] + dicts['fn'] + dicts['fp'] + dicts['tp']
@@ -194,8 +197,14 @@ def assemble_hydro_alpha_for_single_huc(stats, huc8, mag, bench):
             ],
         )
 
-        concat_list = [in_mem_df, dict_to_df]
-        in_mem_df = pd.concat(concat_list, sort=False)
+        stats_df_list.append(dict_to_df)
+        # concat_list = [in_mem_df, dict_to_df]
+        # in_mem_df = pd.concat(concat_list, sort=False)
+
+    if len(stats_df_list) == 0:
+        raise Exception("List of stats dictionaries should not be empty")
+
+    in_mem_df = pd.concat(stats_df_list, axis=0, ignore_index=True)
 
     return in_mem_df
 
@@ -271,7 +280,10 @@ def catchment_zonal_stats(benchmark_category, version, output_file_name):
             "gw_catchments_reaches_filtered_addedAttributes_crosswalked_0.gpkg",
         )
 
-        catchment_geom = gpd.read_file(catchment_gpkg)
+        if os.path.splitext(catchment_gpkg)[-1].lower() == '.parquet':
+            catchment_geom = gpd.read_parquet(catchment_gpkg)
+        else:
+            catchment_geom = gpd.read_file(catchment_gpkg)
         catchment_geom['geometry'] = catchment_geom.apply(lambda row: make_valid(row.geometry), axis=1)
 
         for agree_rast in agreement_dict:
@@ -324,7 +336,7 @@ def catchment_zonal_stats(benchmark_category, version, output_file_name):
     FLOG.lprint("------------------------------------")
 
     FLOG.lprint(f'Writing geopackage {output_file_name}')
-    csv_output.to_file(output_file_name, index=False, driver="GPKG", engine='fiona')
+    write_geodataframe(csv_output, output_file_name, index=False)
 
     FLOG.lprint('Writing to CSV')
     csv_path = output_file_name.replace(".gpkg", ".csv")
@@ -346,19 +358,19 @@ if __name__ == "__main__":
     parser.add_argument(
         '-b',
         '--benchmark_category',
-        help='Choice of truth data. Options are: all, ble, ifc, nws, usgs, ras2fim',
+        help='REQUIRED: Choice of truth data. Options are: all, ble, ifc, nws, usgs, ras2fim',
         required=True,
     )
     parser.add_argument(
         '-v',
         '--version',
-        help='The fim version to use. eg) hand_4_5_11_1. Note: folder must be in the previous_fim folder.',
+        help='REQUIRED: The fim version to use. eg) hand_4_5_11_1. Note: folder must be in the previous_fim folder.',
         required=True,
     )
     parser.add_argument(
         '-g',
         '--gpkg',
-        help='Filepath and filename to hold exported gpkg file.'
+        help='REQUIRED: Filepath and filename to hold exported gpkg file.'
         ' eg. /data/fim_performance/hand_4_5_11_1/fim_performance_catchments.gpkg.'
         ' A CSV with the same name will also be written.',
         required=True,

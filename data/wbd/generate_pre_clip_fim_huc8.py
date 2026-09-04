@@ -18,7 +18,9 @@ import geopandas as gpd
 from clip_vectors_to_wbd import subset_vector_layers
 from dotenv import load_dotenv
 
+from src.utils.io import write_geodataframe
 from src.utils.shared_functions import FIM_Helpers as fh
+from src.utils.shared_functions import get_huc_vars
 
 
 """
@@ -63,28 +65,6 @@ projectDir = os.getenv('projectDir')
 load_dotenv(f'{srcDir}/bash_variables.env')
 load_dotenv(f'{projectDir}/config/params_template.env')
 
-# Variables from src/bash_variables.env
-DEFAULT_FIM_PROJECTION_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
-ALASKA_CRS = os.getenv('ALASKA_CRS')  # Alaska
-GUAM_CRS = os.getenv('GUAM_CRS')  # Guam
-AMERICAN_SAMOA_CRS = os.getenv('AMERICAN_SAMOA_CRS')  # American Samoa
-
-input_WBD_gdb = os.getenv('input_WBD_gdb')
-input_WBD_gdb_Alaska = os.getenv('input_WBD_gdb_Alaska')  # Alaska
-input_WBD_gdb_Guam = os.getenv('input_WBD_gdb_Guam')  # Guam
-input_WBD_gdb_AmericanSamoa = os.getenv('input_WBD_gdb_AmericanSamoa')  # American Samoa
-
-input_DEM_domain = os.getenv('input_DEM_domain')
-input_DEM_domain_Alaska = os.getenv('input_DEM_domain_Alaska')  # Alaska
-input_DEM_domain_Guam = os.getenv('input_DEM_domain_Guam')  # Guam
-input_DEM_domain_AmericanSamoa = os.getenv('input_DEM_domain_AmericanSamoa')  # American Samoa
-
-input_landsea = os.getenv('input_landsea')
-input_landsea_Alaska = os.getenv('input_landsea_Alaska')  # Alaska
-input_landsea_Guam = os.getenv('input_landsea_Guam')  # Guam
-input_landsea_AmericanSamoa = os.getenv('input_landsea_AmericanSamoa')  # American Samoa
-
-input_GL_boundaries = os.getenv('input_GL_boundaries')
 
 wbd_buffer_distance = float(os.getenv('wbd_buffer'))
 
@@ -381,38 +361,15 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir, copy_from_dir, preclipping_f
 
         # SET VARIABLES AND FILE INPUTS #
         hucUnitLength = len(huc)
-        huc2Identifier = huc[:2]
         input_NHD_WBHD_layer = f"WBDHU{hucUnitLength}"
 
-        # Check whether the HUC is in Alaska or not and assign the CRS and filenames accordingly
-        if huc2Identifier == '19':
-            huc_CRS = ALASKA_CRS
-            input_WBD_filename = input_WBD_gdb_Alaska
-            dem_domain = input_DEM_domain_Alaska
-        elif huc == '22010000':  # Guam
-            huc_CRS = GUAM_CRS
-            input_WBD_filename = input_WBD_gdb_Guam
-            dem_domain = input_DEM_domain_Guam
-        elif huc == '22030001':  # American Samoa
-            huc_CRS = AMERICAN_SAMOA_CRS
-            input_WBD_filename = input_WBD_gdb_AmericanSamoa
-            dem_domain = input_DEM_domain_AmericanSamoa
-        else:
-            huc_CRS = DEFAULT_FIM_PROJECTION_CRS
-            input_WBD_filename = input_WBD_gdb
-            dem_domain = input_DEM_domain
+        huc_vars = get_huc_vars(huc)
+        huc_CRS = huc_vars['crs']
+        input_WBD_filename = huc_vars['wbd']
+        dem_domain = huc_vars['dem_domain']
 
         # Define the landsea waterbody mask using either Great Lakes or Ocean polygon input #
-        if huc2Identifier == "04":
-            input_LANDSEA = f"{input_GL_boundaries}"
-        elif huc2Identifier == "19":
-            input_LANDSEA = input_landsea_Alaska
-        elif huc == '22010000':
-            input_LANDSEA = input_landsea_Guam
-        elif huc == '22030001':
-            input_LANDSEA = input_landsea_AmericanSamoa
-        else:
-            input_LANDSEA = input_landsea
+        input_LANDSEA = huc_vars['landsea']
 
         logging.info(f"-- {huc} : Get WBD")
 
@@ -444,7 +401,7 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir, copy_from_dir, preclipping_f
 
             # make sure the HUC boundary does not extend beyond DEM
             logging.info(f"Using DEM domain source for {huc}: {dem_domain}")
-            dem_domain_gdf = gpd.read_file(dem_domain, engine="pyogrio", use_arrow=True)
+            dem_domain_gdf = gpd.read_parquet(dem_domain)
             wbd = gpd.clip(wbd, dem_domain_gdf)
 
             logging.info(f"Create wbd buffer for {huc}")
@@ -461,7 +418,8 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir, copy_from_dir, preclipping_f
             )
 
             wbd_streams_buffer = wbd_streams_buffer[['geometry']]
-            wbd_streams_buffer.to_file(
+            write_geodataframe(
+                wbd_streams_buffer,
                 os.path.join(huc_directory, 'wbd_buffered_streams.gpkg'),
                 driver='GPKG',
                 index=False,
@@ -476,7 +434,8 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir, copy_from_dir, preclipping_f
 
             # some hucs do not have landsea
             if not landsea.empty:
-                landsea.to_file(
+                write_geodataframe(
+                    landsea,
                     os.path.join(huc_directory, "LandSea_subset.gpkg"),
                     driver='GPKG',
                     index=False,
@@ -490,7 +449,8 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir, copy_from_dir, preclipping_f
 
             del landsea
 
-            wbd.to_file(
+            write_geodataframe(
+                wbd,
                 os.path.join(huc_directory, wbd_filename),
                 layer='WBDHU8',
                 driver='GPKG',
@@ -501,7 +461,8 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir, copy_from_dir, preclipping_f
 
             wbd_buffer = wbd_buffer[['geometry']]
 
-            wbd_buffer.to_file(
+            write_geodataframe(
+                wbd_buffer,
                 os.path.join(huc_directory, wbd_buffer_filename),
                 driver='GPKG',
                 index=False,

@@ -12,17 +12,14 @@ import geopandas as gpd
 import requests
 from dotenv import load_dotenv
 
+from src.utils.io import write_geodataframe
+
 
 # Website that shows the official "latest per state"
 PAGE_URL = "https://disasters.geoplatform.gov/USA_Structures/"
 
 srcDir = os.getenv('srcDir')
 load_dotenv(f'{srcDir}/bash_variables.env')
-
-DEFAULT_FIM_PROJECTION_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
-ALASKA_CRS = os.getenv('ALASKA_CRS')
-GUAM_CRS = os.getenv('GUAM_CRS')
-AMERICAN_SAMOA_CRS = os.getenv('AMERICAN_SAMOA_CRS')
 
 
 def __setup_logger(output_folder_path):
@@ -49,12 +46,12 @@ def __setup_logger(output_folder_path):
 def target_crs_for_state(state: str) -> str:
     state = state.upper()
     if state == "AK":
-        return ALASKA_CRS
+        return os.getenv('ALASKA_CRS')
     if state == "GU":
-        return GUAM_CRS
+        return os.getenv('GUAM_CRS')
     if state == "AS":
-        return AMERICAN_SAMOA_CRS
-    return DEFAULT_FIM_PROJECTION_CRS
+        return os.getenv('AMERICAN_SAMOA_CRS')
+    return os.getenv('DEFAULT_FIM_PROJECTION_CRS')
 
 
 def pull_gdb_files(gdb_dir, selected_states):
@@ -133,7 +130,7 @@ def convert_gdb_to_parquet(gdb_dir, parquet_dir, selected_states):
 
         out_path = parquet_dir / f"{state}_structures.parquet"
         logging.info(f"[{state}] Writing -> {out_path}  (CRS={tgt_crs})")
-        gdf.to_parquet(out_path, index=False, compression="zstd", row_group_size=250_000)
+        write_geodataframe(gdf, out_path, index=False, compression="zstd", row_group_size=250_000)
 
     logging.info(f"Done. Outputs in: {parquet_dir.resolve()}")
 

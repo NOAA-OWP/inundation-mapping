@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import os
 import sys
 
 import geopandas as gpd
@@ -11,6 +12,7 @@ from numpy import unique
 from rasterstats import zonal_stats
 
 from utils.fim_enums import FIM_exit_codes
+from utils.io import write_geodataframe
 from utils.shared_functions import getDriver
 from utils.shared_variables import FIM_ID
 
@@ -38,17 +40,26 @@ def add_crosswalk(
     min_stream_length,
     huc_id,
     iris_sword_slope,
+    hfab_slope_fileName,
 ):
     # These HUC-level geopackages are being read using the fiona engine because
     # the pyogrio + arrow engine was giving random segmentation faults that
     # we think may be due to many branches trying to read the same GPKG.
     # See issue #1376 for details.
-    input_catchments = gpd.read_file(input_catchments_fileName, engine='fiona')
-    input_flows = gpd.read_file(input_flows_fileName, engine='fiona')
+    input_catchments = gpd.read_parquet(input_catchments_fileName)
+    input_flows = gpd.read_parquet(input_flows_fileName)
     input_huc = gpd.read_file(input_huc_fileName, engine='fiona')
-    input_nwmflows = gpd.read_file(input_nwmflows_fileName, engine='fiona')
+    if os.path.splitext(input_nwmflows_fileName)[-1].lower() == '.parquet':
+        input_nwmflows = gpd.read_parquet(input_nwmflows_fileName)
+    else:
+        input_nwmflows = gpd.read_file(input_nwmflows_fileName, engine='fiona')
     iris_df = pd.read_parquet(iris_sword_slope).rename(
         columns={'slope_iris_sword': 'SLOPE_IRIS_SWORD', 'id': 'feature_id'}
+    )
+    # Read HFAB ransac slope parquet
+    hfab_slopes_df = pd.read_parquet(hfab_slope_fileName)
+    hfab_slopes_df = hfab_slopes_df[['id', 'slope_m_per_m']].rename(
+        columns={'id': 'feature_id', 'slope_m_per_m': 'SLOPE_HFAB'}
     )
 
     min_catchment_area = float(min_catchment_area)  # 0.25#
@@ -61,16 +72,8 @@ def add_crosswalk(
     if input_nwmflows.feature_id.dtype != 'int':
         input_nwmflows.feature_id = input_nwmflows.feature_id.astype(int)
 
-    # Handle variable slope column name (AK uses So, CONUS uses Slope)
-    if 'Slope' in input_nwmflows.columns:
-        input_nwmflows = input_nwmflows.rename(columns={'Slope': 'SLOPE_HFAB'})
-    elif 'So' in input_nwmflows.columns:
-        input_nwmflows = input_nwmflows.rename(columns={'So': 'SLOPE_HFAB'})
-    else:
-        input_nwmflows['SLOPE_HFAB'] = np.nan
-        print(
-            f"WARNING: could not find a 'Slope' or 'So' attribute in the NWM hydrofabric at {input_nwmflows_fileName} – setting SLOPE_HFAB to n/a"
-        )
+    # Merge new HFAB slopes data with NWM flows
+    input_nwmflows = input_nwmflows.merge(hfab_slopes_df, on='feature_id', how='left')
 
     # Merge IRIS-SWORD slope data with NWM flows
     input_nwmflows = input_nwmflows.merge(
@@ -268,19 +271,16 @@ def add_crosswalk(
         right_on='HydroID',
     )
 
-    # masks for valid slope values (also only using SWORD for orders >=4)
-    sword_mask = (input_src_base['order_'] >= 4) & (
-        (input_src_base['SLOPE_IRIS_SWORD'] >= SLOPE_MIN) & (input_src_base['SLOPE_IRIS_SWORD'] <= SLOPE_MAX)
+    # Prioritize HFAB slope values, then fall back to IRIS-SWORD, and finally
+    # use the original rise/run slope as the last resort for any remaining gaps.
+    input_src_base['SLOPE_HFAB'] = pd.to_numeric(input_src_base['SLOPE_HFAB'], errors='coerce')
+    input_src_base['SLOPE_IRIS_SWORD'] = pd.to_numeric(input_src_base['SLOPE_IRIS_SWORD'], errors='coerce')
+    input_src_base['SLOPE_RISE_RUN'] = pd.to_numeric(input_src_base['SLOPE_RISE_RUN'], errors='coerce')
+    input_src_base['SLOPE'] = (
+        input_src_base['SLOPE_HFAB']
+        .combine_first(input_src_base['SLOPE_IRIS_SWORD'])
+        .combine_first(input_src_base['SLOPE_RISE_RUN'])
     )
-
-    # hfab_mask = (input_src_base['SLOPE_HFAB'] >= SLOPE_MIN) & (input_src_base['SLOPE_HFAB'] <= SLOPE_MAX)
-
-    # Apply masks to filter out invalid slope values
-    # Initialize SLOPE with RISE_RUN values
-    input_src_base['SLOPE'] = input_src_base['SLOPE_RISE_RUN'].astype(float)
-
-    # Override with IRIS_SWORD slope where mask is valid
-    input_src_base.loc[sword_mask, 'SLOPE'] = input_src_base.loc[sword_mask, 'SLOPE_IRIS_SWORD'].astype(float)
 
     # --- Normalize and stabilize precision of extremely small slopes ---
     #   1. Rounded to 3 digits in scientific notation
@@ -472,10 +472,16 @@ def add_crosswalk(
         output_src_json[str(hid)] = {'q_list': q_list, 'stage_list': stage_list}
 
     # write out
-    output_catchments.to_file(
-        output_catchments_fileName, driver=getDriver(output_catchments_fileName), index=False
-    )
-    output_flows.to_file(output_flows_fileName, driver=getDriver(output_flows_fileName), index=False)
+    write_geodataframe(output_catchments, output_catchments_fileName, index=False)
+
+    # HACK
+    # July 2026: At this point, a good handful of other tools that are not in the pipeline are looking for the .gpkg version.
+    # A search in the code for the phrase 'gw_catchments_reaches_filtered_addedAttribute' shows a large number of tools and scripts
+    # that use the .tif or .gpkg. Not all are identified here but a card will be created to search and fix them.
+    output_catchments_fileName_gpkg = os.path.splitext(output_catchments_fileName)[0] + '.gpkg'
+    write_geodataframe(output_catchments, output_catchments_fileName_gpkg, index=False)
+
+    write_geodataframe(output_flows, output_flows_fileName, index=False)
     output_src.to_csv(output_src_fileName, index=False)
     output_crosswalk.to_csv(output_crosswalk_fileName, index=False)
     output_hydro_table.to_csv(output_hydro_table_fileName, index=False)
@@ -523,6 +529,12 @@ if __name__ == '__main__':
     parser.add_argument("-g", "--min-stream-length", help="Minimum stream length", required=True)
     parser.add_argument(
         "-i", "--iris-sword-slope", help="Channel slope data from IRIS-SWORD database", required=True
+    )
+    parser.add_argument(
+        "-p",
+        "--hfab-slope-fileName",
+        help="Parquet file containing hydrofabric ransac slope values",
+        required=True,
     )
 
     args = vars(parser.parse_args())

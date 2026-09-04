@@ -16,6 +16,7 @@ from dotenv import load_dotenv
 import data.wrds.download_process_wrds as dpw
 import src.utils.shared_functions as sf
 import tools.catfim.catfim_shared_functions as csf
+from src.utils.io import write_geodataframe
 from src.utils.shared_variables import VIZ_PROJECTION
 from tools.catfim.catfim_post_processing import catfim_post_processing
 from tools.catfim.catfim_process_huc import process_huc
@@ -140,10 +141,11 @@ def process_generate_categorical_fim(
 
     is_logging_loaded = False
 
+    overall_start_time = datetime.now(timezone.utc)
+    dt_string = overall_start_time.strftime("%m/%d/%Y %H:%M:%S")
+    print("================================")
+
     try:
-        overall_start_time = datetime.now(timezone.utc)
-        dt_string = overall_start_time.strftime("%m/%d/%Y %H:%M:%S")
-        print("================================")
 
         load_dotenv('/foss_fim/src/bash_variables.env')
 
@@ -185,11 +187,14 @@ def process_generate_categorical_fim(
         local_vals = (
             locals()  # lst_hucs argument is used but passed via locals() so VSCode thinks it is not in use.
         )
-        valid_fim_hucs, dropped_huc_lst, nwm_meta_file, threshold_file, inundate_hand, inundate_hr, hr_preference = __validate_inputs(local_vals)
-        valid_fim_hucs.sort()
+        # valid_fim_hucs, dropped_huc_lst, nwm_meta_file, threshold_file = __validate_inputs(local_vals)
+
+        adj_valid_fim_hucs, dropped_huc_lst, nwm_meta_file, threshold_file = __validate_inputs(local_vals)
 
         # Note: this will handle a huc list arg of "all". If valid_fim_hucs is empty, it will thrown an exception
         # valid_fim_hucs are hucs that have valid huc folders in the fim output dir.
+
+        # TODO: Aug 1, 2026: Finish this.. its important.
         # It has not yet been compared to metadata and sites.
 
         # Make output folder
@@ -298,9 +303,7 @@ def process_generate_categorical_fim(
                 else:
                     logging.info(msg)
 
-        end_dt = datetime.now(timezone.utc)
-        time_duration = end_dt - section_start_dt
-        logging.info(f"Completed loading metadata - Duration: {str(time_duration).split('.')[0]}")
+        logging.info(f"Completed loading metadata : {sf.calculate_duration_msg(section_start_dt)}")
         logging.info("")
 
         # ================================
@@ -354,9 +357,29 @@ def process_generate_categorical_fim(
         nwm_sites_all_gdf.to_parquet(nwm_sites_file)
 
         # Save a GPKG version for debugging (not shared with the HUCs)
-        nwm_sites_all_gdf.to_file(
-            nwm_sites_file.replace('.parquet', '.gpkg'), driver='GPKG', engine='fiona', index=False
+        write_geodataframe(
+            nwm_sites_all_gdf, nwm_sites_file.replace('.parquet', '.gpkg'), driver='GPKG', index=False
         )
+
+        # Filter out hucs that do not have nws_sites
+        nwm_huc_list = nwm_sites_all_gdf["HUC8"].unique().tolist()
+        if len(nwm_huc_list) == 0:
+            raise Exception("Should not have an empty nwm_huc_list")
+
+        valid_fim_hucs = []
+        for huc in adj_valid_fim_hucs:
+            if huc in nwm_huc_list:
+                valid_fim_hucs.append(huc)
+
+        # Remove duplicate hucs and sort
+        valid_fim_hucs = list(set(valid_fim_hucs))
+        valid_fim_hucs.sort()
+
+        if len(valid_fim_hucs) == 0:
+            raise Exception(
+                "Comparing the loaded huc processing list to nwm site hucs,"
+                " there are no hucs remaining to process"
+            )
 
         # Save the HUC list for this CatFIM run (AWS will need this list to know what HUCs to process and iterate)
         catfim_huc_list_file = os.path.join(output_folder, "catfim_huc_list.txt")
@@ -372,6 +395,7 @@ def process_generate_categorical_fim(
 
         # ================================
         # Download thresholds (if specified)
+        # TODO: Phase out the option to hit the WRDS API because we are now going to be only getting them from the files
 
         if get_new_threshold_data == True:
             section_start_dt = datetime.now(timezone.utc)
@@ -407,9 +431,7 @@ def process_generate_categorical_fim(
             threshold_url = f'{api_base_url}/nws_threshold'
             dpw.download_all_thresholds(thresholds_filepath, threshold_url, huc_dictionary, lid_source_dict)
 
-            end_dt = datetime.now(timezone.utc)
-            time_duration = end_dt - section_start_dt
-            logging.info(f"Completed downloading thresholds - Duration: {str(time_duration).split('.')[0]}")
+            logging.info(f"Completed downloading thresholds : {sf.calculate_duration_msg(section_start_dt)}")
             print("")
 
         # ================================
@@ -508,95 +530,56 @@ def process_generate_categorical_fim(
         failed_HUCs_list = []
         sucessful_HUCs_list = []
 
+        section_start_dt = datetime.now(timezone.utc)
         with ProcessPoolExecutor(max_workers=number_jobs) as executor:
 
             # Some mp functions might throw an exception, which means it may not get to as_completed
             futures_dict = [executor.submit(process_huc, **arg) for arg in task_args_list]
 
             for future in as_completed(futures_dict):
-                # if future is not None:  # we don't have anything to return at this time.
+                if (
+                    future is not None
+                ):  # It is possible to get an empty future back, not sure why but I have seen it happen.
 
-                # Return whether the HUC-level processing was sucessful.
-                if not future.exception():
-                    huc, is_success = future.result()
-                    if is_success is False:
-                        failed_HUCs_list.append(huc)
-                        logging.error(f"HUC {huc} FAILED")
+                    if future.cancelled():  # for keyboard CTRL-C's generally
+                        continue
+
+                    # Return whether the HUC-level processing was sucessful.
+                    # We do not want the huc to stop other hucs so we log it and continue
+                    if not future.exception():
+                        huc, is_success = future.result()
+                        if is_success is False:
+                            failed_HUCs_list.append(huc)
+                            logging.error(f"HUC {huc} FAILED")
+                        else:
+                            sucessful_HUCs_list.append(huc)
+                            logging.info(f"HUC {huc} FINISHED")
                     else:
-                        sucessful_HUCs_list.append(huc)
-                        logging.info(f"HUC {huc} FINISHED")
-                else:
-                    logging.error(future.exception())
-                    # raise future.exception()  # Previously we would halt processing here, but
-                    # now we let it finish and try rerunning the errored HUCs one more time
+                        logging.error(future.exception())
+                        # raise future.exception()  # Previously we would halt processing here, but
+                        # now we let it finish
+                # else: do nothing
+
+        logging.info("Completed CatFIM HUC multiprocessing!")
+        logging.info(f"{sf.calculate_duration_msg(section_start_dt)}")
 
         # Get a list of HUCs that didn't finish
         finished_huc_list = failed_HUCs_list + sucessful_HUCs_list
         unfinished_huc_list = list(set(valid_fim_hucs) - set(finished_huc_list))
 
-        if len(unfinished_huc_list) > 0:
+        if len(failed_HUCs_list) > 0:
+            logging.error(f"{len(failed_HUCs_list)} HUCs completed processing but failed. See logs for info.")
 
+        if len(unfinished_huc_list) > 0:
             logging.warning(
                 f"{len(unfinished_huc_list)}/{len(valid_fim_hucs)} HUC(s) did not complete processing, possibly due to multiproc collision"
             )
-            logging.info("Re-running CatFIM HUC processing for the following unfinished HUC(s):")
-            logging.info(unfinished_huc_list)
-
-            # Remove all finished (failed or sucessful) HUCs from the task arg list
-            # Filtered list
-            task_args_list_unfinished = [d for d in task_args_list if d["huc"] in unfinished_huc_list]
-
-            second_failed_HUCs_list, second_sucessful_HUCs_list = [], []
-
-            with ProcessPoolExecutor(max_workers=number_jobs) as executor:
-                futures_dict = [executor.submit(process_huc, **arg) for arg in task_args_list_unfinished]
-
-                for future in as_completed(futures_dict):
-                    # if future is not None:  # we don't have anything to return at this time.
-
-                    # Return whether the HUC-level processing was sucessful.
-                    if not future.exception():
-                        huc, is_success = future.result()
-                        if is_success is False:
-                            second_failed_HUCs_list.append(huc)
-                            logging.error(f"HUC {huc} FAILED IN PROCESS POOL RERUN")
-                        else:
-                            second_sucessful_HUCs_list.append(huc)
-                            logging.info(f"HUC {huc} FINISHED IN PROCESS POOL RERUN")
-                    else:
-                        logging.error(future.exception())
-
-            second_finished_huc_list = second_failed_HUCs_list + second_sucessful_HUCs_list
-
-            if len(second_finished_huc_list) == 0:
-                logging.warning(
-                    f"None of the {len(unfinished_huc_list)} re-run HUC(s) finished processing in the second ProcessPoolExecutor run"
-                )
-            else:
-                logging.info(
-                    f"{len(second_finished_huc_list)}/{len(unfinished_huc_list)} HUCs finished running in the second ProcessPoolExecutor run"
-                )
-                logging.info(
-                    f"Of the HUC(s) that finished, {len(second_sucessful_HUCs_list)} succeeded and {len(second_failed_HUCs_list)} finished but failed"
-                )
-        # End muliproc rerun
-
-        logging.info("Completed CatFIM HUC multiprocessing!")
-
-        # Print number of failed HUCs
-        if len(failed_HUCs_list) > 0:
-            logging.error(f"{len(failed_HUCs_list)} HUCs failed. See logs for info.")
 
         # End of HUC multiprocessing
 
         # ================================
         # Run CatFIM post processing
         catfim_post_processing(output_folder)
-
-        logging.info("")
-        duration_msg = sf.calculate_duration_msg(overall_start_time)
-        logging.info(f"End of process_generate_categorical_fim() - {duration_msg}")
-        logging.info("")
 
     except Exception as ex:
         trace_error = traceback.format_exc()
@@ -614,9 +597,7 @@ def process_generate_categorical_fim(
 
     finally:
         if is_logging_loaded:
-            print("")
             print("Rolling up logs for process_generate_categorical_fim, HUCs, and multiproc...")
-            print("")
 
             huc_list_rollup = [a['huc'] for a in task_args_list]
             __roll_up_final_logs(log_file_path, huc_list_rollup, output_folder)
@@ -629,6 +610,11 @@ def process_generate_categorical_fim(
             print("Logging not loaded, skipping logs roll-up.")
             print("")
             print("================================")
+
+        logging.info("")
+        duration_msg = sf.calculate_duration_msg(overall_start_time)
+        logging.info(f"End of process_generate_categorical_fim() - {duration_msg}")
+        logging.info("")
 
 
 def make_logs_path_list(main_log_path):
@@ -928,7 +914,9 @@ def __roll_up_final_logs(gen_log_file_path, huc_list_rollup, output_folder):
                 shutil.copyfile(huc_log_path, huc_log_path_new)
 
                 # Append HUC .log file to gen .log file
-                log_concat_success = sf.concat_files(huc_log_path, final_log_path, remove_old_src_file=False)
+                log_concat_success = sf.rollup_log_files(
+                    huc_log_path, final_log_path, remove_old_src_file=False
+                )
 
                 # Print warning if needed
                 if not log_concat_success:
@@ -965,7 +953,7 @@ def __roll_up_final_logs(gen_log_file_path, huc_list_rollup, output_folder):
                     continue
 
                 # Append HUC .log file to gen .log file
-                log_concat_success = sf.concat_files(
+                log_concat_success = sf.rollup_log_files(
                     post_p_log_path, final_log_path, remove_old_src_file=False
                 )
 
@@ -1112,7 +1100,27 @@ def __validate_inputs(received_locals_dict):
 
     lst_hucs = lst_hucs.split()
     dropped_huc_lst = []
+
+    # If lst_huc is provided...
     if 'all' not in lst_hucs:
+
+        # If lst_hucs is a filepath, check if the file exists and has a .txt extension
+        if os.path.isfile(lst_hucs[0]) and lst_hucs[0].endswith('.txt'):
+            with open(lst_hucs[0], 'r') as f:
+                # Overwrites the lst_hucs variable with the list of HUCs from the file
+                lst_hucs = [line.strip() for line in f.readlines()]
+
+        # Return an error if the lst_hucs is a filepath but does not exist or does not have a .txt extension
+        elif os.path.isfile(lst_hucs[0]) and not lst_hucs[0].endswith('.txt'):
+            raise Exception(
+                f"The provided HUC list file {lst_hucs[0]} does not have a .txt extension. Please provide a valid .txt file."
+            )
+        # Return an errorif the lst_hucs is a filepath but does not exist
+        elif not os.path.isfile(lst_hucs[0]) and lst_hucs[0].startswith('/'):
+            raise Exception(
+                f"The provided HUC list file {lst_hucs[0]} does not exist. Please provide a valid .txt file."
+            )
+
         valid_fim_hucs = [x for x in fim_hucs if x in lst_hucs]
         dropped_huc_lst = list((set(lst_hucs).difference(valid_fim_hucs)))
     else:
@@ -1346,7 +1354,7 @@ if __name__ == '__main__':
         OPTIONAL: Upstream and downstream search in miles. How far up and downstream do you want to go? Defaults to 5.
 
     lst_hucs (-lh) - str
-        OPTIONAL: Space-delimited list of HUCs to produce CatFIM for. Defaults to all HUCs',
+        OPTIONAL: Space-delimited list or filepath to a textfile containing a list of HUCs to produce CatFIM for. Defaults to all HUCs',
 
     past_major_interval_cap (-mc) - int
         OPTIONAL: Stage-Based Only. How many feet past major do you want to go for the interval FIMs?
@@ -1454,7 +1462,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '-lh',
         '--lst-hucs',
-        help='OPTIONAL: Space-delimited list of HUCs to produce CatFIM for. Defaults to all HUCs.',
+        help='OPTIONAL: Space-delimited list or filepath to a textfile containing a list of HUCs to produce CatFIM for.'
+        ' Defaults to all HUCs.',
         required=False,
         default='all',
     )

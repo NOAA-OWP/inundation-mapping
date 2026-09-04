@@ -2,7 +2,6 @@
 
 import argparse
 import os
-import subprocess
 import warnings
 from collections import Counter
 from os import remove
@@ -15,6 +14,9 @@ import rasterio
 from rasterio.mask import mask
 from shapely import ops
 from shapely.geometry import Point
+
+from utils.io import write_geodataframe
+from utils.polygonize_raster import polygonize_raster
 
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -205,7 +207,7 @@ def mitigate_branch_outlet_backpool(
 
         return flows, initial_length_km
 
-    def calculate_length_and_slope(flows, dem, slope_min):
+    def calculate_length_and_slope(flows, dem_filename, slope_min):
         print('Recalculating length and slope of outlet segment...')
 
         # Select the last flowline segment (if there are multiple segments)
@@ -219,7 +221,8 @@ def mitigate_branch_outlet_backpool(
         end_point = flow.geometry.iloc[0].coords[-1]
 
         # Get start and end elevation
-        start_elev, end_elev = [i[0] for i in rasterio.sample.sample_gen(dem, [start_point, end_point])]
+        with rasterio.open(dem_filename, 'r') as dem:
+            start_elev, end_elev = [i[0] for i in rasterio.sample.sample_gen(dem, [start_point, end_point])]
 
         # Calculate the slope by differencing the elevations and dividing it by the length
         slope = float(abs(start_elev - end_elev) / flow.length)
@@ -266,7 +269,10 @@ def mitigate_branch_outlet_backpool(
 
     # --------------------------------------------------------------
     # Read in nwm lines, explode to ensure linestrings are the only geometry
-    nwm_streams = gpd.read_file(nwm_streams_filename, engine='fiona').explode(index_parts=True)
+    if os.path.splitext(nwm_streams_filename)[-1].lower() == '.parquet':
+        nwm_streams = gpd.read_parquet(nwm_streams_filename).explode(index_parts=True)
+    else:
+        nwm_streams = gpd.read_file(nwm_streams_filename, engine='fiona').explode(index_parts=True)
 
     # Check whether it's branch zero
     if 'levpa_id' in nwm_streams.columns:
@@ -294,8 +300,8 @@ def mitigate_branch_outlet_backpool(
         #     print(f'No catchment pixels geome at {catchment_reaches_filename}.')
 
         # Read in split_flows_file and split_points_filename
-        split_flows_geom = gpd.read_file(split_flows_filename, engine='fiona')
-        split_points_geom = gpd.read_file(split_points_filename, engine='fiona')
+        split_flows_geom = gpd.read_parquet(split_flows_filename)
+        split_points_geom = gpd.read_file(split_points_filename)
 
         # Subset the split flows to get the last one
         split_flows_last_geom = split_flows_geom[split_flows_geom['NextDownID'] == '-1'].copy()
@@ -403,27 +409,29 @@ def mitigate_branch_outlet_backpool(
 
                     # --------------------------------------------------------------
                     # Calculate the slope and length of the newly trimmed flows
-                    dem = rasterio.open(dem_filename, 'r')
-                    output_flows, new_length_km = calculate_length_and_slope(trimmed_flows, dem, slope_min)
+                    output_flows, new_length_km = calculate_length_and_slope(
+                        trimmed_flows, dem_filename, slope_min
+                    )
 
                     # --------------------------------------------------------------
                     # Polygonize pixel catchments using subprocess
 
                     # print('Polygonizing pixel catchments...')  # verbose
+                    polygonize_raster(
+                        catchment_pixels_filename,
+                        catchment_pixels_polygonized_filename,
+                        "HydroID",
+                        connectivity=8,
+                        quiet=True,
+                    )
 
-                    gdal_args = [
-                        f'gdal_polygonize.py -8 -f GPKG {catchment_pixels_filename} \
-                                 {catchment_pixels_polygonized_filename} catchments HydroID'
-                    ]
-                    return_code = subprocess.call(gdal_args, shell=True)
-
-                    if return_code != 0:
-                        print("gdal_polygonize failed with return code", return_code)
+                    # if return_code != 0:
+                    #     print("gdal_polygonize failed with return code", return_code)
                     # else:
                     # print("gdal_polygonize executed successfully.")  # verbose
 
                     # Read in the polygonized catchment pixels
-                    cp_poly_geom = gpd.read_file(catchment_pixels_polygonized_filename, engine='fiona')
+                    cp_poly_geom = gpd.read_parquet(catchment_pixels_polygonized_filename)
 
                     # --------------------------------------------------------------
                     # Mask problematic pixel catchment from the catchments rasters
@@ -512,8 +520,8 @@ def mitigate_branch_outlet_backpool(
                         if isfile(split_points_filename):
                             remove(split_points_filename)
 
-                        output_flows.to_file(split_flows_filename, driver='GPKG', index=False)
-                        split_points_filtered_geom.to_file(split_points_filename, driver='GPKG', index=False)
+                        write_geodataframe(output_flows, split_flows_filename, index=False)
+                        write_geodataframe(split_points_filtered_geom, split_points_filename, index=False)
 
                         del output_flows, split_points_filtered_geom
 

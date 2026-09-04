@@ -52,7 +52,8 @@ def label_data_file(label, lst_hucs):
     # Add a leading underscore to the label if it's not empty
     label = f'_{label}' if label != '' else label
 
-    date_formatted = date.today().strftime("%Y%m%d")
+    date_formatted = datetime.now().strftime('%Y%m%d')
+
     label_with_date = f'{label}{subset}_{date_formatted}'
 
     return label_with_date
@@ -91,9 +92,10 @@ def download_all_metadata(metadata_filepath, metadata_url, search):
     messages = []
 
     messages.append('Starting metadata download from WRDS...')
+    messages.append(f'Upstream and downstream search distance: {search} miles')
 
     # Get all forecast points
-    forecast_point_meta_list, ___ = get_metadata(
+    forecast_point_meta_list, ___, err_msg = get_metadata(
         metadata_url,
         select_by='nws_lid',
         selector=['all'],
@@ -101,9 +103,11 @@ def download_all_metadata(metadata_filepath, metadata_url, search):
         upstream_trace_distance=nwm_us_search,
         downstream_trace_distance=nwm_ds_search,
     )
+    if err_msg != '':
+        messages.append(err_msg)
 
     # Get all sites for OCONUS regions (HI, PR, and AK)
-    oconus_meta_list, ___ = get_metadata(
+    oconus_meta_list, ___, err_msg = get_metadata(
         metadata_url,
         select_by='state',
         selector=['HI', 'PR', 'AK'],
@@ -111,6 +115,8 @@ def download_all_metadata(metadata_filepath, metadata_url, search):
         upstream_trace_distance=nwm_us_search,
         downstream_trace_distance=nwm_ds_search,
     )
+    if err_msg != '':
+        messages.append(err_msg)
 
     # Append the lists
     unfiltered_meta_list = forecast_point_meta_list + oconus_meta_list
@@ -140,9 +146,24 @@ def download_all_metadata(metadata_filepath, metadata_url, search):
     msg = f'Total number of unique LIDs: {len(unique_lids_list)}'
     messages.append(msg)
 
+    # Return a count of how many of the first n sites have the upstream and downstream NWM features present
+    # TODO: Simplify this check once we decide what % of sites should have these vals available
+    downstream_count, upstream_count = 0, 0
+    sites_to_test = 20
+    for i in range(sites_to_test):
+        if "downstream_nwm_features" in output_meta_list[i]:
+            downstream_count += 1
+        if "upstream_nwm_features" in output_meta_list[i]:
+            upstream_count += 1
+    messages.append(f"Spot-checking the first {sites_to_test} sites for upstream and downstream NWM features")
+    messages.append(f"Sites with 'downstream_nwm_features': {downstream_count}/{sites_to_test}")
+    messages.append(f"Sites with 'upstream_nwm_features': {upstream_count}/{sites_to_test}")
+
     try:
         with open(metadata_filepath, "wb") as p_handle:
             pickle.dump(output_meta_list, p_handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+        os.chmod(metadata_filepath, 0o774)
 
         msg = f"New metadata file saved at {metadata_filepath}"
         messages.append(msg)
@@ -276,6 +297,7 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict, li
         with open(thresholds_filepath, 'wb') as f:
             pickle.dump(all_thresholds_df, f)
 
+        os.chmod(thresholds_filepath, 0o774)
         msg = f"Thresholds file saved at {thresholds_filepath}"
         messages.append(msg)
 
@@ -575,7 +597,7 @@ def check_metadata_CRS_availability(output_meta_list):
     return lid_source_dict
 
 
-def main(
+def download_process_wrds(
     env_file,
     output_folder,
     label,
@@ -588,8 +610,6 @@ def main(
     '''
     Run download_process_wrds.py independently. This function will becalled by the
     command line interface at the bottom of this script.
-
-
 
     '''
 
@@ -615,8 +635,8 @@ def main(
         )
 
     # Validate output folder path
-    if not os.path.exists(output_folder):
-        raise ValueError(f'Output folder path {output_folder} does not exist. Please provide a valid path.')
+    # if not os.path.exists(output_folder):
+    #     raise ValueError(f'Output folder path {output_folder} does not exist. Please provide a valid path.')
 
     # Validate inputs
     if metadata_download == False and threshold_download == False:
@@ -658,7 +678,7 @@ def main(
     # If no metafile is provided, generate filepath and filename
     if input_metadata_file == '':
         label_with_date = label_data_file(label, lst_hucs)
-        output_metadata_filename = f'metadata{label_with_date}.pkl'
+        output_metadata_filename = f'WRDS_Metadata{label_with_date}.pkl'
         metadata_filepath = os.path.join(output_folder, output_metadata_filename)
 
     # If metadata filepath is provided, use it
@@ -713,7 +733,7 @@ def main(
         print(f'Site source table will be saved to {output_lid_source_table_filepath}')
 
         label_with_date = label_data_file(label, lst_hucs)
-        output_thresholds_filename = f'thresholds{label_with_date}.pkl'
+        output_thresholds_filename = f'WRDS_Thresholds{label_with_date}.pkl'
         thresholds_filepath = os.path.join(output_folder, output_thresholds_filename)
 
         print(f"Thresholds will be downloaded for sites in {len(huc_lid_dict)} HUCs")
@@ -738,11 +758,10 @@ def main(
     print(f"Total duration: {str(time_duration).split('.')[0]}")
     print('================================')
 
-    # TODO: bolt in Ali's new logging system
-
 
 if __name__ == '__main__':
     '''
+    TODO: Implement logging system
 
     Arguments
     ---------
@@ -768,9 +787,9 @@ if __name__ == '__main__':
         Folder where all outputs will be saved. Default is /data/inputs/wrds/
 
     -l, --label (Optional)
-        Label for to add additional info to filenames. Stucture will be metadata_<label>_yyyymmdd.pkl
-        and thresholds_<label>_yyyymmdd.pkl). Default is empty string, which will just give you
-        metadata_yyyymmdd.pkl and thresholds_yyyymmdd.pkl.
+        Label for to add additional info to filenames. Stucture will be NWM_Metadata_<label>_yyyymmdd.pkl
+        and NWM_thresholds_<label>_yyyymmdd.pkl). Default is empty string, which will just give you
+        NWM_Metadata_yyyymmdd.pkl and NWM_Thresholds_yyyymmdd.pkl.
 
     -s, --search (Optional)
         Upstream and downstream search in miles. Defaults to 5 if no number is provided.
@@ -778,10 +797,13 @@ if __name__ == '__main__':
     Examples
     --------
 
+    Download BOTH thresholds and metadata, full huc list, using min args and default the rest
+        python /foss_fim/data/wrds/download_process_wrds.py -m -t -w "/data/inputs/wrds"
+
     Download BOTH metadata and thresholds for specific HUCs and a custom output folder
         python /foss_fim/data/wrds/download_process_wrds.py -m -t -lh "12090301 19020301" -w '/data/catfim/emily_test'
 
-    Download metadata ONLY for specific HUCs
+    Download metadata ONLY
         python /foss_fim/data/wrds/download_process_wrds.py -m
 
     Download thresholds ONLY (must use an existing metadata file)
@@ -789,6 +811,7 @@ if __name__ == '__main__':
 
     Download BOTH thresholds and metadata and specify a custom output folder, label, search distance, and HUC list
         python /foss_fim/data/wrds/download_process_wrds.py -m -t -w "/custom/output/folder" -l "my_label" -s 10 -lh "12090301 19020301"
+
 
     '''
     # Parse arguments
@@ -836,7 +859,7 @@ if __name__ == '__main__':
         help='OPTIONAL: Upstream and downstream search in miles. '
         ' Defaults to a NoData val which will be replaced with csf.DEFAULT_SEARCH',
         required=False,
-        default='9999',
+        default=9999,
     )
 
     parser.add_argument(
@@ -868,4 +891,4 @@ if __name__ == '__main__':
     args = vars(parser.parse_args())
 
     # Main function call
-    main(**args)
+    download_process_wrds(**args)

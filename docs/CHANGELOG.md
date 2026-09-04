@@ -1,6 +1,662 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.10.1.1 - 2026-09-03 - [PR##1942](https://github.com/NOAA-OWP/inundation-mapping/pull/1942)
+
+This PR smooths out some outstanding quirks found after merging the CatFIM reorg changes into dev and creates a new CatFIM tool for joining outputs from a secondary run (such as Guam stage-based) into the primary CatFIM outputs.
+
+### Changes
+- `tools/lofi/probabilistic_inundation.py`: Optimize src subdivision routine. 
+- `tools/lofi/probabilistic_version.py`: Update version of LoFI.
+- `tools/tools_shared_functions.py`: Import gval only when necessary.
+<br />
+
+## v4.10.1.0 - 2026-08-21 - [PR#1869](https://github.com/NOAA-OWP/inundation-mapping/pull/1869)
+
+This PR smooths out some outstanding quirks found after merging the CatFIM reorg changes into dev and creates a new CatFIM tool for joining outputs from a secondary run (such as Guam stage-based) into the primary CatFIM outputs.
+
+### Additions
+- `tools/catfim/catfim_combine_final_outputs.py`: Joins the CatFIM outputs from a secondary folder to the outputs in a primary folder. The outputs are merged into new files in the primary folder with a label added to the filename.
+
+### Changes
+- `data/wrds/download_process_wrds.py`:  Fix a bug that was preventing the upstream and downstream trace to work. Update naming conventions. Renamed `main()` to `download_process_wrds()`.
+- `src/bash_variables.env`: Update NWM and Guam threshold and metadata files.
+- `src/process_branch.sh`: Comment change.
+- `tools/catfim/ahps_restricted_sites.csv`: Add restricted site.
+- `tools/catfim/catfim_post_processing.py`: Moved filepath creation to new function `get_output_filepaths()`. Added functionality to save outputs as parquets (as well as the previous CSV and GPKG outputs). Added additional logging to the site GDF compilation section. 
+- `tools/catfim/catfim_process_huc.py`: Updated file saving settings.
+- `tools/catfim/catfim_shared_functions.py`: Adjusted logging priority. Changed some errors to warnings in logging. Updated file saving settings.
+- `tools/catfim/catfim_sites_compare.py`: Update script to handle new column names and file structures of the post-reorg CatFIM outputs (while still backwards compatible with previous outputs since it's a comparison tool).
+- `tools/catfim/generate_categorical_fim.py`: Fixed logging of unfinished HUC list (was causing error). Added HUC list text file functionality.  Updated file save settings and added output parquets. Removed rerun section (for now). 
+- `tools/catfim/generate_categorical_fim_flows.py`: Add logging of segment list (for debugging). Updated file saving settings. 
+- `tools/catfim/generate_categorical_fim_mapping.py`: Fixed logging syntax where `warnings` was used instead of `warning` (was causing error). Added exit if no geometries were found (was causing error). Updated file saving settings. 
+- `tools/tools_shared_functions.py`: Comment change. Updated file reading settings.
+<br />
+
+## v4.10.0.0 - 2026-06-21 - [PR#1862](https://github.com/NOAA-OWP/inundation-mapping/pull/1862)
+
+Fixes SQLite errors caused by geopackage file handling by the OS (introduced in #1805) by using GeoParquet files (sorted by Hilbert curve) created by Python instead of system GDAL commands. Writing to GeoParquet is simplified by adding the capability to `to_file()`. Three new files replace the three GDAL command-line programs `gdal_polygonize.py`, `gdal_rasterize.py`, and `ogr2ogr`. In a couple of intermediate cases where GDAL was called directly and does not accept geoparquet input files, shapefiles were used instead of geopackages.
+
+Bash scripts were also refactored to use bash arrays and use of explicit notation including curly braces around environment variables, quotes around arguments, and double brackets around conditional blocks.
+
+### Additions
+- `src/`
+    - `subset_vectors_to_branches.py`: Replaces GDAL command-line `ogr2ogr`
+    - `utils/`
+        - `io.py`: Redefines geopandas.to_parquet() to automatically sort by Hilbert curve, then adds that functionality to geopandas.to_file() so that GeoParquet files can be written with `to_file()` ignoring certain keyword argumens such as `layer`, and `overwrite` and sets `driver='fiona'` as the default for Geopackage (.gpkg) files. Also specifies the use of `spawn` to force clean process spawning for multiprocessing and prevent segmentation faults.
+        - `polygonize_raster.py`: Converts from raster to vector as a replacement for the GDAL command-line `gdal_polygonize.py`
+        - `rasterize_parquet.py`: Converts from vector to raster as a replacement for the GDAL command-line `gdal_rasterize.py`
+
+### Changes
+##### The files below previously wrote GeoParquet files using `to_parquet()` but were modified to use the new `to_file()`.
+- `data/`
+    - `buildings/get_fema_buildings.py` and `make_buildings_parts_per_huc.py`
+    - `nws/ahps_bench_polys_to_calb_pts.py` and `merge_nws_usgs_point_parquet.py`
+    - `slope/sword_slope_create_parquet_qc.py`
+    - `usgs/acquire_and_preprocess_3dep_dems.py` and `write_parquet_from_calib_pts.py`
+- `src/src_adjust_spatial_obs.py`
+- `tools/catfim/generate_categorical_fim.py`
+
+#### Changed to use geoparquet instead of geopackages and refactored
+- `src/`
+    - `delineate_hydros_and_produce_HAND.sh`, `reachID_grid_to_vector_points.py`, `run_by_branch.sh`, `run_huc.sh`
+
+#### Changed to use geoparquet instead of geopackages
+- `config/`
+    - `deny_branch_zero.lst`, `deny_branches.lst`, `deny_unit.lst`
+- `src/`
+    - `add_crosswalk.py`, `adjust_floodplains.py`, `aggregate_branches_to_huc.py`, `associate_levelpaths_with_levees.py`, `derive_level_paths.py`, `filter_catchments_and_add_attributes.py`, `heal_bridges_osm.py`, `longitudinal_flow_adjustment.py`, `make_stages_and_catchlist.py`, `mask_dem.py`, `mitigate_branch_outlet_backpool.py`, `process_buildings_fimpact.py`, `process_roads_fimpact.py`, `split_flows.py`, `src_adjust_ras2fim_rating.py`, `src_adjust_spatial_obs.py`, `src_adjust_usgs_rating_trace.py`, `src_roughness_optimization.py`, `stream_branches.py`, `usgs_gage_crosswalk.py`, `usgs_gage_unit_setup.py`
+ - `tools/
+     - catfim/`
+         - `vis_categorical_fim.py`
+     - `bridge_inundation.py`, `evaluate_crosswalk.py`, `rating_curve_comparison.py`
+
+#### Refactored
+- `fim_pre_processing.sh`, `fim_pipeline.sh`, `fim_process_huc.sh`, `fim_postprocessing.sh`
+- `src/`
+    - `bash_functions.env`, `calibrate_rating_curves.sh`, `process_branch.sh`
+
+#### Updated deny list
+- `config/deny_unit.lst`: Commented `buildings_subset.gpkg`
+<br />
+
+## v4.9.21.10 - 2026-08-21 -[PR#1930](https://github.com/NOAA-OWP/inundation-mapping/pull/1930)
+
+This PR stops a non-monotonic check from occurring with branch zero, adjusts the attributes, and allows all time slices of gcs ensembles to be downloaded.
+
+### Changes
+- `tools/lofi/probabilistic_get_ensembles_gcs.py`: Allow for all time slices to be downloaded.
+- `tools/lofi/probabilistic_get_inundation.py`: Stop non-monotonic check on branch zero and adjust the attributes used.
+- `tools/lofi/probabilistic_verison.py`: Update version.
+<br />
+
+## v4.9.21.9 - 2026-08-17 - [PR#1876](https://github.com/NOAA-OWP/inundation-mapping/pull/1876)
+
+Updates to LoFI model and optimizations to runtime and memory management.
+
+### Changes
+- `tools/lofi/probabilistic_distribution_parameters.py`: Updated tqdm to work with script or notebooks.
+- `tools/lofi/probabilistic_generate_metric_response_surfaces.py`: Updated tqdm to work with script or notebooks.
+- `tools/lofi/probabilistic_generate_get_ensembles_gcs.py`: Updated tqdm to work with script or notebooks.
+- `tools/lofi/probabilistic_get_ensembles_gcs`: Updated tqdm to work with script or notebooks.
+- `tools/lofi/probabilistic_get_ensembles_nomads`: Updated tqdm to work with script or notebooks.
+- `tools/lofi/probabilistic_inundation.py`: Established base parameters for distributions, checked for monotonically increasing discharge, and refactored to optimize runtime including revisions made in [PR#1912](https://github.com/NOAA-OWP/inundation-mapping/pull/1912/changes)
+- `tools/lofi/probabilistic_version.py`: Updated version.
+- `tools/inundate_gms.py`: Added check to direct dataframe SRC if indexes already exist to avoid expensive reindexing.
+<br/>
+
+## v4.9.21.8 - 2026-08-14 - [PR#1917](https://github.com/NOAA-OWP/inundation-mapping/pull/1917)
+
+This PR fixes a bug in `reset_htable_src.py` where the old calibration columns were not being cleared. Previously, when reset_htable_src.py was executed, the script reset discharge_cms to its original geometric values but did not remove existing calibration columns, such as precalb_discharge_cms.
+
+### Changes
+- `src/reset_htable_src.py`: Updated the reset logic to check for the presence of calibration columns (precalb_discharge_cms, calb_coef_*, calb_applied, etc.) and set their values back to default empty states.
+<br/>
+
+## v4.9.21.7 - 2026-08-14 - [PR#1916](https://github.com/NOAA-OWP/inundation-mapping/pull/1916)
+
+Hotfix to address missing/null slope values for oCONUS domains when using the ransac-derived slope input file. The `add_crosswalk.py` workflow now uses SWORD-derived and then rise/run slope values if missing/null values in the ransac-derived dataset. 
+
+### Changes
+
+- `add_crosswalk.py`: updated logic to use and prioritize three different slope sources to ensure no missing/null values. Priority order: 1) RANSAC-derived slope from hfab 2) IRIS-SWORD-derived slope 3) default rise/run
+<br/>
+
+## v4.9.21.6 - 2026-08-14 - [PR#1842](https://github.com/NOAA-OWP/inundation-mapping/pull/1842)
+
+This PR identifies and removes NWM streams that fall into the whitelist ripple model domain gaps. It also builds a final list of valid Ripple/NWM stream reaches and matching model domains. It removes blacklisted or invalid records, resolves cross-HUC duplicates, removes small disconnected domain fragments, excludes streams insufficiently covered by the retained domain, and preserves short topological bridges. So main goals include:
+
+  - Excludes blacklisted streams
+  - Revalidates stream records using library-path status, HUC assignments, and HUC boundary overlap.
+  - Keeps only model domains belonging to surviving collection/model combinations.
+  - Excludes any island model domain (small model domain that are not connected of the main Ripple domain). Therefore, it Removes disconnected domain components that intersect one or zero streams.
+  - Buffers that domain by 100 metres to tolerate small edge/alignment errors.
+  - Decides which whitelisted streams have adequate spatial coverage:
+ 
+      1.  Includes streams fully inside the ripple domain (within)
+      2.  Includes streams between 2 included streams. The current workflow uses 3 streams.
+      3.  Includes headwaters that at least 50% of downstream tail of stream is inside the domain and downstream_endpoint covered by the domain.
+      4.  Includes the middle streams that at least 60%  of stream is inside the domain and downstream_endpoint covered by the domain.
+
+  - Retains short gaps of up to three reaches when they connect two included reaches.
+  - Flags certain streams spanning multiple individual model domains as “too long.”
+  - Removes domain rows whose intersecting streams are all invalid.
+
+
+### Additions
+`/data/ripple/remove_ripple_blacklisted_streams_and_model_gaps.py`
+
+### Changes
+`/data/ripple/validate_ripple_data.py`
+`/data/ripple/remove_blacklisted_streams_and_ripple_model_domain_gaps.py`
+<br/>
+
+## v4.9.21.5 - 2026-08-14 - [PR#1907](https://github.com/NOAA-OWP/inundation-mapping/pull/1907)
+
+This compares the roughness and slopes of Ohio River streams between FIM 6.1 and 6.2. For large slope changes, it recalculates channel and overbank Manning’s roughness using 6.1 roughness × sqrt(6.2 slope / 6.1 slope), capped at 0.07 and 0.20; otherwise, it retains the 6.2 values.
+It writes comparison CSVs, removes incomplete and manually excluded features, updates the FIM 6.2.1 Manning table (`/src/bash_variables.env`), and finally applies manually reviewed overrides from weird_feature_roughness_updated.csv.
+
+### Changes
+
+- `/tools/analyze_optz_roughness.py`
+- `/src/bash_variables.env`
+
+<br/>
+
+## v4.9.21.4 - 2026-08-14 - [PR#1910](https://github.com/NOAA-OWP/inundation-mapping/pull/1910)
+
+Significantly improves performance and memory usage of the manning subdivision code.
+
+### Additions
+* Streamline manning subdivision. Almost all the computation happens within numpy/C layer. For 19020104 huc, branch 0, the manning subdivision is computed in 525ms. Reusing memory buffers within numpy results in significantly reduced memory usage.
+* Add `use_pandas_3_behavior` decorator. This enables current pandas 3.0 behavior in pandas 2.2+ within a scoped block (function or context).
+
+### Changes
+* Several parts of the computation were modified to improve numerical stability and enforce physical constraints.
+
+I observed that the bottleneck of the original function is actually reading files. I split the file I/O and the computation into separate pieces. Switching to a faster csv parser (pyarrow) halved the runtime.
+
+<br/>
+
+## v4.9.21.3 - 2026-08-14 - [PR#1803](https://github.com/NOAA-OWP/inundation-mapping/pull/1803)
+
+This PR updates the FLASH FIM workflow to make it more efficient for development of a rapidly updating service and expands the capabilites to oCONUS domains.
+
+### Additions
+- `tools/flashfim/optimized_flash_conflation.py`: Added new script to look up FLASH flows via a lookup table rather than using zonal stats to optimize service efficiency. This new script can also process additional domains including Puerto Rico, Virgin Islands, Hawaii, and Guam.
+
+### Changes
+- `tools/flashfim/conflate_flash_flows.py`: Restructured reading of FLASH grib file for efficiency.
+<br/>
+
+## v4.9.21.2 - 2026-07-24 - [PR#1895](https://github.com/NOAA-OWP/inundation-mapping/pull/1895)
+
+Most notes embedded.
+
+One key changes is related to the `deploy_to_hydrovis.py` script. In the past, we stored just a template of it. The run time edition was in the efs drive in the config directory. Now, we honor the version in the git repo and no longer use the disk version. It was too easy to let them get out of sync. It does mean that for each new FIM release, this file will need to be updated, get a PR and have it merged.
+
+### Renamed
+- Was `config/hv_deployments_params_template.env` is now `config/hv_deployments_params_template.env`
+
+### Changes
+- `github/PULL_REQUEST_TEMPLATE.md`:  minor updates plus changing the sections around a little.
+- `config`
+    - `deny_branch_zero.lst`,  `deny_branches.lst`, and `deny_unit.lst`:  Some cleanup and updates.
+    - `hv_deploy_params.env`:  Updated to true paths, plus new hand/fim versions updated. Also a few adjustments based on current other tools needs for uploading to HV for this releasel.
+- `data/wrds/download_process_wrds.py`:  Fix file saving issues for permissions as experienced in the OWP enviro. Also changed the output file name convention.
+- `tools/test_case_by_hydro_id.py`
+    - misc small adjustment but also updated the filterwarning for all files and not just gdal.
+    - Changed to build up a list of dataframes instead of constant concatenation. Helps with performance.
+ - `workflows/deploy/hand_to_owp.py`: Added deprecation notice as it is no longer applicable.
+<br/>
+
+## v4.9.21.1 - 2026-07-24 - [PR#1896](https://github.com/NOAA-OWP/inundation-mapping/pull/1896)
+
+These are a few minor edits to reinstate some arguments and values used to get the BED through.  This also includes some loggings upgrades to help split out when we have an acceptable branch exits code such as codes 60 - 69. We now have two output files, one for errors and one for acceptable branch codes. 
+
+Also fully tested the recalibration system and validated it works as designed.
+
+Other fixes include:
+- Fixed a FutureWarning message in aggregate_branches_to_huc.py.  This closes #1875 
+- grep warning check on fim_process_huc.sh breaks if the word "warning" is not found.
+- When the new huc_process_error_compare.py file itself fails, and considering how it interacts with the whole system, it does not attempt to update its own file. It creates a new simple .log file with the log details. An update added here is for the post processing error log search to look for any of those special log files and report them.
+
+### Changes
+- `config\params_templates.env`: branch timeout reduced back down to one hour.
+- `tools\hash_compare.py`: Added another example for usage.
+- `src`
+    - `utils\huc_process_error_report.py`: as described.
+    - `utils\shared_functions.py`: as described.
+     - `aggregate_branches_to_hucs.py`:  fixed futurewarning as described above.
+     - `bash_variables.env`: fix for using tstart and tcount which was broken.
+- `fim_post_processing.sh`: logging and error update as mentioned above.
+- `fim_process_huc.sh`: small improvements and bug fixes. grep command would fail if the word warning was not found.
+<br/>
+
+## v4.9.21.0 - 2026-07-24 - [PR#1901](https://github.com/NOAA-OWP/inundation-mapping/pull/1901)
+This PR closes issue #1850. 
+
+## Summary
+
+This PR addresses region-specific value selection for Alaska, Guam, American Samoa, and CONUS. It centralizes this logic into a single `get_huc_vars()` helper in `src/utils/shared_functions.py`, which returns the appropriate CRS and input file paths (landsea, roads, NLD, levees preprocessed, levee-protected areas, lakes, NWM catchments, streams, WBD, dem_domain, and headwaters) for a given HUC in one dict. All affected scripts now call get_huc_vars() instead of repeating the branching logic, making future region-specific updates a one-line change in a single location rather than a search-and-update across the codebase. 
+
+Also a new `get_crs_for_huc()` function in `src/bash_functions.env` is created for the two bash callers that only need the CRS string.  All other region-specific path branching stays inline in each script since bash can't cleanly return multiple values the way the Python get_huc_vars() dict does, so **for bash scripts we only centralize CRS selection.**
+
+---
+
+
+### Changes
+- src/utils/shared_functions.py 
+- data/bridges/pull_osm_bridges.py
+- data/roads/pull_osm_roads.py  
+- src/aggregate_branches_to_huc.py 
+- data/wbd/generate_pre_clip_fim_huc8.py 
+- data/wbd/clip_vectors_to_wbd.py  
+- data/nfhl/download_fema_nfhl.py 
+- data/buildings/make_buildings_parts_per_huc.py 
+- data/buildings/get_fema_buildings.py  
+- src/bash_functions.env
+- src/run_huc.sh
+- src/run_by_branch.sh
+- tools/catfim/generate_categorical_fim_flows.py
+- tools/run_test_case.py
+
+<br/>
+
+## v4.9.20.2 - 2026-07-24 - [PR#1882](https://github.com/NOAA-OWP/inundation-mapping/pull/1882)
+
+This PR focuses on an automated calibration framework that optimizes channel and overbank Manning's roughness coefficients to improve FIM accuracy. The workflow iteratively updates hydroTables with candidate roughness values, generates new inundation maps, and evaluates their performance against benchmark flood extents using validation metrics. An optimization algorithm searches for the Manning's n values that minimize the selected loss function across all available benchmark events for each HUC. Finally, the optimized roughness values are aggregated, quality controlled, and mapped back to bash_varables.sh as a file optz_mannings_v6_2.csv to produce updated Manning's n datasets for operational use.
+
+### Additions
+
+- /tools/analyze_optz_roughness.py : post-processes the Manning’s n optimization results by reading the iteration-metrics CSVs, selecting the best or valid optimized roughness values for each HUC, and summarizing them into output tables. It also links those optimized values back to stream features, HUCs, stream orders, and runoff clusters so the final channel and overbank Manning’s n values can be applied across the hydrofabric.
+
+### Changes
+
+- /tools/manningN_optimization.py : implements the main optimization loop that searches for the best channel and overbank Manning’s n coefficients for each HUC by repeatedly updating hydroTables, generating inundation results, and minimizing false positives plus false negatives. Its required inputs are fim_dir/FIM output directory, mannN_file/CSV of initial Manning’s n values by feature_id, job_number_branch, job_number_huc, and bench_cat to choose AHPS or BLE  benchmark evaluation. The optimizer uses coefficient bounds, differential evolution, and validation metrics to write optimized Manning’s n values and total-loss results for each HUC.
+
+- /tools/run_test_case_mannN_optz_func.py : generates inundation outputs from updated hydroTables and computes benchmark validation metrics for the Manning’s n optimization workflow.
+
+<br/>
+
+
+## v4.9.20.1 - 2026-07-13 - [PR#1892](https://github.com/NOAA-OWP/inundation-mapping/pull/1892)
+
+Fixes a topology error in `associate_levelpaths_with_levees.py` where the negative buffer causes a `non-noded intersection`. 
+This branch merged in the dev-logging branch, [PR 1731](https://github.com/NOAA-OWP/inundation-mapping/pull/1731): Logging and Error handling upgrades. PR 1731 will be merged to dev first, then this one.
+
+After merging dev-logging and while testing this PR, a few more minor corrects for logging and error handling were made to this branch.
+
+This branch was used for the BED run of hand_4_9_20_1.
+
+Resolves #1890.
+
+### Changes
+
+- `src`
+    - `associate_levelpaths_with_levees.py`: Adds `resolution` parameter for buffer creation.
+    - `run_huc.sh`: Some minor text updates and the phrase `--line-buffer` was added to the code that processes branches in parallel. This help with memory queues and reduces memory in storage with no loss to the script. It is sort of like a print flush.
+    - `process_branch.sh`: Two things were added here.
+        - A random 10 second sleep timer to slow down branches from all hitting the exact same files at the exact same time. Helps with memory management and file collisions. It is more of a safety addition.
+        - Addition of a bash trap, to help ensure that the script always returns a exit code of 0 back to run_huc.sh. This helps ensure that other branches will continue to run even if this branch fails. It was not a problem in the past, but it is a safety addition in case there are errors on the `process_branch.sh` page itself, which was previously unmanaged.
+ - `config\params_template.env`: Increased the branch  timeout from 1 hour to 2 hours. This is a temp stop gap while memory and parallel issues are fixed in future releases.
+Fixes a topology error in `associate_levelpaths_with_levees.py` where the negative buffer causes a `non-noded intersection`. The base branch for this PR is `dev-logging`.
+
+### Changes
+
+`src/associate_levelpaths_with_levees.py`: Adds `resolution` parameter for buffer creation.
+<br/>
+
+## v4.9.20.0 - 2026-07-11 - [PR#1731](https://github.com/NOAA-OWP/inundation-mapping/pull/1731)
+
+A very wide array of fixes relating to logging and error handing have been added as well as quite a few new "TODO" lines requiring deeper investigation later.
+
+There is a number of inconsistencies of how the .sh and .py files interact and how the overall chain works.  Many were fixed here, especially ones that did leave possible holes for errors and exceptions to fall through the cracks with no errors or exceptions record and could be buried.  Most of them were tiny holes or non optimum but there were a few critical fixes needed such as parallelization issues with branches. 
+
+A very large amount of inline comments were added to help folks understand the hierarchy. It is a rather unusual error and logging handling system but one that has evolved at least more than five years ago. Eventually, we can get out of the bash business and simplify the architecture, but this is a very large project.
+
+------------
+### Update: Key discovery about missing key word error searching. (July 9, 2026)
+While there were a number of little holes were an error message could fall through, it was discovered today, that all of the system only scanned for the word "error" and not others such as:
+- command exited with non-zero status
+- exit status (1 to 999)
+- error (but not proceeded by the word "no")
+- exception
+- command not found
+- parallel: warning
+
+These are pretty common error message and we may have been missing errors in the past with no knowledge. This was discovered by doing over 20 tests against an older code branch as well as tracing multiple check ins over the past few years.
+
+------------
+### Normal HUC processing flow, including bug fixes and enhancements.
+Our normal error and exception handling system in the `fim_pipeline`, now significantly upgraded, is:
+1) `fim_process_huc.sh`
+    - is called either by `fim_pipeline` or `AWS huc iterator`.
+    - As much as possible, it needs catch errors and exceptions, log them, then ensure the HUC folder is copied from its temp directory to the outputs directory.
+    - We added a bash `trap` system, which has a lot of needs, including critical use of the bash page heads such as set -e (or bin/bash -e).  If `-e` is in place, then the page will auto stop execution on error. Depending on the page, this is a critical problem as it can loose the ability to get copied from temp to outputs.
+    - When `set -e` is in place, error `trap` will not work. It is disabled by adding `set +e` just above the trap commands. Any logic above the error trap is deemed acceptable as in the `fim_pipeline` world, you see it on screen quickly even though it is not logged. AWS has a harder time catching errors without major AWS upgrades for it's cloud watch system. By the time we run a BED in AWS, it is extremely unlikely that input errors would exist.
+    - fim_process_huc.sh catches all errors and outputs for child scripts such as the call to `process_huc.sh`. By catching it final the `tee` command and all errors and outputs are pushed to the HUC log which can be scanned later for key error words.
+    - This means all child .sh and .py files from run_unit.sh and down, are automatically covered for errors.
+    - If a specific error codes such as our custom status codes of 60 - 65 are caught, they are now  handled by a generic trap error handler in `bash_functions.sh`.
+    - Previously, if an error occurred in most places in the pages, such as grep commands which searched the log page for errors could compromise the entire page. Now, we use a new file called `huc_process_error_report.py` which has far more capacity to find and handle its own page level errors. If this file script itself fails, a special file named `log_scan_tool_failed_${hucNumber}.log` will be created.
+
+2) `fim_process_huc.sh` <- `run_unit.sh`
+    - Any errors will be either / and be shown on screen and auto caught by `fim_process_huc.sh` for handle and error scanning.
+        - `run_unit.sh`
+            - calls `delineate_hydros_and_produce_HAND.sh`, which also sends exceptions, errors and text to `run_unit.sh` which is forwarded to `fim_process_huc.sh`
+            - calls `calibrate_rating_curve.sh`: also sends exceptions, errors and text to `run_unit.sh` which is forwarded to `fim_process_huc.sh`
+            - Includes a parallel iterator to call and process branches. Each iteration calls `process_branch.sh`.
+
+3) `fim_process_huc.sh` <- `run_unit.sh` <- `process_branch.sh`
+     - Calls `run_by_branch.sh`
+     - Any errors, output or exceptions in `run_by_branch.sh are caught by `process_branch.sh` and using the `tee` command are auto forwarded up the chain for for `fim_process_huc.sh` to ultimately catch and log
+     - `process_branch.sh` is the same type of wrapper / error handler supporting `run_by_branch.sh`, as `fim_process_huc.sh` is to `run_unit.sh`
+
+4) `calibrate_rating_curve.sh`
+    - While there was technically nothing wrong with it, it attempted to catch its own errors for huc runs and re-runs, which
+ also  had the problem of .py files not responding correctly. It was also a convention that conflicted with how `fim_process_huc.sh` worked. While nothing slipped through other then said .py files, it was messy and if the script itself had errors like "grep" commands failing, it was caught by `fim_process_huc.sh` but with little detail.
+    - has two files that could call it
+        - `fim_process_huc.sh`
+        - `rerun_calibration.py`. While it appears this chain did work, it was easier to manage in the short term by adding a new file named `process_rerun_calibration.sh` as a wrapper, which was further called by `rerun_calibration.py`. This helps with consistency for now. Note: Later, we can likely go back to not using a `process_rerun_calibraion.sh` file but need to adjust how error logs and error scanning are done.
+       
+There are other minor fixes or enhancements or misc TODO's added for future fixes.  Important TODOs that require attention sooner than later have been added to a new issue card for future releases.
+
+---------------------
+### HUC and post processing searching for key error words and rolling them up into larger log files.
+- At the huc level, there is a new tool called `huc_process_error_report.py`. This provides a far more stable solution for scanning the huc log file for various key error words. It further can isolate when possible the status code included. This only uses just the one single huc_{huc number}_unit.log file as all child log data is already added to this including all branch and src files. This system avoids the previous included, far more complex and unstable system of using bash command like grep and find with elaborate conditions.  The reason this exists at the huc file it so see  errors in each huc as they are being processed instead of waiting until post_processing. It also take better advantage of resources using bash parallelization.
+- At the post processing level, it has a new tool called `post_process_error_reports.py`. It simply scans all huc directories looking for the huc csv re port and concatenates them in to one single error report.
+- searching for the word of just "warning" continues to be a very simple grep command and it done only at the huc level. There is no run level rollup, same as before.
+- The two new error log.csv including all branch errors including acceptable ones such as code 60 - 65. With it being a csv, it is now sortable and filterable.
+- Note: it is not perfect. Most errors are recorded more than once with slightly different text. ie. A failure inside `run_huc.sh`, will record via scan of the logs, but then record again one or two more times as it passes that error up to `fim_process_huc.sh`. A decision was made to leave it, just in case the failure did not originate in a child .sh file but that command line with the "tee" in it.
+
+---------------------
+### Increased error handling at key places
+- `fim_post_procssing.sh` had no error handling and insufficient logging. If an error occurred on the script itself or in a child script such as `aggregate_branch_lists.py` would fail, we had limited information why. When in AWS and it failed, there would be near zero information on why it failed.
+- `fim_process_huc.sh`: If an error occurred on in the script itself and not in the child `run_by_unit.sh`, limited information was available on why it failed. In AWS, that information was lost.  Improved error handling using `Bash TRAP` command helps identify problems on this page, but also helps ensure that code breakages to not stop the huc folder being moved from the temp directory to the output directory. While rare, it has happened, leaving us no information on why it happened. We currently also do not have a tool that checks if all HUCs came back or were lost. 
+
+-------------
+
+### Additions
+- `src\utils`
+    - `huc_process_error_report.py` and `post_process_error_report.py`: as described in the HUC and post processing searching section notes above.
+- `src\process_rerun_calibration_huc.sh`: A temp new file addition to follow the same convention and upgrades to handle errors and logging. It also simplifies the key file `calibrate_rating_curves.sh` which is used in both the fim_pipeline process as well as the rerun-calibration process. Future upgrade will be made to `rerun_calibration.py` can be made to remove this temp .sh file and still keep the `calibrate_rating_curves.sh` file simple and more compatible with each processing stream. Note: The current solution was acceptable, just needed some logic move to other parts of the overall system.
+
+### Changes
+- `\data\ripple\get_s3_folders_from_list.sh`: While unlike to be re-used, a key oversite in the log was fixed but not tested in case it is used again someday.
+- `src`
+    - `utils`
+         - `fim_enums.py` : Commented out an unused code
+         - `shared_functions.py`: adjusted an earlier function named `concat_huc_csv` was renamed and upgraded for usage by the new `fim_post_procssing.sh` file which rolls up huc level error reports. The `concat_huc_csv` was originally not in use.
+    - `aggegate_branch_lists.py`: minor code readability change made.
+    - `aggregate_branches_to_huc.py`:
+        - Commented out some unused pages and also made some minor code readability changes.
+        - Added some print statements as key points to help make it to the scannable log files.
+        - At the point of an exception being captured, added a re-raise line to for the huc to abort processing on error.
+    - `bash_functions.env`:
+         - A significant amount of inline comments were added to help people know when and how to use some functions.
+         - Added a new generic new ERROR Handling and tools, to help with re-useability with adding new `Bash Trap` to parts of some key pages. They help manage some script errors that are not in a child .sh script. ie) `fim_process_huc.sh` now has better handling when an error on its page directly is triggered.
+         - Some cleanup and minor enhancements to some existing functions.
+     - `calibrate_rating_curves.sh`:
+       - As mentioned above, changes made to create more consistency in how errors and logs are handled in the system. 
+       - Also allowed for significant simplification and error handling especially for unstable command like `grep`.
+       - Added some inline comments to help show why some function, like the use of `l_echo` was removed and how the file fits into the bigger picture.
+       - Removed some of the tstarts and tcounts to simplify logging. They really are only needed in very long running tools to help highlight very slow tools. Quick ones that take under a few minutes, just clutter up the logs. While testing, I did not see any sections that were long running.
+       - Removed a section of code that handled logging and error scanning for key files in the src directory. This was no longer necessary when standardized again parent .sh files.
+    - `check_huc_inputs.py`: 
+        - Some minor cleanup, but a key addition of a system that now saves a line delimited new file showing all HUCs about to be processed regardless if the run input was a file, single HUCs or multiple HUCs. In the near future, functionality will be added to fim_post_processing.sh to look for any HUCs that may not have been returned, just in case. This will become a safety tool, especially when being run in AWS.
+        - A new message was added to help calculate and display if a possible bad huc list file path has been submitted. Prior to this addition, the error message was vague and confusing.
+    - `clip_rasters_to_branches.py`: A note added about a file structural change desired to help with reusability.
+    - `delineate_hydros_and_produce_HAND.sh`:
+        - Addition of some comments about using our bash headers in our processing.
+        - Removal of some tstart and tcount usage for sections that run very fast and do not need duration data. Helps clean up the logs for info that has no value.
+    - `duration_system.py`:  Added a test condition if no HUCs existing to handle it more gracefully. During some development and testing, it happens were all HUCs fail, then this script fails but no information on why, leading to some confusion.
+   - `generate_branch_list_csv.py`:
+      - This was a code location that was strongly suspected to create MP collisions and parallel errors. The file was being called in each `process_branch.sh` chain, resulting in them all attempting to update a HUC level file at the same time. We have detected branch problems recently and have had to lower our branch job numbers significantly. While it is not possible to confirm it, it is a risky practice. Now this tool is used at the end of run_unit.sh which scans to look for hydrotables files which only exist if the branch was successful on being processed.
+    - `process_branch.sh`: updates to error handling, logging and messaging as described above. 
+    - `reset_htable_src.py`: Minor text update to help with contexts.
+    - `run_by_branch.sh`
+        - Additional comments added for clarity of usage.
+        - Start and Ending messages were moved into its parent `process_branch.sh` to help show fails in that `process_branch.sh` level.
+    - `run_huc.sh`
+        - Added some comments.
+        - Added a system were it can build the list of successful branches, removing each branch attempting to update the single file at the HUC level, probable culprit for the recent rash of parallel issues seen since that functionality was added at the branch level a while back.
+        - A bit of cleanup.
+- `tools\rerun_calibration.py`
+     - Temp changes in conjunction with temp addition of `process_rerun_calibration_huc.sh`, to help make the `calibrate_rating_curve.sh` more standardized with the `fim_process_huc.sh` processing chain. Note, this file will need a bit more adjustments to handle errors and logging, which will allow for the removal of the `process_rerun_calibration_hucs.sh` file.
+     - Added some inline comments about how our over all processing architecture works at this time.
+     - Addition of using the new shared_functions.py -> logging system and enhanced error trapping and logging. A little more adjustments and testing are required. 
+- `Dockerfile.dev` and `Dockerfile.owp`
+    - It has been noticed a number of times over the past year, where permissions issues at a file or folder level have created accessibility issues. A technology was discovered that allows using a package named `acl`, which allows permission to be set a folder level and automatically inherited lower down as new files and folders are added. This will remove some code we have where we are regularly running chmod commands to stabilize it. When the new docker image is created, it allows us to finish this system enhancement and adjust some, but not  all, files that use the chmod command.
+    - Problems with permissions has been a very regular problem in the OWP environments and only occasionally in the EC2 enviroments.
+- `fim_pipeline.sh`
+    - Addition of an empty string on the end of the two Calc_Duration calls as Calc_Duration has been upgraded to allow for optional and additional saving the echo to a file.
+    - Minor cleanup
+ - `fim_post_processing.sh`
+     - Significant upgrades to add a multi-layer error handling system.  As mentioned earlier, when a .py file was called and that file failed, all logging for post processing was easily lost. This had the most affect in AWS with a failure in post_processing and not information on why.  
+     - All calls to child .py scripts now have a wrapper to show what went wrong in the child script and log it.
+     - An new post_processing error log file was created to support fim_post_processing.sh script level errors.
+     - The addition of a new tool to roll up all huc level error csv reports into a master csv file.
+  - `fim_pre_processing.sh`
+      - Addition of some comments to help developers.
+      - Addition of a system to work with the `check_huc_inputs.py` file to create a new file to be saved in the run level folder of a list of HUCs being processed. This covers if the huc list argument came in as a file list, single HUC or multiple HUCs. In the near future, a further addition will be added to post processing to ensure all HUC folders are accounted for. 
+    - `fim_process_huc.sh`:
+        - `Significant updates for better error handling and logging. Including the addition of bash `TRAP` commands to decrease the possibility of the HUC folder being copied from the temp directory to the output directory for most catastrophic failures. There are still a small few scenarios where this could happen, mostly around input arg validation, but it is acceptable.
+        - Added usage of the new `huc_process_error_report.py` file as described above. We will no longer ever get a huc level error file, but will likely get a huc level error csv file which has multiple columns available for filtering and sorting.
+### Files needing review and/or adjustments in the `calibration` family of files.
+- A significant amount of files being called as part of the `calibrate_rating_curve.sh`, chain, shared similar problems and/or adjustment such as:  
+    -  Some have custom log_text systems where they write to their own log file.  However, if exceptions are triggered at key points, the built up information can be lost resulting in a error with no trace information.
+    - Most had a try / except system, but they did not use "print" commands. "prints" are key to our system as it rolls up via `fim_process_huc.sh` log files and are scanned for errors and issues. Scanning of file in the src directory was generally not done similar to the branch folders, but `calibrate_rating_curves.sh` did attempt file scanning at that level, but some could be lost. See more notes above about changes to the `calibrate_rating_curves.sh` file for more details. In this PR, use of "print" command as well as tracing via print(traceback.format_exc()) were added to help trace errors when they occurs, when applicable.
+    - When an exception was triggered, almost none re-raised the exception and stop the HUC from continuing processing. While this needs to be reviewed on a case-by-case basis in the future, it is assumed that many will need to re-raise exceptions, not  counting exceptions writing to its own log files, to stop further HUC processing.
+        - Files adjusted and need future review for future releases include:
+            - `bathymetric_adjustment.py`
+            - `identify_src_bankfull.py`
+            - `longitudial_flow_adjustments.py`
+            - `nonmonotonic_src_adjustments.py`
+            - `src_adjust_ras2fim_rating.py`
+            - `src_adjust_spatial_obs.py`
+            - `src_adjust_usgs_rating_trace.py`
+            - `src_manual_calibation.py`
+            - `src_roughness_optimization.py`
+            - `subdiv_chan_obank_src.py`
+            - `thalweg_notches_adjustment.py`
+ - While detected in many files in the `optimization` family of files, no other py files were reviewed for similar problems, but few are expected. Review of the other files is recommend for future release. Most of these files are new and have been following shared conventions, but need adjusting and review.
+
+### Removals
+None
+
+---------------------------------------------------------------
+### Notes about the rerun calibration system.
+- A significant amount of changes were key files used in the recalibration system. Due to time limits, it has not yet been fully tested and will not hold back this PR. As more testing is done, a further PR will be created as necessary. Some changes are expected but not a significant amount.
+
+---------------------------------------------------------------
+### Testing
+- A very wide array of testing was done multiple times. This includes over 20 tests checking for thinges like:
+    - bash errors and exceptions,
+    - python exceptions ,  adding or usage in py files for various key words such as error, warning, exception and others, and deliberate sys.exit usage.
+    - Testing a all .sh scripts in the fim_pipeline chain and ensure the logs are rolled up and no errors or exceptions were non recorded.
+    - Testing of the new error handling and logging for critical files such as fim_post_processing.sh and fim_process_huc.sh which are the primary parent for most calculations via downstream tools and code.
+    - A wide array of random errors and exceptions all over the place, to see if it can be "broken", to ensure that anythign that breaks is addressed, mostly by error handling and logging.
+
+- The full set of 20 plus tests, were also done against older branches prior to this PR to ensure all changes that were required for comparison reasons.
+<br/>
+
+
+## v4.9.19.0 - 2026-07-08 - [PR#1867](https://github.com/NOAA-OWP/inundation-mapping/pull/1867)
+This pull request updates the source of the slope data to use the values provided by the hydrofabric dev team using the RANSAC (Random Sample Consensus) method. This effectively replaces the existing slope data values for use in the SRC calculations.
+
+### Changes
+ `src/add_crosswalk.py`: changes to ingest the new slope data from input parquet file and assign the values to the corresponding hydroids
+ `src/bash_variables.env`: define path to input parquet file containing slope values per featureid
+`src/delineate_hydros_and_produce_HAND.sh`: new input variable passed to `add_crosswalk.py`
+<br/>
+
+## v4.9.18.0 - 2026-07-08 - [PR#1881](https://github.com/NOAA-OWP/inundation-mapping/pull/1881)
+
+Mitigates errors introduced into USGS data download script by removing the section of `get_metadata()` that assigns column types based on a preexisting dictionary. Reverts a few of the changes in [PR 1873](https://github.com/NOAA-OWP/inundation-mapping/pull/1873) because those were temporary workarounds to handle the column type quirks that this PR mitigates.
+
+### Changes
+- `src/bash_variables.env`: Update USGS data input paths.
+- `data/usgs/get_usgs_rating_curves.py`: Adds blank index col back into acceptable sites CSV save code.
+- `src/usgs_gage_unit_setup.py`: Removed code that processes 'None' values in USGS gages.
+- `tools/tools_shared_functions.py`: Commented out section of `aggregate_wbd_hucs()` that assigns column types.
+
+<br/>
+
+## v4.9.17.4 - 2026-07-08 - [PR#1870](https://github.com/NOAA-OWP/inundation-mapping/pull/1870)
+Updated the taudem shell execution to instead use python subprocess calls. This change allows for better error/warning handling. Resolves #1827 
+
+### Additions
+- `src/run_taudem_subprocess.py`: new python script dedicated to running all taudem tool executions 
+
+### Changes
+- `src/delineate_hydros_and_produce_HAND.sh`: updated taudem call to use new python subprocess script; retained all input variables
+- `src/run_by_branch.sh`: updated taudem call to use new python subprocess script; retained all input variables
+- `src/run_huc.sh`: updated taudem call to use new python subprocess script; retained all input variables; retained all input variables
+- `fim_process_huc.sh`: Fixed discovered error handling error
+<br/>
+
+## v4.9.17.3 - 2026-07-02 - [PR#1868](https://github.com/NOAA-OWP/inundation-mapping/pull/1868)
+This PR closes issues #1859,  #1860,  #1861, and fixes latent bugs related to `rasterio.open()` file handle leaks.
+
+
+### Problem
+`rasterio.open()` returns a persistent file handle for lazy, windowed reading (unlike `geopandas.read_file()`, which loads all data into memory and closes the file before returning). Bare calls to `rasterio.open()` without a `with` block leave that handle open until the garbage collector decides to close it.
+
+Using `del variable` is not preferable for two reasons: first, if an exception occurs before `del` is reached, the file stays open; second, even when `del` is reached, it only tells Python "I'm done with this variable" — it does not deterministically close the file handle.
+
+The fix throughout is to replace bare `rasterio.open()` calls with `with` blocks, which guarantee cleanup on all exit paths including exceptions.
+
+### Changes
+**`src/split_flows.py`**
+- Wrapped bare `rasterio.open(dem_filename)` in a `with` block covering the entire loop body. Removed `del dem` — the `with` block handles cleanup.
+
+**`src/make_rem.py`**
+- Replaced two groups of bare `rasterio.open()` calls with `with` blocks. Also, removed the redundant explicit `.close()` calls that followed.
+
+**`src/mitigate_branch_outlet_backpool.py`**
+- Changed `calculate_length_and_slope()` to accept `dem_filename: str` instead of an already-opened `DatasetReader`. Also, moved `rasterio.open()` inside the function into a `with` block.
+
+**`src/reachID_grid_to_vector_points.py`**
+- Fixed `convert_grid_cells_to_points()`, which accepts either a file path (`str`) or a caller-owned `DatasetReader`.
+- Used `nullcontext` from `contextlib` to unify both paths into a single `with` block: for the `str` case, `rasterio.open()` is used directly as the context manager and `with` closes it; for the `DatasetReader` case, `nullcontext` wraps the caller-owned handle in a do-nothing context manager that disables the exit (cleanup) effect of `with`, so the caller's handle is left open.
+
+**`src/stream_branches.py`**
+- Applied the same `nullcontext` pattern to `StreamBranchPolygons.clip()`. Also, removed a leftover `out.close()` call that was redundant.
+- Removed the unused `query_vectors_by_branch()` static method (dead code — no callers in the repo).
+
+**`tools/lofi/probabilistic_inundation.py`**
+- Fixed `inundate_probabilistic()` where `datasets = [rasterio.open(file) for file in percentile_files]` opened a dynamic number of handles with no cleanup path.
+- Used `ExitStack` from `contextlib` to register each handle via `stack.enter_context()`; all handles are closed automatically when the block exits, including on exception.
+
+
+### Removals
+- `src/query_vectors_by_branch_polygons.py`  ... This file is not used anywhere in the codebase.
+<br/>
+
+## v4.9.17.2 - 2026-07-01 - [PR#1873](https://github.com/NOAA-OWP/inundation-mapping/pull/1873)
+
+Fixes an error in the usgs_gage_unit_setup.py file for an error while casting to int on a column.
+
+Previously the 'feature_id' column could be Null, but a recent change when creating the usgs_gage file accidently changed that column default value from Null to "None" (str).  Compensated for it here.
+
+During a full UAT test with this fix, it bubbled up another problem of alpha scores for usgs and nws dropping significantly.  I reverted the three lines in bash_variables to the earlier usgs gage files to the previous Sept 2025 set, then re-ran UAT. Results are now good. That suggests that there is data problems with the new usgs gage data. 
+
+bash_variables file reverted to the Sept 2025 set of usgs files.
+
+### Changes
+- `src'
+    - `usgs_gage_unit_setup.py`: as described above.
+    - `bash_variables.env`: as described above.
+<br/>
+
+## v4.9.17.1 - 2026-06-26 - [PR#1843](https://github.com/NOAA-OWP/inundation-mapping/pull/1843)
+
+Adds improved logging, datum correction, and error handling to the USGS curves retrieval script (and supporting functions). Fixed and updated the NWS LID Geopackage script. Resolved the Pandas FutureWarnings (previously present in USGS rating curve retrieval and CatFIM processing) that were caused by joining tables with missing column data types (caused by NA values in the input metadata).
+
+### Changes
+- `config/huc_lists/uat_and_alpha_domain_huc_list.lst`: Added two new pacific islands HUCs.
+ - `data/nws/preprocess_ahps_nws.py`: Updated output of `ngvd_to_navd_ft()` and `get_metadata()`.
+ - `data/usgs/get_usgs_rating_curves.py`: Renamed main function from `usgs_rating_to_elev()` → `get_usgs_rating_curves()`. Added comprehensive logging throughout all stages. Refactored datum correction logic with better error handling. Introduced `site_status_df` to track site processing status across all stages. Added `__run_rating_curve_retrieval()` wrapper function for better organization. Improved VDatum API error handling with retry logic and timeout handling. New helper functions: `__write_rc_and_site_files()`, `make_status_summary()`. Enhanced docstrings with detailed Arguments/Returns sections.
+ - `data/usgs/preprocess_ahps_usgs.py`: Updated output of `ngvd_to_navd_ft()` and `get_metadata()`.
+ - `data/wrds/download_process_wrds.py`: Updated output of `get_metadata()`.
+ - `data/wrds/generate_nws_lid.py`: Moved from tools folder to data/wrds folder. Updated processing, removed unused code, and improved prints and comments. Added .env and keep all rows input params. 
+ - `data/wrds/mimic_wrds_data.py`: Updated output of `get_metadata()`.
+ - `src/utils/shared_functions.py`: Moved `run_vdatum_for_region()` function out of `ngvd_to_navd_ft()` and added comprehensive error handling. Added API retry logic using `Retry` and `HTTPAdapter` from requests library. Added error message returns to `get_metadata()` and `get_rating_curve()` functions. New `rollup_log_files()` function to replace `concat_files()`. Improved `ngvd_to_navd_ft()` with error message returns and better exception handling. Better handling of CRS conversion failures and VDatum API errors. Added column type definitions for WRDS metadata to prevent Pandas FutureErrors.
+ - `src/utils/shared_validators.py`: File mode changed.
+ - `src/utils/shared_variables.py`: File mode changed.
+ - `src/bash_variables.env`: Update path to NWS LID Geopackage and USGS gages outputs.
+ - `src/run_huc.sh`: Update path to NWS LID Geopackage.
+ - `tools/catfim/notebooks/eval_catfim_metadata.ipynb`: Updated outputs of `get_metadata()`.
+ - `tools/catfim/catfim_process_huc.py`: Update outputs of `ngvd_to_navd_ft()`.
+ - `tools/catfim/catfim_shared_functions.py`: Updated `load_restricted_sites()` function to handle NA vals correctly.
+ - `tools/catfim/generate_categorical_fim.py`: Updated logging rollup.
+ - `tools/aggregate_csv_files.py`: Created `concat_files()` function.
+ - `tools/eval_plots.py`: Update outputs of `get_metadata()`.
+ - `tools/fimr_to_benchmark.py`: Update outputs of `get_metadata()`.
+ - `tools/test_case_by_hydro_id.py`: Updated docstring of `catchment_zonal_statistics()` function.
+ - `tools/tools_shared_functions.py`: Fixed logging-related issues. New `rollup_log_files()` function (deprecated `concat_files()`). Code cleanup (commented out unused imports)
+ - `tools/tools_shared_variables.py`: Added a WRDS metadata column type dictionary.
+<br/>
+
+## v4.9.17.0 - 2026-06-26 - [PR#1865](https://github.com/NOAA-OWP/inundation-mapping/pull/1865)
+
+Adds a script to convert from raster to vector, replicating `gdal_polygonize.py` but instead using Python in order to take advantage of geoparquet and avoid SQLite issues related to geopackages.
+
+The script is applied to acquiring DEMs (`data/usgs/acquire_and_preprocess_3dep_dems.py`).
+
+### Additions
+- `src/utils/polygonize_raster.py`: Converts raster to vector using Python
+
+### Changes
+- `data`
+    - `usgs/acquire_and_preprocess_3dep_dems.py`:  Also removed part of the repair feature so it no longer tests file sizes, only missing files. File size tests were no longer applicable once we moved from HUC6 to HUC8 CONUS DEMs.
+    - `usgs/pit_detect_file.py`:  add list sort and standardized duration footer.
+- `src/run_huc.sh`: removed code for unused variable of dem_domain_filename
+
+#### Convert DEM_Domain to geoparquet for the following files:
+- `config/deny_unit.lst`
+- `data/`
+    - `nhdplus/preprocess_nhdplus.py`
+    - `usgs/acquire_and_preprocess_3dep_dems.py`
+    - `wbd/`
+        - `generate_pre_clip_fim_huc8.py`
+        - `preprocess_wbd.py`
+
+<br/>
+
+## v4.9.16.2 - 2026-06-18 - [PR#1855](https://github.com/NOAA-OWP/inundation-mapping/pull/1855)
+This PR closes issue #1788. 
+
+The `pull_osm_bridges.py` would silently time out on dense HUCs (e.g., HUC 02060006 — Columbia/Silver Spring, MD) and exit with a misleading "Success" log and no output file. This PR fixes that with a recursive 2×2 polygon splitting strategy and proper failure reporting. 
+
+
+### Changes
+- data/bridges/pull_osm_bridges.py
+- src/bash_variables.env
+<br/>
+
+## v4.9.16.1 - 2026-06-18 - [PR#1856](https://github.com/NOAA-OWP/inundation-mapping/pull/1856)
+
+This PR closes issue #1814 and resolves an inconsistency between FIMpact road-inundation results and the corresponding FIM spatial inundation map. Stray inundated roads have been observed at multiple locations with very small reported flood depths as shown [here](https://github.com/NOAA-OWP/inundation-mapping/issues/1814#issuecomment-4314616790) despite the absence of corresponding adjacent inundated cells in the FIM map.
+
+### Root cause
+
+The FIM spatial inundation and FIMpact workflows used different minimum flood-depth criteria:
+
+* `inundate_mosaic_wrapper.py` treats flood depths below `0.03048 m` (`0.1 ft`) as dry.
+* `fimpacts_inundation.py` previously retained all positive flood-depth values.
+
+As a result, roads with flood depths greater than zero but below `0.1 ft` could be reported as inundated in FIMpact even though the corresponding pixels were treated as dry in the FIM spatial products. This inconsistency can produce isolated stray roads in the FIMpact results.
+
+### Fix
+
+Updated `fimpacts_inundation.py` to apply the same minimum flood-depth threshold used by `inundate_mosaic_wrapper.py`.  Roads with flood depths below `0.1 ft` will now be treated as dry and excluded from the FIMpact outputs, preventing isolated stray roads caused by inconsistent depth filtering.
+
+
+### Changes
+- tools/fimpacts_inundation.py
+<br/>
+
 ## v4.9.16.0 - 2026-06-02 - [PR#1787](https://github.com/NOAA-OWP/inundation-mapping/pull/1787)
 
 This PR closes issues #1778, #1795, and  #1796 and includes the following enhancements to the OSM bridge data acquisition pipeline.
@@ -35,6 +691,7 @@ Updated `clip_vectors_to_wbd.py` to support the new OSM bridge data layout, wher
 ### Removals
 - data/bridges/conda_fim_bridges_enviro.yml
 - data/bridges/setup_conda_for_make_rasters.txt
+
 <br/>
 
 ## v4.9.15.0 - 2026-06-02 - [PR#1816](https://github.com/NOAA-OWP/inundation-mapping/pull/1816)
@@ -73,7 +730,7 @@ In addition, an upgraded `pdal` was added to the Dockerfile and `pillow` was upg
     - `run_by_branch.sh` and `run_huc.sh` Suppress GDAL Error message and fix `gdal_rasterize` nodata issue
 
 <br/>
-## v4.9.13.0 - 2026-05-13 - [PR#1811]([https://github.com/NOAA-OWP/inundation-mapping/pull/1811])
+## v4.9.13.0 - 2026-05-13 - [PR#1811](https://github.com/NOAA-OWP/inundation-mapping/pull/1811)
 
 A major reorganization of the CatFIM processing pipeline, consolidating and simplifying a complex multi-file workflow into more modular and maintainable components. New scripts (`catfim_shared_functions.py`, `catfim_process_huc.py`, `catfim_post_processing.py`) were created to centralize common operations and move CatFIM processing into a HUC-level scale (whereas previous processing was a mix of site-level, sometimes HUC-level, and sometimes full domain-scale). 
 

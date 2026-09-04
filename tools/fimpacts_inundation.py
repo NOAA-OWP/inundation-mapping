@@ -10,6 +10,8 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 
+from src.utils.io import write_geodataframe
+
 
 def stage_lookup(flows, discharge_array, stage_array):
     return np.interp(flows, discharge_array, stage_array)
@@ -53,13 +55,13 @@ def inundation_status(
     """
     This function detects which roads/buildings are inundated by a specified flow file and calculates flood depth.
     The function requires a flow file (expected to follow the schema used by 'inundation_mosaic_wrapper')
-    with data organized by 'feature_id' and 'discharge' in cms. The output includes a geopackage
+    with data organized by 'feature_id' and 'discharge' in cms. The output includes a geopackage or GeoParquet
     containing inundated roads with their maximum flood depth.
 
     Args:
         fim_run_dir (str):    Path to FIM outputs were written by fim_pipeline.
         flow_file (str):      Path to csv flow file to be used for inundation.
-        output_file_path (str):             Path to output geopackage file.
+        output_file_path (str):             Path to GPKG or GeoParquet output.
         limit_hucs (list):    Optional. If specified, only those HUCs will be processed.
         feature_type (str):   Optional. One of ['roads', 'buildings'].
     """
@@ -91,8 +93,8 @@ def inundation_status(
         raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), fim_run_dir)
 
     # Check if file has .gpkg extension
-    if not output_file_path.lower().endswith('.gpkg'):
-        raise ValueError("Output file must have a .gpkg extension.")
+    if not os.path.splitext(output_file_path)[-1].lower() in ['.gpkg', '.parquet']:
+        raise ValueError("Output file must have a .gpkg or .parquet extension.")
 
     # confirm existence of output directory
     output_dir = os.path.dirname(output_file_path)
@@ -160,7 +162,8 @@ def inundation_status(
         fimpact_df['flood_depth'] = fimpact_df['evaluated_stage'] - fimpact_df['threshold_hand']
 
         # for now, remove any record with negative flood depth. these may happen due to non-monotonic src especially in branch zero.
-        fimpact_df = fimpact_df[fimpact_df['flood_depth'] >= 0]
+        # also ignore any flood depth less than 0.03048m (0.1 ft) to match with FIM spatial maps ( see inundation.py:364-367:)
+        fimpact_df = fimpact_df[fimpact_df['flood_depth'] >= 0.03048]
         fimpact_df['flood_depth_ft'] = fimpact_df['flood_depth'] * 3.28084
 
         # open feature geometry
@@ -185,14 +188,14 @@ def inundation_status(
 
     fimpact_gdfs = fimpact_gdfs.loc[fimpact_gdfs.groupby([feature_config['join_id']])['flood_depth'].idxmax()]
 
-    fimpact_gdfs.to_file(output_file_path, driver="GPKG", engine='fiona')
+    write_geodataframe(fimpact_gdfs, output_file_path)
 
 
 if __name__ == "__main__":
     # sample usage
     # python foss_fim/tools/road_inundation.py
     # -y outputs/roads/test2_05030104
-    # -o outputs/roads/test2_05030104/roads_inundation.gpkg
+    # -o outputs/roads/test2_05030104/roads_inundation.parquet
     # -f data/inputs/rating_curve/nwm_recur_flows/nwm3_17C_recurr_50_0_cms.csv
 
     # Parse arguments
@@ -210,7 +213,7 @@ if __name__ == "__main__":
         type=str,
     )
     parser.add_argument(
-        "-o", "--output_file_path", help="Path to geopackage output.", required=True, type=str
+        "-o", "--output_file_path", help="Path to GPKG or Parquet output.", required=True, type=str
     )
     parser.add_argument(
         "-u",

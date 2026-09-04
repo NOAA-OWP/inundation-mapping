@@ -3,10 +3,10 @@
 import os
 import sys
 from collections import deque
+from contextlib import nullcontext
 from os.path import isfile, splitext
 from random import sample
 
-import fiona
 import geopandas as gpd
 import numpy as np
 import pandas as pd
@@ -21,6 +21,7 @@ from shapely.strtree import STRtree
 from tqdm import tqdm
 
 from utils.fim_enums import FIM_exit_codes
+from utils.io import write_geodataframe
 from utils.shared_variables import PREP_CRS
 
 
@@ -96,7 +97,10 @@ class StreamNetwork(gpd.GeoDataFrame):
         if verbose:
             print("Loading file")
 
-        raw_df = gpd.read_file(filename, *args, **kwargs)
+        if os.path.splitext(filename)[1] == ".parquet":
+            raw_df = gpd.read_parquet(filename, *args, **kwargs)
+        else:
+            raw_df = gpd.read_file(filename, *args, **kwargs)
 
         # Reproject
         if raw_df.crs.to_authority() != PREP_CRS.to_authority():
@@ -138,11 +142,7 @@ class StreamNetwork(gpd.GeoDataFrame):
         if verbose:
             print("Writing to {}".format(fileName))
 
-        # sets driver
-        driverDictionary = {".gpkg": "GPKG", ".geojson": "GeoJSON", ".shp": "ESRI Shapefile"}
-        driver = driverDictionary[splitext(fileName)[1]]
-
-        self.to_file(fileName, driver=driver, layer=layer, index=index, engine='fiona')
+        write_geodataframe(self, fileName, layer=layer, index=index)
 
     def set_index_fim(self, reach_id_attribute, drop=True):
         branch_id_attribute = self.branch_id_attribute
@@ -180,21 +180,20 @@ class StreamNetwork(gpd.GeoDataFrame):
         )
         return self
 
-    def drop(self, labels=None, axis=0):
+    def drop(self, labels=None, axis=0, **kwargs):
         branch_id_attribute = self.branch_id_attribute
         attribute_excluded = self.attribute_excluded
         values_excluded = self.values_excluded
 
-        self = super(gpd.GeoDataFrame, self)
-        self = self.drop(labels=labels, axis=axis)
+        # Pass everything cleanly down to GeoDataFrame's drop method
+        df_dropped = super().drop(labels=labels, axis=axis, **kwargs)
 
-        self = StreamNetwork(
-            self,
+        return StreamNetwork(
+            df_dropped,
             branch_id_attribute=branch_id_attribute,
             attribute_excluded=attribute_excluded,
             values_excluded=values_excluded,
         )
-        return self
 
     def rename(self, columns):
         branch_id_attribute = self.branch_id_attribute
@@ -1542,67 +1541,17 @@ class StreamBranchPolygons(StreamNetwork):
 
         return polys
 
-    @staticmethod
-    def query_vectors_by_branch(
-        vector, branch_ids, branch_id_attribute, out_filename_template=None, vector_layer=None
-    ):
-        # load vaas
-        if isinstance(vector, str):
-            vector_filename = vector
-            # vector = gpd.read_file(vector_filename,layer=vector_layer)
-            vector = fiona.open(vector_filename, "r", layer=vector_layer)
-        elif isinstance(vector, fiona.Collection):
-            pass
-        else:
-            raise TypeError("Pass vector argument as filepath or fiona collection")
-
-        def __find_matching_record(vector, attribute, value, matching="first"):
-            if matching not in ("first", "all"):
-                raise ValueError("matching needs to be 'first' or 'all'")
-
-            matches = []
-            for rec in vector:
-                if rec["properties"][attribute] == value:
-                    if matching == "first":
-                        matches = [rec]
-                        break
-                    elif matching == "all":
-                        matches += [rec]
-
-            return matches
-
-        # get source information
-        source_meta = vector.meta
-
-        # out records
-        out_records = []
-
-        for bid in branch_ids:
-            out_records += __find_matching_record(vector, branch_id_attribute, bid, matching="all")
-
-        if (out_filename_template is not None) & (len(out_records) != 0):
-            base, ext = os.path.splitext(out_filename_template)
-            out_filename = base + "_{}".format(bid) + ext
-
-            with fiona.open(out_filename, "w", **source_meta) as out_file:
-                out_file.writerecords(out_records)
-
-        # close
-        vector.close()
-
-        return out_records
-
     def clip(self, to_clip, out_filename_template=None, branch_id=None, branch_id_attribute=None):
         """Clips a raster or vector to the stream branch polygons"""
 
         fileType = "raster"  # default
 
         # load raster or vector file
-        if isinstance(to_clip, DatasetReader):  # if already rasterio dataset
-            pass
+        if isinstance(to_clip, DatasetReader):  # caller owns it, do not close
+            ctx = nullcontext(to_clip)
         elif isinstance(to_clip, str):  # if a string
             try:  # tries to open as rasterio first then geopanda
-                to_clip = rasterio.open(to_clip, "r")
+                ctx = rasterio.open(to_clip, "r")
             except rasterio.errors.RasterioIOError:
                 try:
                     to_clip = gpd.read_file(to_clip)
@@ -1629,32 +1578,31 @@ class StreamBranchPolygons(StreamNetwork):
         return_list = []  # list to return rasterio objects or gdf's
 
         if fileType == "raster":
-            buffered_meta = to_clip.meta.copy()
-            buffered_meta.update(blockxsize=256, blockysize=256, tiled=True)
+            with ctx as to_clip:
+                buffered_meta = to_clip.meta.copy()
+                buffered_meta.update(blockxsize=256, blockysize=256, tiled=True)
 
-            for i, row in generator_to_iterate:
-                buffered_array, buffered_transform = mask(to_clip, [row[self.geom_name]], crop=True)
+                for i, row in generator_to_iterate:
+                    buffered_array, buffered_transform = mask(to_clip, [row[self.geom_name]], crop=True)
 
-                buffered_meta.update(
-                    height=buffered_array.shape[1],
-                    width=buffered_array.shape[2],
-                    transform=buffered_transform,
-                )
+                    buffered_meta.update(
+                        height=buffered_array.shape[1],
+                        width=buffered_array.shape[2],
+                        transform=buffered_transform,
+                    )
 
-                # write out files
-                if out_filename_template is not None:
-                    branch_id = row[self.branch_id_attribute]
+                    # write out files
+                    if out_filename_template is not None:
+                        branch_id = row[self.branch_id_attribute]
 
-                    base, ext = os.path.splitext(out_filename_template)
-                    out_filename = base + "_{}".format(branch_id) + ext
+                        base, ext = os.path.splitext(out_filename_template)
+                        out_filename = base + "_{}".format(branch_id) + ext
 
-                    with rasterio.open(out_filename, "w", **buffered_meta) as out:
-                        out.write(buffered_array)
+                        with rasterio.open(out_filename, "w", **buffered_meta) as out:
+                            out.write(buffered_array)
 
-                # return files in list
-                return_list += [out]
-
-            out.close()
+                    # return files in list
+                    return_list += [out]
 
         if fileType == "vector":
             for i, row in generator_to_iterate:

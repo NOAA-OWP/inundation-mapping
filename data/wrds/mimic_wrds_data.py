@@ -11,6 +11,8 @@ from dotenv import load_dotenv
 from download_process_wrds import label_data_file
 from tools_shared_functions import get_metadata
 
+from src.utils.io import write_geodataframe
+
 
 def read_format_usgs_data(usgs_data_txt, DEFAULT_DATA_CRS):
     '''
@@ -147,7 +149,7 @@ def download_format_metadata(site_thresholds_csv, metadata_url, DEFAULT_DATA_CRS
     # Download and format metadata
     lid_list = thresholds_df['nws_lid'].tolist()
 
-    oconus_meta_list, ___ = get_metadata(
+    oconus_meta_list, ___, err_msg = get_metadata(
         metadata_url,
         select_by='nws_lid',
         selector=lid_list,
@@ -155,6 +157,9 @@ def download_format_metadata(site_thresholds_csv, metadata_url, DEFAULT_DATA_CRS
         upstream_trace_distance=None,
         downstream_trace_distance=None,
     )
+
+    if err_msg != "":
+        print(err_msg)
 
     print(f'Downloaded metadata for {len(oconus_meta_list)} sites from WRDS API.')
 
@@ -700,7 +705,7 @@ def mimic_wrds_data(
     # Save joined geodataframe to file for debugging
     debug_output_path = os.path.join(workspace, f'joined_gdf_with_streams_{label}.gpkg')
     try:
-        joined_gdf_with_streams.to_file(debug_output_path, driver='GPKG')
+        write_geodataframe(joined_gdf_with_streams, debug_output_path, driver='GPKG')
         print(f"Saved joined geodataframe to {debug_output_path}")
     except Exception as e:
         print(f"Error saving geodataframe file {debug_output_path}: {e}")
