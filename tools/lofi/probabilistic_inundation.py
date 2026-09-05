@@ -541,14 +541,7 @@ def inundate_probabilistic(
     if output_raster is False and output_vector is False:
         raise ValueError("Either output_raster or output_vector must be set to True")
 
-    if isinstance(parameters, str):
-        parameters_df = pd.read_parquet(parameters)
-    elif isinstance(parameters, pd.DataFrame):
-        parameters_df = parameters
-    else:
-        raise ValueError("Either parameters must be a str or pd.DataFrame")
-
-    params_weibull = parameters.loc[parameters_df['distribution_name'] == 'weibull_min']
+    params_weibull = parameters.loc[parameters['distribution_name'] == 'weibull_min']
     params_weibull = params_weibull.set_index('feature_id')
 
     # Masks for HUC Domain
