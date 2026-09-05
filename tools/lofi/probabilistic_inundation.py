@@ -552,7 +552,7 @@ def inundate_probabilistic(
     percentiles = (90, 75, 50, 25, 10)
 
     # Generate streamflow likelihoods for each feature
-    percentile_values = generate_streamflow_percentiles_vec(ensembles, params_weibull, percentiles)
+    percentile_values = generate_streamflow_percentiles_vec(ensembles["streamflow"], params_weibull, percentiles)
 
     magnitude = ensembles.attrs['magnitude'] if 'magnitude' in ensembles.attrs else None
 
@@ -625,6 +625,7 @@ def inundate_probabilistic(
         "precalb_discharge_cms"
     ]
 
+    inundation_paths = []
     full_p_table = df_htable.merge(pd.concat(branch_percentile_df), how='left', left_on=["HydroID", "stage"], right_index=True)
     del branch_percentile_df
     for percentile in percentiles:
@@ -632,6 +633,7 @@ def inundate_probabilistic(
         final_inundation_path = os.path.join(
             base_output_path, f'extent_{percentile}_v10_day{day}_hour{hour}.tif'
         )
+        inundation_paths.append(final_inundation_path)
 
         # Skip if the file exists
         if not overwrite and s3_or_local_path_exists(final_inundation_path):
@@ -657,14 +659,9 @@ def inundate_probabilistic(
             log_file=log_file,
         )
 
-    # percentiles
-    percentile_files = [
-        os.path.join(base_output_path, f"extent_{file}_v10_day{day}_hour{hour}.tif") for file in percentiles
-    ]
-
     # For every percentile inundation map convert values to percentile
     with ExitStack() as stack:
-        datasets = [stack.enter_context(rasterio.open(file)) for file in percentile_files]
+        datasets = [stack.enter_context(rasterio.open(file)) for file in inundation_paths]
         windows = [windows for _, windows in datasets[0].block_windows()]
         profile = datasets[0].profile
         odtype = profile['dtype']
