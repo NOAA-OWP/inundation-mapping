@@ -84,11 +84,12 @@ def generate_streamflow_percentiles_vec(
         ensemble_streamflow, params_weibull, percentiles
 ):
     """Vectorize the computation of weibull distribution"""
-    perc_df = pd.DataFrame(columns=percentiles, index=ensemble_streamflow.indexes['feature_id'], dtype=float)
+    feature_ids = ensemble_streamflow.indexes['feature_id'].astype('string[pyarrow]')
+    perc_df = pd.DataFrame(columns=percentiles, index=feature_ids, dtype=float)
 
     # For features that have no params, copy first ensemble streamflow
-    weibull_nomask = ~perc_df.index.isin(params_weibull.index)
-    perc_df.loc[weibull_nomask] = ensemble_streamflow.sel(feature_id=perc_df.index[weibull_nomask], ensemble="1").to_numpy()[:, np.newaxis]
+    weibull_nomask = ~feature_ids.isin(params_weibull.index)
+    perc_df.loc[weibull_nomask] = ensemble_streamflow.sel(feature_id=feature_ids[weibull_nomask], ensemble="1").to_numpy()[:, np.newaxis]
 
     inter_ids = perc_df.index.intersection(params_weibull.index)
     ensemble_subset = ensemble_streamflow.sel(feature_id=inter_ids)
