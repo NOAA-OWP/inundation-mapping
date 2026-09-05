@@ -643,7 +643,7 @@ def inundate_probabilistic(
 
         pcol = f"discharge_cms.{percentile}"
         subhdf = full_p_table[htable_req_static_cols + [pcol]]
-        subhdf = subhdf.rename(columns={pcol: "discharge_cms"})
+        subhdf = subhdf.rename(columns={pcol: "discharge"})
 
         flow_df = percentile_values[percentile].to_frame()
 
