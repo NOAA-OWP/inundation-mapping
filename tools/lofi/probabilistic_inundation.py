@@ -594,6 +594,7 @@ def inundate_probabilistic(
 
     # Apply inundation map to each percentile
     branch_percentile_df = []
+    print("Computing branch percentile hydrotables...")
     for branch, htable_branch in df_htable.groupby("branch_id", as_index=False):
         crosswalk = read_crosswalk(hydrofabric_dir, huc, str(branch))
 
@@ -641,6 +642,7 @@ def inundate_probabilistic(
     full_p_table = df_htable.merge(pd.concat(branch_percentile_df), how='left', left_on=["HydroID", "stage"], right_index=True)
     del df_htable
     del branch_percentile_df
+    print("Producing inundation...")
     for percentile in percentiles:
         # Establish directory to save the final mosaiced inundation
         final_inundation_path = os.path.join(
@@ -659,6 +661,7 @@ def inundate_probabilistic(
         flow_df = percentile_values[percentile].to_frame()
         flow_df = flow_df.rename(columns={percentile: "discharge"})
 
+        print("producing mosaicked inundaiton for percentile", percentile)
         produce_mosaicked_inundation(
             hydrofabric_dir,
             huc,
@@ -675,9 +678,11 @@ def inundate_probabilistic(
 
         # Release objects
         del flow_df, subhdf
+    del full_p_table
 
 
     # For every percentile inundation map convert values to percentile
+    print("Writing rasters...")
     with ExitStack() as stack:
         datasets = [stack.enter_context(rasterio.open(file)) for file in inundation_paths]
         profile = datasets[0].profile
@@ -727,6 +732,7 @@ def inundate_probabilistic(
             gdf = gdf.set_geometry('geometry')
             write_geodataframe(gdf, out_vec)
 
+    print("Cleaning up...")
     for file in inundation_paths:
         os.remove(file)
 
