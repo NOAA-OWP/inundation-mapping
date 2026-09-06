@@ -606,9 +606,10 @@ def inundate_probabilistic(
             if percentile == 50:
                 crosswalk[adj_cols] = adj_copies
             else:
-                channel_n_adj = channel_dist.ppf(1 - percentile / 100)
-                overbank_n_adj = obank_dist.ppf(1 - percentile / 100)
-                slope_adj = slope_dist.ppf(percentile / 100)
+                p = percentile / 100
+                channel_n_adj = channel_dist.isf(p)
+                overbank_n_adj = obank_dist.isf(p)
+                slope_adj = slope_dist.ppf(p)
                 # Adjust the channel, overbank, and slope parameters
                 crosswalk[adj_cols] = adj_copies + [channel_n_adj, overbank_n_adj, slope_adj]
 
