@@ -713,7 +713,7 @@ def inundate_probabilistic(
             gdf = gdf.set_geometry('geometry')
             write_geodataframe(gdf, out_vec)
 
-    for file in percentile_files:
+    for file in inundation_paths:
         os.remove(file)
 
     if output_raster is False:
