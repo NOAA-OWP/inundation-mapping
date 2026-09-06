@@ -322,6 +322,8 @@ def filter_longitudinal_discharge_jitters(huc_dir, huc, stage_interval):
         lakeID_df = catchment_gdf[['HydroID', 'LakeID']].drop_duplicates(subset=['HydroID'])
         # Read src tables
         src_df = pd.read_csv(src_all_branches_path[isrc], low_memory=False)
+        if 'LakeID' in src_df.columns:
+            src_df = src_df.drop(columns=['LakeID'])
         src_df = src_df.merge(lakeID_df, on='HydroID', how='inner')
         stages = [round(num, 4) for num in src_df['Stage'][0:84]]
 
@@ -640,6 +642,14 @@ def filter_longitudinal_discharge_jitters(huc_dir, huc, stage_interval):
 
             # Drop intermediate columns
             src_df = src_df.drop(columns=['SurfaceArea-1', 'volume_stage', 'a_coef', 'b_coef'])
+
+            # Ensure longitudinal columns exist even if no headwater chains were eligible for smoothing
+            if 'SurfaceArea (m2)_longitudinalAdjusted' not in src_df.columns:
+                src_df['SurfaceArea (m2)_longitudinalAdjusted'] = src_df['SurfaceArea (m2)_default']
+
+            if 'Discharge (m3s-1)_longitudinalAdjusted' not in src_df.columns:
+                src_df['Discharge (m3s-1)_longitudinalAdjusted'] = src_df['Discharge (m3s-1)']
+
             # Write src back to file
             src_df.to_csv(src_all_branches_path[isrc], index=False)
 

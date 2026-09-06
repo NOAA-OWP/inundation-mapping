@@ -230,16 +230,19 @@ def gdal_rem_zero_mask_in_memory(
 
     reach_arr = ds_gw_catchments_reaches.GetRasterBand(1).ReadAsArray()
 
-    # Match dev expression: (A * (A >= 0) * (B > 0))
-    # B > 0 defines active catchments
+    # Active catchment mask (B > 0)
     valid_reach = reach_arr > 0
+    # Valid REM mask (not NoData and not NaN)
     valid_rem = (rem_arr != rem_ndv) & ~np.isnan(rem_arr)
 
-    # Apply multiplication logic
-    calc_res = np.where(valid_rem & (rem_arr >= 0.0), rem_arr, 0.0)
+    # Active processing mask: Must be inside active catchment AND have valid REM data
+    active_mask = valid_reach & valid_rem
 
-    # Assign dynamic nodata_val strictly outside catchments (B <= 0)
-    out_arr = np.where(valid_reach, calc_res, nodata_val).astype(np.float32)
+    # Initialize output array entirely to nodata_val
+    out_arr = np.full_like(rem_arr, float(nodata_val), dtype=np.float32)
+
+    # Inside the active mask, clamp negative values to 0.0 (A * (A >= 0))
+    out_arr[active_mask] = np.maximum(rem_arr[active_mask], 0.0)
 
     # Build GDAL Memory Dataset matching input DEM profile
     driver = gdal.GetDriverByName("MEM")
@@ -774,9 +777,8 @@ def delineate_and_produce_hand(
     write_geodataframe(filt_catch_gdf, out_catchments_parquet, index=False)
     write_geodataframe(filt_flows_gdf, out_flows_parquet, index=False)
 
-    # --- 19. RASTERIZE NEW CATCHMENTS AGAIN ---
+    # --- 19. RASTERIZE FILTERED CATCHMENTS ---
     log_step(f"--> [Step 19] Rasterize filtered catchments {huc_number} {current_branch_id}")
-
     rasterize_vector(
         vector_path_or_gdf=filt_catch_gdf,
         template_raster_path=str(tempCurrentBranchDataDir / f"rem_{current_branch_id}.tif"),
@@ -786,7 +788,8 @@ def delineate_and_produce_hand(
         ),
         attribute="HydroID",
         init_value=0,
-        dtype=np.dtype(np.int32),
+        nodata=0,  # Explicitly registers NoData metadata tag=0 in GDAL band profile
+        dtype=np.int32,  # Ensures 32-bit signed integer space for global HydroIDs
     )
 
     # --- 20. MASK SLOPE TO CATCHMENTS ---
@@ -836,7 +839,17 @@ def delineate_and_produce_hand(
     catch_list_txt = tempCurrentBranchDataDir / f"catch_list_{current_branch_id}.txt"
     stage_txt = tempCurrentBranchDataDir / f"stage_{current_branch_id}.txt"
 
-    # PASS GEODATAFRAMES DIRECTLY IN RAM
+    reach_parquet = (
+        tempCurrentBranchDataDir / f"demDerived_reaches_split_filtered_{current_branch_id}.parquet"
+    )
+
+    if not reach_parquet.exists():
+        raise FileNotFoundError(
+            f"CRITICAL PARITY FAILURE: Required driving reach file missing in temp dir: {reach_parquet}"
+        )
+
+    filt_flows_gdf = gpd.read_parquet(reach_parquet)
+
     catchlist_df, stage_list = make_stages_and_catchlist_in_memory(
         catchments=filt_catch_gdf,
         flows=filt_flows_gdf,
@@ -847,21 +860,7 @@ def delineate_and_produce_hand(
 
     write_catchlist_file(catchlist_df, str(catch_list_txt))
     write_stages_file(stage_list, str(stage_txt))
-    del catchlist_df, stage_list
-    gc.collect()
-
-    # --- Step 21: MAKE CATCHMENT AND STAGE FILES ---
-    catchlist_df, stage_list = make_stages_and_catchlist_in_memory(
-        catchments=filt_catch_gdf,
-        flows=filt_flows_gdf,
-        stages_min=float(stage_min_meters),
-        stages_interval=float(stage_interval_meters),
-        stages_max=float(stage_max_meters),
-    )
-
-    write_catchlist_file(catchlist_df, str(catch_list_txt))
-    write_stages_file(stage_list, str(stage_txt))
-    del catchlist_df, stage_list
+    del stage_list
     gc.collect()
 
     # --- 22. MASK REM RASTER TO REMOVE OCEAN AREAS ---
@@ -990,10 +989,7 @@ def delineate_and_produce_hand(
 
     write_geodataframe(cross_catch_gdf, out_catch_path, index=False)
     write_geodataframe(cross_flows_gdf, out_flows_path, index=False)
-    # HACK
-    # July 2026: At this point, a good handful of other tools that are not in the pipeline are looking for the .gpkg version.
-    # A search in the code for the phrase 'gw_catchments_reaches_filtered_addedAttribute' shows a large number of tools and scripts
-    # that use the .tif or .gpkg. Not all are identified here but a card will be created to search and fix them.
+
     output_catchments_fileName_gpkg = os.path.splitext(out_catch_path)[0] + '.gpkg'
     write_geodataframe(cross_catch_gdf, output_catchments_fileName_gpkg, layer='catchments', index=False)
 
@@ -1003,6 +999,34 @@ def delineate_and_produce_hand(
 
     with open(out_src_json_path, "w", encoding="utf-8") as f:
         json.dump(src_json_dict, f, sort_keys=True, indent=2)
+
+    # --- 23.5 RE-BURN CATCHMENTS AGAINST ZEROED MASKED REM TEMPLATE ---
+    log_step(
+        f"--> [Step 23.5] Re-burning catchment raster against zeroed masked REM template for {current_branch_id}"
+    )
+
+    zeroed_masked_rem_path = tempCurrentBranchDataDir / f"rem_zeroed_masked_{current_branch_id}.tif"
+
+    if zeroed_masked_rem_path.exists():
+        # Align cross_catch_gdf strictly by driving reach order before re-burning
+        cross_hydro_order = {hid: idx for idx, hid in enumerate(cross_flows_gdf['HydroID'])}
+        cross_catch_gdf['_sort_key'] = cross_catch_gdf['HydroID'].map(cross_hydro_order)
+        cross_catch_gdf = (
+            cross_catch_gdf.sort_values('_sort_key').drop(columns=['_sort_key']).reset_index(drop=True)
+        )
+        cross_catch_gdf["HydroID_Index"] = np.arange(1, len(cross_catch_gdf) + 1, dtype=np.int16)
+
+        rasterize_vector(
+            vector_path_or_gdf=cross_catch_gdf,
+            template_raster_path=str(zeroed_masked_rem_path),
+            output_raster_path=str(
+                tempCurrentBranchDataDir
+                / f"gw_catchments_reaches_filtered_addedAttributes_{current_branch_id}.tif"
+            ),
+            attribute="HydroID_Index",
+            init_value=0,
+            dtype=np.int16,
+        )
 
     # --- 26. HEAL HAND (BRANCH ZERO) ---
     if is_healed_hand and current_branch_id == branch_zero_id:
@@ -1113,7 +1137,33 @@ def delineate_and_produce_hand(
         rem_zero_tif = tempCurrentBranchDataDir / f"rem_zeroed_masked_{current_branch_id}.tif"
 
         if rem_zero_tif.is_file():
-            convert_raster_file_to_int16_in_memory(str(rem_zero_tif), nodata_out=-9999)
+            convert_raster_file_to_int16_in_memory(str(rem_zero_tif), nodata_out=32767)
+
+    # --- Step 32: FINAL CATCHMENT RE-BURN AGAINST INT16 REM TEMPLATE ---
+    log_step(f"--> [Step 32] Re-burning final catchment raster against int16 REM for {current_branch_id}")
+
+    final_rem_tif = tempCurrentBranchDataDir / f"rem_zeroed_masked_{current_branch_id}.tif"
+    out_catch_tif = (
+        tempCurrentBranchDataDir / f"gw_catchments_reaches_filtered_addedAttributes_{current_branch_id}.tif"
+    )
+
+    if final_rem_tif.is_file():
+        # Ensure cross_catch_gdf is strictly aligned by driving reach order before final rasterization
+        cross_hydro_order = {hid: idx for idx, hid in enumerate(cross_flows_gdf['HydroID'])}
+        cross_catch_gdf['_sort_key'] = cross_catch_gdf['HydroID'].map(cross_hydro_order)
+        cross_catch_gdf = (
+            cross_catch_gdf.sort_values('_sort_key').drop(columns=['_sort_key']).reset_index(drop=True)
+        )
+        cross_catch_gdf["HydroID_Index"] = np.arange(1, len(cross_catch_gdf) + 1, dtype=np.int16)
+
+        rasterize_vector(
+            vector_path_or_gdf=cross_catch_gdf,
+            template_raster_path=str(final_rem_tif),
+            output_raster_path=str(out_catch_tif),
+            attribute="HydroID_Index",
+            init_value=0,
+            dtype=np.int16,
+        )
 
     print(f"=== [SUCCESS] Completed delineate_hydros_and_produce_HAND for HUC {huc_number} ===")
 

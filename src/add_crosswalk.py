@@ -452,6 +452,47 @@ def add_crosswalk_in_memory(
     output_src = output_src.loc[:, ~output_src.columns.duplicated()].copy()
     output_hydro_table = output_hydro_table.loc[:, ~output_hydro_table.columns.duplicated()].copy()
 
+    # --- ENFORCE TOPOLOGICAL ORDER FROM OUTPUT_SRC ---
+    if "HydroID" in output_src.columns:
+        topological_ids = [int(x) for x in output_src["HydroID"].drop_duplicates()]
+    else:
+        topological_ids = []
+
+    if topological_ids:
+        # 1. Enforce topological order on output_hydro_table
+        if "HydroID" in output_hydro_table.columns:
+            output_hydro_table["HydroID_num"] = output_hydro_table["HydroID"].astype(int)
+            output_hydro_table["HydroID_num"] = pd.Categorical(
+                output_hydro_table["HydroID_num"], categories=topological_ids, ordered=True
+            )
+            output_hydro_table = (
+                output_hydro_table.sort_values(by=["HydroID_num", "stage"], ascending=[True, True])
+                .drop(columns=["HydroID_num"])
+                .reset_index(drop=True)
+            )
+
+        # 2. Enforce topological order on output_crosswalk
+        if "HydroID" in output_crosswalk.columns:
+            output_crosswalk["HydroID_num"] = output_crosswalk["HydroID"].astype(int)
+            output_crosswalk["HydroID_num"] = pd.Categorical(
+                output_crosswalk["HydroID_num"], categories=topological_ids, ordered=True
+            )
+            output_crosswalk = (
+                output_crosswalk.sort_values("HydroID_num")
+                .drop(columns=["HydroID_num"])
+                .reset_index(drop=True)
+            )
+
+    # Insert right before 'return' in add_crosswalk_in_memory:
+    print(f"DEBUG add_crosswalk: output_flows has LakeID? {'LakeID' in output_flows.columns}")
+    print(f"DEBUG add_crosswalk: output_src has LakeID? {'LakeID' in output_src.columns}")
+    print(f"DEBUG add_crosswalk: output_hydro_table has LakeID? {'LakeID' in output_hydro_table.columns}")
+
+    # Ensure output_src (src_full_crosswalked) does not carry LakeID, matching DEV schema
+    # while leaving output_flows and output_hydro_table with LakeID intact.
+    if "LakeID" in output_src.columns:
+        output_src = output_src.drop(columns=["LakeID"])
+
     return (
         output_catchments,
         output_flows,

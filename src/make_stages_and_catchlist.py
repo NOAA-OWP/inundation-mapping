@@ -17,44 +17,33 @@ def make_stages_and_catchlist_in_memory(
     stages_interval: float = 0.10,
     stages_max: float = 20.0,
 ) -> tuple[pd.DataFrame, np.ndarray]:
-    """
-    In-memory adaptation of dev make_stages_and_catchlist.
-    Guarantees that the row order of 'flows' (starting with 15440004) is preserved 100%.
-    """
-    # 1. Calculate stages matching dev calculation
+    """Extracts catchlist attributes in strict input flows sequence."""
     stages_max_calc = stages_max + stages_interval
     stages = np.round(np.arange(stages_min, stages_max_calc, stages_interval), 4)
 
-    # 2. Work on copies and enforce consistent integer HydroIDs
-    flows = flows.copy()
-    catchments = catchments.copy()
+    f_df = flows.copy()
+    c_df = catchments.copy()
 
-    flows['HydroID'] = flows['HydroID'].astype(int)
-    catchments['HydroID'] = catchments['HydroID'].astype(int)
+    # Track exact row sequence of input flows
+    f_df["_seq_id"] = np.arange(len(f_df))
 
-    # 3. Extract areasqkm with exact dev fallback
-    try:
-        catch_areas = catchments[['HydroID', 'areasqkm']].drop_duplicates(subset=['HydroID'])
-    except KeyError:
-        areas = (catchments['geometry'].area / 10**6).tolist()
-        hids = catchments['HydroID'].tolist()
-        catch_areas = pd.DataFrame({'HydroID': hids, 'areasqkm': areas}).drop_duplicates(subset=['HydroID'])
+    if "areasqkm" not in c_df.columns:
+        c_df["areasqkm"] = c_df["geometry"].area / 10**6
 
-    # 4. Filter catchments to only HydroIDs existing in flows (reconcile)
-    valid_hydroids = set(flows['HydroID'])
-    catch_areas = catch_areas[catch_areas['HydroID'].isin(valid_hydroids)]
-
-    # 5. Merge areas onto flows. 'left' merge guarantees 'flows' sequence is strictly maintained.
-    mergedflows_catchments = flows.merge(catch_areas, on='HydroID', how='left')
-
-    # 6. Extract final lists directly from the merged DataFrame
-    hydroIDs = mergedflows_catchments['HydroID'].tolist()
-    slopes = mergedflows_catchments['S0'].tolist()
-    lengthkm = mergedflows_catchments['LengthKm'].tolist()
-    areasqkm = mergedflows_catchments['areasqkm'].tolist()
+    # Merge catchments attributes onto flows while preserving strictly tracked sequence
+    merged = (
+        f_df.merge(c_df[["HydroID", "areasqkm"]], on="HydroID", how="left")
+        .sort_values("_seq_id")
+        .reset_index(drop=True)
+    )
 
     catchlist_df = pd.DataFrame(
-        {'HydroID': hydroIDs, 'S0': slopes, 'LengthKm': lengthkm, 'areasqkm': areasqkm}
+        {
+            "HydroID": merged["HydroID"].astype(int).values,
+            "S0": merged["S0"].astype(float).values,
+            "LengthKm": merged["LengthKm"].astype(float).values,
+            "areasqkm": merged["areasqkm"].astype(float).values,
+        }
     )
 
     return catchlist_df, stages
@@ -62,7 +51,7 @@ def make_stages_and_catchlist_in_memory(
 
 def write_stages_file(stages: np.ndarray, stages_filename: str) -> None:
     """Writes stage list to text file matching dev formatting."""
-    with open(stages_filename, 'w') as f:
+    with open(stages_filename, "w") as f:
         f.write("Stage\n")
         for stage in stages:
             f.write("{}\n".format(stage))
@@ -71,12 +60,12 @@ def write_stages_file(stages: np.ndarray, stages_filename: str) -> None:
 def write_catchlist_file(catchlist_df: pd.DataFrame, catchlist_filename: str) -> None:
     """Writes catchlist to text file matching dev formatting."""
     len_of_hydroIDs = len(catchlist_df)
-    hydroIDs = catchlist_df['HydroID'].tolist()
-    slopes = catchlist_df['S0'].tolist()
-    lengthkm = catchlist_df['LengthKm'].tolist()
-    areasqkm = catchlist_df['areasqkm'].tolist()
+    hydroIDs = catchlist_df["HydroID"].tolist()
+    slopes = catchlist_df["S0"].tolist()
+    lengthkm = catchlist_df["LengthKm"].tolist()
+    areasqkm = catchlist_df["areasqkm"].tolist()
 
-    with open(catchlist_filename, 'w') as f:
+    with open(catchlist_filename, "w") as f:
         f.write("{}\n".format(len_of_hydroIDs))
         for h, s, l, a in zip(hydroIDs, slopes, lengthkm, areasqkm):
             f.write("{} {} {} {}\n".format(h, s, l, a))
@@ -106,15 +95,15 @@ def make_stages_and_catchlist(
     write_catchlist_file(catchlist_df, catchlist_filename)
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='make_stages_and_catchlist.py')
-    parser.add_argument('-f', '--flows-filename', help='flows-filename', required=True)
-    parser.add_argument('-c', '--catchments-filename', help='catchments-filename', required=True)
-    parser.add_argument('-s', '--stages-filename', help='stages-filename', required=True)
-    parser.add_argument('-a', '--catchlist-filename', help='catchlist-filename', required=True)
-    parser.add_argument('-m', '--stages-min', help='stages-min', required=True, type=float)
-    parser.add_argument('-i', '--stages-interval', help='stages-interval', required=True, type=float)
-    parser.add_argument('-t', '--stages-max', help='stages-max', required=True, type=float)
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="make_stages_and_catchlist.py")
+    parser.add_argument("-f", "--flows-filename", help="flows-filename", required=True)
+    parser.add_argument("-c", "--catchments-filename", help="catchments-filename", required=True)
+    parser.add_argument("-s", "--stages-filename", help="stages-filename", required=True)
+    parser.add_argument("-a", "--catchlist-filename", help="catchlist-filename", required=True)
+    parser.add_argument("-m", "--stages-min", help="stages-min", required=True, type=float)
+    parser.add_argument("-i", "--stages-interval", help="stages-interval", required=True, type=float)
+    parser.add_argument("-t", "--stages-max", help="stages-max", required=True, type=float)
 
     args = vars(parser.parse_args())
     make_stages_and_catchlist(**args)
