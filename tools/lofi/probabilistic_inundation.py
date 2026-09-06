@@ -556,6 +556,8 @@ def inundate_probabilistic(
     # Generate streamflow likelihoods for each feature
     percentile_values = generate_streamflow_percentiles_vec(ensembles["streamflow"], params_weibull, percentiles)
 
+    del params_weibull
+
     magnitude = ensembles.attrs['magnitude'] if 'magnitude' in ensembles.attrs else None
 
     channel_dist, obank_dist, slope_dist = get_fim_probability_distributions(
@@ -571,8 +573,8 @@ def inundate_probabilistic(
         os.makedirs(base_output_path, exist_ok=True)
 
     # Find the original hydrotable
-    all_branches = s3_or_local_glob(os.path.join(hydrofabric_dir, huc, "branches", "*"))
-    all_branches = list(map(os.path.basename, all_branches))
+    # all_branches = s3_or_local_glob(os.path.join(hydrofabric_dir, huc, "branches", "*"))
+    # all_branches = list(map(os.path.basename, all_branches))
 
     htable_cols = ['HydroID', 'feature_id', 'HUC', 'branch_id', 'stage', 'SurfaceArea (m2)', 'LakeID']
     df_htable = pd.read_parquet(
@@ -585,7 +587,7 @@ def inundate_probabilistic(
     df_htable["precalb_discharge_cms"] = 0
 
     adj_cols = ['channel_n', 'overbank_n', 'SLOPE']
-    crosswalk_static_cols = ['HydroID', 'Stage', 'Bathymetry_source']
+    # crosswalk_static_cols = ['HydroID', 'Stage', 'Bathymetry_source']
 
     # Apply inundation map to each percentile
     branch_percentile_df = []
@@ -610,9 +612,13 @@ def inundate_probabilistic(
             h_table = get_subdivided_src(crosswalk, htable_branch)
             h_table = h_table.rename(columns={n: f"{n}.{percentile}" for n in h_table.columns if n.startswith("discharge_cms")})
             h_tables.append(h_table)
+            del h_table
         p_table = pd.concat(h_tables, axis=1)
-        del h_tables
         branch_percentile_df.append(p_table)
+        del h_tables, p_table
+        del crosswalk
+        del adj_copies
+        del htable_branch
 
         # flow_df = pd.DataFrame(
         #     {"feature_id": percentile_values['feature_id'], "discharge": percentile_values[percentile]}
@@ -629,6 +635,7 @@ def inundate_probabilistic(
 
     inundation_paths = []
     full_p_table = df_htable.merge(pd.concat(branch_percentile_df), how='left', left_on=["HydroID", "stage"], right_index=True)
+    del df_htable
     del branch_percentile_df
     for percentile in percentiles:
         # Establish directory to save the final mosaiced inundation
@@ -662,10 +669,13 @@ def inundate_probabilistic(
             log_file=log_file,
         )
 
+        # Release objects
+        del flow_df, subhdf
+
+
     # For every percentile inundation map convert values to percentile
     with ExitStack() as stack:
         datasets = [stack.enter_context(rasterio.open(file)) for file in inundation_paths]
-        windows = [windows for _, windows in datasets[0].block_windows()]
         profile = datasets[0].profile
         odtype = profile['dtype']
         raster_crs = datasets[0].crs
@@ -674,7 +684,7 @@ def inundate_probabilistic(
 
         out_rast = os.path.join(base_output_path, output_file_name.replace(".gpkg", ".tif"))
         with rasterio.open(out_rast, "w+", **profile) as write_rst:
-            for window in windows:
+            for _, window in datasets[0].block_windows():
                 maxx = np.zeros((window.height, window.width), dtype=odtype)
                 tmpm = np.zeros_like(maxx)
                 mask = np.empty((window.height, window.width), dtype='bool')
@@ -683,7 +693,7 @@ def inundate_probabilistic(
                     d.read(1, out=tmpm, window=window)
 
                     # Only run on the last percentile (greatest extent possible)
-                    if p == "10":
+                    if p == 10:
                         np.equal(tmpm, nodata, out=nodata_mask)
 
                     # equivalent to np.where(tmpm > 0, int(p), 0)
@@ -694,7 +704,7 @@ def inundate_probabilistic(
                     np.maximum(maxx, tmpm, out=maxx)
 
                     # Only run on the last percentile (greatest extent possible)
-                    if p == "10":
+                    if p == 10:
                         np.copyto(maxx, 127, where=nodata_mask)
 
                 write_rst.write(maxx, window=window, indexes=1)
