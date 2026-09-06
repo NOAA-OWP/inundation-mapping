@@ -21,6 +21,7 @@ from utils.io import write_geodataframe
 from utils.shared_functions import s3_or_local_glob, s3_or_local_path_exists, is_local_path, use_pandas_3_behavior
 
 
+@use_pandas_3_behavior()
 def get_fim_probability_distributions(
     posterior_dist: Optional[pd.DataFrame] = None, huc: Optional[int] = None, magnitude: Optional[int] = 2
 ) -> Tuple[weibull_min, weibull_min, weibull_min]:
@@ -80,6 +81,7 @@ def get_fim_probability_distributions(
     return channel_dist, obank_dist, slope_dist
 
 
+@use_pandas_3_behavior()
 def generate_streamflow_percentiles_vec(
         ensemble_streamflow, params_weibull, percentiles
 ):
@@ -479,6 +481,7 @@ def get_subdivided_src(crosswalk, hydrotable):
     return df_htable
 
 
+@use_pandas_3_behavior()
 def inundate_probabilistic(
     ensembles: xr.Dataset,
     parameters: pd.DataFrame,
@@ -730,36 +733,7 @@ def inundate_probabilistic(
         os.remove(out_rast)
 
 
-def progress_bar_handler(executor_dict, verbose, desc) -> list:
-    """Show progress of operation
-
-    Parameters
-    ----------
-    executor_dict: dict
-        Keys as futures and HUC ids as values
-    verbose: bool
-        Whether to print more progress
-    desc: str
-        Description of the process
-
-    Returns
-    -------
-    list
-        Results from performing parallelized task
-
-    """
-    results = []
-    for future in tqdm(
-        as_completed(executor_dict), total=len(executor_dict), disable=(not verbose), desc=desc
-    ):
-        # try:
-        results.append(future.result())
-        # except Exception as exc:
-        #     print('{}, {}, {}'.format(executor_dict[future], exc.__class__.__name__, exc))
-
-    return results
-
-
+@use_pandas_3_behavior()
 def inundate_hucs(
     ensembles: str,
     parameters: str,
