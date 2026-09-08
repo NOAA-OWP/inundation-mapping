@@ -690,24 +690,25 @@ def __subset_hydroTable_to_forecast(
             if isinstance(subset_hucs, list):
                 if len(subset_hucs) == 1:
                     try:
-                        subset_hucs = open(subset_hucs[0]).read().split('\n')
+                        with open(subset_hucs[0]) as fh:
+                            subset_hucs = fh.readlines()
                     except FileNotFoundError:
                         pass
             elif isinstance(subset_hucs, str):
                 try:
-                    subset_hucs = open(subset_hucs).read().split('\n')
+                    with open(subset_hucs) as fh:
+                        subset_hucs = fh.readlines()
                 except FileNotFoundError:
                     subset_hucs = [subset_hucs]
 
             # subsets HUCS
-            subset_hucs_orig = subset_hucs.copy()
-            subset_hucs = []
-            for huc in np.unique(hydroTable.index.get_level_values('HUC')):
-                for sh in subset_hucs_orig:
+            subset_hucs_prefixed = []
+            for huc in hydroTable.index.get_level_values('HUC').unique():
+                for sh in subset_hucs:
                     if huc.startswith(sh):
-                        subset_hucs += [huc]
+                        subset_hucs_prefixed += [huc]
 
-            hydroTable = hydroTable[np.in1d(hydroTable.index.get_level_values('HUC'), subset_hucs)]
+            hydroTable = hydroTable.loc[np.in1d(hydroTable.index.get_level_values('HUC'), subset_hucs_prefixed)]
 
     # join tables
     try:
@@ -747,7 +748,7 @@ def __subset_hydroTable_to_forecast(
             catchmentStagesDict[hid] = h
 
         # huc set
-        hucSet = [str(i) for i in hydroTable.index.get_level_values('HUC').unique().to_list()]
+        hucSet = hydroTable.index.get_level_values('HUC').unique().astype('string').to_list()
 
         return catchmentStagesDict, hucSet
 
