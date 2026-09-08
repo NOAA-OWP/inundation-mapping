@@ -25,6 +25,17 @@ def create_output_folder(output_folder_location):
         {output_folder_location}/catfim_hecras_preprocessing/
         {output_folder_location}/catfim_hecras_preprocessing/temp/
 
+    Arguments
+    ----------
+    output_folder_location : str
+        The location where the output folder will be created.
+
+    Returns
+    -------
+    output_folder : str
+        The path to the output folder.
+    intermediates_folder : str
+        The path to the intermediates folder.
     '''
     mode = 0o777  # allows read, write, and execute for all (rwxrwxrwx)
 
@@ -40,15 +51,37 @@ def create_output_folder(output_folder_location):
     os.makedirs(intermediates_folder, exist_ok=True, mode=mode)
 
     if not os.path.exists(intermediates_folder):
-        raise Exception(f'Unable to intermediates folder at {output_folder}')
+        raise Exception(f'Unable to create intermediates folder at {intermediates_folder}')
 
     return output_folder, intermediates_folder
 
 
 def create_flows_files(threshold_file, nwm_meta_file, intermediates_folder, magnitude_types):
     '''
-    Creates flows CSV files for each magnitude type (action, minor, moderate, major, record) using the thresholds and metadata.
-    Saves the CSVs to the intermediate files path and returns a dictionary with magnitude type as key and flows CSV filepath as value.
+    Creates flows CSV files for each magnitude type (action, minor, moderate, major, record)
+    using the thresholds and metadata.
+
+    Saves the CSVs to the intermediate files path and returns a dictionary with magnitude type
+    as key and flows CSV filepath as value.
+
+    Arguments
+    ----------
+    threshold_file : str
+        Filepath to the thresholds pickle file.
+    nwm_meta_file : str
+        Filepath to the NWM metadata pickle file.
+    intermediates_folder : str
+        Path to the folder where intermediate files will be saved.
+    magnitude_types : list
+        List of magnitude types to create flows files for.
+    
+    Returns
+    -------
+    flows_csv_dict : dict
+        Dictionary with magnitude type as key and flows CSV filepath as value.
+    identifiers_csv_filepath : str
+        Filepath to the identifiers CSV file created during processing.
+
     '''
     logging.info('')
     logging.info('Begin creating flows files...')
@@ -131,28 +164,48 @@ def create_flows_files(threshold_file, nwm_meta_file, intermediates_folder, magn
     return flows_csv_dict, identifiers_csv_filepath
 
 
-def run_controls(magnitude, ripple_path, model_name, flows_filename, flows2fim_path, intermediates_folder):
+def run_controls(magnitude, ripple_path, collection_id, flows_filename, flows2fim_path, intermediates_folder):
     '''
     Runs flows2fim controls for a given model and magnitude, using the specified flows file.
     Saves the output CSV to the intermediate files path.
 
+    Arguments
+    ----------
+    magnitude : str
+        The magnitude type (e.g., action, minor, moderate, major, record).
+    ripple_path : str
+        The path to the Ripple model collections.
+    collection_id : str
+        The identifier for the specific model collection.
+    flows_filename : str
+        The filename of the flows CSV to use for this magnitude.
+    flows2fim_path : str
+        The path to the flows2fim executable.
+    intermediates_folder : str
+        The path to the folder where intermediate files will be saved.
+
+    Returns
+    -------
+    output_csv : str
+        The path to the output controls CSV file created by flows2fim.
+
     '''
     logging.info('')
-    logging.info(f'{model_name} : {magnitude} - Run flows2fim controls subprocess')
+    logging.info(f'{collection_id} : {magnitude} - Run flows2fim controls subprocess')
 
     # Create the input and output file paths
-    model_path = os.path.join("ripple", ripple_path, "collections", model_name)
+    model_path = os.path.join("ripple", ripple_path, "collections", collection_id)
     db_path = os.path.join(model_path, "ripple.gpkg")
     flows_csv = os.path.join(intermediates_folder, flows_filename)
     starts_csv = os.path.join(model_path, "start_reaches.csv")
-    controls_filename = f'controls_{model_name}_{magnitude}.csv'
+    controls_filename = f'controls_{collection_id}_{magnitude}.csv'
     output_csv = os.path.join(intermediates_folder, controls_filename)
 
     # Validate input paths
     input_path_list = [model_path, db_path, flows_csv, starts_csv]
     for path in input_path_list:
         if not os.path.exists(path):
-            msg = f'Input file {path} does not exist. Cannot run controls for model {model_name} and magnitude {magnitude}.'
+            msg = f'Input file {path} does not exist. Cannot run controls for model {collection_id} and magnitude {magnitude}.'
             logging.critical(msg)
             raise Exception
 
@@ -184,21 +237,50 @@ def run_controls(magnitude, ripple_path, model_name, flows_filename, flows2fim_p
 
     # Parse outputs for common errors and record reach_ids where they occur
     common_warning_list = ["Large difference in target vs found flow", "Flow not found for reach", "Large difference in target vs found control reach stage"]
-    parse_subprocess_outputs(result, common_warning_list, model_name, magnitude)
+    parse_subprocess_outputs(result, common_warning_list, collection_id, magnitude)
 
     # Validate that output file was created
     if not os.path.exists(output_csv):
-        logging.error(f'{model_name} : {magnitude} - [flow2fim controls] Controls output file {os.path.basename(output_csv)} not created')
+        logging.error(f'{collection_id} : {magnitude} - [flow2fim controls] Controls output file {os.path.basename(output_csv)} not created')
         return None
     else:
-        logging.info(f'{model_name} : {magnitude} - [flow2fim controls] Saved controls file as {os.path.basename(output_csv)}')
+        logging.info(f'{collection_id} : {magnitude} - [flow2fim controls] Saved controls file as {os.path.basename(output_csv)}')
 
     return output_csv
 
 
-def run_controls_for_all_models_and_magnitudes(magnitude_types, flows_csv_dict, collections_path, ripple_path, flows2fim_path, intermediates_folder, identifiers_csv_filepath, lst_models, output_folder):
+def run_controls_for_all_models_and_magnitudes(magnitude_types, flows_csv_dict, collections_path, ripple_path, flows2fim_path, intermediates_folder, identifiers_csv_filepath, ripple_model_status_path, lst_models, output_folder):
     '''
-    Run flows2fim controls for each model and magnitude
+    Run flows2fim controls for each model and magnitude.
+
+    Arguments
+    ----------
+    magnitude_types : list
+        List of magnitude types to process (e.g., action, minor, moderate, major, record).
+    flows_csv_dict : dict
+        Dictionary with magnitude type as key and flows CSV filepath as value.
+    collections_path : str
+        Path to the Ripple model collections.
+    ripple_path : str
+        The path to the Ripple model collections.
+    flows2fim_path : str
+        The path to the flows2fim executable.
+    intermediates_folder : str
+        The path to the folder where intermediate files will be saved.
+    identifiers_csv_filepath : str
+        Filepath to the identifiers CSV file created during processing.
+    ripple_model_status_path : str
+        Filepath to the CSV containing the status of Ripple model collections.
+    lst_models : list
+        List of model collections to process. If 'all', all available collections will be processed.
+    output_folder : str
+        The path to the output folder where final outputs will be saved.
+
+    Returns
+    -------
+    compiled_outputs_path : str
+        The path to the compiled controls output CSV file created by concatenating all individual controls CSVs
+
     '''
     logging.info('')
     logging.info("Begin running controls....")
@@ -226,30 +308,43 @@ def run_controls_for_all_models_and_magnitudes(magnitude_types, flows_csv_dict, 
         logging.critical(msg)
         raise Exception
 
+    # Filter the collection list using ripple_model_status_path TODO: Confirm that we should filter by collection id and not another col?
+    # Read in CSV and get a list of valid collections (where is_valid == True)
+    ripple_model_status_table = pd.read_csv(ripple_model_status_path)
+    valid_ripple_collections_list = ripple_model_status_table[ripple_model_status_table['is_valid'] == True]['collection_id'].unique().tolist()
+
+    # Filter the collection list to only include valid ripple collections
+    collection_list = [item for item in collection_list if item in valid_ripple_collections_list]
+
+    # Return a list of collections that were removed due to not being valid
+    invalid_collections_list = [item for item in lst_models if item not in valid_ripple_collections_list]
+    if len(invalid_collections_list) > 0:
+        logging.warning(f'The following model collection(s) were removed from processing due to not being valid: {invalid_collections_list}')
+
     logging.info(f'Found {len(collection_list)} model collection(s) to process: {collection_list}')
 
     # Read identifiers_csv_filepath
     identifiers_df = pd.read_csv(identifiers_csv_filepath)
 
     controls_output_csv_list = []
-    for model_name in collection_list:
+    for collection_id in collection_list:
         logging.info('')
-        logging.info(f'{model_name} - Running controls')
+        logging.info(f'{collection_id} - Running controls')
         section_start_dt = datetime.now(timezone.utc)
 
         for magnitude in magnitude_types:
             flows_filename = flows_csv_dict[magnitude]
 
-            controls_output_csv = run_controls(magnitude, ripple_path, model_name, flows_filename, flows2fim_path, intermediates_folder)
+            controls_output_csv = run_controls(magnitude, ripple_path, collection_id, flows_filename, flows2fim_path, intermediates_folder)
 
             if controls_output_csv is None:
-                logging.warning(f'{model_name} : {magnitude} - No controls CSV created, error likely occurred')
+                logging.warning(f'{collection_id} : {magnitude} - No controls CSV created, error likely occurred')
                 continue
 
             # Read the output CSV and add the necessary columns
             df = pd.read_csv(controls_output_csv)
             df['magnitude'] = magnitude
-            df['model_collection'] = model_name
+            df['model_collection'] = collection_id
             df['collection_parent_folder'] = ripple_path
 
             # Join the identifiers_df to the controls output df to add the nws_lid column (joining on reach_id for df and nwm_feature_id for identifiers df)
@@ -258,10 +353,10 @@ def run_controls_for_all_models_and_magnitudes(magnitude_types, flows_csv_dict, 
             df.to_csv(controls_output_csv, index=False)
             controls_output_csv_list.append(controls_output_csv)
 
-            logging.info(f"{model_name} : {magnitude} - Updated controls CSV with additional metadata columns")
+            logging.info(f"{collection_id} : {magnitude} - Updated controls CSV with additional metadata columns")
 
         dur_msg = fh.print_date_time_duration(section_start_dt, datetime.now(timezone.utc), False)
-        logging.info(f'{model_name} - Finished running controls for {model_name} - {dur_msg}')
+        logging.info(f'{collection_id} - Finished running controls for {collection_id} - {dur_msg}')
 
     logging.info("")
     logging.info(f"Finished running controls for {len(collection_list)} models.")
@@ -279,7 +374,22 @@ def run_controls_for_all_models_and_magnitudes(magnitude_types, flows_csv_dict, 
     return compiled_outputs_path
 
 
-def parse_subprocess_outputs(result, common_warning_list, model_name, magnitude):
+def parse_subprocess_outputs(result, common_warning_list, collection_id, magnitude):
+    '''
+    Parses the stderr output from the flows2fim controls subprocess to identify common warnings and log them.
+
+    Arguments
+    ----------
+    result : subprocess.CompletedProcess
+        The result object returned from the subprocess.run() call.
+    common_warning_list : list
+        List of common warning strings to look for in the stderr output.
+    collection_id : str
+        The identifier for the specific model collection.
+    magnitude : str
+        The magnitude type (e.g., action, minor, moderate, major, record).
+
+    '''
 
     stderr_list = result.stderr.splitlines()
 
@@ -295,19 +405,30 @@ def parse_subprocess_outputs(result, common_warning_list, model_name, magnitude)
                     reach_id_list.append(reach_id)
 
         if len(reach_id_list) > 0:
-            logging.info(f'{model_name} : {magnitude} - [flow2fim controls] {common_warning} (Returned for {len(reach_id_list)} Reach IDs)')
-            # logging.info(f'{model_name} : {magnitude} - [flow2fim controls] Reach IDs: {reach_id_list}')  # Too many feature IDs to print (could toggle for debugging)
+            logging.info(f'{collection_id} : {magnitude} - [flow2fim controls] {common_warning} (Returned for {len(reach_id_list)} Reach IDs)')
+            # logging.info(f'{collection_id} : {magnitude} - [flow2fim controls] Reach IDs: {reach_id_list}')  # Too many feature IDs to print (could toggle for debugging)
 
     # Get warnings that aren't in the common warnings list
     uncommon_warning_list = [s for s in stderr_list if not any(k in s for k in common_warning_list)]
 
     for uncommon_warning in uncommon_warning_list:
-        logging.info(f'{model_name} : {magnitude} - [flow2fim controls] {uncommon_warning}')
+        logging.info(f'{collection_id} : {magnitude} - [flow2fim controls] {uncommon_warning}')
 
     return
 
 
 def create_site_model_table(compiled_outputs_path, output_folder):
+    '''
+    Creates a table of sites that have HEC-RAS models available.
+
+    Arguments
+    ----------
+    compiled_outputs_path : str
+        The path to the compiled outputs CSV file.
+    output_folder : str
+        The path to the output folder where the resulting table will be saved.
+
+    '''
     logging.info('')
     logging.info('Creating list of sites with HEC-RAS models available...')
 
@@ -342,13 +463,27 @@ def catfim_hecras_preprocessing(
 ):
     '''
     Main function for script.
+
+    Arguments
+    ----------
+    threshold_file : str
+        Filepath to the thresholds pickle file.
+    nwm_meta_file : str
+        Filepath to the NWM metadata pickle file.
+    ripple_path : str
+        The path to the Ripple model collections.
+    output_folder_location : str
+        The location where the output folder will be created.
+    lst_models : str
+        Space-delimited list of models to preprocess HEC-RAS for. Defaults to all models in the given ripple folder. If 'all', all available models will be processed.
+
     '''
     # Get input variables
     magnitude_types = csf.MAGNITUDES_TYPES
     flows2fim_path = "/projects/catfim_hecras_fb/flows2fim_030/flows2fim"  # csf.FLOWS2FIM_PATH TODO: finalize file location and Add to shared vars
 
     # TODO: Finalize file locationand update input path (maybe from an env file?)
-    ripple_whitelist_path = '/home/rdp-user/projects/catfim_hecras_fb/ripple_feature_ids_whitelist_final_20260729_1420_no_path.csv'
+    ripple_model_status_path = '/home/rdp-user/projects/catfim_hecras_fb/ripple_feature_ids_whitelist_final_20260729_1420_no_path.csv'
 
     # Create output folders
     output_folder, intermediates_folder = create_output_folder(output_folder_location)
@@ -380,8 +515,8 @@ def catfim_hecras_preprocessing(
         # Make flows file from the input WRDS data
         flows_csv_dict, identifiers_csv_filepath = create_flows_files(threshold_file, nwm_meta_file, intermediates_folder, magnitude_types)
 
-        # Create the controls CSVs for the model/magnitude combinations
-        compiled_outputs_path = run_controls_for_all_models_and_magnitudes(magnitude_types, flows_csv_dict, collections_path, ripple_path, flows2fim_path, intermediates_folder, identifiers_csv_filepath, lst_models, output_folder)
+        # Create the controls CSVs for the model/magnitude combinations  # TODO: Add ripple_model_status_path as an input?
+        compiled_outputs_path = run_controls_for_all_models_and_magnitudes(magnitude_types, flows_csv_dict, collections_path, ripple_path, flows2fim_path, intermediates_folder, identifiers_csv_filepath, ripple_model_status_path, lst_models, output_folder)
 
         # Create a table matching AHPS sites to available HEC-RAS models
         create_site_model_table(compiled_outputs_path, output_folder)
@@ -407,8 +542,7 @@ def catfim_hecras_preprocessing(
 
 if __name__ == '__main__':
     '''
-    # TODO: Add
-
+    Command line parser for running the CatFIM HEC-RAS preprocessing script.
 
     Example:
     
@@ -441,7 +575,7 @@ if __name__ == '__main__':
 
     parser.add_argument(
         '-r',
-        '--ripple-path',
+        '--ripple-path', # TODO: or should we get this val from the CSV?
         help='REQUIRED: Folder from which to get Ripple model inputs.'
         ' ie ripple_100_20251004',
         required=True,
