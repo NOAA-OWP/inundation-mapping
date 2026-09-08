@@ -740,7 +740,7 @@ def __subset_hydroTable_to_forecast(
                 )
 
             # add this interpolated stage to catchment stages dict
-            h = round(interpolated_stage[0], 4)
+            h = interpolated_stage[0]
 
             hid = types.int16(np.int16(str(hid)[4:])) if process_int16 else types.int32(hid)
             h = types.int16(np.round(h * 1000)) if process_int16 else types.float32(h)
