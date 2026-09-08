@@ -483,8 +483,8 @@ def get_subdivided_src(crosswalk, hydrotable):
 
 @use_pandas_3_behavior()
 def inundate_probabilistic(
-    ensembles: xr.Dataset,
-    parameters: pd.DataFrame,
+    streamflow_percentiles,
+    percentiles,
     hydrofabric_dir: str,
     outputs_dir: str,
     huc: str,
@@ -546,22 +546,10 @@ def inundate_probabilistic(
     if output_raster is False and output_vector is False:
         raise ValueError("Either output_raster or output_vector must be set to True")
 
-    params_weibull = parameters.loc[parameters['distribution_name'] == 'weibull_min']
-    params_weibull = params_weibull.set_index('feature_id')
-
-    # Percentiles and data to add
-    #percentiles = {'90': 10, '75': 25, '50': 50, '25': 75, '10': 90}
-    percentiles = (90, 75, 50, 25, 10)
-
-    # Generate streamflow likelihoods for each feature
-    percentile_values = generate_streamflow_percentiles_vec(ensembles["streamflow"], params_weibull, percentiles)
-
-    del params_weibull
-
-    magnitude = ensembles.attrs['magnitude'] if 'magnitude' in ensembles.attrs else None
+    #magnitude = ensembles.attrs['magnitude'] if 'magnitude' in ensembles.attrs else None
 
     channel_dist, obank_dist, slope_dist = get_fim_probability_distributions(
-        posterior_dist=posterior_dist, huc=int(huc), magnitude=magnitude
+        posterior_dist=posterior_dist, huc=int(huc)
     )
 
     # Make directories if they do not exist
@@ -623,7 +611,7 @@ def inundate_probabilistic(
         del htable_branch
 
         # flow_df = pd.DataFrame(
-        #     {"feature_id": percentile_values['feature_id'], "discharge": percentile_values[percentile]}
+        #     {"feature_id": streamflow_percentiles['feature_id'], "discharge": streamflow_percentiles[percentile]}
         # )
     htable_req_static_cols = [
         "branch_id",
@@ -655,7 +643,7 @@ def inundate_probabilistic(
         subhdf = full_p_table[htable_req_static_cols + [pcol]]
         subhdf = subhdf.rename(columns={pcol: "discharge_cms"})
 
-        flow_df = percentile_values[percentile].to_frame()
+        flow_df = streamflow_percentiles[percentile].to_frame()
         flow_df = flow_df.rename(columns={percentile: "discharge"})
 
         print("producing mosaicked inundaiton for percentile", percentile)
