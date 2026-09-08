@@ -324,7 +324,6 @@ def process_threshold_data(
 
             # TODO: Pull from the args hecras_sites_csv, combined_controls_csv ?
             # Maybe eventually we plug in the run controls script into CatFIM? I'm on the fence about that one...
-         
             # TEMP DEBUG: Hard code the sites and controls CSV in for now # TODO: Replace with variables or env vals
             hecras_sites_csv = '/projects/catfim_hecras_fb/test_outputs/final_outputs/sites_with_hecras_models.csv'  # TODO: Replace
             combined_controls_csv = '/projects/catfim_hecras_fb/test_outputs/final_outputs/combined_controls_output.csv'  # TODO: Replace

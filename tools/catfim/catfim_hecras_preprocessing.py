@@ -15,8 +15,6 @@ import tools.catfim.catfim_shared_functions as csf
 from src.utils.shared_functions import FIM_Helpers as fh
 
 
-
-
 def create_output_folder(output_folder_location):
     '''
     Creates the output folders needed for processing (if needed).

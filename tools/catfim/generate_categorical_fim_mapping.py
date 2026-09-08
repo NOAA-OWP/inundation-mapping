@@ -379,7 +379,7 @@ def run_fb_mapping(
                     except subprocess.CalledProcessError as e:
                         # Raised if the command ran but failed (non-zero exit code)
                         logging.critical(f"Command failed with exit code {e.returncode}: {e.stderr}")
-                        sys.exit(1) # TODO: Decide if critical (and exit) or just error (and continue)
+                        sys.exit(1)  # TODO: Decide if critical (and exit) or just error (and continue)
 
                     except Exception:
                         logging.critical(
@@ -399,10 +399,13 @@ def run_fb_mapping(
                     # Update the nodataval, mask out lakes from inundated tif and re-save tif
 
                     logging.info(
-                        f'{huc} : {ahps_site} : {magnitude} - Masking out lakes and updating nodataval from {os.path.basename(output_extent_tif)}')
+                        f'{huc} : {ahps_site} : {magnitude} - Masking out lakes and updating nodataval from {os.path.basename(output_extent_tif)}'
+                    )
 
                     # Open the source raster file
-                    with rasterio.open(output_extent_tif, mode='r+', IGNORE_COG_LAYOUT_BREAK='YES') as output_extent_src:
+                    with rasterio.open(
+                            output_extent_tif, mode='r+', IGNORE_COG_LAYOUT_BREAK='YES'
+                        ) as output_extent_src:
 
                         # Read the raster data array and copy the metadata profile
                         output_extent_array = output_extent_src.read(1)
@@ -424,9 +427,7 @@ def run_fb_mapping(
                         )
 
                         if mask_status:
-                            logging.info(
-                                f'{huc} : {ahps_site} : {magnitude} - Masking status: {mask_status}'
-                            )
+                            logging.info(f'{huc} : {ahps_site} : {magnitude} - Masking status: {mask_status}')
 
                     # Write the modified data into the new GeoTIFF file
                     with rasterio.open(output_extent_tif, "w", **profile) as dst:
