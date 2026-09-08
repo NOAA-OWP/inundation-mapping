@@ -243,10 +243,13 @@ def __inundate_gms_generator(
 
     """
     # Iterate over branches
-    for idx, row in hucs_branches.iterrows():
-        huc = str(row[0])
-        branch_id = str(row[1])
+    src_indexes = ["HUC", "feature_id", "HydroID"]
+    if isinstance(hydro_table_df, pd.DataFrame):
+        hydro_table_df = hydro_table_df.reset_index()
+        hydro_table_branches = hydro_table_df.set_index('branch_id')
 
+
+    for huc, branch_id in zip(hucs_branches[0], hucs_branches[1]):
         huc_dir = os.path.join(hydrofabric_dir, huc)
         branch_dir = os.path.join(huc_dir, "branches", branch_id)
 
@@ -256,14 +259,9 @@ def __inundate_gms_generator(
         catchments_file_name = f"gw_catchments_reaches_filtered_addedAttributes_{branch_id}.tif"
         catchments_branch = os.path.join(branch_dir, catchments_file_name)
 
-        src_indexes = ["HUC", "feature_id", "HydroID"]
         if isinstance(hydro_table_df, pd.DataFrame):
-            if sum(df_idx not in hydro_table_df.index.names for df_idx in src_indexes) > 0:
-                hydro_table_all = hydro_table_df.set_index(src_indexes)
-            else:
-                hydro_table_all = hydro_table_df
-
-            hydro_table_branch = hydro_table_all.loc[hydro_table_all["branch_id"] == int(branch_id)]
+            hydro_table_branch = hydro_table_branches.loc[int(branch_id)].reset_index()
+            hydro_table_branch = hydro_table_branches.set_index(src_indexes)
 
         elif isinstance(hydro_table_df, str):
             hydro_table_branch = hydro_table_df.format(branch_id)
