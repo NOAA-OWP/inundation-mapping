@@ -3,7 +3,6 @@
 import argparse
 import logging
 import os
-import sys
 import re
 import shutil
 import traceback
@@ -188,7 +187,15 @@ def process_generate_categorical_fim(
             locals()  # lst_hucs argument is used but passed via locals() so VSCode thinks it is not in use.
         )
 
-        adj_valid_fim_hucs, dropped_huc_lst, nwm_meta_file, threshold_file, inundate_hand, inundate_hr, hr_preference = __validate_inputs(local_vals)
+        (
+            adj_valid_fim_hucs,
+            dropped_huc_lst,
+            nwm_meta_file,
+            threshold_file,
+            inundate_hand,
+            inundate_hr,
+            hr_preference,
+        ) = __validate_inputs(local_vals)
 
         # Note: this will handle a huc list arg of "all". If valid_fim_hucs is empty, it will thrown an exception
         # valid_fim_hucs are hucs that have valid huc folders in the fim output dir.
@@ -230,14 +237,13 @@ def process_generate_categorical_fim(
             f"... Logs will be saved to {log_file_path} initially and later copied over to {output_folder}/logs"
         )
 
-
-        logging.info(f"Producing CatFIM using the following model(s):")
+        logging.info("Producing CatFIM using the following model(s):")
         if inundate_hand == True:
-            logging.info(f" - HAND")
+            logging.info(" - HAND")
         if inundate_hr == True and hr_preference == True:
-            logging.info(f" - HEC-RAS (one per site)")
+            logging.info(" - HEC-RAS (one per site)")
         elif inundate_hr == True and hr_preference == False:
-            logging.info(f" - HEC-RAS (all available per site)")
+            logging.info(" - HEC-RAS (all available per site)")
 
         # Make sites output filepath (needed even if we choose skip_processing)
         nwm_sites_file = os.path.join(output_folder, "nwm_sites.parquet")
@@ -1229,7 +1235,7 @@ def __validate_inputs(received_locals_dict):
             " Expected one of the following: 'hand', 'hrp', 'hr', 'handhrp', 'handhr'"
             " Re-run with a valid -mod command."
         )
-    
+
     # Whether to inundate HAND models - Set to true if the model tag contains 'hand' (model = hand, handhr, handhrp)
     inundate_hand = 'hand' in model
 
@@ -1241,7 +1247,15 @@ def __validate_inputs(received_locals_dict):
     # If not, we will run ALL available HEC-RAS models for each site (not recommended for full CatFIM runs).
     hr_preference = 'p' in model
 
-    return valid_fim_hucs, dropped_huc_lst, nwm_meta_file, threshold_file, inundate_hand, inundate_hr, hr_preference
+    return (
+        valid_fim_hucs,
+        dropped_huc_lst,
+        nwm_meta_file,
+        threshold_file,
+        inundate_hand,
+        inundate_hr,
+        hr_preference,
+    )
 
 
 def __create_runtime_args_file(

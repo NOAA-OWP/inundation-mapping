@@ -587,7 +587,9 @@ def finalize_sites_mapping_status(
 
             # Get a list of which model type(s) were mapped (HAND, HEC-RAS)
             lid_model_list = huc_library_gdf[huc_library_gdf['nws_lid'] == lid]['model'].unique().tolist()
-            lid_model_version_list = huc_library_gdf[huc_library_gdf['nws_lid'] == lid]['model_version'].unique().tolist()
+            lid_model_version_list = (
+                huc_library_gdf[huc_library_gdf['nws_lid'] == lid]['model_version'].unique().tolist()
+            )
 
             lid_model_list_str = "; ".join(lid_model_list)
             lid_model_version_list_str = "; ".join(lid_model_version_list)

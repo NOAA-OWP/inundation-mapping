@@ -2,7 +2,6 @@
 
 import logging
 import os
-import sys
 import pickle
 import random
 import shutil
@@ -327,8 +326,8 @@ def process_threshold_data(
             # Maybe eventually we plug in the run controls script into CatFIM? I'm on the fence about that one...
          
             # TEMP DEBUG: Hard code the sites and controls CSV in for now # TODO: Replace with variables or env vals
-            hecras_sites_csv = '/projects/catfim_hecras_fb/test_outputs/final_outputs/sites_with_hecras_models.csv' # TODO: Replace
-            combined_controls_csv = '/projects/catfim_hecras_fb/test_outputs/final_outputs/combined_controls_output.csv' # TODO: Replace
+            hecras_sites_csv = '/projects/catfim_hecras_fb/test_outputs/final_outputs/sites_with_hecras_models.csv'  # TODO: Replace
+            combined_controls_csv = '/projects/catfim_hecras_fb/test_outputs/final_outputs/combined_controls_output.csv'  # TODO: Replace
 
             __process_huc_hecras_controls_data(
                 huc,
@@ -1022,7 +1021,7 @@ def __process_huc_hecras_controls_data(
     Generates HUC/Site/Model/Magnitude-specific controls CSVs for the HEC-RAS sites in the HUC (if they exist).
 
     # TODO: Fill out args
-    
+
     '''
 
     logging.info(f"{huc} - Begin subsetting HEC-RAS controls into site/magnitude/model-specific CSVs...")
@@ -1047,13 +1046,15 @@ def __process_huc_hecras_controls_data(
     combined_controls_csv_filename = os.path.basename(combined_controls_csv)
     local_copy_combined_controls_csv = os.path.join(huc_path, combined_controls_csv_filename)
     shutil.copyfile(combined_controls_csv, local_copy_combined_controls_csv)
-    
+
     # Read in the controls CSV and subset it to only the rows with reach_ids in the this HUC's feature ID list
     all_controls_df = pd.read_csv(local_copy_combined_controls_csv)
     huc_controls_df = all_controls_df[all_controls_df['reach_id'].isin(huc_feature_id_list)]
 
     # Merge the segments df to get the AHPS LIDs into the huc_controls_df (merge on reach_id and feature_id)
-    huc_controls_df = huc_controls_df.merge(segments_df, left_on='reach_id', right_on='feature_id', how='left')
+    huc_controls_df = huc_controls_df.merge(
+        segments_df, left_on='reach_id', right_on='feature_id', how='left'
+    )
 
     # Drop the original (incomplete) 'nws_lid' and 'nwm_feature_id' cols,
     # then rename 'lid' -> 'nws_lid' and 'feature_id' -> 'nwm_feature_id'
@@ -1090,7 +1091,9 @@ def __process_huc_hecras_controls_data(
 
                 # If there's more than one model with that prefix (shouldn't happen), use the first one and give a warning.
                 if len(subset_model_list) > 1:
-                    logging.warning(f'{huc} : {ahps_site} - Found {len(subset_model_list)} models with the prefix {prefix}:')
+                    logging.warning(
+                        f'{huc} : {ahps_site} - Found {len(subset_model_list)} models with the prefix {prefix}:'
+                    )
                     logging.warning(f'{huc} : {ahps_site} - {subset_model_list}')
 
                 # Should just be one, but get the first val just in case, then put back into list format
@@ -1111,12 +1114,14 @@ def __process_huc_hecras_controls_data(
             sites_models_list.append({'nws_lid': ahps_site, 'model_collection': model_name})
 
             for magnitude in magnitude_list:
-                logging.info(f'{huc} : {ahps_site} - Subsetting controls CSV for {ahps_site} - {model_name} - {magnitude}...')
+                logging.info(
+                    f'{huc} : {ahps_site} - Subsetting controls CSV for {ahps_site} - {model_name} - {magnitude}...'
+                )
 
                 # Subset the controls CSV to only the magnitude/model combination
                 controls_subset_df = site_controls_df[
-                    (site_controls_df['model_collection'] == model_name) &
-                    (site_controls_df['magnitude'] == magnitude)
+                    (site_controls_df['model_collection'] == model_name)
+                    & (site_controls_df['magnitude'] == magnitude)
                 ]
 
                 # Only keep these columns in the df: reach_id,flow,control_stage
@@ -1133,11 +1138,11 @@ def __process_huc_hecras_controls_data(
 
     # Create a df from the sites_models_list to save as a CSV with the site/model combinations available for the HEC-RAS sites in the HUC
     sites_models_df = pd.DataFrame(sites_models_list)
-    sites_models_csv_path = os.path.join(huc_path, f"{huc}_hr_sites_models.csv") # TODO: Decide where to save
+    sites_models_csv_path = os.path.join(huc_path, f"{huc}_hr_sites_models.csv")  # TODO: Decide where to save
     sites_models_df.to_csv(sites_models_csv_path, index=False)
     logging.info(f'{huc} : {ahps_site} - Saved sites/models CSV to {sites_models_csv_path}')
 
-    # Save huc_controls_df to huc_path 
+    # Save huc_controls_df to huc_path
     huc_controls_csv_path = os.path.join(huc_path, f"{huc}_controls.csv")
     huc_controls_df.to_csv(huc_controls_csv_path, index=False)
     logging.info(f'{huc} : {ahps_site} - Saved HUC controls to {huc_controls_csv_path}')
@@ -1247,8 +1252,8 @@ def __create_lid_mag_library_rec(catfim_type, lid, lid_sites_gdf, magnitude_type
         line_df["interval_stage"] = None
         line_df["lid_usgs_elev"] = csf.ELEV_NODATA_VALUE  # This is a temp processing column
         line_df["hand_stage"] = csf.ELEV_NODATA_VALUE
-    
-    elif catfim_type == "fb": # TODO: Decide if this is needed...
+
+    elif catfim_type == "fb":  # TODO: Decide if this is needed...
         line_df["model"] = None
         line_df["model_version"] = None
 

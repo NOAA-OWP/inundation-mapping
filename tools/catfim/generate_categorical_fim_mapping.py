@@ -7,10 +7,10 @@ import math
 import os
 import random
 import shutil
+import subprocess
 import sys
 import time
 import traceback
-import subprocess
 from datetime import datetime, timezone
 
 import geopandas as gpd
@@ -231,7 +231,6 @@ def run_fb_mapping(
     inundate_hr = bool(os.getenv("INUNDATE_HR"))
     hr_preference = bool(os.getenv("HR_PREFERENCE"))
 
-
     logging.info(" ")
     logging.info(f"{huc} - Mapping -  Start inundating and mosaicing...")
 
@@ -287,7 +286,8 @@ def run_fb_mapping(
             # TODO: Do we also want to check that the inputs were made successfully here?
 
             # Get model list from huc_controls_df
-            huc_models_df = pd.read_csv(os.path.join(huc_path, f"{huc}_hr_sites_models.csv")) # TODO: Decide on permanent path
+            huc_models_df = pd.read_csv(os.path.join(huc_path, f"{huc}_hr_sites_models.csv"))
+            # TODO: Decide on permanent path of HUC models df
             sites_models_df = huc_models_df[huc_models_df['nws_lid'] == ahps_site]
 
             # Check whether there are HEC-RAS models available for the site
@@ -303,8 +303,10 @@ def run_fb_mapping(
             logging.info(" ")
             logging.info(f"{huc} : {ahps_site} - HEC-RAS inundation...")
 
-            flows2fim_path = "/projects/catfim_hecras_fb/flows2fim_030/flows2fim" # TODO: pull from .env
-            model_list = sites_models_df[sites_models_df['nws_lid'] == ahps_site]['model_collection'].unique().tolist()
+            flows2fim_path = "/projects/catfim_hecras_fb/flows2fim_030/flows2fim"  # TODO: pull from .env
+            model_list = (
+                sites_models_df[sites_models_df['nws_lid'] == ahps_site]['model_collection'].unique().tolist()
+            )
 
             logging.info(f"{huc} : {ahps_site} - Found the following model(s): {model_list}")
 
@@ -322,47 +324,56 @@ def run_fb_mapping(
 
                     # Get site/magnitude/model-specific controls CSV
                     controls_filename = f"{ahps_site}_{magnitude}_{model_name}_controls.csv"
-                    controls_csv = os.path.join(output_temp_dir, controls_filename) # TODO: update controls_path to be the temp folder path?
+                    controls_csv = os.path.join(output_temp_dir, controls_filename)
+                    # TODO: update controls_path to be the temp folder path?
 
                     huc_controls_csv_path = os.path.join(huc_path, f"{huc}_controls.csv")
                     huc_controls_df = pd.read_csv(huc_controls_csv_path)
 
                     # Get the value of the collection_parent_folder column in the huc_controls_df for the rows matching the site/magnitude/model combination (there should only be one unique value, but just in case, we'll take the first one)
                     collection_parent_folder = huc_controls_df[
-                        (huc_controls_df['nws_lid'] == ahps_site) &
-                        (huc_controls_df['magnitude'] == magnitude) &
-                        (huc_controls_df['model_collection'] == model_name)
+                        (huc_controls_df['nws_lid'] == ahps_site)
+                        & (huc_controls_df['magnitude'] == magnitude)
+                        & (huc_controls_df['model_collection'] == model_name)
                     ]['collection_parent_folder'].unique()[0]
 
                     # Get the path to the library extent
-                    library_extent_path = os.path.join(collection_parent_folder, 'collections', model_name, 'library_extent')
+                    library_extent_path = os.path.join(
+                        collection_parent_folder, 'collections', model_name, 'library_extent'
+                    )
 
                     # Define output inundation extent tif path
                     tif_name = ahps_site + '_' + magnitude + '_' + model_name + '_extent_hr.tif'
                     output_extent_tif = os.path.join(output_mapping_dir, tif_name)
 
-                    logging.info(f"{huc} : {ahps_site} : {magnitude} - Begin HEC-RAS inundation for {tif_name}")
+                    logging.info(
+                        f"{huc} : {ahps_site} : {magnitude} - Begin HEC-RAS inundation for {tif_name}"
+                    )
 
                     subprocess_cmd = [
                         flows2fim_path,
                         'fim',
-                        '-lib', library_extent_path,
-                        '-c', controls_csv,
-                        '-fmt', 'cog',
-                        '-o', output_extent_tif,
-                        '-type', 'extent'
+                        '-lib',
+                        library_extent_path,
+                        '-c',
+                        controls_csv,
+                        '-fmt',
+                        'cog',
+                        '-o',
+                        output_extent_tif,
+                        '-type',
+                        'extent',
                     ]
                     try:
                         # Use subprocess to run flows2fim fim
-                        result = subprocess.run(
-                            subprocess_cmd,
-                            capture_output=True,
-                            text=True, 
-                            check=True
-                        )
+                        # TODO: If we want to eval results, we can do result = subprocess but
+                        # then will have to parse that result.
+                        subprocess.run(subprocess_cmd, capture_output=True, text=True, check=True)
 
                     except FileNotFoundError:
-                        logging.critical("A critical error occurred while attempting HEC-RAS inundation: flows2fim fim command not found.")
+                        logging.critical(
+                            "A critical error occurred while attempting HEC-RAS inundation: flows2fim fim command not found."
+                        )
                         sys.exit(1)
 
                     except subprocess.CalledProcessError as e:
@@ -379,13 +390,16 @@ def run_fb_mapping(
                         sys.exit(1)
 
                     if not os.path.exists(output_extent_tif):
-                        logging.error(f'{huc} : {ahps_site} : {magnitude} - TIF not found after inundation: {os.path.basename(output_extent_tif)}')
+                        logging.error(
+                            f'{huc} : {ahps_site} : {magnitude} - TIF not found after inundation: {os.path.basename(output_extent_tif)}'
+                        )
                         continue
 
                     # ---------------------
                     # Update the nodataval, mask out lakes from inundated tif and re-save tif
 
-                    logging.info(f'{huc} : {ahps_site} : {magnitude} - Masking out lakes and updating nodataval from {os.path.basename(output_extent_tif)}')
+                    logging.info(
+                        f'{huc} : {ahps_site} : {magnitude} - Masking out lakes and updating nodataval from {os.path.basename(output_extent_tif)}')
 
                     # Open the source raster file
                     with rasterio.open(output_extent_tif, mode='r+', IGNORE_COG_LAYOUT_BREAK='YES') as output_extent_src:
@@ -400,7 +414,9 @@ def run_fb_mapping(
 
                         # Reassign existing old nodata pixel values to the new nodata value
                         if output_extent_src.nodata is not None:
-                            output_extent_array[output_extent_array == output_extent_src.nodata] = csf.ELEV_NODATA_VALUE
+                            output_extent_array[output_extent_array == output_extent_src.nodata] = (
+                                csf.ELEV_NODATA_VALUE
+                            )
 
                         # Mask out the lakes
                         output_extent_array_masked, mask_status = mask_out_lakes(
@@ -408,7 +424,9 @@ def run_fb_mapping(
                         )
 
                         if mask_status:
-                            logging.info(f'{huc} : {ahps_site} : {magnitude} - Masking status: {mask_status}')
+                            logging.info(
+                                f'{huc} : {ahps_site} : {magnitude} - Masking status: {mask_status}'
+                            )
 
                     # Write the modified data into the new GeoTIFF file
                     with rasterio.open(output_extent_tif, "w", **profile) as dst:
@@ -416,7 +434,7 @@ def run_fb_mapping(
 
                     # If at least one extent tif was made, set hr_site_tifs_produced to true
                     if os.path.exists(output_extent_tif):
-                        hr_site_tifs_produced = True # TODO: is there a better way to check for success?
+                        hr_site_tifs_produced = True  # TODO: is there a better way to check for success?
                         hr_site_tifs_produced = bool(hr_site_tifs_produced)
             # End of HEC-RAS model/magnitude loop
         # End of HEC-RAS inundation for site
@@ -428,10 +446,10 @@ def run_fb_mapping(
 
         if inundate_hand is True and hr_preference is True:
             # If inundate_hand is True HR preference is True, we only inundate a site if HR tifs were not created
-                if hr_site_tifs_produced is False:
-                    # Run HAND because no HR tifs were produced (because HR failed or had no models available)
-                    inundate_hand_for_site = True
-                # else:  # Do not run HAND because HR tifs were already produced
+            if hr_site_tifs_produced is False:
+                # Run HAND because no HR tifs were produced (because HR failed or had no models available)
+                inundate_hand_for_site = True
+            # else:  # Do not run HAND because HR tifs were already produced
 
         # We do not inundate HAND for the site if:
         # - inundate_hand is False
@@ -1546,7 +1564,9 @@ def post_process_huc_mapping(huc, catfim_type, sites_gdf, huc_library_df, output
     hand_tif_list = [x for x in os.listdir(output_mapping_dir) if ('extent.tif') in x]  # HAND tif list
     hr_tif_list = [x for x in os.listdir(output_mapping_dir) if ('extent_hr.tif') in x]  # HEC-RAS tif list
 
-    logging.info(f"Before filtering by preference, found {len(hand_tif_list)} HAND tifs and {len(hr_tif_list)} HEC-RAS tifs to process.")  # TEMP DEBUG
+    logging.info(
+        f"Before filtering by preference, found {len(hand_tif_list)} HAND tifs and {len(hr_tif_list)} HEC-RAS tifs to process."
+    )  # TEMP DEBUG
 
     # If the HEC-RAS preference is true, remove the HAND tifs wherever HEC-RAS tifs are avail
     if hr_preference is True:
@@ -1558,7 +1578,9 @@ def post_process_huc_mapping(huc, catfim_type, sites_gdf, huc_library_df, output
             # If the corresponding HAND tif is there, remove it
             # This should be redundant because we shouldn't have produced this tif in the fist place
             if hand_tif in hand_tif_list:
-                logging.warning(f'Found HAND tif where HR tif already existed. Indicates possible error. Tif: {hand_tif}')
+                logging.warning(
+                    f'Found HAND tif where HR tif already existed. Indicates possible error. Tif: {hand_tif}'
+                )
                 hand_tif_list.remove(hand_tif)
 
     # Make the full filepaths
@@ -1607,7 +1629,7 @@ def post_process_huc_mapping(huc, catfim_type, sites_gdf, huc_library_df, output
                 model = 'HEC-RAS'
 
                 # Pull the model version from the tif name
-                hr_tif_prefix = nws_lid + '_' + magnitude + '_'  
+                hr_tif_prefix = nws_lid + '_' + magnitude + '_'
                 hr_tif_suffix = '_extent_hr.tif'
                 model_version = tif_file_name.removeprefix(hr_tif_prefix).removesuffix(hr_tif_suffix)
 
@@ -1686,7 +1708,7 @@ def post_process_huc_mapping(huc, catfim_type, sites_gdf, huc_library_df, output
             # Join the inundated multipolgyon dataframe to the HUC library dataframe (without using interval_stage col)
             huc_library_df = huc_library_df.merge(
                 reformatted_geom_list_df, on=['nws_lid', 'magnitude', 'is_interval'], how='left'
-            ) # For now we don't need to merge on model type because SB is not set up to run HEC-RAS
+            )  # For now we don't need to merge on model type because SB is not set up to run HEC-RAS
 
         elif num_intervals > 0:
             logging.info(
@@ -1779,7 +1801,9 @@ def post_process_huc_mapping(huc, catfim_type, sites_gdf, huc_library_df, output
         logging.info(f"{huc} - Post-Process HUC Mapping - Dissolving CatFIM library for flow-based CatFIM")
 
         huc_library_undissolved_gdf = huc_library_gdf
-        huc_library_gdf = huc_library_gdf.dissolve(by=['nws_lid', 'magnitude', 'model', 'model_version'], as_index=False)
+        huc_library_gdf = huc_library_gdf.dissolve(
+            by=['nws_lid', 'magnitude', 'model', 'model_version'], as_index=False
+        )
         # TODO: Do we need to update the HUC library with model info? Test...
 
         # Exit post process HUC early if the library GDF is empty after dissolving (if it was previously not empty)
@@ -1798,7 +1822,9 @@ def post_process_huc_mapping(huc, catfim_type, sites_gdf, huc_library_df, output
     return sites_gdf, huc_library_gdf
 
 
-def reformat_inundation_maps(huc, nws_lid, magnitude, tif_to_process, interval_stage, is_interval, model, model_version):
+def reformat_inundation_maps(
+    huc, nws_lid, magnitude, tif_to_process, interval_stage, is_interval, model, model_version
+):
     '''
     Used in both flow- and stage-based CatFIM.
 
@@ -1830,7 +1856,9 @@ def reformat_inundation_maps(huc, nws_lid, magnitude, tif_to_process, interval_s
     '''
 
     try:
-        logging.info(f"{huc} : {nws_lid} : {magnitude} : {model} : {model_version} - Converting inundated tif to multipolygon")
+        logging.info(
+            f"{huc} : {nws_lid} : {magnitude} : {model} : {model_version} - Converting inundated tif to multipolygon"
+        )
 
         # Convert raster to shapes
         with rasterio.open(tif_to_process) as src:
@@ -1894,7 +1922,9 @@ def reformat_inundation_maps(huc, nws_lid, magnitude, tif_to_process, interval_s
             logging.critical(traceback.format_exc())
 
     except Exception:
-        logging.critical(f"{huc} : {nws_lid} : {magnitude} : {model} : {model_version} - Reformatted inundation map - Exception")
+        logging.critical(
+            f"{huc} : {nws_lid} : {magnitude} : {model} : {model_version} - Reformatted inundation map - Exception"
+        )
         logging.critical(traceback.format_exc())
 
     return extent_poly_diss
