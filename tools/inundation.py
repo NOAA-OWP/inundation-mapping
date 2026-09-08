@@ -5,6 +5,7 @@ import os
 from os.path import splitext
 from typing import List, Optional, Tuple, Union
 from warnings import warn
+from contextlib import ExitStack
 
 import fiona
 import geopandas as gpd
@@ -14,6 +15,7 @@ import rasterio
 import xarray as xr
 from numba import njit, typed, types
 from rasterio.mask import mask
+from rasterio.io import DatasetReader
 from shapely.geometry import shape
 
 
@@ -138,21 +140,19 @@ def inundate(
     if hucs is None:
         assert not aggregate, "Pass HUCs file if aggregation is desired"
 
-    # bool quiet
-    quiet = bool(quiet)
-
+    stack = ExitStack()
     # input rem
     if isinstance(rem, str):
-        rem = rasterio.open(rem)
-    elif isinstance(rasterio.io.DatasetReader):
+        rem = stack.enter_context(rasterio.open(rem))
+    elif isinstance(rem, DatasetReader):
         pass
     else:
         raise TypeError("Pass rasterio DatasetReader or filepath for rem")
 
     # input catchments grid
     if isinstance(catchments, str):
-        catchments = rasterio.open(catchments)
-    elif isinstance(rasterio.io.DatasetReader):
+        catchments = stack.enter_context(rasterio.open(catchments))
+    elif isinstance(catchments, DatasetReader):
         pass
     else:
         raise TypeError("Pass rasterio DatasetReader or filepath for catchments")
@@ -167,7 +167,7 @@ def inundate(
     if hucs is None:
         pass
     elif isinstance(hucs, str):
-        hucs = fiona.open(hucs, 'r', layer=hucs_layerName)
+        hucs = stack.enter_context(fiona.open(hucs, 'r', layer=hucs_layerName))
     elif isinstance(hucs, fiona.Collection):
         pass
     else:
@@ -198,12 +198,13 @@ def inundate(
 
         inundation_profile.update(driver='GTiff', blockxsize=256, blockysize=256, tiled=True, nodata=0)
 
-        depth_rst = rasterio.open(depths, "w+", **depths_profile) if depths is not None else None
-        inundation_rst = (
-            rasterio.open(inundation_raster, "w+", **inundation_profile)
-            if (inundation_raster is not None and inundation_profile is not None)
-            else None
-        )
+        depth_rst = None
+        if depths is not None:
+            depth_rst = stack.enter_context(rasterio.open(depths, "w+", **depths_profile))
+
+        inundation_rst = None
+        if inundation_raster is not None and inundation_profile is not None:
+            inundation_rst = stack.enter_context(rasterio.open(inundation_raster, "w+", **inundation_profile))
 
         nodata = np.int16(inundation_profile['nodata']) if int_16 else np.int32(inundation_profile['nodata'])
 
@@ -237,10 +238,7 @@ def inundate(
             depth_rasters += [future[1]]
             inundation_polys += [future[2]]
 
-        if depth_rst is not None:
-            depth_rst.close()
-        if inundation_rst is not None:
-            inundation_rst.close()
+    stack.close()
 
     return inundation_rasters, depth_rasters, inundation_polys
 
