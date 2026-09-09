@@ -1090,13 +1090,11 @@ class FIM_Helpers:
         if file_name is not None:
             root, extension = os.path.splitext(file_name)
 
-            if isinstance(identifier, list):
-                out_file_name = root
-                for i in identifier:
-                    out_file_name += "_{}".format(i)
-                out_file_name += extension
+            if isinstance(identifier, (list, tuple)):
+                _id = "_".join(identifier)
             else:
-                out_file_name = root + "_{}".format(identifier) + extension
+                _id = identifier
+            out_file_name = f"{root}_{_id}{extension}"
         else:
             out_file_name = None
 
