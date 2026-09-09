@@ -234,8 +234,7 @@ def __inundate_gms_generator(
     src_indexes = ["HUC", "feature_id", "HydroID"]
     if isinstance(hydro_table_df, pd.DataFrame):
         hydro_table_df = hydro_table_df.reset_index()
-        hydro_table_branches = hydro_table_df.set_index('branch_id')
-
+        hydro_table_df = hydro_table_df.set_index('branch_id').sort_index()
 
     for huc, branch_id in zip(hucs_branches[0], hucs_branches[1]):
         huc_dir = os.path.join(hydrofabric_dir, huc)
@@ -248,8 +247,8 @@ def __inundate_gms_generator(
         catchments_branch = os.path.join(branch_dir, catchments_file_name)
 
         if isinstance(hydro_table_df, pd.DataFrame):
-            hydro_table_branch = hydro_table_branches.loc[int(branch_id)].reset_index()
-            hydro_table_branch = hydro_table_branches.set_index(src_indexes)
+            hydro_table_branch = hydro_table_df.loc[int(branch_id)].reset_index()
+            hydro_table_branch = hydro_table_df.set_index(src_indexes)
 
         elif isinstance(hydro_table_df, str):
             hydro_table_branch = hydro_table_df.format(branch_id)
