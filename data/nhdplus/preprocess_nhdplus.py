@@ -29,26 +29,26 @@ def preprocess_nhdplus(region: str, inputs_dir: str):
     # Datasets downloaded from https://www.epa.gov/waterdata/
     """
 
+    nhdplus_root_raw = f'{inputs_dir}/nhdplus'
+    os.makedirs(nhdplus_root_raw, exist_ok=True)
+
     if region == 'Guam':
         region_code = '22GU'
         region_number = '22a'
         huc = '22010000'
         target_crs_number = '6637'
-        nhdplus_root_raw = f'{inputs_dir}/nhdplus/'
-        dem_file = f'{nhdplus_root_raw}/NHDPlusPI/NHDPlus{region_code}/NEDSnapshot/Ned{region_number}/elev_cm'
-        nhd_path = f'{nhdplus_root_raw}/NHDPlusPI/NHDPlus{region_code}/NHDSnapshot/Hydrography'
+        nhdplus_path = f'{nhdplus_root_raw}/NHDPlusPI/NHDPlus{region_code}'
+        dem_file = f'{nhdplus_path}/NEDSnapshot/Ned{region_number}/elev_cm'
+        nhd_path = f'{nhdplus_path}/NHDSnapshot/Hydrography'
 
     elif region == 'AmericanSamoa':
         region_code = '22AS'
         region_number = '22c'
         huc = '22030001'
         target_crs_number = '32702'
-        nhdplus_root_raw = f'{inputs_dir}/nhdplus/'
         nhdplus_path = f'{nhdplus_root_raw}/NHDPlusPI/NHDPlus{region_code}'
         dem_file = f'{nhdplus_path}/NEDSnapshot/ned{region_number}/elev_cm'
         nhd_path = f'{nhdplus_path}/NHDSnapshot/hydrography'
-
-    os.makedirs(nhdplus_root_raw, exist_ok=True)
 
     preprocess_region(
         region,
@@ -272,6 +272,16 @@ def preprocess_region(
 
 
 if __name__ == "__main__":
+    """
+    Example usage:
+
+        Guam
+            python3 /foss_fim/data/nhdplus/preprocess_nhdplus.py -r Guam -i /outputs/temp/Guam
+
+        American Samoa
+            python3 /foss_fim/data/nhdplus/preprocess_nhdplus.py -r AmericanSamoa -i /outputs/temp/AmericanSamoa
+    """
+
     parser = argparse.ArgumentParser(description="Preprocess NHDPlus data for a specified region.")
     parser.add_argument(
         "-r",
