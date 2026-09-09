@@ -68,17 +68,8 @@ def Inundate_gms(
         Output filenames from gms inundation routine
 
     """
-    # input handling
-    if hucs is not None:
-        try:
-            _ = (i for i in hucs)
-        except TypeError:
-            raise ValueError("hucs argument must be an iterable")
-
     if isinstance(hucs, str):
         hucs = [hucs]
-
-    num_workers = int(num_workers)
 
     # log file
     if log_file is not None:
@@ -91,11 +82,10 @@ def Inundate_gms(
 
     # load fim inputs
     hucs_branches = pd.read_csv(
-        os.path.join(hydrofabric_dir, "fim_inputs.csv"), header=None, dtype={0: str, 1: str}
+        os.path.join(hydrofabric_dir, "fim_inputs.csv"), header=None, dtype={0: 'string', 1: 'string'}
     )
 
     if hucs is not None:
-        hucs = set(hucs)
         huc_indices = hucs_branches.loc[:, 0].isin(hucs)
         hucs_branches = hucs_branches.loc[huc_indices, :]
 
