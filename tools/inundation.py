@@ -691,24 +691,18 @@ def __subset_hydroTable_to_forecast(
                 if len(subset_hucs) == 1:
                     try:
                         with open(subset_hucs[0]) as fh:
-                            subset_hucs = fh.readlines()
+                            subset_hucs = fh.read().splitlines()
                     except FileNotFoundError:
                         pass
             elif isinstance(subset_hucs, str):
                 try:
                     with open(subset_hucs) as fh:
-                        subset_hucs = fh.readlines()
+                        subset_hucs = fh.read().splitlines()
                 except FileNotFoundError:
                     subset_hucs = [subset_hucs]
 
-            # subsets HUCS
-            subset_hucs_prefixed = []
-            for huc in hydroTable.index.get_level_values('HUC').unique():
-                for sh in subset_hucs:
-                    if huc.startswith(sh):
-                        subset_hucs_prefixed += [huc]
-
-            hydroTable = hydroTable.loc[np.in1d(hydroTable.index.get_level_values('HUC'), subset_hucs_prefixed)]
+            mask = hydroTable.index.get_level_values("HUC").str.startswith(tuple(subset_hucs))
+            hydroTable = hydroTable.loc[mask]
 
     # join tables
     try:
