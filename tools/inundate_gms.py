@@ -12,9 +12,10 @@ from inundation import NoForecastFound, hydroTableHasOnlyLakes, inundate
 from tqdm import tqdm
 
 from utils.shared_functions import FIM_Helpers as fh
-from utils.shared_functions import s3_or_local_isfile, s3_or_local_path_exists
+from utils.shared_functions import s3_or_local_isfile, s3_or_local_path_exists, use_pandas_3_behavior
 
 
+@use_pandas_3_behavior()
 def Inundate_gms(
     hydrofabric_dir: str,
     forecast: Union[str, pd.DataFrame],
@@ -173,6 +174,7 @@ def Inundate_gms(
     return output_fileNames_df
 
 
+@use_pandas_3_behavior()
 def __inundate_gms_generator(
     hucs_branches: pd.DataFrame,
     hydrofabric_dir: str,
@@ -214,11 +216,13 @@ def __inundate_gms_generator(
         Data inputs for inundate gms and the respective branch ids
 
     """
-    # Iterate over branches
-    for idx, row in hucs_branches.iterrows():
-        huc = str(row[0])
-        branch_id = str(row[1])
+    src_indexes = ["HUC", "feature_id", "HydroID"]
+    if isinstance(hydro_table_df, pd.DataFrame):
+        hydro_table_df = hydro_table_df.reset_index()
+        hydro_table_df = hydro_table_df.set_index('branch_id').sort_index()
 
+    # Iterate over branches
+    for huc, branch_id in hucs_branches.itertuples(index=False, name=None):
         huc_dir = os.path.join(hydrofabric_dir, huc)
         branch_dir = os.path.join(huc_dir, "branches", branch_id)
 
@@ -228,15 +232,9 @@ def __inundate_gms_generator(
         catchments_file_name = f"gw_catchments_reaches_filtered_addedAttributes_{branch_id}.tif"
         catchments_branch = os.path.join(branch_dir, catchments_file_name)
 
-        src_indexes = ["HUC", "feature_id", "HydroID"]
         if isinstance(hydro_table_df, pd.DataFrame):
-            if sum(df_idx not in hydro_table_df.index.names for df_idx in src_indexes) > 0:
-                hydro_table_all = hydro_table_df.set_index(src_indexes)
-            else:
-                hydro_table_all = hydro_table_df
-
-            hydro_table_branch = hydro_table_all.loc[hydro_table_all["branch_id"] == int(branch_id)]
-
+            hydro_table_branch = hydro_table_df.loc[int(branch_id)].reset_index()
+            hydro_table_branch = hydro_table_branch.set_index(src_indexes)
         elif isinstance(hydro_table_df, str):
             hydro_table_branch = hydro_table_df.format(branch_id)
         else:
