@@ -120,54 +120,38 @@ def Inundate_gms(
     branch_ids = [None] * number_of_branches
 
     executor_generator = {executor.submit(inundate, **inp): ids for inp, ids in inundate_input_generator}
-    with open(log_file, "a") as _file:
-        for idx, future in enumerate(tqdm(
-            as_completed(executor_generator),
-            total=len(executor_generator),
-            desc=f"Inundating branches with {num_workers} workers",
-            disable=(not verbose),
-        )):
-            hucCode, branch_id = executor_generator[future]
+    for idx, future in enumerate(tqdm(
+        as_completed(executor_generator),
+        total=len(executor_generator),
+        desc=f"Inundating branches with {num_workers} workers",
+        disable=(not verbose),
+    )):
+        hucCode, branch_id = executor_generator[future]
+
+        try:
+            future.result()
+
+        except NoForecastFound as exc:
+            if verbose:
+                print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
+
+        except hydroTableHasOnlyLakes as exc:
+            if verbose:
+                print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
+
+        except Exception as exc:
+            traceback.print_exc(file=sys.stdout)
+            print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
+        else:
+            hucCodes[idx] = hucCode
+            branch_ids[idx] = branch_id
 
             try:
-                future.result()
-
-            except NoForecastFound as exc:
-                if log_file is not None:
-                    print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=_file)
-                elif verbose:
-                    print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
-
-            except hydroTableHasOnlyLakes as exc:
-                if log_file is not None:
-                    print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=_file)
-                elif verbose:
-                    print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
-
-            except Exception as exc:
-                traceback.print_exc(file=sys.stdout)
-                if log_file is not None:
-                    print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=_file)
-                else:
-                    print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
-            else:
-                hucCodes[idx] = hucCode
-                branch_ids[idx] = branch_id
-
-                try:
-                    inundation_raster_fileNames[idx] = future.result()[0][0]
-                except TypeError:
-                    pass
-
-                try:
-                    depths_raster_fileNames[idx] = future.result()[1][0]
-                except TypeError:
-                    pass
-
-                try:
-                    inundation_polygon_fileNames[idx] = future.result()[2][0]
-                except TypeError:
-                    pass
+                inundation_raster_fileNames[idx] = future.result()[0][0]
+                depths_raster_fileNames[idx] = future.result()[1][0]
+                inundation_polygon_fileNames[idx] = future.result()[2][0]
+            except TypeError:
+                pass
 
     # power down pool
     executor.shutdown(wait=True)
