@@ -1,6 +1,15 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.10.x.x - 2026-09-09 - [PR##1946](https://github.com/NOAA-OWP/inundation-mapping/pull/1946)
+
+Bug fix for a missing `nhdplus_path` variable when running Guam in `data/nhdplus/preprocess_nhdplus.py`.
+
+### Changes
+
+- `data/nhdplus/preprocess_nhdplus.py`: Restructured the variables that build the file paths.
+<br />
+
 ## v4.10.1.1 - 2026-09-03 - [PR##1942](https://github.com/NOAA-OWP/inundation-mapping/pull/1942)
 
 This PR smooths out some outstanding quirks found after merging the CatFIM reorg changes into dev and creates a new CatFIM tool for joining outputs from a secondary run (such as Guam stage-based) into the primary CatFIM outputs.
@@ -9,7 +18,7 @@ This PR smooths out some outstanding quirks found after merging the CatFIM reorg
 - `tools/lofi/probabilistic_inundation.py`: Optimize src subdivision routine. 
 - `tools/lofi/probabilistic_version.py`: Update version of LoFI.
 - `tools/tools_shared_functions.py`: Import gval only when necessary.
-<br />
+
 
 ## v4.10.1.0 - 2026-08-21 - [PR#1869](https://github.com/NOAA-OWP/inundation-mapping/pull/1869)
 
