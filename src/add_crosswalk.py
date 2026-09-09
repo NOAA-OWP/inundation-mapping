@@ -483,16 +483,6 @@ def add_crosswalk_in_memory(
                 .reset_index(drop=True)
             )
 
-    # Insert right before 'return' in add_crosswalk_in_memory:
-    print(f"DEBUG add_crosswalk: output_flows has LakeID? {'LakeID' in output_flows.columns}")
-    print(f"DEBUG add_crosswalk: output_src has LakeID? {'LakeID' in output_src.columns}")
-    print(f"DEBUG add_crosswalk: output_hydro_table has LakeID? {'LakeID' in output_hydro_table.columns}")
-
-    # Ensure output_src (src_full_crosswalked) does not carry LakeID, matching DEV schema
-    # while leaving output_flows and output_hydro_table with LakeID intact.
-    if "LakeID" in output_src.columns:
-        output_src = output_src.drop(columns=["LakeID"])
-
     return (
         output_catchments,
         output_flows,

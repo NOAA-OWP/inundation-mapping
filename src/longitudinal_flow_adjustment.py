@@ -322,8 +322,6 @@ def filter_longitudinal_discharge_jitters(huc_dir, huc, stage_interval):
         lakeID_df = catchment_gdf[['HydroID', 'LakeID']].drop_duplicates(subset=['HydroID'])
         # Read src tables
         src_df = pd.read_csv(src_all_branches_path[isrc], low_memory=False)
-        if 'LakeID' in src_df.columns:
-            src_df = src_df.drop(columns=['LakeID'])
         src_df = src_df.merge(lakeID_df, on='HydroID', how='inner')
         stages = [round(num, 4) for num in src_df['Stage'][0:84]]
 
@@ -363,6 +361,10 @@ def filter_longitudinal_discharge_jitters(huc_dir, huc, stage_interval):
         src_df['SurfaceArea (m2)_default'] = src_df['SurfaceArea (m2)'].copy()
         src_df['BedArea (m2)_default'] = src_df['BedArea (m2)'].copy()
         src_df['Volume (m3)_default'] = src_df['Volume (m3)'].copy()
+
+        # Defining stages with discharge = 0 and Number of Cells = 0 for later masking
+        Q0_mask = src_df['Discharge (m3s-1)'] == 0
+        nocell0_mask = src_df['Number of Cells'] == 0
 
         # Finding the headwaters
         headwaters_rows = catchment_gdf.loc[
@@ -508,15 +510,6 @@ def filter_longitudinal_discharge_jitters(huc_dir, huc, stage_interval):
             # Recalculating BedArea
             bed_area_long = src_df[['HydroID', 'Stage', 'SurfaceArea (m2)']].copy()
             bed_area_long['BedArea (m2)'] = a_coef * bed_area_long['SurfaceArea (m2)'] + b_coef
-
-            # Ensure bed_area_long is strictly unique on HydroID and Stage
-            bed_area_long = bed_area_long.drop_duplicates(subset=['HydroID', 'Stage'])
-
-            # Remove any pre-existing '_longitudinalAdjusted' columns on src_df to prevent duplicate headers
-            cols_to_drop = [c for c in src_df.columns if c.endswith('_longitudinalAdjusted')]
-            if cols_to_drop:
-                src_df = src_df.drop(columns=cols_to_drop)
-
             # Merge on columns 'HydroID' and 'Stage'
             src_df = pd.merge(
                 src_df,
@@ -525,28 +518,14 @@ def filter_longitudinal_discharge_jitters(huc_dir, huc, stage_interval):
                 how='left',
                 suffixes=('', '_longitudinalAdjusted'),
             )
-
-            # Force unique columns and clean row index to prevent 2D slice assertions
-            src_df = src_df.loc[:, ~src_df.columns.duplicated()].reset_index(drop=True)
-
-            # Set BedArea(m2)_longitudinalAdjusted = default where SurfaceArea matches default
+            # Set BedArea(m2)_longitudinalAdjusted = default
             mask_defaultSA = src_df['SurfaceArea (m2)'] == src_df['SurfaceArea (m2)_default']
-
-            # Safely select first column if any duplicate exists
-            target_series_default = src_df['BedArea (m2)_default']
-            if isinstance(target_series_default, pd.DataFrame):
-                target_series_default = target_series_default.iloc[:, 0]
-
-            src_df.loc[mask_defaultSA, 'BedArea (m2)_longitudinalAdjusted'] = target_series_default[
-                mask_defaultSA
-            ].values
-
-            # Assigning calculated Bed Area to main column
-            target_series_adj = src_df['BedArea (m2)_longitudinalAdjusted']
-            if isinstance(target_series_adj, pd.DataFrame):
-                target_series_adj = target_series_adj.iloc[:, 0]
-
-            src_df.loc[mask_src, 'BedArea (m2)'] = target_series_adj[mask_src].values
+            src_df.loc[mask_defaultSA, 'BedArea (m2)_longitudinalAdjusted'] = src_df.loc[
+                mask_defaultSA, 'BedArea (m2)_default'
+            ]
+            # mask_smoothedSA = src_df['SurfaceArea (m2)'] != src_df['SurfaceArea (m2)_default']
+            # Assigning calculated Bed Area to main co
+            src_df.loc[mask_src, 'BedArea (m2)'] = src_df.loc[mask_src, 'BedArea (m2)_longitudinalAdjusted']
 
             # Recalculating Volume
             src_df['SurfaceArea-1'] = src_df.groupby('HydroID')['SurfaceArea (m2)'].shift(1, fill_value=0)
@@ -592,32 +571,26 @@ def filter_longitudinal_discharge_jitters(huc_dir, huc, stage_interval):
             mask = (src_df_merged['LakeID'] > 0) & (src_df_merged['Discharge (m3s-1)'].notnull())
             src_df.loc[mask, 'Discharge (m3s-1)'] = src_df_merged.loc[mask, 'Discharge (m3s-1)']
 
-            # Clean any duplicate column names and reset index prior to masking
-            src_df = src_df.loc[:, ~src_df.columns.duplicated()].reset_index(drop=True)
-
-            # Dynamically recalculate 1D boolean masks on the updated src_df
-            q0_series = src_df['Discharge (m3s-1)']
-            if isinstance(q0_series, pd.DataFrame):
-                q0_series = q0_series.iloc[:, 0]
-            mask_q0 = (q0_series == 0).values
-
-            nocell_series = src_df['Number of Cells']
-            if isinstance(nocell_series, pd.DataFrame):
-                nocell_series = nocell_series.iloc[:, 0]
-            mask_nocell = (nocell_series == 0).values
+            # Preserve slope columns exactly as-is
+            slope_cols = ['SLOPE', 'default_SLOPE']
+            slope_backup = src_df[slope_cols].copy()
+            # Round all columns
+            src_df = src_df.round(5)
+            # Restore slope precision
+            src_df[slope_cols] = slope_backup
 
             # Set Hydraulic properties of original stages with discharge = 0 back to 0
-            src_df.loc[mask_q0, 'Discharge (m3s-1)'] = 0
-            src_df.loc[mask_q0, 'Volume (m3)'] = 0
-            src_df.loc[mask_q0, 'WettedPerimeter (m)'] = 0
-            src_df.loc[mask_q0, 'WetArea (m2)'] = 0
-            src_df.loc[mask_q0, 'HydraulicRadius (m)'] = 0
+            src_df.loc[Q0_mask, 'Discharge (m3s-1)'] = 0
+            src_df.loc[Q0_mask, 'Volume (m3)'] = 0
+            src_df.loc[Q0_mask, 'WettedPerimeter (m)'] = 0
+            src_df.loc[Q0_mask, 'WetArea (m2)'] = 0
+            src_df.loc[Q0_mask, 'HydraulicRadius (m)'] = 0
 
             # Set channel properties of original stages with Number of Cells = 0 back to 0
-            src_df.loc[mask_nocell, 'BedArea (m2)'] = 0
-            src_df.loc[mask_nocell, 'Number of Cells'] = 0
-            src_df.loc[mask_nocell, 'SurfaceArea (m2)'] = 0
-            src_df.loc[mask_nocell, 'TopWidth (m)'] = 0
+            src_df.loc[nocell0_mask, 'BedArea (m2)'] = 0
+            src_df.loc[nocell0_mask, 'Number of Cells'] = 0
+            src_df.loc[nocell0_mask, 'SurfaceArea (m2)'] = 0
+            src_df.loc[nocell0_mask, 'TopWidth (m)'] = 0
 
             # Set nans to 0
             src_df.loc[src_df['Stage'] == 0, 'Discharge (m3s-1)'] = 0
@@ -626,13 +599,17 @@ def filter_longitudinal_discharge_jitters(huc_dir, huc, stage_interval):
             discharge_longitudinal = src_df2['Discharge (m3s-1)']
             src_df['Discharge (m3s-1)_longitudinalAdjusted'] = discharge_longitudinal
 
+            # Replace strict > 0 with an explicit numerical tolerance threshold
+            TOLERANCE = 1e-4  # 0.0001 m^3/s
+
             src_df['Longitudinal_adjustment_applied'] = False
             if 'Discharge (m3s-1)_thalwegAdjusted' in src_df.columns:
                 long_col = abs(
                     src_df['Discharge (m3s-1)_thalwegAdjusted']
                     - src_df['Discharge (m3s-1)_longitudinalAdjusted']
                 )
-                cond_thalweg_rows = long_col > 0
+                # Require a meaningful physical difference before marking as applied
+                cond_thalweg_rows = long_col > TOLERANCE
                 src_df.loc[cond_thalweg_rows, 'Longitudinal_adjustment_applied'] = True
             else:
                 print(
@@ -642,14 +619,6 @@ def filter_longitudinal_discharge_jitters(huc_dir, huc, stage_interval):
 
             # Drop intermediate columns
             src_df = src_df.drop(columns=['SurfaceArea-1', 'volume_stage', 'a_coef', 'b_coef'])
-
-            # Ensure longitudinal columns exist even if no headwater chains were eligible for smoothing
-            if 'SurfaceArea (m2)_longitudinalAdjusted' not in src_df.columns:
-                src_df['SurfaceArea (m2)_longitudinalAdjusted'] = src_df['SurfaceArea (m2)_default']
-
-            if 'Discharge (m3s-1)_longitudinalAdjusted' not in src_df.columns:
-                src_df['Discharge (m3s-1)_longitudinalAdjusted'] = src_df['Discharge (m3s-1)']
-
             # Write src back to file
             src_df.to_csv(src_all_branches_path[isrc], index=False)
 
