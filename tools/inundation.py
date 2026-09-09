@@ -158,7 +158,7 @@ def inundate(
         raise TypeError("Pass rasterio DatasetReader or filepath for catchments")
 
     # check for matching number of bands and single band only
-    assert ((rem.transform * (0, 0)) == (catchments.transform * (0, 0))) & (
+    assert ((rem.transform * (0, 0)) == (catchments.transform * (0, 0))) and (
         (rem.transform * (rem.width, rem.height))
         == (catchments.transform * (catchments.width, catchments.height))
     ), "REM and catchments rasters require same upper left and lower right extents"
@@ -172,10 +172,6 @@ def inundate(
         pass
     else:
         raise TypeError("Pass fiona collection or filepath for hucs")
-
-    # catchment stages dictionary
-    if hydro_table is None:
-        raise TypeError("Pass hydro table csv")
 
     depths_profile = rem.profile
     inundation_profile = catchments.profile
@@ -206,7 +202,10 @@ def inundate(
         if inundation_raster is not None and inundation_profile is not None:
             inundation_rst = stack.enter_context(rasterio.open(inundation_raster, "w+", **inundation_profile))
 
-        nodata = np.int16(inundation_profile['nodata']) if int_16 else np.int32(inundation_profile['nodata'])
+        if int_16:
+            nodata = np.int16(inundation_profile['nodata']) 
+        else:
+            nodata = np.int32(inundation_profile['nodata'])
 
         # make windows generator
         window_gen = __make_windows_generator(
@@ -292,9 +291,6 @@ def __inundate_in_huc(
 
     """
     # verbose print
-    if hucCode is not None:
-        __vprint("Inundating {} ...".format(hucCode), not quiet)
-
     rem, catchments = __go_fast_mapping(
         rem_array,
         catchments_array,
@@ -783,12 +779,6 @@ def read_nwm_forecast_file(forecast_file, rename_headers: Optional[bool] = True)
     flows_df = flows_df.dropna()
 
     return flows_df
-
-
-def __vprint(message, verbose):
-
-    if verbose:
-        print(message)
 
 
 def create_src_subset_csv(hydro_table: str, catchmentStagesDict: dict, src_table: str):
