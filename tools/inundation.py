@@ -36,10 +36,10 @@ def inundate(
     catchment_poly: Union[str, pd.DataFrame],
     hydro_table: Union[str, pd.DataFrame],
     forecast: Union[str, pd.DataFrame],
-    mask_type: Optional[Union[str, List[str]]] = None,
+    mask_type: Optional[Union[str, list[str]]] = None,
     hucs: Optional[Union[str, fiona.Collection]] = None,
     hucs_layerName: Optional[str] = None,
-    subset_hucs: Optional[Union[str, List[str]]] = None,
+    subset_hucs: Optional[Union[str, list[str]]] = None,
     num_workers: Optional[int] = 1,
     aggregate: Optional[bool] = False,
     inundation_raster: Optional[str] = None,
@@ -48,7 +48,7 @@ def inundate(
     quiet: Optional[bool] = False,
     precalb_option: Optional[bool] = False,
     windowed: Optional[bool] = False,
-) -> Tuple[List[str], List[str], List[str]]:
+) -> tuple[list[str], list[str], list[str]]:
     """
 
     Run inundation on FIM >=3.0 outputs at job-level scale or aggregated scale
@@ -77,7 +77,7 @@ def inundate(
         Must have an attribute named as either "HUC4","HUC6", or "HUC8" with the associated values.
     hucs_layerName : Optional[str], default=None
         Batch mode only. Layer name in hucs to use if multi-layer file is passed.
-    subset_hucs : Optional[Union[str, List[str]]], default=None
+    subset_hucs : Optional[Union[str, list[str]]], default=None
         Batch mode only. File path to line delimited file, HUC string, or list of HUC strings to
         further subset hucs file for inundating.
     num_workers : Optional[int], default=1
@@ -100,7 +100,7 @@ def inundate(
 
     Returns
     -------
-    error_code : Tuple[List[str], List[str], List[str]]
+    error_code : tuple[list[str], list[str], list[str]]
         Map files for depths, inundation_extent, and inundation_extent polygons
 
     Raises
@@ -296,11 +296,7 @@ def __inundate_in_huc(
         __vprint("Inundating {} ...".format(hucCode), not quiet)
 
     rem, catchments = _fast_inundate(
-        rem_array,
-        catchments_array,
-        catchmentStagesDict,
-        inundation_nodata,
-        min_value,
+        rem_array, catchments_array, catchmentStagesDict, inundation_nodata, min_value
     )
 
     if depths is not None:
@@ -337,18 +333,18 @@ def _fast_inundate(rem, catchment, stage_dict, nodata_c, min_value):
     keys, values = stage_dict
     idx = np.searchsorted(keys, vc)
     mask = idx != len(keys)
-    
+
     depths = values[idx[mask]]
     np.subtract(depths, vr, out=depths, where=mask)
 
-    #mask = mask & (vr >= 0) & (depths >= min_value)
+    # mask = mask & (vr >= 0) & (depths >= min_value)
     tmp = vr >= 0
     np.logical_and(mask, tmp, out=mask)
     np.greater_equal(depths, min_value, out=tmp)
     np.logical_and(mask, tmp, out=mask)
     del tmp
     np.copyto(vr, depths, where=mask)
-    
+
     mask = np.logical_not(mask, out=mask)
     vr[mask] = 0
     vc[mask] *= -1
@@ -460,7 +456,7 @@ def __make_windows_generator(
                     return hucCode
 
             return None
-        
+
         for huc in hucs:
 
             if __return_huc_in_hucSet(huc['properties'][hucColName], hucSet) is None:
@@ -596,7 +592,7 @@ def __subset_hydroTable_to_forecast(
 
     Returns
     -------
-    Tuple[tuple, List[str]]
+    tuple[tuple, list[str]]
         catchment stages dictionary and list of hucs
 
     """
@@ -709,8 +705,6 @@ def __subset_hydroTable_to_forecast(
         else:
             catchmentStages_keys = np.empty(hid_groups.ngroups, dtype='int32')
             catchmentStages_vals = np.empty(hid_groups.ngroups, dtype='float32')
-
-
 
         # interpolate stages
         for i, (hid, sub_table) in enumerate(hydroTable.groupby(level='HydroID')):
