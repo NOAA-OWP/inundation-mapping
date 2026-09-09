@@ -109,7 +109,7 @@ def produce_mosaicked_inundation(
         raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), hydrofabric_dir)
 
     # If the "hucs" argument is really one huc, convert it to a list
-    if type(hucs) is str:
+    if isinstance(hucs, str):
         hucs = [hucs]
 
     # Check that huc folder exists in the hydrofabric_dir.

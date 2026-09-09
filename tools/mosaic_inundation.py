@@ -96,7 +96,7 @@ def Mosaic_inundation(
         inundation_maps_df = map_file
         del map_file
     elif isinstance(map_file, str):
-        inundation_maps_df = pd.read_csv(map_file, dtype={unit_attribute_name: str, "branchID": str})
+        inundation_maps_df = pd.read_csv(map_file, dtype={unit_attribute_name: 'string', "branchID": 'string'})
     else:
         raise TypeError("Pass Pandas Dataframe or file path string to csv for map_file argument")
 
