@@ -150,18 +150,8 @@ def Mosaic_inundation(
             verbose=verbose,
         )
 
-        if remove_list is not None:
-            remove_at_end.extend(remove_list)
-            remove_at_end = list(set(remove_at_end))  # Ensures unique values
-
     if inundation_polygon is not None:
         mosaic_final_inundation_extent_to_poly(ag_mosaic_output, inundation_polygon)
-
-    if remove_inputs:
-        fh.vprint("Removing inputs ...", verbose)
-
-        for remove_file in remove_at_end:
-            os.remove(remove_file)
 
     # Return file name and path of the final mosaic output file.
     # Might be empty.
@@ -217,12 +207,9 @@ def mosaic_by_unit(
     if remove_inputs:
         fh.vprint("Removing inputs ...", verbose)
 
-        remove_list = []
         for inun_map in inundation_maps_list:
             if inun_map is not None and os.path.isfile(inun_map):
-                remove_list.append(inun_map)
-
-        return remove_list
+                os.unlink(inun_map)
 
 
 def _vprint(message, verbose):
