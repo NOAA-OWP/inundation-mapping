@@ -4,15 +4,22 @@ import argparse
 import logging
 import os
 import re
+import sys
 import subprocess
 import traceback
+import shutil
 from datetime import date, datetime, timezone
 
 import pandas as pd
 
 import src.utils.shared_functions as sf
 import tools.catfim.catfim_shared_functions as csf
+import data.aws.aws_shared_functions as asf
+import data.aws.s3_shared_functions as s3_sf
 from src.utils.shared_functions import FIM_Helpers as fh
+
+from dotenv import load_dotenv
+
 
 
 def create_output_folder(output_folder_location):
@@ -36,6 +43,11 @@ def create_output_folder(output_folder_location):
         The path to the intermediates folder.
     '''
     mode = 0o777  # allows read, write, and execute for all (rwxrwxrwx)
+
+    # Confirm that the parent dir of the output folder exists
+    output_folder_parent_dir = os.path.dirname(output_folder_location)
+    if not os.path.isdir(output_folder_parent_dir):
+        raise Exception(f"Output folder parent dir does not exist, unable to create output folder at {output_folder_location}")
 
     # Make output folder
     output_folder = os.path.join(output_folder_location, 'catfim_hecras_preprocessing')
@@ -77,7 +89,7 @@ def create_flows_files(threshold_file, nwm_meta_file, intermediates_folder, magn
     -------
     flows_csv_dict : dict
         Dictionary with magnitude type as key and flows CSV filepath as value.
-    identifiers_csv_filepath : str
+    identifiers_csv_path : str
         Filepath to the identifiers CSV file created during processing.
 
     '''
@@ -116,11 +128,11 @@ def create_flows_files(threshold_file, nwm_meta_file, intermediates_folder, magn
     identifiers_df = pd.DataFrame(identifiers_row_list)
 
     # Save this flows CSV to a folder
-    identifiers_csv_filepath = os.path.join(intermediates_folder, 'identifiers.csv')
-    identifiers_df.to_csv(identifiers_csv_filepath, index=False)
+    identifiers_csv_path = os.path.join(intermediates_folder, 'identifiers.csv')
+    identifiers_df.to_csv(identifiers_csv_path, index=False)
 
     logging.info(
-        f'Created identifiers df with {len(identifiers_df)} rows, saved to {os.path.basename(identifiers_csv_filepath)}'
+        f'Created identifiers df with {len(identifiers_df)} rows, saved to {os.path.basename(identifiers_csv_path)}'
     )
 
     flows_csv_dict = {}
@@ -163,10 +175,69 @@ def create_flows_files(threshold_file, nwm_meta_file, intermediates_folder, magn
 
     logging.info('Finished creating flow files!')
 
-    return flows_csv_dict, identifiers_csv_filepath
+    return flows_csv_dict, identifiers_csv_path
 
 
-def run_controls(magnitude, ripple_path, collection_id, flows_filename, flows2fim_path, intermediates_folder):
+def __setup_aws(aws_creds_file): # adapted FROM deploy to hydrovis
+    # TODO: Do we need to remake this function? or should we just bring it in from the other file?
+
+    # We validate the bucket existance in here and assume the deploy env file is already loaded
+
+    global S3_CLIENT
+
+    if not aws_creds_file:
+        raise ValueError("aws credentials file argument is None or empty")
+
+    if not os.path.isfile(aws_creds_file):
+        raise ValueError(
+            f"aws credentials file of {aws_creds_file} can not be found. Check path and/or case."
+        )
+
+    logging.info(f"Loading AWS credentials file ({aws_creds_file})")
+    load_dotenv(aws_creds_file)
+
+    # setup the client and validate the bucket
+    hv_aws_access_key = sf.get_env_value("HV_AWS_ACCESS_KEY_ID")
+    hv_aws_secret_key = sf.get_env_value("HV_AWS_SECRET_ACCESS_KEY")
+    hv_aws_region = sf.get_env_value("HV_AWS_REGION_NAME")
+
+    is_success, return_msg, S3_CLIENT = asf.create_aws_client(
+        aws_service_type_name='s3',
+        aws_access_key_id=hv_aws_access_key,
+        aws_secret_access_key=hv_aws_secret_key,
+        aws_region=hv_aws_region,
+    )
+
+    if not is_success:  # if it was not already thrown from asf
+        raise Exception(return_msg)
+
+    # Validate bucket (assumes the bucket name is already loaded)
+    is_success, return_msg = s3_sf.does_s3_bucket_exist(S3_CLIENT, BUCKET_NAME)
+    if not is_success:
+        logging.error(
+            f"HV_S3_BUCKET_NAME value of {BUCKET_NAME}. Check the aws creds env file and case."
+        )
+        logging.error(return_msg)
+        print("Program aborted")
+        sys.exit(1)
+
+
+def download_ripple_file_from_s3(ripple_filename, collection_id, collection_temp_folder, filename):
+    '''
+    Download the necessary ripple files from S3.
+    
+    '''
+
+    s3_file_key = f'/fim/ripple/{ripple_filename}/collections/{collection_id}/{filename}'
+    target_file_path = os.path.join(collection_temp_folder, filename)
+
+    does_file_exist = s3_sf.download_s3_file(S3_CLIENT, BUCKET_NAME, s3_file_key, target_file_path, test_bucket_exists=True)
+    logging.info(f'File exists at {BUCKET_NAME}/{s3_file_key}: {does_file_exist}')
+
+    return target_file_path
+
+
+def run_controls(magnitude, collection_id, flows_filename, flows2fim_path, intermediates_folder, db_path, starts_csv):
     '''
     Runs flows2fim controls for a given model and magnitude, using the specified flows file.
     Saves the output CSV to the intermediate files path.
@@ -175,8 +246,6 @@ def run_controls(magnitude, ripple_path, collection_id, flows_filename, flows2fi
     ----------
     magnitude : str
         The magnitude type (e.g., action, minor, moderate, major, record).
-    ripple_path : str
-        The path to the Ripple model collections.
     collection_id : str
         The identifier for the specific model collection.
     flows_filename : str
@@ -185,6 +254,10 @@ def run_controls(magnitude, ripple_path, collection_id, flows_filename, flows2fi
         The path to the flows2fim executable.
     intermediates_folder : str
         The path to the folder where intermediate files will be saved.
+    db_path : str
+        Path to the ripple.gpkg for the given collection ID.
+    starts_csv : str
+        Path to the start_reaches.csv for the given collection ID.
 
     Returns
     -------
@@ -196,20 +269,20 @@ def run_controls(magnitude, ripple_path, collection_id, flows_filename, flows2fi
     logging.info(f'{collection_id} : {magnitude} - Run flows2fim controls subprocess')
 
     # Create the input and output file paths
-    model_path = os.path.join("ripple", ripple_path, "collections", collection_id)
-    db_path = os.path.join(model_path, "ripple.gpkg")
+    # model_path = os.path.join("ripple", ripple_filename, "collections", collection_id)
+    # db_path = os.path.join(model_path, "ripple.gpkg") # TODO: need to get these from AWS download
     flows_csv = os.path.join(intermediates_folder, flows_filename)
-    starts_csv = os.path.join(model_path, "start_reaches.csv")
+    # starts_csv = os.path.join(model_path, "start_reaches.csv") # TODO: need to get these from AWS download
     controls_filename = f'controls_{collection_id}_{magnitude}.csv'
     output_csv = os.path.join(intermediates_folder, controls_filename)
 
     # Validate input paths
-    input_path_list = [model_path, db_path, flows_csv, starts_csv]
+    input_path_list = [db_path, flows_csv, starts_csv]
     for path in input_path_list:
         if not os.path.exists(path):
             msg = f'Input file {path} does not exist. Cannot run controls for model {collection_id} and magnitude {magnitude}.'
             logging.critical(msg)
-            raise Exception
+            raise Exception(msg)
 
     try:
         # Use subprocess to run flows2fim controls
@@ -267,10 +340,10 @@ def run_controls_for_all_models_and_magnitudes(
     magnitude_types,
     flows_csv_dict,
     collections_path,
-    ripple_path,
+    ripple_filename,
     flows2fim_path,
     intermediates_folder,
-    identifiers_csv_filepath,
+    identifiers_csv_path,
     ripple_model_status_path,
     lst_models,
     output_folder,
@@ -285,14 +358,14 @@ def run_controls_for_all_models_and_magnitudes(
     flows_csv_dict : dict
         Dictionary with magnitude type as key and flows CSV filepath as value.
     collections_path : str
-        Path to the Ripple model collections.
-    ripple_path : str
+        Path to the Ripple model collections on S3.
+    ripple_filename : str
         The path to the Ripple model collections.
     flows2fim_path : str
         The path to the flows2fim executable.
     intermediates_folder : str
         The path to the folder where intermediate files will be saved.
-    identifiers_csv_filepath : str
+    identifiers_csv_path : str
         Filepath to the identifiers CSV file created during processing.
     ripple_model_status_path : str
         Filepath to the CSV containing the status of Ripple model collections.
@@ -311,11 +384,14 @@ def run_controls_for_all_models_and_magnitudes(
     logging.info("Begin running controls....")
     logging.info(f"Getting model collections from {collections_path}")
 
-    # Get a list of all available model collections form ripple_path
-    all_collections_lst = os.listdir(collections_path)
+    # Get a list of all available model collections from ripple_filename
+    collections_filepath_lst = s3_sf.get_folder_list(S3_CLIENT, BUCKET_NAME, collections_path)
+    all_collections_lst = [os.path.basename(os.path.normpath(p)) for p in collections_filepath_lst]
+
+    logging.info(f'Found {len(all_collections_lst)} available collections in S3')
 
     # If lst_models is all, get a list of them
-    if lst_models == 'all':
+    if 'all' in lst_models:
         collection_list = all_collections_lst
 
     else:
@@ -352,10 +428,16 @@ def run_controls_for_all_models_and_magnitudes(
             f'The following model collection(s) were removed from processing due to not being valid: {invalid_collections_list}'
         )
 
+    ## DEBUG MODE: Only run the first n models TEMP DEBUG
+    n = 100
+    logging.warning(f'DEBUG MODE!! Only processing first {n} vals from collections list')
+    collection_list = collection_list[:n]
+    ## DEBUG MODE
+
     logging.info(f'Found {len(collection_list)} model collection(s) to process: {collection_list}')
 
-    # Read identifiers_csv_filepath
-    identifiers_df = pd.read_csv(identifiers_csv_filepath)
+    # Read identifiers_csv_path
+    identifiers_df = pd.read_csv(identifiers_csv_path)
 
     controls_output_csv_list = []
     for collection_id in collection_list:
@@ -363,11 +445,28 @@ def run_controls_for_all_models_and_magnitudes(
         logging.info(f'{collection_id} - Running controls')
         section_start_dt = datetime.now(timezone.utc)
 
+        # Make collection-specific temp folder
+        collection_temp_folder = os.path.join(intermediates_folder, collection_id)
+
+        if os.path.exists(collection_temp_folder):
+            logging.info(f'Removing previously-made collection temp folder')
+            shutil.rmtree(collection_temp_folder)
+
+        os.mkdir(collection_temp_folder, mode=0o777)
+
+        db_path = download_ripple_file_from_s3(ripple_filename, collection_id, collection_temp_folder, "ripple.gpkg")
+        starts_csv = download_ripple_file_from_s3(ripple_filename, collection_id, collection_temp_folder, "start_reaches.csv")
+
+        print(f"Downloaded files to {collection_temp_folder}:")  # TEMP DEBUG
+        print(f" - {db_path}")  # TEMP DEBUG
+        print(f" - {starts_csv}")  # TEMP DEBUG
+
+        # Iterate through magnitudes and run controls
         for magnitude in magnitude_types:
             flows_filename = flows_csv_dict[magnitude]
 
             controls_output_csv = run_controls(
-                magnitude, ripple_path, collection_id, flows_filename, flows2fim_path, intermediates_folder
+                magnitude, collection_id, flows_filename, flows2fim_path, intermediates_folder, db_path, starts_csv
             )
 
             if controls_output_csv is None:
@@ -380,7 +479,7 @@ def run_controls_for_all_models_and_magnitudes(
             df = pd.read_csv(controls_output_csv)
             df['magnitude'] = magnitude
             df['model_collection'] = collection_id
-            df['collection_parent_folder'] = ripple_path
+            df['collection_parent_folder'] = ripple_filename
 
             # Join the identifiers_df to the controls output df to add the nws_lid column (joining on reach_id for df and nwm_feature_id for identifiers df)
             df = pd.merge(df, identifiers_df, left_on='reach_id', right_on='nwm_feature_id', how='left')
@@ -392,6 +491,10 @@ def run_controls_for_all_models_and_magnitudes(
                 f"{collection_id} : {magnitude} - Updated controls CSV with additional metadata columns"
             )
 
+        # Delete the temp folder containing the ripple.gpkg and the start_reachs.csv from S3
+        logging.info(f'Removing collection temp folder: {collection_temp_folder}')
+        shutil.rmtree(collection_temp_folder)
+
         dur_msg = fh.print_date_time_duration(section_start_dt, datetime.now(timezone.utc), False)
         logging.info(f'{collection_id} - Finished running controls for {collection_id} - {dur_msg}')
 
@@ -400,6 +503,10 @@ def run_controls_for_all_models_and_magnitudes(
 
     # Compile the outputs of the controls in controls_output_csv_list
     combined_df = pd.concat([pd.read_csv(f) for f in controls_output_csv_list], ignore_index=True)
+
+    # Delete temp folder
+    logging.info('Deleting temp folder')
+    shutil.rmtree(intermediates_folder)
 
     # Save the combined DataFrame to a new CSV file
     date_formatted = date.today().strftime("%Y%m%d")
@@ -496,7 +603,7 @@ def create_site_model_table(compiled_outputs_path, output_folder):
 
 # Main function
 def catfim_hecras_preprocessing(
-    threshold_file, nwm_meta_file, ripple_path, output_folder_location, lst_models
+    threshold_file, nwm_meta_file, ripple_filename, output_folder_location, lst_models
 ):
     '''
     Main function for script.
@@ -507,7 +614,7 @@ def catfim_hecras_preprocessing(
         Filepath to the thresholds pickle file.
     nwm_meta_file : str
         Filepath to the NWM metadata pickle file.
-    ripple_path : str
+    ripple_filename : str
         The path to the Ripple model collections.
     output_folder_location : str
         The location where the output folder will be created.
@@ -518,21 +625,32 @@ def catfim_hecras_preprocessing(
     # Get input variables
     magnitude_types = csf.MAGNITUDES_TYPES
     flows2fim_path = "/projects/catfim_hecras_fb/flows2fim_030/flows2fim"  # csf.FLOWS2FIM_PATH TODO: finalize file location and Add to shared vars
+    ripple_model_status_path = '/home/rdp-user/projects/catfim_hecras_fb/ripple_feature_ids_whitelist_final_20260729_1420_no_path.csv' # TODO: Finalize file locationand update input path (maybe from an env file?) ... maybe eventually we will download this from S3 too
 
-    # TODO: Finalize file locationand update input path (maybe from an env file?)
-    ripple_model_status_path = '/home/rdp-user/projects/catfim_hecras_fb/ripple_feature_ids_whitelist_final_20260729_1420_no_path.csv'
+    aws_creds_file = '/data/config/aws_credentials.env' # TODO: should we get this from somewhere?
+    hv_params_file = '/foss_fim/config/hv_deploy_params.env' # TODO: should we get this from somewhere?
 
-    # Create output folders
+    # S3 Setup: Make the S3 client, get the bucket name, and validate S3 input paths
+    load_dotenv(hv_params_file)
+    global BUCKET_NAME
+    BUCKET_NAME = os.getenv("HV_S3_BUCKET_NAME")
+
+    __setup_aws(aws_creds_file)
+
+    collections_path = '/fim/ripple/' + ripple_filename + '/collections/'
+    collections_path_sucess = s3_sf.does_s3_folder_exist(S3_CLIENT, BUCKET_NAME, collections_path)
+
+    if not collections_path_sucess:
+        raise Exception(f'S3 collections path {collections_path} does not exist.')
+
+    # Create and validate local folders
     output_folder, intermediates_folder = create_output_folder(output_folder_location)
 
-    # Validate input paths and variables
-    collections_path = os.path.join("ripple", ripple_path, "collections")
     input_path_list = [
         threshold_file,
         nwm_meta_file,
         intermediates_folder,
         output_folder,
-        collections_path,
         flows2fim_path,
         ripple_model_status_path,
     ]
@@ -556,9 +674,13 @@ def catfim_hecras_preprocessing(
         logging.info("")
         logging.info(f"Logs will be saved to {log_file_path}")
         logging.info("")
+        logging.info(f"Using S3 bucket: {BUCKET_NAME}") ### TEMP DEBUG
+        logging.info(f"Using Ripple filename: {ripple_filename}")
+        logging.info("")
+
 
         # Make flows file from the input WRDS data
-        flows_csv_dict, identifiers_csv_filepath = create_flows_files(
+        flows_csv_dict, identifiers_csv_path = create_flows_files(
             threshold_file, nwm_meta_file, intermediates_folder, magnitude_types
         )
 
@@ -567,10 +689,10 @@ def catfim_hecras_preprocessing(
             magnitude_types,
             flows_csv_dict,
             collections_path,
-            ripple_path,
+            ripple_filename,
             flows2fim_path,
             intermediates_folder,
-            identifiers_csv_filepath,
+            identifiers_csv_path,
             ripple_model_status_path,
             lst_models,
             output_folder,
@@ -632,7 +754,7 @@ if __name__ == '__main__':
 
     parser.add_argument(
         '-r',
-        '--ripple-path',  # TODO: or should we get this val from the CSV?
+        '--ripple-filename',  # TODO: or should we get this val from the CSV?
         help='REQUIRED: Folder from which to get Ripple model inputs, ie ripple_100_20251004',
         required=True,
     )
