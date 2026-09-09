@@ -1,11 +1,9 @@
 import argparse
 import ast
 import os
-from concurrent.futures import as_completed
 from contextlib import ExitStack
-from typing import Dict, Optional, Tuple, Union
+from typing import Optional, Union
 
-import fsspec
 import geopandas as gpd
 import numpy as np
 import pandas as pd
@@ -15,16 +13,15 @@ from inundate_mosaic_wrapper import produce_mosaicked_inundation
 from rasterio import features as riofeat
 from scipy.stats import expon, gamma, genextreme, genpareto, gumbel_r, kappa4, norm, pearson3, weibull_min
 from shapely.geometry import shape
-from tqdm.auto import tqdm
 
 from utils.io import write_geodataframe
-from utils.shared_functions import s3_or_local_glob, s3_or_local_path_exists, is_local_path, use_pandas_3_behavior
+from utils.shared_functions import s3_or_local_path_exists, is_local_path, use_pandas_3_behavior
 
 
 @use_pandas_3_behavior()
 def get_fim_probability_distributions(
     posterior_dist: Optional[pd.DataFrame] = None, huc: Optional[int] = None, magnitude: Optional[int] = 2
-) -> Tuple[weibull_min, weibull_min, weibull_min]:
+) -> tuple[weibull_min, weibull_min, weibull_min]:
     """
     Gets either bayesian updated distributions or default distributions for respective huc
 
@@ -153,7 +150,7 @@ def generate_streamflow_percentiles_vec(
 
 def generate_streamflow_percentiles(
     feature: int, ensemble_forecast: xr.Dataset, params_weibull: pd.DataFrame
-) -> Dict[str, Union[int, float]]:
+) -> dict[str, Union[int, float]]:
     """
     Calculates Percentiles for the streamflow distribution
 
