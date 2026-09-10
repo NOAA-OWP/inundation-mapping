@@ -45,10 +45,10 @@ CatFIM Reorg (Jan '26)
 
 def process_generate_categorical_fim(
     fim_run_dir,
-    env_file,
-    number_jobs,
     catfim_type,
     output_folder,
+    env_file,
+    number_jobs,
     search,
     lst_hucs,
     past_major_interval_cap,
@@ -56,6 +56,8 @@ def process_generate_categorical_fim(
     get_new_meta_data,
     threshold_file,
     get_new_threshold_data,
+    model,
+    preprocessed_hecras_folder,
     skip_processing,
     overwrite,
 ):
@@ -64,21 +66,21 @@ def process_generate_categorical_fim(
     supporting both stage-based and flow-based methodologies. Handles validation, setup, filtering, and multi-step processing
     including flow generation, mapping, post-processing, and status updates.
 
-    Note: lst_hucs argument is used but passed via locals() so VSCode thinks it is not in use.
+    Note: lst_hucs, model, and preprocessed_hecras_folder arguments are used but passed via locals() so VSCode thinks they are not in use.
 
     Arguments
     ---------
     fim_run_dir - str
         Filpath to the FIM output directory to run CatFIM on.
-    env_file - str
-        Docker mount filepath to the catfim environment file. Defaults to: /data/config/fim_enviro_values.env
-    number_jobs - int
-        Number HUCs to process simultaneously. Defaults to 20.
     catfim_type - str
         Indication of whether the CatFIM run is flow-based ('fb') or stage-based ('sb').
     output_folder - str
         Filepath to where the CatFIM output folder will be (ie /data/catfim/hand_4_8_7_2).
         Note: Output folder name will have flow_based or stage_based appended.
+    env_file - str
+        Docker mount filepath to the catfim environment file. Defaults to: /data/config/fim_enviro_values.env
+    number_jobs - int
+        Number HUCs to process simultaneously. Defaults to 20.
     search - int
         Upstream and downstream search in miles. How far up and downstream of a site do
         we want to inundate? Defaults to 5.
@@ -97,6 +99,8 @@ def process_generate_categorical_fim(
     get_new_threshold_data - bool
         Whether or not to download new thresholds from WRDS. Defaults to False (no download).
         Only works on OWP servers, not Amazon AWS.
+    preprocessed_hecras_folder - str
+        Filepath to the folder containing preprocessed HEC-RAS files.
     skip_processing - bool
         If True, this function will set up all of the initial 'pre-processing' steps, but will
         not continue with the processing of the hucs or post processing.
@@ -134,7 +138,6 @@ def process_generate_categorical_fim(
     - "search" : Define upstream and downstream search in miles
 
     '''
-
     is_logging_loaded = False
 
     overall_start_time = datetime.now(timezone.utc)
@@ -181,11 +184,20 @@ def process_generate_categorical_fim(
 
         # Validate inputs and get back validated huc list and paths for meta and threshold files
         local_vals = (
-            locals()  # lst_hucs argument is used but passed via locals() so VSCode thinks it is not in use.
+            locals()  # lst_hucs, model, and preprocessed_hecras_folder arguments are used but passed via locals() so VSCode thinks they are not in use.
         )
-        # valid_fim_hucs, dropped_huc_lst, nwm_meta_file, threshold_file = __validate_inputs(local_vals)
 
-        adj_valid_fim_hucs, dropped_huc_lst, nwm_meta_file, threshold_file = __validate_inputs(local_vals)
+        (
+            adj_valid_fim_hucs,
+            dropped_huc_lst,
+            nwm_meta_file,
+            threshold_file,
+            inundate_hand,
+            inundate_hr,
+            hr_preference,
+            hecras_sites_csv,
+            combined_controls_csv,
+        ) = __validate_inputs(local_vals)
 
         # Note: this will handle a huc list arg of "all". If valid_fim_hucs is empty, it will thrown an exception
         # valid_fim_hucs are hucs that have valid huc folders in the fim output dir.
@@ -227,6 +239,14 @@ def process_generate_categorical_fim(
             f"... Logs will be saved to {log_file_path} initially and later copied over to {output_folder}/logs"
         )
 
+        logging.info("Producing CatFIM using the following model(s):")
+        if inundate_hand == True:
+            logging.info(" - HAND")
+        if inundate_hr == True and hr_preference == True:
+            logging.info(" - HEC-RAS (one per site)")
+        elif inundate_hr == True and hr_preference == False:
+            logging.info(" - HEC-RAS (all available per site)")
+
         # Make sites output filepath (needed even if we choose skip_processing)
         nwm_sites_file = os.path.join(output_folder, "nwm_sites.parquet")
 
@@ -243,6 +263,11 @@ def process_generate_categorical_fim(
             get_new_threshold_data,
             fim_run_dir,
             past_major_interval_cap,
+            inundate_hand,
+            inundate_hr,
+            hr_preference,
+            hecras_sites_csv,
+            combined_controls_csv,
         )
 
         # Throw a warning if any listed HUCs are in our FIM outputs
@@ -1042,7 +1067,18 @@ def __validate_inputs(received_locals_dict):
         Filepath to the metadata pickle file.
     threshold_file - str
         Filepath to the threshold pickle file.
-
+    inundate_hand - bool
+        Whether to inundate HAND models - Set to true if the model tag contains 'hand' (model = hand, handhr, handhrp)
+    inundate_hr - bool
+        Whether to run HEC-RAS - Set to true if the model tag contains 'hr' (model = hr, hrp, handhr, handhrp)
+    hr_preference - bool
+        Whether to run all available HEC-RAS and HAND models or to just run the preferred HEC-RAS model when available and otherwise run the HAND model.
+        If the model tag ends with 'p', HEC-RAS preference is True (which means we will only run one HEC-RAS model per site)
+        If not, we will run ALL available HEC-RAS models for each site (not recommended for full CatFIM runs).
+    hecras_sites_csv - str
+        Path to the _ CSV from the CatFIM HEC-RAS preprocessing (or '' if inundate HR is false)
+    combined_controls_csv - str
+        Path to the _ CSV from the CatFIM HEC-RAS preprocessing (or '' if inundate HR is false)
     '''
 
     # Check for main directories
@@ -1196,7 +1232,91 @@ def __validate_inputs(received_locals_dict):
                     f" default value of {default_threshold_file}."
                 )
 
-    return valid_fim_hucs, dropped_huc_lst, nwm_meta_file, threshold_file
+    # -----------------
+    # Validate input model arg and set model tags
+
+    catfim_type = received_locals_dict["catfim_type"]
+    model = received_locals_dict["model"]
+
+    if catfim_type == "sb" and model != 'hand':
+        raise Exception(
+            "Model type specification is limited to flow-based CatFIM at this time."
+            " Re-run without the -mod command or run flow-based CatFIM to utilize this feature."
+        )
+
+    if model not in ['hand', 'hr', 'hrp', 'handhr', 'handhrp']:
+        raise Exception(
+            f"Invalid model type provided: {model}"
+            " Expected one of the following: 'hand', 'hrp', 'hr', 'handhrp', 'handhr'"
+            " Re-run with a valid -mod command."
+        )
+
+    # Whether to inundate HAND models - Set to true if the model tag contains 'hand' (model = hand, handhr, handhrp)
+    inundate_hand = 'hand' in model
+
+    # Whether to run HEC-RAS - Set to true if the model tag contains 'hr' (model = hr, hrp, handhr, handhrp)
+    inundate_hr = 'hr' in model
+
+    # Whether to run all available HEC-RAS and HAND models or to just run the preferred HEC-RAS model when available and otherwise run the HAND model.
+    # If the model tag ends with 'p', HEC-RAS preference is True (which means we will only run one HEC-RAS model per site)
+    # If not, we will run ALL available HEC-RAS models for each site (not recommended for full CatFIM runs).
+    hr_preference = 'p' in model
+
+    # -----------------
+    # Validate HEC-RAS inputs
+
+    preprocessed_hecras_folder = received_locals_dict["preprocessed_hecras_folder"]
+
+    if inundate_hr is True:
+        if preprocessed_hecras_folder == "":
+            # preprocessed_hecras_folder = os.getenv("hecras_files") # TODO: Add this in once I've added the env variable to the bash_variables file.
+            preprocessed_hecras_folder = "/home/rdp-user/projects/catfim_hecras_fb/hecras_preprocess_test4_full_run/catfim_hecras_preprocessing_20260910"
+            # TODO: Remove hardcoding once I've added other default to env variables
+
+            if not os.path.exists(preprocessed_hecras_folder):
+                raise Exception(
+                    f"Preprocessed HEC-RAS inputs not found at {preprocessed_hecras_folder}"
+                    " Using filepath from env file. Check env file input variables."
+                )
+        else:
+            if not os.path.exists(preprocessed_hecras_folder):
+                raise Exception(
+                    f"Preprocessed HEC-RAS inputs not found at {preprocessed_hecras_folder}"
+                    " Using filepath from input arguments. Check env file input variables."
+                )
+
+        # TODO: Add a check to make sure that these preprocessed HECRAS inputs use the same metadata and thresholds input files
+        # as we are using in this CatFIM run.
+
+        # Check whether the required HEC-RAS files exist in this folder
+        hecras_sites_csv = os.path.join(preprocessed_hecras_folder, 'sites_with_hecras_models.csv')
+        combined_controls_csv = os.path.join(preprocessed_hecras_folder, 'combined_controls_output.csv')
+
+        if not os.path.isfile(hecras_sites_csv):
+            raise Exception(
+                f"Input HEC-RAS folder exusts but sites CSV not found at {hecras_sites_csv}"
+            )
+
+        if not os.path.isfile(combined_controls_csv):
+            raise Exception(
+                f"Input HEC-RAS folder exusts but controls CSV not found at {combined_controls_csv}"
+            )
+
+    else:
+        # Set default vals if inundate hr is false
+        hecras_sites_csv, combined_controls_csv = '', ''
+
+    return (
+        valid_fim_hucs,
+        dropped_huc_lst,
+        nwm_meta_file,
+        threshold_file,
+        inundate_hand,
+        inundate_hr,
+        hr_preference,
+        hecras_sites_csv,
+        combined_controls_csv,
+    )
 
 
 def __create_runtime_args_file(
@@ -1211,6 +1331,11 @@ def __create_runtime_args_file(
     get_new_threshold_data,
     fim_run_dir,
     past_major_interval_cap,
+    inundate_hand,
+    inundate_hr,
+    hr_preference,
+    hecras_sites_csv,
+    combined_controls_csv,
 ):
     '''
     Create a runtime args environment file (saved as output_folder/runtime_args.env).
@@ -1244,7 +1369,16 @@ def __create_runtime_args_file(
     past_major_interval_cap - int
         Stage-Based only. How many feet past major do you want to go for the interval FIMs?
         of the machine. Defaults to 5.
-
+    inundate_hand - BOOL
+        TODO: Fill in
+    inundate_hr - BOOL
+        TODO: Fill in
+    hr_preference - BOOL
+        TODO: Fill in
+    hecras_sites_csv - str
+        TODO: Fill in
+    combined_controls_csv - str
+        TODO: Fill in
     '''
 
     args_file_name = "runtime_args.env"
@@ -1266,7 +1400,12 @@ def __create_runtime_args_file(
         file.write(f"GET_NEW_THRESHOLD_DATA={get_new_threshold_data}\n")
         file.write(f"FIM_RUN_DIR=\"{fim_run_dir}\"\n")
         file.write(f"PAST_MAJOR_INTERVAL_CAP={past_major_interval_cap}\n")
-
+        file.write(f"INUNDATE_HAND={inundate_hand}\n")
+        file.write(f"INUNDATE_HR={inundate_hr}\n")
+        file.write(f"HR_PREFERENCE={hr_preference}\n")
+        file.write(f"HECRAS_SITES_CSV={hecras_sites_csv}\n")
+        file.write(f"COMBINED_CONTROLS_CSV={combined_controls_csv}\n")
+    return
 
 if __name__ == '__main__':
     '''
@@ -1465,6 +1604,29 @@ if __name__ == '__main__':
         required=False,
         default=False,
         action='store_true',
+    )
+
+    parser.add_argument(
+        '-mod',
+        '--model',
+        help='OPTIONAL: Define which model(s) to run between HAND and HEC-RAS. Currently only for flow-based CatFIM.'
+        ' hand : run HAND only (default)'
+        ' hrp : run HEC-RAS only - with model preference (use one HEC-RAS model per site)'
+        ' hr : run HEC-RAS only - without model preference (use ALL available HEC-RAS models, not recommended for large runs)'
+        ' handhrp : run HAND and HEC-RAS - with model preference (use one HEC-RAS model per site, prioritize HEC-RAS over HAND'
+        ' handhr : run HAND and HEC RAS - without model preference (use ALL available HEC-RAS models, keep HEC-RAS and HAND sites, not recommended for large runs)',
+        required=False,
+        default="hand",
+    )
+
+    parser.add_argument(
+        '-hf',
+        '--preprocessed-hecras-folder',
+        help='OPTIONAL: Path to the HEC-RAS files directory (generated via catfim_hecras_preprocessing.py).'
+        ' e.g.: /data/catfim/hecras/catfim_hecras_preprocessing_20260910 . Default value comes from bash_variables.'
+        ' Must contain the following files: sites_with_hecras_models.csv and combined_controls_output.csv',
+        required=False,
+        default="",
     )
 
     parser.add_argument(
