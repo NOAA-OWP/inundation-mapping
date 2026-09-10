@@ -50,7 +50,8 @@ def create_output_folder(output_folder_location):
         raise Exception(f"Output folder parent dir does not exist, unable to create output folder at {output_folder_location}")
 
     # Make output folder
-    output_folder = os.path.join(output_folder_location, 'catfim_hecras_preprocessing')
+    date_formatted = date.today().strftime("%Y%m%d")
+    output_folder = os.path.join(output_folder_location, f'catfim_hecras_preprocessing_{date_formatted}')
     os.makedirs(output_folder, exist_ok=True, mode=mode)
 
     if not os.path.exists(output_folder):
@@ -178,7 +179,67 @@ def create_flows_files(threshold_file, nwm_meta_file, intermediates_folder, magn
     return flows_csv_dict, identifiers_csv_path
 
 
-def __setup_aws(aws_creds_file): # adapted FROM deploy to hydrovis
+def __create_runtime_args_file(
+    output_folder,
+    threshold_file,
+    nwm_meta_file,
+    ripple_filename,
+    lst_models,
+    BUCKET_NAME,
+    flows2fim_path,
+    ripple_model_status_path,
+    aws_creds_file,
+    hv_params_file,
+):
+    '''
+    Create a runtime args environment file to document input parameters (saved as output_folder/runtime_args.env).
+
+    Arguments
+    ---------
+    output_folder : str
+        The folder where the runtime args file will be saved.
+    threshold_file : str
+        The path to the threshold file.
+    nwm_meta_file : str
+        The path to the NWM metadata file.
+    ripple_filename : str
+        The name of the ripple file.
+    lst_models : list
+        The list of models.
+    BUCKET_NAME : str
+        The name of the S3 bucket.
+    flows2fim_path : str
+        The path to the flows2fim file.
+    ripple_model_status_path : str
+        The path to the ripple model status file.
+    aws_creds_file : str
+        The path to the AWS credentials file.
+    hv_params_file : str
+        The path to the HV parameters file.
+    '''
+    args_file_name = "runtime_args.env"
+    args_file_path = os.path.join(output_folder, args_file_name)
+
+    if os.path.isfile(args_file_path):
+        os.remove(args_file_path)
+
+    # Open the file using standard IO, then write lines to it.
+    # All of these will be validated before we get here
+    with open(args_file_path, "w") as file:
+        file.write(f"THRESHOLD_FILE_PATH=\"{threshold_file}\"\n")
+        file.write(f"NWM_METAFILE_PATH=\"{nwm_meta_file}\"\n")
+        file.write(f"RIPPLE_FILENAME=\"{ripple_filename}\"\n")
+        file.write(f"LST_MODELS={lst_models}\n")
+        file.write(f"BUCKET_NAME={BUCKET_NAME}\n")
+        file.write(f"FLOWS2FIM_PATH=\"{flows2fim_path}\"\n")
+        file.write(f"RIPPLE_MODEL_STATUS_PATH=\"{ripple_model_status_path}\"\n")
+        file.write(f"AWS_CREDS_FILE=\"{aws_creds_file}\"\n")
+        file.write(f"HV_PARAMS_FILE=\"{hv_params_file}\"\n")
+    return
+
+
+def __setup_aws(aws_creds_file):
+    # adapted FROM deploy to hydrovis
     # TODO: Do we need to remake this function? or should we just bring it in from the other file?
 
     # We validate the bucket existance in here and assume the deploy env file is already loaded
@@ -344,7 +405,6 @@ def run_controls_for_all_models_and_magnitudes(
     flows2fim_path,
     intermediates_folder,
     identifiers_csv_path,
-    ripple_model_status_path,
     lst_models,
     output_folder,
 ):
@@ -409,30 +469,30 @@ def run_controls_for_all_models_and_magnitudes(
         logging.critical(msg)
         raise Exception
 
-    # Filter the collection list using ripple_model_status_path TODO: Confirm that we should filter by collection id and not another col?
-    # Read in CSV and get a list of valid collections (where is_valid == True)
-    ripple_model_status_table = pd.read_csv(ripple_model_status_path)
-    valid_ripple_collections_list = (
-        ripple_model_status_table[ripple_model_status_table['is_valid'] == True]['collection_id']
-        .unique()
-        .tolist()
-    )
+    # # Filter the collection list using ripple_model_status_path TODO: Confirm that we should filter by collection id and not another col?
+    # # Read in CSV and get a list of valid collections (where is_valid == True)
+    # ripple_model_status_table = pd.read_csv(ripple_model_status_path)
+    # valid_ripple_collections_list = (
+    #     ripple_model_status_table[ripple_model_status_table['is_valid'] == True]['collection_id']
+    #     .unique()
+    #     .tolist()
+    # )
 
-    # Filter the collection list to only include valid ripple collections
-    collection_list = [item for item in collection_list if item in valid_ripple_collections_list]
+    # # Filter the collection list to only include valid ripple collections
+    # collection_list = [item for item in collection_list if item in valid_ripple_collections_list]
 
-    # Return a list of collections that were removed due to not being valid
-    invalid_collections_list = [item for item in lst_models if item not in valid_ripple_collections_list]
-    if len(invalid_collections_list) > 0:
-        logging.warning(
-            f'The following model collection(s) were removed from processing due to not being valid: {invalid_collections_list}'
-        )
+    # # Return a list of collections that were removed due to not being valid # TODO: Clean up
+    # invalid_collections_list = [item for item in lst_models if item not in valid_ripple_collections_list]
+    # if len(invalid_collections_list) > 0:
+    #     logging.warning(
+    #         f'The following model collection(s) were removed from processing due to not being valid: {invalid_collections_list}'
+    #     )
 
-    ## DEBUG MODE: Only run the first n models TEMP DEBUG
-    n = 100
-    logging.warning(f'DEBUG MODE!! Only processing first {n} vals from collections list')
-    collection_list = collection_list[:n]
-    ## DEBUG MODE
+    # ## DEBUG MODE: Only run the first n models TEMP DEBUG
+    # n = 100
+    # logging.warning(f'DEBUG MODE!! Only processing first {n} vals from collections list')
+    # collection_list = collection_list[:n]
+    # ## DEBUG MODE
 
     logging.info(f'Found {len(collection_list)} model collection(s) to process: {collection_list}')
 
@@ -509,8 +569,7 @@ def run_controls_for_all_models_and_magnitudes(
     shutil.rmtree(intermediates_folder)
 
     # Save the combined DataFrame to a new CSV file
-    date_formatted = date.today().strftime("%Y%m%d")
-    compiled_outputs_path = os.path.join(output_folder, f'combined_controls_output_{date_formatted}.csv')
+    compiled_outputs_path = os.path.join(output_folder, f'combined_controls_output.csv')
     combined_df.to_csv(compiled_outputs_path, index=False)
 
     logging.info(f'Compiled controls output saved to {os.path.basename(compiled_outputs_path)}')
@@ -563,7 +622,7 @@ def parse_subprocess_outputs(result, common_warning_list, collection_id, magnitu
     return
 
 
-def create_site_model_table(compiled_outputs_path, output_folder):
+def create_site_model_table(compiled_outputs_path, output_folder, ripple_model_status_path):
     '''
     Creates a table of sites that have HEC-RAS models available.
 
@@ -573,6 +632,8 @@ def create_site_model_table(compiled_outputs_path, output_folder):
         The path to the compiled outputs CSV file.
     output_folder : str
         The path to the output folder where the resulting table will be saved.
+    ripple_model_status_path : str
+        Path to the ripple model status CSV.
 
     '''
     logging.info('')
@@ -584,17 +645,36 @@ def create_site_model_table(compiled_outputs_path, output_folder):
 
     # Remove unneeded columns (flow, control_stage, magnitude) and then remove duplicate rows, keeping the first occurrence of each LID
     compiled_df = compiled_df.drop(columns=['flow', 'control_stage', 'magnitude'])
+
+    # TODO: Is it correct to be removing the duplicates here? Does that mean we should filter out bad models somwhere else?
     compiled_df = compiled_df.drop_duplicates(subset=['nws_lid'], keep='first')
 
-    site_list = compiled_df['nws_lid'].to_list()
+    # Filter the compiled df to only include feature IDs where is_valid = True in the whitelist
+    ripple_model_status_table = pd.read_csv(ripple_model_status_path)
+    valid_ripple_reach_id_list = (
+        ripple_model_status_table[ripple_model_status_table['is_valid'] == True]['feature_id']
+        .unique()
+        .tolist()
+    )
+
+    # Filter out sites from compiled_df where the reach_id is not in the valid_ripple_reach_id_list
+    compiled_df = compiled_df[compiled_df['reach_id'].isin(valid_ripple_reach_id_list)]
+
+    # Print a list of sites that were removed due to not being valid
+    invalid_sites_list = compiled_df[~compiled_df['reach_id'].isin(valid_ripple_reach_id_list)]['nws_lid'].unique().tolist()
+    if len(invalid_sites_list) > 0:
+        logging.warning(
+            f'The {len(invalid_sites_list)} sites were removed from the final list due to not being valid: {invalid_sites_list}'
+        )
 
     # Save the resulting DataFrame to a new CSV file with the date in the filename
-    date_formatted = date.today().strftime("%Y%m%d")
+    # date_formatted = date.today().strftime("%Y%m%d")
     sites_with_hecras_models_path = os.path.join(
-        output_folder, f'sites_with_hecras_models_{date_formatted}.csv'
+        output_folder, f'sites_with_hecras_models.csv'
     )
     compiled_df.to_csv(sites_with_hecras_models_path, index=False)
 
+    site_list = compiled_df['nws_lid'].to_list()
     logging.info(f'Compiled HEC-RAS model info for {len(site_list)} AHPS sites')
     logging.info(f'Saved sites/model table to {os.path.basename(sites_with_hecras_models_path)}')
 
@@ -625,7 +705,7 @@ def catfim_hecras_preprocessing(
     # Get input variables
     magnitude_types = csf.MAGNITUDES_TYPES
     flows2fim_path = "/projects/catfim_hecras_fb/flows2fim_030/flows2fim"  # csf.FLOWS2FIM_PATH TODO: finalize file location and Add to shared vars
-    ripple_model_status_path = '/home/rdp-user/projects/catfim_hecras_fb/ripple_feature_ids_whitelist_final_20260729_1420_no_path.csv' # TODO: Finalize file locationand update input path (maybe from an env file?) ... maybe eventually we will download this from S3 too
+    ripple_model_status_path = '/home/rdp-user/projects/catfim_hecras_fb/ripple_feature_ids_whitelist_final_20260729_1420_no_path.csv' # TODO: Finalize file location and update input path (maybe from an env file?) ... maybe eventually we will download this from S3 too
 
     aws_creds_file = '/data/config/aws_credentials.env' # TODO: should we get this from somewhere?
     hv_params_file = '/foss_fim/config/hv_deploy_params.env' # TODO: should we get this from somewhere?
@@ -638,9 +718,9 @@ def catfim_hecras_preprocessing(
     __setup_aws(aws_creds_file)
 
     collections_path = '/fim/ripple/' + ripple_filename + '/collections/'
-    collections_path_sucess = s3_sf.does_s3_folder_exist(S3_CLIENT, BUCKET_NAME, collections_path)
+    collections_path_success = s3_sf.does_s3_folder_exist(S3_CLIENT, BUCKET_NAME, collections_path)
 
-    if not collections_path_sucess:
+    if not collections_path_success:
         raise Exception(f'S3 collections path {collections_path} does not exist.')
 
     # Create and validate local folders
@@ -693,13 +773,26 @@ def catfim_hecras_preprocessing(
             flows2fim_path,
             intermediates_folder,
             identifiers_csv_path,
-            ripple_model_status_path,
             lst_models,
             output_folder,
         )
 
         # Create a table matching AHPS sites to available HEC-RAS models
-        create_site_model_table(compiled_outputs_path, output_folder)
+        create_site_model_table(compiled_outputs_path, output_folder, ripple_model_status_path)
+
+        # Create a runtime args file to document the input parameters and files used
+        __create_runtime_args_file(
+            output_folder,
+            threshold_file,
+            nwm_meta_file,
+            ripple_filename,
+            lst_models,
+            BUCKET_NAME,
+            flows2fim_path,
+            ripple_model_status_path,
+            aws_creds_file,
+            hv_params_file,
+        )
 
         # -----
 

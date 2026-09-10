@@ -322,11 +322,8 @@ def process_threshold_data(
         if inundate_hr is True:
             logging.info('Begin processing HEC-RAS input data...')  # TEMP DEBUG
 
-            # TODO: Pull from the args hecras_sites_csv, combined_controls_csv ?
-            # Maybe eventually we plug in the run controls script into CatFIM? I'm on the fence about that one...
-            # TEMP DEBUG: Hard code the sites and controls CSV in for now # TODO: Replace with variables or env vals
-            hecras_sites_csv = '/projects/catfim_hecras_fb/test_outputs/final_outputs/sites_with_hecras_models.csv'  # TODO: Replace
-            combined_controls_csv = '/projects/catfim_hecras_fb/test_outputs/final_outputs/combined_controls_output.csv'  # TODO: Replace
+            hecras_sites_csv = os.getenv('HECRAS_SITES_CSV')
+            combined_controls_csv = os.getenv('COMBINED_CONTROLS_CSV')
 
             __process_huc_hecras_controls_data(
                 huc,
@@ -1013,13 +1010,27 @@ def __process_huc_hecras_controls_data(
     hr_preference,
 ):
     '''
-    Currently only run for flow-based CatFIM.
-
-    Runs at the HUC level.
-
+    Currently only run for flow-based CatFIM. Runs at the HUC level.
     Generates HUC/Site/Model/Magnitude-specific controls CSVs for the HEC-RAS sites in the HUC (if they exist).
 
-    # TODO: Fill out args
+    Arguments
+    ---------
+    huc - str
+        Hydrologic Unit Code.
+    huc_path - str
+        Path to the HUC directory.
+    hecras_sites_csv - str
+        Path to the HEC-RAS sites CSV file.
+    combined_controls_csv - str
+        Path to the combined controls CSV file.
+    segments_file_path - str
+        Path to the segments CSV file.
+    output_temp_dir - str
+        Path to the temporary output directory.
+    valid_lids - list
+        List of valid NWS LID identifiers to process.
+    hr_preference - bool
+        Flag indicating whether to prefer MIP models over BLE models when multiple HEC-RAS models are available for a site.
 
     '''
 
@@ -1034,6 +1045,10 @@ def __process_huc_hecras_controls_data(
     all_hecras_sites_df = pd.read_csv(local_copy_hecras_sites_csv)
     huc_hecras_sites_df = all_hecras_sites_df[all_hecras_sites_df['nws_lid'].isin(valid_lids)]
     hecras_site_list = huc_hecras_sites_df['nws_lid'].tolist()
+
+    if len(hecras_site_list) == 0:
+        logging.info(f"{huc} - No HEC-RAS models found for any sites in this HUC, skipping HEC-RAS controls processing")
+        return
 
     logging.info(f"{huc} - Found {len(hecras_site_list)} site(s) with available HEC-RAS models")
 
@@ -1139,14 +1154,13 @@ def __process_huc_hecras_controls_data(
     sites_models_df = pd.DataFrame(sites_models_list)
     sites_models_csv_path = os.path.join(huc_path, f"{huc}_hr_sites_models.csv")  # TODO: Decide where to save
     sites_models_df.to_csv(sites_models_csv_path, index=False)
-    logging.info(f'{huc} : {ahps_site} - Saved sites/models CSV to {sites_models_csv_path}')
+    logging.info(f'{huc} - Saved sites/models CSV to {sites_models_csv_path}')
 
     # Save huc_controls_df to huc_path
     huc_controls_csv_path = os.path.join(huc_path, f"{huc}_controls.csv")
     huc_controls_df.to_csv(huc_controls_csv_path, index=False)
-    logging.info(f'{huc} : {ahps_site} - Saved HUC controls to {huc_controls_csv_path}')
-
-    logging.info(f'{huc} : {ahps_site} - Finished subsetting controls CSVs for {huc}')
+    logging.info(f'{huc} - Saved HUC controls to {huc_controls_csv_path}')
+    logging.info(f'{huc} - Finished subsetting controls CSVs for {huc}')
 
     return
 
