@@ -336,22 +336,27 @@ def _fast_inundate(rem, catchment, stage_dict, nodata_c, min_value):
 
     keys, values = stage_dict
     idx = np.searchsorted(keys, vc)
-    mask = idx != len(keys)
-    
-    depths = values[idx[mask]]
-    np.subtract(depths, vr, out=depths, where=mask)
+    np.minimum(idx, len(keys)-1, out=idx)
+    mask = keys[idx] == vc
 
-    #mask = mask & (vr >= 0) & (depths >= min_value)
-    tmp = vr >= 0
-    np.logical_and(mask, tmp, out=mask)
-    np.greater_equal(depths, min_value, out=tmp)
-    np.logical_and(mask, tmp, out=mask)
-    del tmp
-    np.copyto(vr, depths, where=mask)
+    if np.any(mask):
+        depths = values[idx]
+        np.subtract(depths, vr, out=depths, where=mask)
+
+        tmp = vr >= 0
+        np.logical_and(mask, tmp, out=mask)
+        np.greater_equal(depths, min_value, out=tmp)
+        np.logical_and(mask, tmp, out=mask)
+        del tmp
+        #mask = mask & (vr >= 0) & (depths >= min_value)
+        np.copyto(vr, depths, where=mask)
     
-    mask = np.logical_not(mask, out=mask)
-    vr[mask] = 0
-    vc[mask] *= -1
+        mask = np.logical_not(mask, out=mask)
+        vr[mask] = 0
+        vc[mask] *= -1
+    else:
+        vr.fill(0)
+        vc *= -1
     del mask
 
     # Copy back to rem and catchment arrays
