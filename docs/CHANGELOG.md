@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.x.x.x - 2026-08-21 - [PR#1900](https://github.com/NOAA-OWP/inundation-mapping/pull/1900)
+## 4.10.2.0 - 2026-09-11 - [PR#1900](https://github.com/NOAA-OWP/inundation-mapping/pull/1900)
 
 This PR closes issue #1864, by applying these improvements:
 
@@ -32,11 +32,8 @@ The PR also improves `tools/compute_flood_depth.py`: get_threshold_hand() now re
 - `tools/compute_flood_depth.py` — same zonal stats optimization, plus GeoParquet fixes and a duplicate hydrotable read removed.
 - `tools/fimpacts_inundation.py` — now reads the input feature file as GeoParquet or GeoPackage depending on extension, since this shared function handles both buildings (now `.parquet`) and roads (still `.gpkg`).
 - `src/utils/huc_process_error_report.py` — reworded a log message.
-
----------------------------------------------------------------
-### Testing
-Ran the full FIM pipeline for HUC 07120004 before and after these changes and confirmed identical FIM maps, and ran `tools/fimpacts_inundation.py` before and after with identical output.
 <br/>
+
 ## v4.10.1.2 - 2026-09-04 - [PR#1943](https://github.com/NOAA-OWP/inundation-mapping/pull/1943)
 
 `preprocess_nhdplus()` called `__polygonize()` with one argument while that function has always
