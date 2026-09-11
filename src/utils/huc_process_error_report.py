@@ -51,7 +51,7 @@ def scan_error_log(huc_number, source_log_file, output_csv_path):
 
     # Note: might be an empty file and that is ok.
     if len(lines_found) == 0:
-        print("GREAT JOB.. no errors found for this huc.")
+        print("No errors found for this huc.")
         print("")
         # Create an empty file to help recs found
         empty_file_name = output_csv_path.replace(".csv", "_none_found.txt")
