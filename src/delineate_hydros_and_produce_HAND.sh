@@ -24,7 +24,7 @@ if [[ "$mask_leveed_area_toggle" == "True"  &&  -f "${tempHucDataDir}/LeveeProte
         -dem "${tempCurrentBranchDataDir}/dem_meters_${current_branch_id}.tif"
         -nld "${tempHucDataDir}/LeveeProtectedAreas_subset.gpkg"
         -catchments "${z_arg}"
-        -out "${tempCurrentBranchDataDir}/dem_meters_${current_branch_id}.tif"
+        -out "${tempCurrentBranchDataDir}/dem_meters_masked_${current_branch_id}.tif"
         -b "${branch_id_attribute}"
         -i "${current_branch_id}"
         -b0 "${branch_zero_id}"
@@ -56,7 +56,7 @@ python3 "${srcDir}/unique_pixel_and_allocation.py" "${args[@]}"
 ## ADJUST THALWEG MINIMUM USING LATERAL ZONAL MINIMUM ##
 echo -e "${startDiv}Performing lateral thalweg adjustment ${hucNumber} ${current_branch_id}"
 args=(
-    -e "${tempCurrentBranchDataDir}/dem_meters_${current_branch_id}.tif"
+    -e "${tempCurrentBranchDataDir}/dem_meters_masked_${current_branch_id}.tif"
     -s "${tempCurrentBranchDataDir}/demDerived_streamPixels_${current_branch_id}.tif"
     -a "${tempCurrentBranchDataDir}/demDerived_streamPixels_ids_"${current_branch_id}"_allo.tif"
     -d "${tempCurrentBranchDataDir}/demDerived_streamPixels_ids_"${current_branch_id}"_dist.tif"
@@ -295,7 +295,7 @@ if [[ "${healed_hand_hydrocondition}" == "true"  &&  "${current_branch_id}" != "
         --quiet --type=Float32 --overwrite 
         --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES"
         -R "${tempCurrentBranchDataDir}/rem_zeroed_masked_${current_branch_id}.tif"
-        -D "${tempCurrentBranchDataDir}/dem_meters_${current_branch_id}.tif"
+        -D "${tempCurrentBranchDataDir}/dem_meters_masked_${current_branch_id}.tif"
         -T "${tempCurrentBranchDataDir}/dem_thalwegCond_${current_branch_id}.tif"
         --calc="R+(D-T)" --NoDataValue=${ndv}
         --outfile="${tempCurrentBranchDataDir}/rem_zeroed_masked_${current_branch_id}.tif"
@@ -347,7 +347,7 @@ if [[ "${healed_hand_hydrocondition}" == "true" && "${current_branch_id}" == "${
         --quiet --type=Float32 --overwrite
         --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES"
         -R "${tempCurrentBranchDataDir}/rem_zeroed_masked_${current_branch_id}.tif"
-        -D "${tempCurrentBranchDataDir}/dem_meters_${current_branch_id}.tif"
+        -D "${tempCurrentBranchDataDir}/dem_meters_masked_${current_branch_id}.tif"
         -T "${tempCurrentBranchDataDir}/dem_thalwegCond_${current_branch_id}.tif"
         --calc="R+(D-T)" --NoDataValue="${ndv}"
         --outfile="${tempCurrentBranchDataDir}/rem_zeroed_masked_${current_branch_id}.tif"
@@ -393,18 +393,20 @@ else
 fi
 
 ## Process buildings FIMpact ##
-if  [[ -f "${tempHucDataDir}/buildings_subset.gpkg" ]]; then
+if [[ "$process_buildings_fimpact" = "True"  &&  -f $tempHucDataDir/buildings_subset.parquet ]]; then
     echo -e "${startDiv}Process buildings FIMpact ${hucNumber} ${current_branch_id}"
     date -u
     Tstart
     args=(
         -g "${tempCurrentBranchDataDir}/rem_zeroed_masked_${current_branch_id}.tif"
-        -r "${tempHucDataDir}/buildings_subset.gpkg"
+        -r "${tempHucDataDir}/buildings_subset.parquet"
         -c "${tempCurrentBranchDataDir}/gw_catchments_reaches_filtered_addedAttributes_crosswalked_${current_branch_id}.parquet"
         -o "${tempCurrentBranchDataDir}/buildings_fimpact_${current_branch_id}.csv"
     )
     python3 "${srcDir}/process_buildings_fimpact.py" "${args[@]}"
     Tcount
+elif [[ "$process_buildings_fimpact" != "True" ]]; then
+    echo -e $startDiv"Skipping buildings FIMpact processing (toggle off) for $hucNumber"
 else
     echo -e "${startDiv}No buildings data for ${hucNumber}"
 fi
