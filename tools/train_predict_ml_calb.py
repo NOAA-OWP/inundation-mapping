@@ -396,13 +396,11 @@ def predict_all_reaches(
         Cleaned DataFrame with predictions.
     """
     logger.debug(f"Generating predictions for {len(predict_df):,} reaches...")
-    
+
     # check for missing features
     missing = set(features) - set(predict_df.columns)
     if missing:
-        raise KeyError(
-            f"Prediction dataset is missing {len(missing)} required feature(s): {sorted(missing)}"
-        )
+        raise KeyError(f"Prediction dataset is missing {len(missing)} required feature(s): {sorted(missing)}")
 
     df_out = predict_df.copy()
 
@@ -480,6 +478,7 @@ def run_pipeline(
     logger.debug(f"Tune Hyperparams:     {tune_hyperparameters}")
     logger.debug(f"Random State:         {random_state}")
     logger.debug("=" * 80)
+    logger.info(f"Log File: {log_file}")
 
     try:
         # Load and Prepare Training Data
