@@ -1,6 +1,35 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## 4.10.x.x - 2026-09-17 - [PR#1950](https://github.com/NOAA-OWP/inundation-mapping/pull/1950)
+
+Fixes an issue in `mask_dem.py` where bounding box geometry checks (`clip_geoms_to_raster_bounds()`) led to erroneous raster masking outputs. Replaces geometric pre-clipping with spatial index filtering / warning suppression while preserving vectorized GeoPandas query performance and CRS auto-alignment. Closes #1948.
+
+### Root Cause
+Previous attempts to suppress shapes outside bounds warnings via custom Shapely clipping (`clip_geoms_to_raster_bounds()`) caused data divergence for two reasons:
+
+Geometry Dropping: `geom.is_valid` checks dropped topologically invalid geometries that `rasterio.mask` handles natively.
+
+Boundary Precision Shift: Slicing shapes via `.intersection(raster_box)` modified vertex floating-point precision along image boundaries, altering pixel coverage calculations during masking.
+
+### Key Changes
+Removed Shape Modification: Eliminated geometric clipping and `.is_valid` checks to ensure raw, un-sliced geometries are passed directly to `rasterio.mask`.
+
+Resolved Warning Noise: Handled `rasterio.mask` bounds warnings cleanly without altering feature shapes.
+
+Vectorized Data Filtering: Replaced slow `iterrows()` loops with GeoPandas `.isin()` querying while maintaining `__geo_interface__` dictionary geometry extraction.
+
+CRS Alignment: Retained automatic `to_crs(dem_crs)` reprojecting for input vector layers (NLD and catchments) prior to overlay operations.
+
+### Changes
+- `config/`
+    - ` deny_branch_zero.lst` and `deny_branches.lst`: Added `dem_meters_masked_{}.py`
+- `src/`
+    - `delineate_hydros_and_produce_HAND.sh`: Changes output of `mask_dem.py` to `dem_meters_masked_{}.py` and copies `dem_meters_{}.py` to `dem_meters_masked_{}.py` if no levees exist in HUC.
+    - `mask_dem.py`: Changes spatial extent filtering to spatial index filtering
+
+<br/>
+    
 ## 4.10.2.0 - 2026-09-11 - [PR#1900](https://github.com/NOAA-OWP/inundation-mapping/pull/1900)
 
 This PR closes issue #1864, by applying these improvements:
