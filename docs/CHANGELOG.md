@@ -3,7 +3,7 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## 4.10.x.x - 2026-09-17 - [PR#1950](https://github.com/NOAA-OWP/inundation-mapping/pull/1950)
 
-Fixes an issue in `mask_dem.py` where bounding box geometry checks (`clip_geoms_to_raster_bounds()`) led to erroneous raster masking outputs. Replaces geometric pre-clipping with spatial index filtering / warning suppression while preserving vectorized GeoPandas query performance and CRS auto-alignment. Closes #1948.
+Fixes an issue in `mask_dem.py` where bounding box geometry checks (`clip_geoms_to_raster_bounds()`) led to erroneous raster masking outputs. Replaces geometric pre-clipping with spatial index filtering / warning suppression while preserving vectorized GeoPandas query performance and CRS auto-alignment.
 
 ### Root Cause
 Previous attempts to suppress shapes outside bounds warnings via custom Shapely clipping (`clip_geoms_to_raster_bounds()`) caused data divergence for two reasons:
