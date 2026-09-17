@@ -71,10 +71,7 @@ def setup_logger(output_dir: Optional[str] = None) -> str:
 
 
 def apply_calibration_to_branch(
-    file_path: str,
-    branch_preds: pd.DataFrame,
-    overwrite_existing: bool = False,
-    dry_run: bool = False,
+    file_path: str, branch_preds: pd.DataFrame, overwrite_existing: bool = False, dry_run: bool = False
 ) -> Dict[str, Any]:
     """
     Apply ML calibration predictions to a single branch hydroTable.
@@ -95,12 +92,7 @@ def apply_calibration_to_branch(
         Dictionary with execution status and metrics.
     """
     if not os.path.isfile(file_path):
-        return {
-            "status": "missing",
-            "file_path": file_path,
-            "rows_updated": 0,
-            "reaches_updated": 0,
-        }
+        return {"status": "missing", "file_path": file_path, "rows_updated": 0, "reaches_updated": 0}
 
     try:
         hydro_df = pd.read_csv(file_path, low_memory=False)
@@ -138,12 +130,7 @@ def apply_calibration_to_branch(
         valid_pred = (hydro_df["prediction_calb"].notna()) & (hydro_df["prediction_calb"] > 0)
         if not valid_pred.any():
             hydro_df.drop(columns=["prediction_calb"], inplace=True)
-            return {
-                "status": "no_match",
-                "file_path": file_path,
-                "rows_updated": 0,
-                "reaches_updated": 0,
-            }
+            return {"status": "no_match", "file_path": file_path, "rows_updated": 0, "reaches_updated": 0}
 
         if overwrite_existing:
             apply_mask = valid_pred
@@ -313,9 +300,7 @@ def reaggregate_huc_tables(huc_dir: str) -> bool:
                     pd.to_numeric(temp_df["SurfaceArea (m2)"], errors="coerce").fillna(0).astype(int)
                 )
             if "LakeID" in temp_df.columns:
-                temp_df["LakeID"] = (
-                    pd.to_numeric(temp_df["LakeID"], errors="coerce").fillna(0).astype(int)
-                )
+                temp_df["LakeID"] = pd.to_numeric(temp_df["LakeID"], errors="coerce").fillna(0).astype(int)
 
             try:
                 temp_df.reset_index(drop=True).to_feather(huc_feather)
@@ -563,14 +548,7 @@ def main():
         help="Root FIM run directory containing HUC subdirectories.",
     )
     parser.add_argument(
-        "-p",
-        "--pred-file",
-        dest="pred_file",
-        required=True,
-        type=str,
-        help=(
-            "Path to ML predictions file."
-        ),
+        "-p", "--pred-file", dest="pred_file", required=True, type=str, help=("Path to ML predictions file.")
     )
     parser.add_argument(
         "-w",
