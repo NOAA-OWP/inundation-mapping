@@ -8,38 +8,19 @@ import numpy as np
 import pandas as pd
 import rasterio as rio
 from rasterio.mask import mask
-from shapely.geometry import box
 
 
-# gpd.options.io_engine = "pyogrio"
-
-
-def clip_geoms_to_raster_bounds(geoms, raster_bounds):
+def filter_by_raster_bounds(gdf, raster_bounds):
     """
-    Clip geometries to raster bounds to avoid 'shapes outside bounds' warnings.
-
-    Parameters
-    ----------
-    geoms : list
-        List of shapely geometries
-    raster_bounds : rasterio.coords.BoundingBox
-        Bounding box of the raster (from raster.bounds)
-
-    Returns
-    -------
-    list
-        List of clipped geometries that intersect with raster bounds
+    Filter GeoDataFrame to features whose bounding box overlaps the raster.
+    Does NOT modify geometry shapes or run strict validity checks.
     """
-    raster_box = box(raster_bounds.left, raster_bounds.bottom, raster_bounds.right, raster_bounds.top)
-    clipped_geoms = []
+    if gdf.empty:
+        return gdf
 
-    for geom in geoms:
-        if geom.is_valid and geom.intersects(raster_box):
-            clipped = geom.intersection(raster_box)
-            if not clipped.is_empty:
-                clipped_geoms.append(clipped)
-
-    return clipped_geoms
+    # Fast bounding-box spatial index query
+    possible_matches_index = list(gdf.sindex.intersection(raster_bounds))
+    return gdf.iloc[possible_matches_index]
 
 
 def mask_dem(
@@ -97,8 +78,8 @@ def mask_dem(
             leveed = gpd.read_file(nld_filename, engine='fiona')
             if leveed.crs != dem_crs:
                 leveed = leveed.to_crs(dem_crs)
-            geoms = [feature for feature in leveed.geometry]
-            geoms = clip_geoms_to_raster_bounds(geoms, dem.bounds)
+
+            geoms = [geom.__geo_interface__ for geom in leveed.geometry if geom is not None]
 
             if len(geoms) > 0:
                 dem_masked, _ = mask(dem, geoms, invert=True)
@@ -123,14 +104,11 @@ def mask_dem(
             levelpath_levees = list(levee_levelpaths[levee_id_attribute])
 
             if len(levelpath_levees) > 0:
-                # Get geometries of levee protected areas associated with levelpath
-                geoms = [
-                    feature
-                    for i, feature in leveed[
-                        leveed[levee_id_attribute].isin(levelpath_levees)
-                    ].geometry.items()
-                ]
-                geoms = clip_geoms_to_raster_bounds(geoms, dem.bounds)
+                selected_levees = leveed[leveed[levee_id_attribute].isin(levelpath_levees)]
+
+                # Pass raster.bounds directly to filter GeoDataFrame rows before extracting geoms:
+                selected_levees = filter_by_raster_bounds(selected_levees, dem.bounds)
+                geoms = [geom.__geo_interface__ for geom in selected_levees.geometry if geom is not None]
 
                 if len(geoms) > 0:
                     dem_masked, _ = mask(dem, geoms, invert=True)
@@ -146,8 +124,7 @@ def mask_dem(
                 ~leveed_area_catchments[levee_id_attribute].isna() & leveed_area_catchments['ID'].isna(), :
             ]
 
-            geoms = [feature for feature in levee_catchments_to_mask.geometry]
-            geoms = clip_geoms_to_raster_bounds(geoms, dem.bounds)
+            geoms = [geom.__geo_interface__ for geom in levee_catchments_to_mask.geometry if geom is not None]
 
             if len(geoms) > 0:
                 levee_catchments_masked, _ = mask(dem, geoms, invert=True)
