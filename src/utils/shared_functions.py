@@ -342,6 +342,7 @@ def run_with_mp(
     task_id_key,  # must be one of the keys in the args list.
     max_workers=4,
     show_progress=True,
+    max_tasks_per_child=None,
 ):
     '''
     Run a set of tasks in parallel using multiprocessing with robust logging and error handling.
@@ -371,6 +372,15 @@ def run_with_mp(
           functions. Instead use screen_queue.put().
 
         - Use file_logger.info() to log the message in the log file.
+
+    - max_tasks_per_child (default None, i.e. unlimited): pass an int to have each worker process
+        exit and be replaced with a fresh one after that many tasks. Some tasks call into native
+        libraries (e.g. GDAL/OGR) that retain memory across calls within the same long-lived
+        process without it ever being freed back to the OS — no amount of Python-level del/
+        gc.collect() or even glibc's malloc_trim reclaims it, since it's not fragmentation but
+        memory the library genuinely keeps live. Only killing and restarting the process reclaims
+        it. Set this low (e.g. 1) if your task_function has this kind of unbounded per-process
+        memory growth.
     '''
 
     # +++++++++++++++++++++
@@ -473,7 +483,7 @@ def run_with_mp(
         #    leaks.  If you do this, close your container to release the memory leaks and restart a new container.
 
         results = {}
-        with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        with ProcessPoolExecutor(max_workers=max_workers, max_tasks_per_child=max_tasks_per_child) as executor:
 
             future_to_id = {}
             # up to this point, the code is run immediately--submision is done right away. Now we wait for each job to be completed and be processed as below
