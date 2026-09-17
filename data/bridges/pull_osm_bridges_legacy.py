@@ -1,3 +1,11 @@
+"""
+DEPRECATED: This osmnx/Overpass-API-based script has been replaced by the Geofabrik-based
+pipeline in data/osm/pull_osm.py + data/bridges/make_osm_bridges_per_huc.py, which does not depend
+on Overpass and is not blocked by Overpass's anti-abuse IP blocking of AWS/Azure ranges.
+Kept for reference only; running this script directly will exit immediately with a
+deprecation message — see data/osm/pull_osm.py for the current approach.
+"""
+
 import argparse
 import datetime as dt
 import glob
@@ -411,7 +419,7 @@ def process_osm_bridges(preclip_dir, output_folder, number_of_jobs, lst_hucs, fi
         for file in Path(output_folder).glob("huc_*_osm_bridges.gpkg"):
             os.remove(file)
 
-    # Build the HUC domain from preclip folders, matching pull_osm_roads.py.
+    # Build the HUC domain from preclip folders, matching pull_osm_roads_legacy.py.
     huc_numbers = [
         str(huc)
         for huc in os.listdir(preclip_dir)
@@ -483,10 +491,18 @@ def process_osm_bridges(preclip_dir, output_folder, number_of_jobs, lst_hucs, fi
 
 
 if __name__ == "__main__":
+    print(
+        "\n❌ DEPRECATED: pull_osm_bridges_legacy.py (osmnx/Overpass API) has been replaced by the "
+        "Geofabrik-based pipeline in data/osm/pull_osm.py + data/bridges/make_osm_bridges_per_huc.py.\n"
+        "See data/osm/pull_osm.py for the current approach. This script is kept for "
+        "reference only and will not run.\n",
+        file=sys.stderr,
+    )
+    sys.exit(1)
 
     '''
     Sample usage:
-        python3 /foss_fim/data/bridges/pull_osm_bridges.py
+        python3 /foss_fim/data/bridges/pull_osm_bridges_legacy.py
             -p /data/inputs/pre_clip_huc8/20250218
             -o /data/inputs/osm/bridges/bridge_lines/20250207/
             -j 10
@@ -494,7 +510,7 @@ if __name__ == "__main__":
 
 
     Code Usage
-    This tool follows the same HUC discovery method used by pull_osm_roads.py.
+    This tool follows the same HUC discovery method used by pull_osm_roads_legacy.py.
     It reads HUC folders from the preclip directory, so one run can process all HUCs
     present in that folder layout, including CONUS, Alaska, Guam, and American Samoa.
 
