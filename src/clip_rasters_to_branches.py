@@ -8,6 +8,9 @@ from tqdm import tqdm
 from stream_branches import StreamBranchPolygons, StreamNetwork
 
 
+# TODO: July 2026: Change this structure of this file so that no logic remains in the __main__ section.
+# move it all into a new function that handles it all. Making this change means other py files can call it
+# directly, which is desired when we start moving away from bash.
 if __name__ == '__main__':
     # parse arguments
     parser = argparse.ArgumentParser(description='Clips rasters to branch polygons')

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# import csv
+import csv
 import datetime as dt
 import gc
 import json
@@ -20,7 +20,6 @@ import rioxarray as rxr
 import urllib3
 import xarray as xr
 from dotenv import load_dotenv
-from gval import CatStats
 from rasterio import features
 from rasterio.features import geometry_mask
 from rasterio.warp import Resampling, calculate_default_transform, reproject
@@ -335,7 +334,7 @@ def mask_out_lakes(input_array, huc, raster_src, fim_run_dir):
         return input_array, mask_status
     else:
         # Read in the lakes shapefile
-        preclip_lakes_gdf = gpd.read_file(preclip_lakes_path)
+        preclip_lakes_gdf = gpd.read_file(preclip_lakes_path, engine='fiona')
 
         # Create a binary raster using the shapefile geometry
         lake_mask = geometry_mask(
@@ -492,6 +491,7 @@ def compute_stats_from_contingency_table(
         Refer to dictionary definition in bottom of function for statistic names.
 
     """
+    from gval import CatStats
 
     vals, keys = CatStats.process_statistics(
         func_names="all", tp=true_positives, tn=true_negatives, fp=false_positives, fn=false_negatives
@@ -656,6 +656,7 @@ def get_stats_table_from_binary_rasters(
         {true_negatives: int, false_negatives: int, false_positives: int, true_positives: int}
 
     """
+    import gval
 
     # Load benchmark and candidate data
     benchmark_raster = rxr.open_rasterio(benchmark_raster_path)
@@ -1060,8 +1061,10 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
                 crs=src_crs,
             )
 
-            ## TEMP DEBUG: Temporarily removing this section which deals with columns types etc,
-            ## becuase I'm worried it might've introduced errors in the USGS calibration TODO: reimplement if needed
+            # TEMPORARILY DISABLED: Temporarily removing this section which deals with columns types etc,
+            # becuase I'm worried it might've introduced errors in the USGS calibration
+            # TODO: Reimplement after issues are smoothed out
+
             # # Add data type to columns, if needed (usually the ones that are sometimes/always NA)
             # for colname, new_dtype in WRDS_METADATA_COL_TYPES.items():
             #     if colname in site_gdf.columns:

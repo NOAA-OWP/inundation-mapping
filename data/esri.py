@@ -4,6 +4,8 @@ import pandas as pd
 import requests
 from tqdm import tqdm
 
+from src.utils.io import write_geodataframe
+
 
 gpd.options.io_engine = "pyogrio"
 
@@ -50,7 +52,7 @@ class ESRI_REST(object):
         gdf_complete = rest_call._query_rest()
         # Save geodataframe as geopackage
         if save_file:
-            gdf_complete.to_file(save_file, driver="GPKG", index=False, engine='fiona')
+            write_geodataframe(gdf_complete, save_file, index=False)
         else:
             return gdf_complete
 

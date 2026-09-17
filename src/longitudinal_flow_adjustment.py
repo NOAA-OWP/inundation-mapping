@@ -6,13 +6,22 @@ import os
 import re
 import traceback
 from argparse import ArgumentParser
-from concurrent.futures import ProcessPoolExecutor, as_completed
+
+# from concurrent.futures import ProcessPoolExecutor, as_completed
 from os.path import join
 
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 
+
+#################################
+# TODO: July 4, 2026:  In the event of an exception, the log file will not exist
+# and its details as well.
+# This needs a try/except with printing to log and at least a one liner
+# saying including the word "exception or error", which can be picked up automatically
+# by the rollup to fim_process_huc.sh or process_rerun_calibration_huc.sh
+################################
 
 stage_interval = float(os.getenv('stage_interval_meters'))
 
@@ -294,7 +303,7 @@ def filter_longitudinal_discharge_jitters(huc_dir, huc, stage_interval):
                 huc_dir,
                 'branches',
                 str(branch),
-                f'gw_catchments_reaches_filtered_addedAttributes_crosswalked_{branch}.gpkg',
+                f'gw_catchments_reaches_filtered_addedAttributes_crosswalked_{branch}.parquet',
             )
             if os.path.isfile(src_full):
                 src_all_branches_path.append(src_full)
@@ -308,7 +317,7 @@ def filter_longitudinal_discharge_jitters(huc_dir, huc, stage_interval):
         print(f'Processing Longitudinal flow adjustment for HUC {huc} Branch: {branch}')
         log_text += f'Processing Longitudinal flow adjustment for HUC {huc} Branch: {branch}\n'
 
-        catchment_gdf0 = gpd.read_file(cathment_gpkg_path[isrc])
+        catchment_gdf0 = gpd.read_parquet(cathment_gpkg_path[isrc])
         catchment_gdf = catchment_gdf0.drop_duplicates(subset=['HydroID'], keep='first')
         lakeID_df = catchment_gdf[['HydroID', 'LakeID']].drop_duplicates(subset=['HydroID'])
         # Read src tables
@@ -442,6 +451,8 @@ def filter_longitudinal_discharge_jitters(huc_dir, huc, stage_interval):
                 else:
                     voi2smooth_mhws.append(voi2smooth_df)
                     filtered_voi_mhws.append(voi2smooth_df)
+                    # TODO: Jul 2026: Should this have the word "warning" so it is picked up by the
+                    # warning logs.
                     print(f'No longitudinal filtering applied for branch {branch}, headwater {hydroid_chain}')
 
             voi2smooth_mhws_df = pd.concat(voi2smooth_mhws)
@@ -597,7 +608,9 @@ def filter_longitudinal_discharge_jitters(huc_dir, huc, stage_interval):
                 cond_thalweg_rows = long_col > 0
                 src_df.loc[cond_thalweg_rows, 'Longitudinal_adjustment_applied'] = True
             else:
-                print('Warning: thalweg_noches_adjustment routine has not been completed')
+                print(
+                    f'Warning: thalweg_noches_adjustment routine has not been completed for HUC {huc} Branch: {branch}'
+                )
                 log_text += f'Thalweg_noches_adjustment routine has not been completed for HUC {huc} Branch: {branch}\n'
 
             # Drop intermediate columns
@@ -606,7 +619,7 @@ def filter_longitudinal_discharge_jitters(huc_dir, huc, stage_interval):
             src_df.to_csv(src_all_branches_path[isrc], index=False)
 
     log_text += f'Successfully recalculated discharge for HUC {huc}\n'
-    print(f'Successfully recalculated discharges for HUC {huc}\n')
+    print(f'Successfully recalculated discharges for HUC {huc}')
     return log_text
 
 
@@ -630,20 +643,31 @@ def apply_longitudinal_dischage_adjustment(huc_dir, huc, log_file_path):  # bank
     stage_interval = float(os.getenv('stage_interval_meters'))
     log_text = ""
     try:
-        msg = f"Correcting rating curve for longitudinal discharge ajustment SRC for HUC : {huc}\n"
-        log_text += msg
+        msg = f"Correcting rating curve for longitudinal discharge ajustment SRC for HUC : {huc}"
+        log_text += f"{msg} /n"
         print(msg)
         log_text += filter_longitudinal_discharge_jitters(huc_dir, huc, stage_interval)  # bankfull_flows_file
 
+    # except Exception as ex:
     except Exception:
-        log_text += f"An error has occurred while processing longitudinal adjustment for huc {huc}\n"
+        err_msg = f"An error has occurred while processing longitudinal adjustment for huc {huc}"
+        log_text += f"{err_msg} \n"
         log_text += traceback.format_exc()
+
+        # this goes back to calibrate_rating_curve.sh which rolls up to its parent "tee"
+        # Then it can be scanned in the error system based on solely the "tee" file
+        print(err_msg)
+        print(traceback.format_exc())
+
+        # re raise ex ? # TODO: Do we want to stop processing the huc if we get an error here?
+        # If yes, we need to raise ex, make sure to write your log_text if you need to.
 
     try:
         with open(log_file_path, "a") as log_file:
             log_file.write(log_text + '\n')
     except Exception:
-        print(f"Error trying to write to the log file of {log_file_path}\n")
+        print(f"Error trying to write to the log file of {log_file_path}", flush=True)
+        # ok. maybe not re-raise here
 
 
 # -------------------------------------------------------

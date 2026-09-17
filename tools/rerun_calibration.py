@@ -1,19 +1,33 @@
 #!/usr/bin/env python3
 import argparse
 import errno
-import glob
 import os
 import re
+import shutil
 import subprocess
 from datetime import datetime
 from pathlib import Path
 from timeit import default_timer as timer
 
-import geopandas as gpd
-import numpy as np
-import pandas as pd
-
 from src.utils.shared_functions import run_with_mp, setup_mp_file_logger
+
+
+#####################################
+'''
+July 2026
+CRITICAL NOTE:
+    Due to major time constraints getting the FIM 6.2 release out, this part of the system received minimal testing
+    in relation to the process_rerun_calibration_hucs.sh and rerun_calibration.py chain. It was heavily tested
+    as part of the fim_pipeline chain.
+    and any fixes required will come in near future PR (after FIM 6.2)
+
+    Some adjustments and testing where done as part of the FIM 6.2 release and its addition of the possible
+    temp file of process_rerun_calibration_hucs.sh workflow pattern. More changes and optimization in the
+    rerun workflow is expected. It also may include the removal of the new process_rerun_calibratation_hucs.sh
+    workflow in favour of once again talking directly to calibrate_rating_curves.sh.
+    TBD
+
+'''
 
 
 def compile_error_logs(fim_run_dir, hucs):
@@ -51,13 +65,13 @@ def compile_error_logs(fim_run_dir, hucs):
 
     # Collect existing HUC error logs
     for huc in hucs:
-        huc_log_file = os.path.join(fim_run_dir, huc, "logs", f"huc_{huc}_errors_calib_rerun.log")
+        huc_log_file = os.path.join(fim_run_dir, huc, "logs", f"huc_{huc}_calib_rerun_errors.log")
         if os.path.isfile(huc_log_file):
             error_logs.append(huc_log_file)
 
     # Exit early if none found
     if not error_logs:
-        print("No 'huc_errors_calib_rerun.log' files found — no combined log created.")
+        print("No 'huc_calib_rerun_error.log' files found — no combined log created.")
         return
 
     # Create output file with timestamp
@@ -82,29 +96,72 @@ def run_shell_for_huc(
     #  therefore file_logger and  in this function only provide overall status of rerunning the calibration.
     file_logger.info(f"Rerunning calibration Started for {task_id}")
     try:
-        cmd = ["bash", script_path, "True", str(branch_jobs)]
+        # we are putting time and tee right the command so it can catch the echos and prints
+        # as the bash level, like our other part of pipeline processing.
+        # Then we can have the error checking at the bottom of the script and it won't be out
+        # of order.
 
-        _ = subprocess.run(
+        # The magic with logging, bash and how we use our shell scripts
+        # is the relationship between exit codes, StdOut and StdErr and the timing of them.
+
+        # This needs to be fixed a bit and may need some single quotes to let calibrate_rating_curves.sh
+        # pick up the variables as ?
+        cmd = ["bash", script_path, "true", str(branch_jobs), huc]
+
+        # The first line in the calibrate_rating_curves.sh must have a least
+        #   #!/bin/bash -e   (The -e means immeditely stop on error which is a feature
+        #   we absolutely have to have. Especially when that is script is called by
+        #   non re-calibrate scenarios such as run_by_branch.sh
+        # calibrate_rating_curves.sh now has, and must have, #!/bin/bash -e as it's top line (with the -e)
+        # the -e command (or at least set -e in a bash file means exit on fail)
+
+        # This scenario is slightly complicated that calibrate_rating_curves.sh is called
+        # in two places, once in python script and the other as a bash script and they
+        # both handle StdOut, StnErr, and exit code different by default.
+
+        # We have to catch three things from our .sh scripts
+        # 1) The exit code, which usually is 0 (success) or 1 (fail with unknown reasons)
+        #    There are other types of codes that can be retrieved, but we can just
+        #    worry about 0 or any other code treat as a fail.
+        # 2) StdOut:  Any messages that might be returned by the shell script. Normally
+        #    we don't have any but keep the door open and see we have anything.
+        # 3) StdErr:  If available, and it is not always available, is the reason that
+        #    the .sh failed.
+
+        # Use Popen for real-time output streaming while also capturing for error logging
+        process = subprocess.Popen(
             cmd,
             env=task_env,
-            capture_output=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,  # Merge stderr into stdout
             text=True,
-            check=True,  # will raise CalledProcessError immediately when a calibration routine fails and the subsequent python code are not run
         )
 
-        msg = f"[{task_id}] ✅ Rerunning calibration succeeded for HUC {huc}"
-        screen_queue.put(msg)
-        file_logger.info(msg)
-        return 1, [True]
+        # Stream output in real-time and capture it
+        output_lines = []
+        for line in process.stdout:
+            screen_queue.put(f"[{task_id}] {line.rstrip()}")  # Real-time display
+            output_lines.append(line)  # Also capture for error logging
 
-    except subprocess.CalledProcessError as e:
-        msg = f"[{task_id}] ❌ Rerunning calibration failed for HUC {huc}: {e}"
-        screen_queue.put(msg)
-        file_logger.error(msg)
-        return 0, [False]
+        process.wait()  # Wait for process to complete
+        captured_output = ''.join(output_lines)
+        returncode = process.returncode
+
+        if returncode != 0:
+            msg = f"[{task_id}] ❌ Rerunning calibration failed for HUC {huc}."
+            msg += f" Exit code: {returncode}"
+            msg += f"\n--- OUTPUT ---\n{captured_output}"
+            screen_queue.put(msg)
+            file_logger.error(msg)
+            return 0, [False]
+        else:
+            msg = f"[{task_id}] ✅ Rerunning calibration succeeded for HUC {huc}"
+            screen_queue.put(msg)
+            file_logger.info(msg)
+            return 1, [True]
 
     except Exception as ex:
-        msg = f"[{task_id}] ❌ Rerunning calibration failed with unexpected error for HUC {huc}: {ex}"
+        msg = f"[{task_id}] ❌ Rerunning calibration failed with unexpected error for HUC {huc}: Exception: {ex}."
         screen_queue.put(msg)
         file_logger.error(msg)
         return 0, [False]
@@ -134,14 +191,29 @@ def rerun_calibration(fim_run_dir: str, limit_hucs: list = [], huc_jobs: int = 6
     if limit_hucs:
         hucs = [h for h in limit_hucs if h in hucs]
 
+    # Create the logger
+    start_time = datetime.now()
+    timestamp = start_time.strftime("%Y%m%d_%H%M")
+    log_file_path = os.path.join(fim_run_dir, 'logs', f"calib_rerun_{timestamp}.log")
+    print(f"logs will be saved to {log_file_path}")
+    file_logger = setup_mp_file_logger(log_file_path, logger_name='rerunning_calibration')
+    print('started rerunning calibration...')
+    file_logger.info(f'started rerunning calibration at: {timestamp}')
+
     # as env variables, pass fim run directory and src directory into calibrate_rating_curves.sh
     # Note: calibrate_rating_curves.sh will create and source params_rerun.env (from params_template.env)
     # instead of sourcing params.env when running in rerun mode
     env = os.environ.copy()
     env["outputDestDir"] = fim_run_dir
 
-    # create path to the target script (calibrate_rating_curves.sh)
-    script_path = str(Path(env.get("srcDir")) / "calibrate_rating_curves.sh")
+    # For the params.env file, when in re-run mode, we want to take a copy of the one from the code
+    # via the "projectDir" enviro value, and rename it as we process
+    proj_dir = os.getenv("projectDir")
+    proj_params_file = os.path.join(proj_dir, "config", "params_template.env")
+    rerun_params_files = os.path.join(fim_run_dir, "params_rerun.env")
+    shutil.copy2(proj_params_file, rerun_params_files)
+
+    script_path = str(Path(env.get("srcDir")) / "process_rerun_calibration_huc.sh")
 
     tasks_args_list = []
     for huc in sorted(hucs):
@@ -157,14 +229,6 @@ def rerun_calibration(fim_run_dir: str, limit_hucs: list = [], huc_jobs: int = 6
             }
         )
 
-    # Create the logger
-    start_time = datetime.now()
-    timestamp = start_time.strftime("%Y%m%d_%H%M")
-    log_file_path = os.path.join(fim_run_dir, 'logs', f"calib_rerun_{timestamp}.log")
-    file_logger = setup_mp_file_logger(log_file_path, logger_name='rerunning_calibration')
-    print('started rerunning calibration...')
-    file_logger.info(f'started rerunning calibration at: {timestamp}')
-
     # Run multiprocessing
     mp_results = run_with_mp(
         task_function=run_shell_for_huc,
@@ -176,6 +240,7 @@ def rerun_calibration(fim_run_dir: str, limit_hucs: list = [], huc_jobs: int = 6
     )
 
     print('multiprocessing tasks finished!')
+    print('')
     # only report if all succeeded or the failed ones
     failed_keys = [tid for tid, payload in mp_results.items() if not payload[0]]
 
@@ -203,13 +268,13 @@ def rerun_calibration(fim_run_dir: str, limit_hucs: list = [], huc_jobs: int = 6
 if __name__ == "__main__":
     # notes
     # - this tool will read an existing FIM run (with mmultiple HUC results) and will overwrite the hyrotable (and src table)
-    # - accordingly, the log files are overwrtten to be consistent with updated hyrtables.
+    # - accordingly, the log files are overwrtten to be consistent with updated hydrotables.
     # - The flags to activate/deactivate each calibration script is still manage from config/params_template.env of the code
     # A new params_rerun.env will be created (from config/params_template.env) and is used for rerun.
 
     # sample usage
-    # python foss_fim/tools/rerun_calibration.py
-    # -i /outputs/fim_dir -jh 6 -jb 2
+    # python /foss_fim/tools/rerun_calibration.py
+    # -i /outputs/hand_4_9_5_8_test/ -jh 6 -jb 2
 
     # Parse arguments
     parser = argparse.ArgumentParser(description="Rerun calibrating rating curves (after a fim pipeline run)")

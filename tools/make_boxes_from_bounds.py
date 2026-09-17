@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 
 import argparse
+import os
 
 import geopandas as gpd
 import pandas as pd
 from shapely.geometry import box
 
+from utils.io import write_geodataframe
 from utils.shared_functions import getDriver
 
 
@@ -37,9 +39,7 @@ def find_hucs_of_bounding_boxes(
     bounding_boxes = bounding_boxes.to_crs(wbd_proj)
 
     if bounding_boxes_outfile is not None:
-        bounding_boxes.to_file(
-            bounding_boxes_outfile, driver=getDriver(bounding_boxes_outfile), index=False, engine='fiona'
-        )
+        write_geodataframe(bounding_boxes, bounding_boxes_outfile, index=False)
 
     wbdcol_name = 'HUC' + wbd_layer[-1]
 
@@ -77,7 +77,11 @@ if __name__ == '__main__':
     parser.add_argument('-o', '--huc-output-file', help='Output file of HUCS', required=False, default=None)
     parser.add_argument('-f', '--forecast-output-file', help='Forecast file', required=False, default=None)
     parser.add_argument(
-        '-u', '--bounding-boxes-outfile', help='Bounding boxes outfile', required=False, default=None
+        '-u',
+        '--bounding-boxes-outfile',
+        help='Bounding boxes outfile (Path to GPKG or Parquet output.)',
+        required=False,
+        default=None,
     )
 
     args = vars(parser.parse_args())

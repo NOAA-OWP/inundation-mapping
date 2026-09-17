@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import os
 import sys
 
 import geopandas as gpd
@@ -11,6 +12,7 @@ from numpy import unique
 from rasterstats import zonal_stats
 
 from utils.fim_enums import FIM_exit_codes
+from utils.io import write_geodataframe
 from utils.shared_functions import getDriver
 from utils.shared_variables import FIM_ID
 
@@ -44,10 +46,13 @@ def add_crosswalk(
     # the pyogrio + arrow engine was giving random segmentation faults that
     # we think may be due to many branches trying to read the same GPKG.
     # See issue #1376 for details.
-    input_catchments = gpd.read_file(input_catchments_fileName, engine='fiona')
-    input_flows = gpd.read_file(input_flows_fileName, engine='fiona')
+    input_catchments = gpd.read_parquet(input_catchments_fileName)
+    input_flows = gpd.read_parquet(input_flows_fileName)
     input_huc = gpd.read_file(input_huc_fileName, engine='fiona')
-    input_nwmflows = gpd.read_file(input_nwmflows_fileName, engine='fiona')
+    if os.path.splitext(input_nwmflows_fileName)[-1].lower() == '.parquet':
+        input_nwmflows = gpd.read_parquet(input_nwmflows_fileName)
+    else:
+        input_nwmflows = gpd.read_file(input_nwmflows_fileName, engine='fiona')
     iris_df = pd.read_parquet(iris_sword_slope).rename(
         columns={'slope_iris_sword': 'SLOPE_IRIS_SWORD', 'id': 'feature_id'}
     )
@@ -266,8 +271,16 @@ def add_crosswalk(
         right_on='HydroID',
     )
 
-    # Use the new HFAB slope as the single source of truth for SLOPE
-    input_src_base['SLOPE'] = input_src_base['SLOPE_HFAB'].astype(float)
+    # Prioritize HFAB slope values, then fall back to IRIS-SWORD, and finally
+    # use the original rise/run slope as the last resort for any remaining gaps.
+    input_src_base['SLOPE_HFAB'] = pd.to_numeric(input_src_base['SLOPE_HFAB'], errors='coerce')
+    input_src_base['SLOPE_IRIS_SWORD'] = pd.to_numeric(input_src_base['SLOPE_IRIS_SWORD'], errors='coerce')
+    input_src_base['SLOPE_RISE_RUN'] = pd.to_numeric(input_src_base['SLOPE_RISE_RUN'], errors='coerce')
+    input_src_base['SLOPE'] = (
+        input_src_base['SLOPE_HFAB']
+        .combine_first(input_src_base['SLOPE_IRIS_SWORD'])
+        .combine_first(input_src_base['SLOPE_RISE_RUN'])
+    )
 
     # --- Normalize and stabilize precision of extremely small slopes ---
     #   1. Rounded to 3 digits in scientific notation
@@ -459,10 +472,16 @@ def add_crosswalk(
         output_src_json[str(hid)] = {'q_list': q_list, 'stage_list': stage_list}
 
     # write out
-    output_catchments.to_file(
-        output_catchments_fileName, driver=getDriver(output_catchments_fileName), index=False
-    )
-    output_flows.to_file(output_flows_fileName, driver=getDriver(output_flows_fileName), index=False)
+    write_geodataframe(output_catchments, output_catchments_fileName, index=False)
+
+    # HACK
+    # July 2026: At this point, a good handful of other tools that are not in the pipeline are looking for the .gpkg version.
+    # A search in the code for the phrase 'gw_catchments_reaches_filtered_addedAttribute' shows a large number of tools and scripts
+    # that use the .tif or .gpkg. Not all are identified here but a card will be created to search and fix them.
+    output_catchments_fileName_gpkg = os.path.splitext(output_catchments_fileName)[0] + '.gpkg'
+    write_geodataframe(output_catchments, output_catchments_fileName_gpkg, index=False)
+
+    write_geodataframe(output_flows, output_flows_fileName, index=False)
     output_src.to_csv(output_src_fileName, index=False)
     output_crosswalk.to_csv(output_crosswalk_fileName, index=False)
     output_hydro_table.to_csv(output_hydro_table_fileName, index=False)

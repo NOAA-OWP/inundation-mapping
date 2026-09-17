@@ -52,7 +52,7 @@ def associate_levelpaths_with_levees(
     # Read in geodataframes
     levees = gpd.read_file(levees_filename)
     leveed_areas = gpd.read_file(leveed_areas_filename)
-    levelpaths = gpd.read_file(levelpaths_filename)
+    levelpaths = gpd.read_parquet(levelpaths_filename)
 
     levees[levee_id_attribute] = levees[levee_id_attribute].astype(int)
     leveed_areas[levee_id_attribute] = leveed_areas[levee_id_attribute].astype(int)
@@ -61,8 +61,8 @@ def associate_levelpaths_with_levees(
     # Buffer each side of levee line
     levees_buffered_left = levees.copy()
     levees_buffered_right = levees.copy()
-    levees_buffered_left.geometry = levees.buffer(levee_buffer, single_sided=True)
-    levees_buffered_right.geometry = levees.buffer(-levee_buffer, single_sided=True)
+    levees_buffered_left.geometry = levees.buffer(levee_buffer, single_sided=True, resolution=1)
+    levees_buffered_right.geometry = levees.buffer(-levee_buffer, single_sided=True, resolution=1)
 
     # Intersect leveed areas with single-sided levee buffers
     with warnings.catch_warnings():

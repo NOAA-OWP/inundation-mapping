@@ -97,18 +97,35 @@ def Test_Case(test_id, version, archive, huc, output_dir):
         TEST_CASES_DIR, f'{benchmark_cat}_test_cases', f'validation_data_{benchmark_cat}'
     )
     benchmark_dir = os.path.join(validation_data, huc)
-    mask_dict = {
-        'levees': {
-            'path': '/data/inputs/nld_vectors/Levee_protected_areas.gpkg',
-            'buffer': None,
-            'operation': 'exclude',
-        },
-        'waterbodies': {
-            'path': '/data/inputs/nwm_hydrofabric/nwm_lakes.gpkg',
-            'buffer': None,
-            'operation': 'exclude',
-        },
-    }
+    if huc[:2] == '19':
+        mask_dict = {
+            'levees': {
+                'path': os.getenv('input_nld_levee_protected_areas_Alaska'),
+                'buffer': None,
+                'operation': 'exclude',
+            },
+            'waterbodies': {
+                # 'path': '/data/inputs/nwm_hydrofabric/nwm_lakes.gpkg',
+                'path': os.getenv('input_nwm_lakes_Alaska'),
+                'buffer': None,
+                'operation': 'exclude',
+            },
+        }
+    else:
+        mask_dict = {
+            'levees': {
+                'path': os.getenv(
+                    'input_nld_levee_protected_areas'
+                ),  # '/data/inputs/nld_vectors/Levee_protected_areas.gpkg',
+                'buffer': None,
+                'operation': 'exclude',
+            },
+            'waterbodies': {
+                'path': os.getenv('input_nwm_lakes'),  # '/data/inputs/nwm_hydrofabric/nwm_lakes.gpkg',
+                'buffer': None,
+                'operation': 'exclude',
+            },
+        }
 
     magnitude_class = data(huc, benchmark_cat)
 
@@ -656,8 +673,8 @@ def __inundate_gms_generator(
 ):
     # Iterate over branches
     for idx, row in huc_branches.iterrows():
-        huc = str(row[0])
-        branch_id = str(row[1])
+        huc = str(row.iloc[0])
+        branch_id = str(row.iloc[1])
 
         huc_dir = os.path.join(fim_dir, huc)
         branch_dir = os.path.join(huc_dir, "branches", branch_id)
@@ -726,96 +743,6 @@ def __inundate_gms_generator(
 # for the purpose of the optimization. Please see the
 # original functions in /src/ folder
 # -------------------------------------------------------
-# Reseting stage column in SRCs
-def reset_stage(srcs_df):
-
-    srcs_df = srcs_df.sort_values('stage').reset_index(drop=True)
-    step = 0.3048
-    srcs_df['stage'] = np.array([round(i * step, 4) for i in range(len(srcs_df))])
-
-    return srcs_df
-
-
-# -------------------------------------------------------
-# Extending src_df with linear_extrapolation for missing stages in thalweg notches
-def extend_src_linear_extrapolation(srcs_df, stages_full):
-
-    # Number of the last rows of src to include in extrapolation
-    num_rows = 3
-    # Identify all value columns except 'stage'
-    src_cols = [col for col in srcs_df.columns if col not in ['stage']]
-
-    existing_stages = srcs_df['stage'].values
-    # If already complete, return early
-    if len(existing_stages) == len(stages_full):
-        return srcs_df
-
-    # Prepare existing src_df
-    existing_src = srcs_df.set_index('stage')
-
-    # Build DataFrame for all target stages
-    extended_src = pd.DataFrame({'stage': stages_full})
-    extended_src['HydroID'] = srcs_df['HydroID'].iloc[0]
-    extended_src = extended_src.set_index('stage')
-
-    # For each value column, interpolate/extrapolate as needed
-    for col in src_cols:
-        # Columns to extrapolate
-        col_variables = [
-            'Number of Cells',
-            'SurfaceArea (m2)',
-            'BedArea (m2)',
-            'Volume (m3)',
-            'TopWidth (m)',
-            'WettedPerimeter (m)',
-            'WetArea (m2)',
-            'HydraulicRadius (m)',
-            'discharge_cms',
-        ]
-        if col in col_variables:
-            # Only use non-NaN values for fitting
-            mask = ~np.isnan(existing_src.index.values[-num_rows:]) & ~np.isnan(
-                existing_src[col].values[-num_rows:]
-            )
-            x = existing_src.index.values[-num_rows:][mask]
-            y = existing_src[col].values[-num_rows:][mask]
-
-            if len(x) >= 2 and np.var(x) > 1e-8:  # Ensure valid data & non-constant x
-                try:
-                    coeffs = np.polyfit(x, y, 1)
-                    extended_src[col] = np.polyval(coeffs, extended_src.index.values)
-                except np.linalg.LinAlgError:
-                    # Fallback: Use last valid value if linear fit fails
-                    last_valid = y[-1] if len(y) > 0 else existing_src[col].iloc[-1]
-                    extended_src[col] = last_valid
-            else:  # Not enough data or constant x-values
-                last_valid = existing_src[col].iloc[-1]
-                extended_src[col] = last_valid
-
-            # Overwrite with original values where available
-            for stage in existing_src.index.values:
-                extended_src.at[stage, col] = existing_src.at[stage, col]
-
-        else:  # Repeat last value for missing
-            # Fill with NaN first
-            extended_src[col] = np.nan
-            # Assign existing values
-            for stage in existing_src.index.values:
-                extended_src.at[stage, col] = existing_src.at[stage, col]
-            # Find missing stages and fill with last value
-            existing_stages_sorted = np.sort(existing_src.index.values)
-            last_value = existing_src[col].loc[existing_stages_sorted[-1]]
-
-            for stage in stages_full:
-                if pd.isna(extended_src.at[stage, col]):
-                    extended_src.at[stage, col] = last_value
-
-    extended_src = extended_src.reset_index()
-
-    return extended_src
-
-
-# -------------------------------------------------------
 # Analysing each HydroID SRC for nonmonotonic SRC
 def analyze_nonmonotonic_src(srcs_df, strm_order):  # , thalweg_hydroids
 
@@ -832,7 +759,6 @@ def analyze_nonmonotonic_src(srcs_df, strm_order):  # , thalweg_hydroids
     # Recalculate 'Discharge' values before the last non-monotonic row
     # Note: No change has been applied on WetArea, Volume, LENGTHKM
     if non_monotonic_index:
-
         # Get the target values from the last non-monotonic index
         target_idx = non_monotonic_index[-1]
         target_numCells = srcs_df.loc[target_idx, 'Number of Cells']
@@ -866,7 +792,7 @@ def analyze_nonmonotonic_src(srcs_df, strm_order):  # , thalweg_hydroids
         # Recalculate discharge_cms for the selected rows
         srcs_df.loc[row_slice, 'discharge_cms'] = (
             wet_area
-            * (srcs_df.loc[row_slice, 'HydraulicRadius_chan (m)'] ** (2.0 / 3))
+            * (srcs_df.loc[row_slice, 'HydraulicRadius (m)'] ** (2.0 / 3))
             * (srcs_df.loc[row_slice, 'SLOPE'] ** 0.5)
             / srcs_df.loc[row_slice, 'channel_n']
         )
@@ -890,54 +816,37 @@ def correct_nonmonotonic_src(ht_df):  # , bankfull_flows_file
 
     # Update parameters for nonmonotonic SRC
     ht_df2 = ht_df.copy()
+    cols_int = ['Number of Cells', 'SurfaceArea (m2)', 'HydroID', 'NextDownID', 'order_', 'feature_id']
+    ht_df2[cols_int] = ht_df2[cols_int].astype(int)
     ht_df2 = ht_df2.drop_duplicates(subset=['HydroID', 'stage'], keep='first').reset_index(drop=True)
 
-    # Removing thalweg notche rows from SRCs and
-    # Applying extend_src_linear_extrapolation to add missing rows
-    cond_ThalwegNRows = (ht_df2['Number of Cells'] == 0) & (ht_df2['stage'] > 0)
-    if cond_ThalwegNRows.sum() > 0:
-        ht_df_skipTwNRows = ht_df2[~cond_ThalwegNRows].copy()
-        ht_df_skipTwNRows_gb = (
-            ht_df_skipTwNRows.groupby('HydroID', group_keys=False).apply(reset_stage).reset_index(drop=True)
-        )
+    # Defining integer columns
+    ht_df3 = ht_df2.copy()
 
-        ht_df3 = ht_df_skipTwNRows_gb.copy()
-
-        # Applying extend_src_linear_extrapolation to add missing rows
-        # Identify the standard stages
-        step = 0.3048
-        stages_full = np.array([round(i * step, 4) for i in range(84)])
-
-        # Apply extend_src_linear_extrapolation to each ht_df
-        ht_df3 = (
-            ht_df3.groupby('HydroID', group_keys=False)
-            .apply(lambda src_g: extend_src_linear_extrapolation(src_g, stages_full))
-            .sort_values(['HydroID', 'stage'])
-            .reset_index(drop=True)
-        )
-        ht_df3[cols_int] = ht_df3[cols_int].astype(int)
-
-    else:
-        ht_df3 = ht_df2.copy()
-
-    # Adjusting src tables for nonmonotonic SRCs
-    # Excluding hydroIDs that already fixed in thalweg notches adjustment
-    ht_df4 = ht_df3.groupby('HydroID', group_keys=False).apply(
-        analyze_nonmonotonic_src, strm_order=strm_order  # , thalweg_hydroids = thalweg_hydroids
+    # Adjusting ht tables for nonmonotonic hts
+    ht_df4 = ht_df3.groupby('HydroID', group_keys=False)[ht_df3.columns].apply(
+        analyze_nonmonotonic_src, strm_order=strm_order
     )
 
     # Make sure nonmonotonic adjustment just applied within in-channel stages
-    cond_bankfull = ht_df3['bankfull_proxy'] == 'floodplain'
-
-    ht_df4.loc[cond_bankfull, 'discharge_cms'] = ht_df3.loc[cond_bankfull, 'discharge_cms']
-    ht_df4.loc[cond_bankfull, 'SurfaceArea (m2)'] = ht_df3.loc[cond_bankfull, 'SurfaceArea (m2)']
-    ht_df4.loc[cond_bankfull, 'BedArea (m2)'] = ht_df3.loc[cond_bankfull, 'BedArea (m2)']
-    ht_df4.loc[cond_bankfull, 'TopWidth (m)'] = ht_df3.loc[cond_bankfull, 'TopWidth (m)']
-    ht_df4.loc[cond_bankfull, 'WettedPerimeter (m)'] = ht_df3.loc[cond_bankfull, 'WettedPerimeter (m)']
-    ht_df4.loc[cond_bankfull, 'HydraulicRadius (m)'] = ht_df3.loc[cond_bankfull, 'HydraulicRadius (m)']
+    cond_bankfull = ht_df2['bankfull_proxy'] == 'floodplain'
+    if 'subdiv_discharge_cms' in ht_df2.columns:
+        ht_df4.loc[cond_bankfull, 'subdiv_discharge_cms'] = ht_df2.loc[cond_bankfull, 'subdiv_discharge_cms']
+    ht_df4.loc[cond_bankfull, 'discharge_cms'] = ht_df2.loc[cond_bankfull, 'discharge_cms']
+    ht_df4.loc[cond_bankfull, 'SurfaceArea (m2)'] = ht_df2.loc[cond_bankfull, 'SurfaceArea (m2)']
+    ht_df4.loc[cond_bankfull, 'BedArea (m2)'] = ht_df2.loc[cond_bankfull, 'BedArea (m2)']
+    ht_df4.loc[cond_bankfull, 'TopWidth (m)'] = ht_df2.loc[cond_bankfull, 'TopWidth (m)']
+    ht_df4.loc[cond_bankfull, 'WettedPerimeter (m)'] = ht_df2.loc[cond_bankfull, 'WettedPerimeter (m)']
+    ht_df4.loc[cond_bankfull, 'HydraulicRadius (m)'] = ht_df2.loc[cond_bankfull, 'HydraulicRadius (m)']
 
     # Force zero stage to have zero discharge
     ht_df4.loc[ht_df4['stage'] == 0, 'discharge_cms'] = 0
+    if 'subdiv_discharge_cms' in ht_df4.columns:
+        ht_df4.loc[ht_df4['stage'] == 0, 'subdiv_discharge_cms'] = 0
+
+    # Make sure there is no nan values
+    ht_df4['channel_n'] = ht_df4.groupby('HydroID')['channel_n'].ffill()
+    ht_df4['overbank_n'] = ht_df4.groupby('HydroID')['overbank_n'].ffill()
 
     # Write src back to file
     ht_df = ht_df4.copy()
@@ -948,241 +857,202 @@ def correct_nonmonotonic_src(ht_df):  # , bankfull_flows_file
     return ht_df
 
 
+# *********************************************************
+# *********************************************************
 # -------------------------------------------------------
-# Functions for incorporating longitudinal flow adjustment
-# into the optomization. This functions have been modified
-# for the purpose of the optimization. Please see the
-# original functions in /src/ folder
+# Functions for Subdivision and bankfull functions for
+# one branch into the optomization. This functions have
+# been modified for the purpose of the optimization.
+# Please see the original functions in /src/ folder
 # -------------------------------------------------------
-def extract_longitudinal_variables(src_df, hydroid, stage):
-    """
-    Function for extracting hydraulic variable to longitudinal smooth
-    along a stream in synthetic rating curves.
-    Candidate_variables_to_smooth_longitudinally = [
-        'discharge_cms'
-    ]
-        Parameters
-        ----------
-        src_df : dataframe
-            Synthetic rating curve dataframe.
-        hydroid : str
-            Fim hydroid string.
-        stage : float
-            Fim stage.
+# *********************************************************
+# Subdivision and bankfull functions for one branch
+def src_bankfull_lookup(
+    ht_df, df_bflows, huc, branch_id  # df_src src_full_filename,  # bankfull_flow_filepath
+):
+    ## NWM recurr rename discharge var
+    df_bflows = df_bflows.rename(columns={'discharge': 'bankfull_flow'})
 
-        Returns
-        ----------
-        voi_hid_stage : list
+    ## Combine the nwm bankfull estimated flows into the SRC via feature_id
+    ht_df = ht_df.merge(df_bflows, how='left', on='feature_id')
 
-    """
+    ## Check if there are any missing data, negative or zero flow values in the bankfull_flow
+    check_null = ht_df['bankfull_flow'].isnull().sum()
 
-    src = src_df.loc[src_df.HydroID == hydroid]
+    if check_null > 0:
+        ## Fill missing/nan nwm bankfull_flow values with -999 to handle later
+        ht_df['bankfull_flow'] = ht_df['bankfull_flow'].fillna(-999)
 
-    if src.LakeID.iloc[0] > 0:
-        return [np.nan]
+    invalid_bflow_mask = (ht_df['bankfull_flow'] <= 0) & (ht_df['bankfull_flow'] != -999)
+
+    if 'LakeID' in ht_df.columns:
+        lake_id = pd.to_numeric(ht_df['LakeID'], errors='coerce').fillna(0)
+        lake_mask = lake_id > 0
     else:
-        flow = round(np.interp(stage, src.stage, src['discharge_cms']), 2)
+        lake_mask = pd.Series(False, index=ht_df.index)
 
-    voi_hid_stage = [flow]
+    unexpected_invalid_bflow_mask = invalid_bflow_mask & ~lake_mask
 
-    return voi_hid_stage
-
-
-# -------------------------------------------------------
-def min_ignore_zeros(lst):
-    """
-    Function for calculation non-zero minimumns.
-
-        Parameters
-        ----------
-        lst : list
-
-        Returns
-        ----------
-        minimum : float
-
-    """
-    nonzero = lst[lst > 0]
-    if nonzero.size > 0:
-        return np.min(nonzero)
-    else:
-        return 0
-
-
-# -------------------------------------------------------
-def filter_voi(voi_array):
-    """
-    Function for a gaussian and minimum filtering on an array.
-
-        Parameters
-        ----------
-        voi_array : array
-
-        Returns
-        ----------
-        gfilter
-
-    """
-    minfilter = generic_filter(voi_array, min_ignore_zeros, size=4)
-    gfilter = scipy.ndimage.gaussian_filter1d(minfilter, sigma=2, radius=2)
-    return gfilter
-
-
-# -------------------------------------------------------
-# Main function for the longitudinal flow adjustment
-def filter_longitudinal_discharge_jitters(fim_dir, ht_df):
-    """
-    Function for smoothing longitudinal jitters in any variables
-    of interest along a stream in synthetic rating curves.
-    This will only correct GMS branch's SRCs based on the hydro_ids.
-
-        Parameters
-        ----------
-        fim_dir : str
-            Directory path for fim_pipeline output.
-        huc : str
-            HUC-8 string.
-
-        Returns
-        ----------
-        log_text : str
-
-    """
-    huc = str(int(float(ht_df['HUC'].iloc[0])))
-    branch = str(int(float(ht_df['branch'].iloc[0])))
-    if len(huc) != 8:
-        huc = '0' + huc
-
-    if int(branch) > 0:  # Just for GMS branches
-        ht_df = ht_df.drop_duplicates(subset=['HydroID', 'stage'], keep='first').reset_index(drop=True)
-        cathment_gpkg = join(
-            fim_dir,
-            huc,
-            'branches',
-            branch,
-            f'gw_catchments_reaches_filtered_addedAttributes_crosswalked_{branch}.gpkg',
+    if unexpected_invalid_bflow_mask.any():
+        bad_feature_ids = (
+            ht_df.loc[unexpected_invalid_bflow_mask, 'feature_id'].drop_duplicates().astype(str).tolist()
         )
-        # Longitudinally adjust srcs for WSE
-        catchment_gdf0 = gpd.read_file(cathment_gpkg)
-        catchment_gdf = catchment_gdf0.drop_duplicates(subset=['HydroID'], keep='first')
 
-        stages = [round(num, 4) for num in ht_df['stage'][0:84]]
+        print(
+            f"WARNING: HUC: {huc}  branch id: {branch_id} --> "
+            f"{len(bad_feature_ids)} non-lake feature(s) have negative or zero bankfull_flow: "
+            f"{', '.join(bad_feature_ids[:10])}\n"
+        )
 
-        # Defining stages with discharge = 0 and Number of Cells = 0 for later masking
-        Q0_mask = ht_df['discharge_cms'] == 0
-        nocell0_mask = ht_df['Number of Cells'] == 0
+    ## Define the channel geometry variable names to use from the src
+    hradius_var = 'HydraulicRadius (m)'
+    volume_var = 'Volume (m3)'
+    surface_area_var = 'SurfaceArea (m2)'
+    bedarea_var = 'BedArea (m2)'
 
-        headwaters_rows = catchment_gdf.loc[
-            ~catchment_gdf.HydroID.isin(catchment_gdf.NextDownID.astype(int)),
-        ]
-        # Remove headwaters with lakeID
-        headwaters = list(headwaters_rows[headwaters_rows['LakeID'] < 0]['HydroID'])
+    ## Locate the closest SRC discharge value to the NWM bankfull estimated flow
+    ht_df['Q_bfull_find'] = (ht_df['bankfull_flow'] - ht_df['discharge_cms']).abs()
 
-        # Build hydroid chain first
-        hydroid_chain_mhws = []
-        for headwater in headwaters:
-            hydroid_chain = [headwater]
-            nexthydroid = headwater
-            # While loop to create the list of hydroids
-            while catchment_gdf.HydroID.isin([nexthydroid]).any():
-                nexthydroid = int(
-                    catchment_gdf.loc[catchment_gdf.HydroID == nexthydroid, "NextDownID"].item()
-                )
-                hydroid_chain.append(nexthydroid)
+    ## Check for any missing/null entries in the input SRC
+    # There may be null values for lake or coastal flow lines
+    # (need to set a value to do groupby idxmin below)
+    if ht_df['Q_bfull_find'].isnull().values.any():
+        ht_df['Q_bfull_find'] = ht_df['Q_bfull_find'].fillna(999999)
+    if ht_df['HydroID'].isnull().values.any():
+        print(
+            'WARNING: HUC: '
+            + str(huc)
+            + '  branch id: '
+            + str(branch_id)
+            + ' --> Null values found in "HydroID"... \n'
+        )
 
-            if len(hydroid_chain[:-1]) > 2:  # Excluding headwaters with len 2 or smaller
-                hydroid_chain_mhws.append(hydroid_chain)
+    df_bankfull_calc = ht_df[
+        ['stage', 'HydroID', bedarea_var, volume_var, hradius_var, surface_area_var, 'Q_bfull_find']
+    ]  # create new subset df to perform the Q_1_5 lookup
+    df_bankfull_calc = df_bankfull_calc[
+        df_bankfull_calc['stage'] > 0.0
+    ]  # Ensure bankfull stage is greater than stage=0
+    df_bankfull_calc = df_bankfull_calc.reset_index(drop=True)
+    # find the index of the Q_bfull_find (closest matching flow)
+    df_bankfull_calc = df_bankfull_calc.loc[
+        df_bankfull_calc.groupby('HydroID')['Q_bfull_find'].idxmin()
+    ].reset_index(drop=True)
+    # rename volume to use later for channel portion calc
+    df_bankfull_calc = df_bankfull_calc.rename(
+        columns={
+            'stage': 'Stage_bankfull',
+            bedarea_var: 'BedArea_bankfull',
+            volume_var: 'Volume_bankfull',
+            hradius_var: 'HRadius_bankfull',
+            surface_area_var: 'SurfArea_bankfull',
+        }
+    )
+    ht_df = ht_df.merge(
+        df_bankfull_calc[
+            [
+                'Stage_bankfull',
+                'HydroID',
+                'BedArea_bankfull',
+                'Volume_bankfull',
+                'HRadius_bankfull',
+                'SurfArea_bankfull',
+            ]
+        ],
+        how='left',
+        on='HydroID',
+    )
+    ht_df = ht_df.drop(['Q_bfull_find'], axis=1)
 
-        # Makes a logitudinal dataframes of variables of interests
-        keys = ['discharge_cms']
-        original_all_voi = {}
-        filtered_all_voi = {}
-        if len(hydroid_chain_mhws) > 0:
-            for ikey in range(len(keys[0:1])):  # Just apply to discharge
-                voi2smooth_mhws = []
-                filtered_voi_mhws = []
-                for hydroid_chain in hydroid_chain_mhws:
-                    voi2smooth_df = dict()
-                    filtered_voi_df = dict()
-                    long_index = 0
-                    for nexthydroid in hydroid_chain[:-1]:  # Excluding the last HydroID
-                        voi2smooth_list = []
-                        for stage in stages:
-                            voi2smooth_list.append(
-                                extract_longitudinal_variables(ht_df, nexthydroid, stage)[ikey]
-                            )
-                        voi2smooth_df[nexthydroid] = voi2smooth_list + [long_index]
-                        long_index += 1
+    ## mask bankfull variables when the bankfull estimated flow value is <= 0
+    ht_df['Stage_bankfull'] = ht_df['Stage_bankfull'].mask(ht_df['bankfull_flow'] <= 0.0)
 
-                    stages_cols = [str(istg) for istg in stages]
-                    voi2smooth_df = pd.DataFrame.from_dict(
-                        voi2smooth_df, orient="index", columns=stages_cols + ['long_position']
-                    )
-                    # Applies 2 filters of minimum and gaussian
-                    # on the logitudinal surface area, volume and bedArea
-                    for stage in stages_cols:
-                        filtered_voi_array = filter_voi(voi2smooth_df[stage])
-                        filtered_voi_df[stage] = list(filtered_voi_array)
-
-                    # Convert filtered_voi_df to a DataFrame
-                    filtered_voi_df = pd.DataFrame.from_dict(filtered_voi_df, orient="columns")
-                    # Align indices and add "long_position"
-                    filtered_voi_df.index = voi2smooth_df.index  # Ensure indices match
-                    filtered_voi_df["long_position"] = voi2smooth_df["long_position"]
-
-                    voi2smooth_mhws.append(voi2smooth_df)
-                    filtered_voi_mhws.append(filtered_voi_df)
-
-                voi2smooth_mhws_df = pd.concat(voi2smooth_mhws)
-                filtered_voi_mhws_df = pd.concat(filtered_voi_mhws)
-
-                # Add the dataframe to the dictionary
-                original_all_voi[keys[ikey]] = voi2smooth_mhws_df
-                filtered_all_voi[keys[ikey]] = filtered_voi_mhws_df
-
-            # Defining a lake_discharge dataframe
-            Q_lake_hydroID = ht_df[['HydroID', 'LakeID', 'stage', 'discharge_cms']]
-            for jkey in range(len(keys[0:1])):  # Just apply to discharge
-                # Reshaping variables of interest (voi) to be included in hydrotable
-                filtered_voi = filtered_all_voi[keys[jkey]].drop('long_position', axis=1)
-                reshaped_filtered_voi = filtered_voi.reset_index().melt(
-                    id_vars='index', var_name='stage', value_name=f'Filtered_{keys[jkey]}'
-                )
-                # print(reshaped_filtered_voi)
-                reshaped_filtered_voi.rename(columns={'index': 'HydroID'}, inplace=True)
-                reshaped_filtered_voi['stage'] = reshaped_filtered_voi['stage'].astype(float)
-
-                # Adding filtered SurfaceArea, volume and bedarea to src
-                ht_df = ht_df.merge(
-                    reshaped_filtered_voi[['HydroID', 'stage', f'Filtered_{keys[jkey]}']],
-                    on=['HydroID', 'stage'],
-                    how='left',
-                )
-                # Update voi including SurfaceArea (m2), 'BedArea (m2)' and 'Volume (m3)' in src
-                # Update ht_df where LakeID > 0 and stage matches
-                mask_src = (ht_df[f'Filtered_{keys[jkey]}'].notna()) & (ht_df['LakeID'] < 0)
-                ht_df.loc[mask_src, keys[jkey]] = ht_df.loc[mask_src, f'Filtered_{keys[jkey]}']
-
-            # Refining Discharge for lake hydroIDs with the original Q
-            # Merge with ht_df
-            ht_df_merged = ht_df.merge(
-                Q_lake_hydroID, on=['HydroID', 'LakeID', 'stage'], how='left', suffixes=('', '_lake')
-            )
-            # Update ht_df where LakeID > 0 and stage matches
-            mask = (ht_df_merged['LakeID'] > 0) & (ht_df_merged['discharge_cms_lake'].notnull())
-            ht_df.loc[mask, 'discharge_cms'] = ht_df_merged.loc[mask, 'discharge_cms_lake']
-            ht_df = ht_df.round(5)
-
-            # Set Hydraulic properties of original stages with discharge = 0 back to 0
-            ht_df.loc[Q0_mask, 'discharge_cms'] = 0
-
-            # Set cahnnel properties of original stages with Number of Cells = 0 back to 0
-            ht_df.loc[nocell0_mask, 'Number of Cells'] = 0
-            ht_df.loc[nocell0_mask, 'SurfaceArea (m2)'] = 0
-            ht_df.loc[nocell0_mask, 'TopWidth (m)'] = 0
-
-            # Set nans to 0
-            ht_df.loc[ht_df['stage'] == 0, 'discharge_cms'] = 0
-            ht_df = ht_df.drop(columns=[f'Filtered_{keys[jkey]}'], axis=1, errors='ignore')
+    ## Create a new column to identify channel/floodplain via the bankfull stage value
+    ht_df.loc[ht_df['stage'] <= ht_df['Stage_bankfull'], 'bankfull_proxy'] = 'channel'
+    ht_df.loc[ht_df['stage'] > ht_df['Stage_bankfull'], 'bankfull_proxy'] = 'floodplain'
+    ht_df['bankfull_proxy'] = ht_df['bankfull_proxy'].fillna('channel')
 
     return ht_df
+
+
+def subdiv_geometry(df_src):
+    ## Calculate in-channel volume & bed area
+    df_src['Volume_chan (m3)'] = np.where(
+        df_src['stage'] <= df_src['Stage_bankfull'],
+        df_src['Volume (m3)'],
+        (
+            df_src['Volume_bankfull']
+            + ((df_src['stage'] - df_src['Stage_bankfull']) * df_src['SurfArea_bankfull'])
+        ),
+    )
+    df_src['BedArea_chan (m2)'] = np.where(
+        df_src['stage'] <= df_src['Stage_bankfull'], df_src['BedArea (m2)'], df_src['BedArea_bankfull']
+    )
+    df_src['WettedPerimeter_chan (m)'] = np.where(
+        df_src['stage'] <= df_src['Stage_bankfull'],
+        (df_src['BedArea_chan (m2)'] / df_src['LENGTHKM'] / 1000),
+        (df_src['BedArea_chan (m2)'] / df_src['LENGTHKM'] / 1000)
+        + ((df_src['stage'] - df_src['Stage_bankfull']) * 2),
+    )
+
+    ## Calculate overbank volume & bed area
+    df_src['Volume_obank (m3)'] = np.where(
+        df_src['stage'] > df_src['Stage_bankfull'], (df_src['Volume (m3)'] - df_src['Volume_chan (m3)']), 0.0
+    )
+    df_src['BedArea_obank (m2)'] = np.where(
+        df_src['stage'] > df_src['Stage_bankfull'],
+        (df_src['BedArea (m2)'] - df_src['BedArea_chan (m2)']),
+        0.0,
+    )
+    df_src['WettedPerimeter_obank (m)'] = df_src['BedArea_obank (m2)'] / df_src['LENGTHKM'] / 1000
+
+    return df_src
+
+
+def subdiv_mannings_eq(df_src):
+    ## Calculate discharge (channel) using Manning's equation
+    df_src = df_src.drop(
+        ['WetArea_chan (m2)', 'HydraulicRadius_chan (m)', 'Discharge_chan (m3s-1)', 'Velocity_chan (m/s)'],
+        axis=1,
+        errors='ignore',
+    )  # drop these cols (in case subdiv was previously performed)
+    df_src['WetArea_chan (m2)'] = df_src['Volume_chan (m3)'] / df_src['LENGTHKM'] / 1000
+    df_src['HydraulicRadius_chan (m)'] = df_src['WetArea_chan (m2)'] / df_src['WettedPerimeter_chan (m)']
+    df_src['HydraulicRadius_chan (m)'] = df_src['HydraulicRadius_chan (m)'].fillna(0)
+    df_src['Discharge_chan (m3s-1)'] = (
+        df_src['WetArea_chan (m2)']
+        * pow(df_src['HydraulicRadius_chan (m)'], 2.0 / 3)
+        * pow(df_src['SLOPE'], 0.5)
+        / df_src['manningN_ch_optz']
+    )
+
+    ## Calculate discharge (overbank) using Manning's equation
+    df_src = df_src.drop(
+        [
+            'WetArea_obank (m2)',
+            'HydraulicRadius_obank (m)',
+            'Discharge_obank (m3s-1)',
+            'Velocity_obank (m/s)',
+        ],
+        axis=1,
+        errors='ignore',
+    )  # drop these cols (in case subdiv was previously performed)
+    df_src['WetArea_obank (m2)'] = df_src['Volume_obank (m3)'] / df_src['LENGTHKM'] / 1000
+    df_src['HydraulicRadius_obank (m)'] = df_src['WetArea_obank (m2)'] / df_src['WettedPerimeter_obank (m)']
+    df_src = df_src.replace([np.inf, -np.inf], np.nan)  # need to replace inf instances (divide by 0)
+    df_src['HydraulicRadius_obank (m)'] = df_src['HydraulicRadius_obank (m)'].fillna(0)
+    df_src['Discharge_obank (m3s-1)'] = (
+        df_src['WetArea_obank (m2)']
+        * pow(df_src['HydraulicRadius_obank (m)'], 2.0 / 3)
+        * pow(df_src['SLOPE'], 0.5)
+        / df_src['manningN_ob_optz']
+    )
+
+    ## Calcuate the total of the subdivided discharge (channel + overbank)
+    df_src = df_src.drop(
+        ['Discharge (m3s-1)_subdiv'], axis=1, errors='ignore'
+    )  # drop these cols (in case subdiv was previously performed)
+    df_src['Discharge (m3s-1)_subdiv'] = df_src['Discharge_chan (m3s-1)'] + df_src['Discharge_obank (m3s-1)']
+    df_src.loc[df_src['stage'] == 0, ['Discharge (m3s-1)_subdiv']] = 0
+
+    return df_src

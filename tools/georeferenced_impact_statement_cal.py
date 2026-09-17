@@ -52,9 +52,9 @@ def process_impact_statement(huc_path, impact_statement_dir, NWSLID, huc):
     for branch in branch_list:
         branch_sub = os.path.join(branch_sub_dire, str(branch))
         catchments_path = os.path.join(
-            branch_sub, f'gw_catchments_reaches_filtered_addedAttributes_crosswalked_{branch}.gpkg'
+            branch_sub, f'gw_catchments_reaches_filtered_addedAttributes_crosswalked_{branch}.parquet'
         )
-        catchments = gpd.read_file(catchments_path)
+        catchments = gpd.read_parquet(catchments_path)
         impact_statement_path = impact_statement_dir
         NWSLID = NWSLID
 

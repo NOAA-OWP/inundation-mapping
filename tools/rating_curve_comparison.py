@@ -26,6 +26,8 @@ from rasterio import plot as rioplot
 from shapely.geometry import Polygon
 from tools_shared_functions import filter_usgs_by_acceptance_criteria
 
+from src.utils.io import write_geodataframe
+
 
 gpd.options.io_engine = "pyogrio"
 
@@ -825,20 +827,13 @@ def generate_rc_and_rem_plots(rc, plot_filename, recurr_data_table, branches_fol
         ######################################################################################################
         ## Read in reaches, catchment raster, and rem raster
         branch = gage_branch_dict[gage]
-        if os.path.isfile(
-            os.path.join(
-                branches_folder,
-                branch,
-                f'demDerived_reaches_split_filtered_addedAttributes_crosswalked_{branch}.gpkg',
-            )
-        ):
-            reaches = gpd.read_file(
-                os.path.join(
-                    branches_folder,
-                    branch,
-                    f'demDerived_reaches_split_filtered_addedAttributes_crosswalked_{branch}.gpkg',
-                )
-            )
+        branch_file = os.path.join(
+            branches_folder,
+            branch,
+            f'demDerived_reaches_split_filtered_addedAttributes_crosswalked_{branch}.parquet',
+        )
+        if os.path.isfile(branch_file):
+            reaches = gpd.read_parquet(branch_file)
             reach = reaches[reaches.HydroID == hydroid]
         with rasterio.open(
             os.path.join(
@@ -1118,7 +1113,8 @@ def create_static_gpkg(output_dir, output_gpkg, agg_recurr_stats_table, gages_gp
     usgs_gages = usgs_gages.round(decimals=2)
 
     # Write to file
-    usgs_gages.to_file(join(output_dir, output_gpkg), driver='GPKG', index=False, engine='fiona')
+    output_file = join(output_dir, output_gpkg)
+    write_geodataframe(usgs_gages, output_file, index=False)
 
     # Create figure
     usgs_gages.replace(np.inf, np.nan, inplace=True)  # replace inf with nan for plotting

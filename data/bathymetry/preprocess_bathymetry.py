@@ -10,6 +10,8 @@ import rasterio
 import whitebox
 from rasterstats import zonal_stats
 
+from src.utils.io import write_geodataframe
+
 
 # Set wbt envs
 wbt = whitebox.WhiteboxTools()
@@ -181,7 +183,7 @@ def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output, min_depth_thresh
             print(f"{output} already exists. Concatinating now...")
             existing_bathy_file = gpd.read_file(output, engine="pyogrio", use_arrow=True)
             bathy_nwm_streams = pd.concat([existing_bathy_file, bathy_nwm_streams])
-        bathy_nwm_streams.to_file(output, index=False)
+        write_geodataframe(bathy_nwm_streams, output, index=False)
         print(f"Added {num_streams} new NWM features")
     except AssertionError as e:
         print(f"Error processing {tif}: {e}")

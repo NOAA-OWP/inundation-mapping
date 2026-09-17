@@ -16,6 +16,7 @@ from dotenv import load_dotenv
 import src.utils.shared_functions as sf
 import tools.tools_shared_functions as tsf
 import tools.tools_shared_variables as tsv
+from src.utils.io import write_geodataframe
 from src.utils.shared_functions import FIM_Helpers as fh
 from src.utils.shared_variables import PREP_PROJECTION
 from tools.tools_shared_variables import acceptable_site_type_list
@@ -874,7 +875,7 @@ def __attrib_mainstems_filter_sites(sites_gdf, all_rating_curves, site_status_df
 
     acceptable_sites_gpkg_path = os.path.join(output_dir, 'acceptable_sites_for_rating_curves.gpkg')
     logging.info(f"...and to GeoPackage at path {acceptable_sites_gpkg_path}")
-    acceptable_sites_gdf.to_file(acceptable_sites_gpkg_path, driver='GPKG', engine='fiona')
+    write_geodataframe(acceptable_sites_gdf, acceptable_sites_gpkg_path)
 
     # Make list of acceptable sites
     acceptable_sites_list = acceptable_sites_gdf['location_id'].tolist()
@@ -1059,7 +1060,7 @@ def __write_rc_and_site_files(all_rating_curves, sites_gdf, list_of_gage_sites, 
     if list_of_gage_sites == ['all']:  # TODO: Should it also do something if 'all' isn't specified?
         sites_gdf = sites_gdf.to_crs(PREP_PROJECTION)
         usgs_gages_file = os.path.join(output_dir, "usgs_gages.gpkg")
-        sites_gdf.to_file(usgs_gages_file, layer='usgs_gages', driver='GPKG', engine='fiona')
+        write_geodataframe(sites_gdf, usgs_gages_file, layer='usgs_gages', driver='GPKG')
 
         logging.info(f"Saved sites GDF to to {usgs_gages_file}")
         msg = "USGS gage and rating curve files saved"

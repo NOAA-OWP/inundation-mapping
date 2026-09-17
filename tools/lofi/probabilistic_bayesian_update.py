@@ -243,8 +243,8 @@ def run_bayesian_updates(
     parameter_names = ["channel_manning_roughness", "overbank_manning_roughness", "slope_adjustment"]
 
     # Apply transformations
-    channel_manning_data = channel_manning_data * 100
-    overbank_manning_data = overbank_manning_data * 100
+    channel_manning_data = np.asarray(channel_manning_data) * 100
+    overbank_manning_data = np.asarray(overbank_manning_data) * 100
     slope_adjustment_data = np.interp(slope_adjustment_data, [-0.1, 0, 0.1], [0.852, 1.648, 2.5])
 
     n_shp, n_scale, n_loc = bayesian_update_for_channel_manning_roughness(channel_manning_data)

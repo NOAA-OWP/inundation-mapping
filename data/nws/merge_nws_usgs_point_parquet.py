@@ -5,6 +5,8 @@ import shutil
 import geopandas as gpd
 import pandas as pd
 
+from src.utils.io import write_geodataframe
+
 
 def filter_magnitude(gdf, remove_max):
     """
@@ -31,7 +33,7 @@ def combine_parquet_files(file1, file2, output_file, remove_max=False):
         combined_gdf = pd.concat([gdf1, gdf2], ignore_index=True)
 
         # Write the combined GeoDataFrame to a new parquet file
-        combined_gdf.to_parquet(output_file)
+        write_geodataframe(combined_gdf, output_file)
         print(f"Combined file written: {output_file}")
 
     except Exception as e:
@@ -49,7 +51,7 @@ def copy_file(source_file, destination_file, remove_max=False):
         gdf = filter_magnitude(gdf, remove_max)
 
         # Save the filtered or unfiltered file to the destination
-        gdf.to_parquet(destination_file)
+        write_geodataframe(gdf, destination_file)
         print(f"Copied file: {source_file} -> {destination_file}")
 
     except Exception as e:

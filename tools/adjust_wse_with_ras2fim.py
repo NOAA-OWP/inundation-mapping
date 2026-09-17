@@ -9,6 +9,8 @@ import pandas as pd
 import rasterio
 from numpy import interp
 
+from src.utils.io import write_geodataframe
+
 
 def get_ras2fim_discharge(args):
     ras_rating_with_stage, this_WSE_base_error, this_point_fid_xs = args
@@ -294,7 +296,7 @@ if __name__ == '__main__':
     ras_points_Adjusted_Q, HydroIDs_Adjusted_Q = obs.get_hydroIds_QAdjust(
         ras_points_with_rc, ras_rating, HAND_SRC
     )
-    ras_points_Adjusted_Q.to_file(os.path.join(output_dir, "ras_points_Adjusted_Q.gpkg"))
+    write_geodataframe(ras_points_Adjusted_Q, os.path.join(output_dir, "ras_points_Adjusted_Q.gpkg"))
     HydroIDs_Adjusted_Q.to_csv(os.path.join(output_dir, "HydroIDs_Adjusted_Q.csv"), index=False)
 
     # step 2...Adjust HAND SRCs
@@ -327,7 +329,9 @@ if __name__ == '__main__':
         ras_points_Adjusted_Q = obs.compare_ras_with_hand(
             ras_points_Adjusted_Q, ras_rating, updated_HAND_SRC, flow_intensity
         )
-        ras_points_Adjusted_Q.to_file(os.path.join(output_dir, "RAS_HAND_Diff_%s.gpkg" % flow_intensity))
+        write_geodataframe(
+            ras_points_Adjusted_Q, os.path.join(output_dir, "RAS_HAND_Diff_%s.gpkg" % flow_intensity)
+        )
         obs.comparison_plots(ras_points_Adjusted_Q, flow_intensity)
 
         # also record MAE

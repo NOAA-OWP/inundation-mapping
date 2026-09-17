@@ -20,7 +20,7 @@ from lmoments3 import distr
 from numba import njit
 from scipy import stats
 from shared_functions import FIM_Helpers as fh
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
 
 NWM_V3_ZARR_URL = 'https://noaa-nwm-retrospective-3-0-pds.s3.amazonaws.com/CONUS/zarr/chrtout.zarr'
@@ -257,7 +257,7 @@ def fit_distributions(
 
             # For each feature_id
             dfs = []
-            for i in (pbar3 := tqdm(range(st.shape[1]))):
+            for i in (pbar3 := tqdm(range(st.shape[1]), leave=False)):
                 pbar3.set_description(f"Running feature {i}")
                 feat = int(st[:, i].coords['feature_id'].values)
 
@@ -360,7 +360,7 @@ def run_linear_moment_fit(
     num_batches = int(steps / num_jobs)
     logging.info(f'Number of Batches: {num_batches} \n')
 
-    for batch_idx in (pbar := tqdm(range(num_batches))):
+    for batch_idx in (pbar := tqdm(range(num_batches), leave=False)):
         pbar.set_description(f"Running Batch {batch_idx+1}")
         batch_start_time = datetime.now()
         logging.info(

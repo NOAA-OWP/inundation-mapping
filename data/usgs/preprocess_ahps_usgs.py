@@ -26,6 +26,8 @@ from tools_shared_functions import (
     select_grids,
 )
 
+from src.utils.io import write_geodataframe
+
 
 # TODO: Jun 2025: Change this to have a path to the config via an arg.
 # See get_usgs_rating_curves for an example
@@ -465,7 +467,7 @@ def preprocess_usgs(source_dir, destination, reference_raster):
             filled_extent = list(ahps_directory.rglob('*_extent_*.tif'))[0]
             domain_gpd = raster_to_feature(grid=filled_extent, profile_override=False, footprint_only=True)
             domain_gpd['nws_lid'] = code
-            domain_gpd.to_file(ahps_directory / f'{code}_domain.shp')
+            write_geodataframe(domain_gpd, ahps_directory / f'{code}_domain.shp')
             # Populate attribute information for site
             grids_attributes = pd.DataFrame(data=grids.items(), columns=['magnitude', 'path'])
             flows_attributes = pd.DataFrame(data=grid_flows.items(), columns=['magnitude', 'grid_flow_cfs'])

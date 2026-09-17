@@ -1,55 +1,7 @@
 #!/usr/bin/env python3
 
-'''
-Description
-
-    ARGUMENTS
-
-        flows_filename:
-            Filename of existing DEM-derived reaches input file. i.e. <current_branch_folder>/demDerived_reaches_<current_branch_id>.shp
-
-        dem_filename:
-            Filename of existing DEM input file. i.e. <current_branch_folder>/dem_thalwegCond_<current_branch_id>.tif
-
-        catchment_pixels_filename:
-            Filename of existing catchment pixels input file. i.e. <current_branch_folder>/gw_catchments_pixels_<current_branch_id>.tif
-
-        split_flows_filename:
-            Save location for output flowlines. i.e. <current_branch_folder>/demDerived_reaches_split_<current_branch_id>.gpkg
-
-        split_points_filename:
-            Save location for output flowpoints. i.e. <current_branch_folder>/demDerived_reaches_split_points_<current_branch_id>.gpkg
-
-        wbd8_clp_filename:
-            Filename of existing HUC8 geometry file. i.e. <HUC_data_folder>/wbd8_clp.gpkg
-
-        lakes_filename:
-            Filename of existing Lakes geometry file. i.e. <HUC_data_folder>/nwm_lakes_proj_subset.gpkg
-
-        nwm_streams_filename:
-            Filename of existing NWM streams input layer.
-
-        max_length:
-            Maximum acceptable length of stream segments (in meters).
-
-        slope_min:
-            Channel slope minimum value.
-
-        lakes_buffer_input:
-            Buffer size to use with lakes (in meters).
-
-
-    PROCESSING STEPS
-
-        1) Split stream segments based on lake boundaries and input threshold distance
-        2) Calculate channel slope, manning's n, and LengthKm for each segment
-        3) Create unique ids using HUC8 boundaries (and unique FIM_ID column)
-        4) Create network traversal attribute columns (To_Node, From_Node, NextDownID)
-        5) Create points layer with segment verticies encoded with HydroID's (used for catchment delineation in next step)
-
-'''
-
 import argparse
+import os
 import sys
 from collections import OrderedDict
 from os import remove
@@ -65,6 +17,7 @@ from shapely.ops import split as shapely_ops_split
 
 import build_stream_traversal
 from utils.fim_enums import FIM_exit_codes
+from utils.io import write_geodataframe
 from utils.shared_functions import getDriver
 from utils.shared_variables import FIM_ID
 
@@ -84,6 +37,42 @@ def split_flows(
     slope_min,
     lakes_buffer_input,
 ):
+    """
+    Description
+
+        ARGUMENTS
+            flows_filename:
+                Filename of existing DEM-derived reaches input file. i.e. <current_branch_folder>/demDerived_reaches_<current_branch_id>.shp
+            dem_filename:
+                Filename of existing DEM input file. i.e. <current_branch_folder>/dem_thalwegCond_<current_branch_id>.tif
+            catchment_pixels_filename:
+                Filename of existing catchment pixels input file. i.e. <current_branch_folder>/gw_catchments_pixels_<current_branch_id>.tif
+            split_flows_filename:
+                Save location for output flowlines. i.e. <current_branch_folder>/demDerived_reaches_split_<current_branch_id>.gpkg
+            split_points_filename:
+                Save location for output flowpoints. i.e. <current_branch_folder>/demDerived_reaches_split_points_<current_branch_id>.gpkg
+            wbd8_clp_filename:
+                Filename of existing HUC8 geometry file. i.e. <HUC_data_folder>/wbd8_clp.gpkg
+            lakes_filename:
+                Filename of existing Lakes geometry file. i.e. <HUC_data_folder>/nwm_lakes_proj_subset.gpkg
+            nwm_streams_filename:
+                Filename of existing NWM streams input layer.
+            max_length:
+                Maximum acceptable length of stream segments (in meters).
+            slope_min:
+                Channel slope minimum value.
+            lakes_buffer_input:
+                Buffer size to use with lakes (in meters).
+
+        PROCESSING STEPS
+
+            1) Split stream segments based on lake boundaries and input threshold distance
+            2) Calculate channel slope, manning's n, and LengthKm for each segment
+            3) Create unique ids using HUC8 boundaries (and unique FIM_ID column)
+            4) Create network traversal attribute columns (To_Node, From_Node, NextDownID)
+            5) Create points layer with segment verticies encoded with HydroID's (used for catchment delineation in next step)
+    """
+
     # --------------------------------------------------------------
     # Define functions
 
@@ -183,7 +172,10 @@ def split_flows(
     print('Trimming DEM stream to NWM branch terminus...')
 
     # Read in nwm lines, explode to ensure linestrings are the only geometry
-    nwm_streams = gpd.read_file(nwm_streams_filename, engine='fiona').explode(index_parts=True)
+    if os.path.splitext(nwm_streams_filename)[-1].lower() == '.parquet':
+        nwm_streams = gpd.read_parquet(nwm_streams_filename).explode(index_parts=True)
+    else:
+        nwm_streams = gpd.read_file(nwm_streams_filename, engine='fiona').explode(index_parts=True)
 
     # If it's NOT branch 0: Dissolve levelpath
     if 'levpa_id' in nwm_streams.columns:
@@ -457,15 +449,11 @@ def split_flows(
         print("There are no flowlines after stream order filtering.")
         sys.exit(FIM_exit_codes.NO_FLOWLINES_EXIST.value)  # Note: Will send a 61 back
 
-    split_flows_gdf.to_file(
-        split_flows_filename, driver=getDriver(split_flows_filename), index=False, engine='fiona'
-    )
+    write_geodataframe(split_flows_gdf, split_flows_filename, index=False)
 
     if len(split_points_gdf) == 0:
         raise Exception("No points exist.")
-    split_points_gdf.to_file(
-        split_points_filename, driver=getDriver(split_points_filename), index=False, engine='fiona'
-    )
+    write_geodataframe(split_points_gdf, split_points_filename, index=False)
 
     del split_flows_gdf, split_points_gdf
 

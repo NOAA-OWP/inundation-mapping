@@ -22,6 +22,7 @@ from shapely.geometry.multipolygon import MultiPolygon
 from shapely.geometry.polygon import Polygon
 from tqdm import tqdm
 
+from utils.io import write_geodataframe
 from utils.shared_functions import FIM_Helpers as fh
 from utils.shared_variables import elev_raster_ndv
 
@@ -241,7 +242,10 @@ def mask_mosaic(mosaic, polys, polys_layer=None, outfile=None, workers=4, quiet=
         raise TypeError("Pass rasterio dataset or filepath for mosaic")
 
     if isinstance(polys, str):
-        polys = gpd.read_file(polys, layer=polys_layer)
+        if os.path.splitext(polys)[-1].lower() == '.parquet':
+            polys = gpd.read_parquet(polys, layer=polys_layer)
+        else:
+            polys = gpd.read_file(polys, layer=polys_layer)
     elif isinstance(polys, gpd.GeoDataFrame):
         pass
     else:
@@ -337,7 +341,7 @@ def mosaic_final_inundation_extent_to_poly(
         ]
 
         # Write polygon
-        extent_poly_diss.to_file(inundation_polygon, driver=driver, engine='fiona')
+        write_geodataframe(extent_poly_diss, inundation_polygon)
 
 
 if __name__ == "__main__":
@@ -402,7 +406,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-i",
         "--inundation-polygon",
-        help="Filename of the final inundation extent polygon (optional). Default is None.",
+        help="Filename (GPKG or GeoParquet) of the final inundation extent polygon. (optional). Default is None.",
         required=False,
         default=None,
         type=str,

@@ -5,6 +5,7 @@ import argparse
 import geopandas as gpd
 from shapely.geometry import Point
 
+from utils.io import write_geodataframe
 from utils.shared_functions import getDriver
 
 
@@ -66,4 +67,4 @@ if __name__ == '__main__':
     output_headwaters = args['output_headwaters']
 
     if output_headwaters is not None:
-        hw_gdf.to_file(args['output_headwaters'], driver=getDriver(args['output_headwaters']), engine='fiona')
+        write_geodataframe(hw_gdf, args['output_headwaters'])

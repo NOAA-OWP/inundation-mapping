@@ -9,6 +9,7 @@ import pandas as pd
 
 
 def aggregate_branch_lists(output_dir, file_name, output_file_name):
+
     file_names = glob(join(output_dir, '*', file_name))
 
     if len(file_names) == 0:

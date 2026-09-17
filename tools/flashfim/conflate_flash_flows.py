@@ -1,6 +1,7 @@
 import argparse
+import datetime
 import os
-from timeit import default_timer as timer
+from time import perf_counter as timer
 
 import geopandas as gpd
 import numpy as np
@@ -18,12 +19,13 @@ def smooth_level_path(lp_order_flows):
     lp_order_flows = lp_order_flows.sort_values(by="hydroseq")
     # Select any id that the minimum value is less than 5% of the median of three upstream to three downstream
     lp_order_flows['median'] = lp_order_flows['discharge'].rolling(7, min_periods=1, center=True).median()
-    lp_order_flows['threshold'] = lp_order_flows['discharge'] < (lp_order_flows['median'] * 0.05)
+    # lp_order_flows['threshold'] = lp_order_flows['discharge'] < (lp_order_flows['median'] * 0.05)
 
-    lp_order_flows.loc[lp_order_flows['threshold'] == True, 'discharge'] = np.nan
-    lp_order_flows['discharge'] = (
-        lp_order_flows['discharge'].interpolate(method='linear').drop(columns="threshold")
-    )
+    # lp_order_flows.loc[lp_order_flows['threshold'] == True, 'discharge'] = np.nan
+    threshold = lp_order_flows['discharge'] < (lp_order_flows['median'] * 0.05)
+    lp_order_flows.loc[threshold, 'discharge'] = np.nan
+
+    lp_order_flows['discharge'] = lp_order_flows['discharge'].interpolate(method='linear')
     lp_order_flows = lp_order_flows.drop(columns=["threshold"])
 
     return lp_order_flows
@@ -64,10 +66,8 @@ def flash_flow_conflation(model, huc_flows, output, timestep, min_order):
     if timestep == "latest":
         url = f"https://mrms.ncep.noaa.gov/2D/FLASH/{model}_MAXSTREAMFLOW/MRMS_FLASH_{model}_MAXSTREAMFLOW.latest.grib2.gz"
     else:
-        yr = timestep.split("-")[0][:4]
-        mo = timestep.split("-")[0][4:6]
-        day = timestep.split("-")[0][6:]
-        url = f"https://mtarchive.geol.iastate.edu/{yr}/{mo}/{day}/mrms/ncep/FLASH/{model}_MAXSTREAMFLOW/{model}_MAXSTREAMFLOW_00.00_{timestep}.grib2.gz"
+        time = datetime.datetime.strptime(timestep, "%Y%m%d-%H%M%S")
+        url = f"https://mtarchive.geol.iastate.edu/{time.year}/{time.strftime("%m")}/{time.strftime("%d")}/mrms/ncep/FLASH/{model}_MAXSTREAMFLOW/{model}_MAXSTREAMFLOW_00.00_{timestep}.grib2.gz"
 
     flash_raster_url = f"/vsigzip//vsicurl/{url}"
 
@@ -81,29 +81,24 @@ def flash_flow_conflation(model, huc_flows, output, timestep, min_order):
     ranges = [[10000, 100000], [1000, 10000], [100, 1000], [10, 100], [1, 10], [0, 1]]
     huc_flows_rs = huc_flows_buffer
 
+    with rasterio.open(flash_raster_url) as src:
+        band = src.read(1)
+        affine = src.transform
+        huc_flows_buffer = huc_flows_buffer.to_crs(src.crs)
+
     for r_min, r_max in ranges:
-        with rasterio.open(flash_raster_url) as src:
-            band = src.read(1)
-            reclass = np.where(np.logical_and(band > r_min, band < r_max), band, np.nan)
-            affine = src.transform
+        # reclass = np.where(np.logical_and(band > r_min, band < r_max), band, np.nan)
+        band[(band <= r_min) | (band >= r_max)] = np.nan
 
-            src_crs = src.crs
-            huc_flows_buffer = huc_flows_buffer.to_crs(src_crs)
+        # Raster Stats Using all touched cells within the buffer
+        raster_stats_buf = zonal_stats(
+            huc_flows_buffer, band, affine=affine, stats=["mean", "count"], all_touched=True, geojson_out=True
+        )
 
-            # Raster Stats Using all touched cells within the buffer
-            raster_stats_buf = zonal_stats(
-                huc_flows_buffer,
-                reclass,
-                affine=affine,
-                stats=["mean", "sum", "count"],
-                all_touched=True,
-                geojson_out=True,
-            )
-
-            rsb_df = gpd.GeoDataFrame.from_features(raster_stats_buf)[
-                ["flowpath_id", "mean", "count"]
-            ].astype(float)
-            huc_flows_rs = pd.merge(huc_flows_rs, rsb_df, on="flowpath_id", suffixes=("", f"_{r_min}"))
+        rsb_df = gpd.GeoDataFrame.from_features(raster_stats_buf)[["flowpath_id", "mean", "count"]].astype(
+            float
+        )
+        huc_flows_rs = pd.merge(huc_flows_rs, rsb_df, on="flowpath_id", suffixes=("", f"_{r_min}"))
     huc_flows_rs = huc_flows_rs.rename(columns={"mean": "mean_10000", "count": "count_10000"}).drop(
         columns="geometry"
     )

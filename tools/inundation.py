@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import os
 from os.path import splitext
 from typing import List, Optional, Tuple, Union
 from warnings import warn
@@ -489,7 +490,10 @@ def __make_windows_generator(
                 elif mask_type == "filter":
 
                     if isinstance(catchment_poly, str):
-                        catchment_poly = gpd.read_file(catchment_poly)
+                        if os.path.splitext(catchment_poly)[-1].lower() == '.parquet':
+                            catchment_poly = gpd.read_parquet(catchment_poly)
+                        else:
+                            catchment_poly = gpd.read_file(catchment_poly)
                     elif isinstance(catchment_poly, gpd.GeoDataFrame):
                         pass
                     elif isinstance(catchment_poly, None):

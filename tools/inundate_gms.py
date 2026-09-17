@@ -256,9 +256,15 @@ def __inundate_gms_generator(
         catchments_file_name = f"gw_catchments_reaches_filtered_addedAttributes_{branch_id}.tif"
         catchments_branch = os.path.join(branch_dir, catchments_file_name)
 
+        src_indexes = ["HUC", "feature_id", "HydroID"]
         if isinstance(hydro_table_df, pd.DataFrame):
-            hydro_table_all = hydro_table_df.set_index(["HUC", "feature_id", "HydroID"], inplace=False)
+            if sum(df_idx not in hydro_table_df.index.names for df_idx in src_indexes) > 0:
+                hydro_table_all = hydro_table_df.set_index(src_indexes)
+            else:
+                hydro_table_all = hydro_table_df
+
             hydro_table_branch = hydro_table_all.loc[hydro_table_all["branch_id"] == int(branch_id)]
+
         elif isinstance(hydro_table_df, str):
             hydro_table_branch = hydro_table_df.format(branch_id)
         else:
@@ -307,7 +313,7 @@ def __inundate_gms_generator(
                     )
 
             if hydro_table_huc is not None and s3_or_local_isfile(hydro_table_huc):
-                hydro_table_all.set_index(["HUC", "feature_id", "HydroID"], inplace=True)
+                hydro_table_all = hydro_table_all.set_index(src_indexes)
                 hydro_table_branch = hydro_table_all.loc[hydro_table_all["branch_id"] == int(branch_id)]
             else:
                 # Earlier FIM4 versions only have branch level hydrotables

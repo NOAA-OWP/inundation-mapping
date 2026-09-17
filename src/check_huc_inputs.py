@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-
 import argparse
 import os
 import pathlib
@@ -39,6 +38,8 @@ def __read_input_hucs(hucs):
         else:
             huc_list.add(__clean_huc_value(hucs[0]))
 
+    huc_list = sorted(huc_list)
+
     return huc_list
 
 
@@ -53,6 +54,12 @@ def __clean_huc_value(huc):
 def __check_for_membership(hucs, accepted_hucs_set, full_huc_list):
     for huc in hucs:
         if (type(huc) is str) and (not huc.isnumeric()):
+            huc = str(huc)
+            if "." in huc:
+                raise ValueError(
+                    "The huc(s) or huc list you provided appears invalid and contains a dot."
+                    f" Is this a bad path to a file? arg supplied is {huc}"
+                )
             msg = f"Huc value of {huc} does not appear to be a number. "
             msg += "It could be an incorrect value but also could be that the huc list "
             msg += "(if you used one) is incorrect or is not unix encoded."
@@ -64,10 +71,15 @@ def __check_for_membership(hucs, accepted_hucs_set, full_huc_list):
             raise KeyError(msg)
 
 
-def check_hucs(hucs, full_huc_list):
+# Might be a file path (full_huc_list) or a list of hucs (ie 12090301 05030104)
+def check_hucs(hucs, full_huc_list, huc_list_output_file):
     accepted_hucs = __read_acceptable_file_list(full_huc_list)
     list_hucs = __read_input_hucs(hucs)
     __check_for_membership(list_hucs, accepted_hucs, full_huc_list)
+
+    with open(huc_list_output_file, "w") as f:
+        for item in list_hucs:
+            f.write(f"{item}\n")
 
     # we need to return the number of hucs being used.
     # it is not easy to return a value to bash, except with standard out.
@@ -76,7 +88,8 @@ def check_hucs(hucs, full_huc_list):
     # very first "print"
 
     # if you want to print, you can use flush. ie) print(f"number of hucs is {len(list_hucs)}", flush=True)
-
+    # by returning a print line, bash will pick it up as standard output and assign it
+    # to a variable and manage it.
     print(len(list_hucs))
 
 
@@ -84,6 +97,8 @@ if __name__ == '__main__':
 
     # This script helps ensure that all hucs passed in to pipeline or pre-processing are valid HUCs
     # and are in the full_huc_list.lst file as valid and approved HUCS.
+
+    # It is ok if this throws exceptions
 
     # parse arguments
     parser = argparse.ArgumentParser(description='Checks input hucs for availability within inputs')
@@ -95,6 +110,9 @@ if __name__ == '__main__':
         nargs='+',
     )
     parser.add_argument('-i', '--full-huc-list', help='Full HUC list file', required=True)
+    parser.add_argument(
+        '-o', '--huc-list-output-file', help='The parsed and validated HUC list', required=True
+    )
 
     # extract to dictionary
     args = vars(parser.parse_args())

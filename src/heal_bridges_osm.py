@@ -12,6 +12,8 @@ from rasterio import features
 from rasterio.warp import Resampling, reproject
 from rasterstats import zonal_stats
 
+from utils.io import write_geodataframe
+
 
 threatened_percent = 0.75
 
@@ -162,7 +164,7 @@ def process_bridges_in_huc(
 
     # Join the bridge points to the HAND catchments to get the HydroID and feature_id
     osm_gdf = osm_gdf.loc[osm_gdf.threshold_hand > 0]
-    catchments_df = gpd.read_file(catchments)
+    catchments_df = gpd.read_parquet(catchments)
 
     osm_gdf = gpd.sjoin(osm_gdf, catchments_df[['HydroID', 'feature_id', 'order_', 'geometry']], how='inner')
 
@@ -180,7 +182,7 @@ def process_bridges_in_huc(
     # Check if the GeoDataFrame is empty
     if not osm_gdf.empty:
         # Write the bridge points to a geopackage
-        osm_gdf.to_file(bridge_centroids, index=False, engine='fiona')
+        write_geodataframe(osm_gdf, bridge_centroids, index=False)
     else:
         print('The geoDataFrame is empty. File not saved.')
 

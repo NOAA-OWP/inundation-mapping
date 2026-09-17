@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import os
 
 import geopandas as gpd
 import numpy as np
@@ -95,8 +96,14 @@ def _evaluate_crosswalk_intersections(input_flows_fileName: str, input_nwmflows_
     # Crosswalk check
     # fh.vprint('Checking for crosswalks between NWM and DEM-derived flowlines', verbose)
 
-    flows = gpd.read_file(input_flows_fileName)
-    nwm_streams = gpd.read_file(input_nwmflows_fileName)
+    if os.path.splitext(input_flows_fileName)[-1].lower() == '.parquet':
+        flows = gpd.read_parquet(input_flows_fileName)
+    else:
+        flows = gpd.read_file(input_flows_fileName)
+    if os.path.splitext(input_nwmflows_fileName)[-1].lower() == '.parquet':
+        nwm_streams = gpd.read_parquet(input_nwmflows_fileName)
+    else:
+        nwm_streams = gpd.read_file(input_nwmflows_fileName)
 
     # Compute the number of intersections between the NWM and DEM-derived flowlines
     streams = nwm_streams
@@ -172,11 +179,20 @@ def _evaluate_crosswalk_network(
     # Check for crosswalks between NWM and DEM-derived flowlines
     # fh.vprint('Checking for crosswalks between NWM and DEM-derived flowlines', verbose)
 
-    flows = gpd.read_file(input_flows_fileName)
+    if os.path.splitext(input_flows_fileName)[-1].lower() == '.parquet':
+        flows = gpd.read_parquet(input_flows_fileName)
+    else:
+        flows = gpd.read_file(input_flows_fileName)
     flows['HydroID'] = flows['HydroID'].astype(int)
-    nwm_streams = gpd.read_file(input_nwmflows_fileName)
+    if os.path.splitext(input_nwmflows_fileName)[-1].lower() == '.parquet':
+        nwm_streams = gpd.read_parquet(input_nwmflows_fileName)
+    else:
+        nwm_streams = gpd.read_file(input_nwmflows_fileName)
     nwm_streams = nwm_streams.rename(columns={'ID': 'feature_id'})
-    nwm_headwaters = gpd.read_file(input_nwm_headwaters_fileName)
+    if os.path.splitext(input_nwm_headwaters_fileName)[-1].lower() == '.parquet':
+        nwm_headwaters = gpd.read_parquet(input_nwm_headwaters_fileName)
+    else:
+        nwm_headwaters = gpd.read_file(input_nwm_headwaters_fileName)
 
     streams_outlets = nwm_streams.loc[~nwm_streams.to.isin(nwm_streams.feature_id), 'feature_id']
     flows_outlets = flows.loc[~flows['NextDownID'].isin(flows['HydroID']), 'HydroID']
