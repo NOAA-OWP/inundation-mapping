@@ -34,9 +34,7 @@ def find_overlapping_parquets(wbd_path: Path, parquet_bounds_4326: dict[Path, tu
 
 
 def clip_state_parquets_to_huc(
-    parquet_paths: List[Path],
-    huc_gdf: gpd.GeoDataFrame,
-    dedupe_col: str | None = "osmid",
+    parquet_paths: List[Path], huc_gdf: gpd.GeoDataFrame, dedupe_col: str | None = "osmid"
 ) -> gpd.GeoDataFrame | None:
     """
     Read each state parquet, clip to the HUC boundary (reprojecting the boundary to
@@ -66,9 +64,7 @@ def clip_state_parquets_to_huc(
         return None
 
     merged = gpd.GeoDataFrame(
-        pd.concat(all_parts, ignore_index=True),
-        geometry="geometry",
-        crs=all_parts[0].crs,
+        pd.concat(all_parts, ignore_index=True), geometry="geometry", crs=all_parts[0].crs
     )
 
     if dedupe_col and dedupe_col in merged.columns:

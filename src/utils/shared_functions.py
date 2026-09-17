@@ -483,7 +483,9 @@ def run_with_mp(
         #    leaks.  If you do this, close your container to release the memory leaks and restart a new container.
 
         results = {}
-        with ProcessPoolExecutor(max_workers=max_workers, max_tasks_per_child=max_tasks_per_child) as executor:
+        with ProcessPoolExecutor(
+            max_workers=max_workers, max_tasks_per_child=max_tasks_per_child
+        ) as executor:
 
             future_to_id = {}
             # up to this point, the code is run immediately--submision is done right away. Now we wait for each job to be completed and be processed as below

@@ -81,9 +81,7 @@ def split_roads(gdf_roads: gpd.GeoDataFrame, catchment_path: str, file_logger, s
 
     if not splitted.empty:
         splitted.rename(columns={"ID": "catchment_id"}, inplace=True)
-        splitted["osmid_catchid"] = (
-            splitted["osmid"].astype(str) + "_" + splitted["catchment_id"].astype(str)
-        )
+        splitted["osmid_catchid"] = splitted["osmid"].astype(str) + "_" + splitted["catchment_id"].astype(str)
     else:
         splitted = gdf_roads.copy()
         splitted["osmid_catchid"] = splitted["osmid"].astype(str) + "_000"
@@ -132,11 +130,7 @@ def single_huc_job(
 
 
 def make_osm_roads(
-    roads_parquet_dir: str,
-    preclip_dir: str,
-    output_dir: str,
-    number_jobs: int = 4,
-    lst_hucs: str = "",
+    roads_parquet_dir: str, preclip_dir: str, output_dir: str, number_jobs: int = 4, lst_hucs: str = ""
 ) -> None:
     start_time = datetime.now(timezone.utc)
     roads_dir = Path(roads_parquet_dir)
@@ -163,10 +157,7 @@ def make_osm_roads(
     parquet_bounds_4326 = compute_state_parquet_bounds_4326(parquet_files)
     file_logger.info(f"Loaded bounds for {len(parquet_bounds_4326)} state parquets")
 
-    huc_dirs = sorted(
-        p for p in preclip_path.iterdir()
-        if p.is_dir() and re.match(r"^\d{8}$", p.name)
-    )
+    huc_dirs = sorted(p for p in preclip_path.iterdir() if p.is_dir() and re.match(r"^\d{8}$", p.name))
     huc_numbers = [d.name for d in huc_dirs]
 
     if lst_hucs.strip():
@@ -195,13 +186,15 @@ def make_osm_roads(
         else:
             split_path = str(huc_dir / "nwm_catchments_proj_subset.gpkg")
 
-        tasks_args_list.append({
-            "huc8": huc8,
-            "huc_boundary_path": str(wbd_path),
-            "split_boundary_path": split_path,
-            "road_parquet_paths": overlapping,
-            "output_dir": str(out_path),
-        })
+        tasks_args_list.append(
+            {
+                "huc8": huc8,
+                "huc_boundary_path": str(wbd_path),
+                "split_boundary_path": split_path,
+                "road_parquet_paths": overlapping,
+                "output_dir": str(out_path),
+            }
+        )
 
     print(f"Processing {len(tasks_args_list)} HUC tasks")
     file_logger.info(f"Processing {len(tasks_args_list)} HUC tasks")
@@ -234,29 +227,31 @@ if __name__ == "__main__":
         description="Create per-HUC8 road GeoParquet files from state-level OSM road parquets."
     )
     parser.add_argument(
-        "-r", "--roads_parquet_dir",
+        "-r",
+        "--roads_parquet_dir",
         required=True,
         help="REQUIRED: folder containing per-state road .parquet files (output of pull_osm.py)",
     )
     parser.add_argument(
-        "-p", "--preclip_dir",
+        "-p",
+        "--preclip_dir",
         required=True,
         help="REQUIRED: preclipping directory containing HUC8 subdirectories with wbd.gpkg files",
     )
     parser.add_argument(
-        "-o", "--output_dir",
-        required=True,
-        help="REQUIRED: folder to write per-HUC roads_*.parquet files",
+        "-o", "--output_dir", required=True, help="REQUIRED: folder to write per-HUC roads_*.parquet files"
     )
     parser.add_argument(
-        "-j", "--number_jobs",
+        "-j",
+        "--number_jobs",
         required=False,
         default=4,
         type=int,
         help="OPTIONAL: number of parallel workers (default 4)",
     )
     parser.add_argument(
-        "-lh", "--lst_hucs",
+        "-lh",
+        "--lst_hucs",
         required=False,
         default="",
         help="OPTIONAL: space-delimited HUC8 numbers to process (default: all)",

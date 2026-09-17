@@ -70,16 +70,59 @@ GEOFABRIK_URL_OVERRIDES = {
 
 # All supported state/territory slugs (Geofabrik naming convention).
 ALL_STATES = [
-    "alabama", "alaska", "arizona", "arkansas", "california", "colorado",
-    "connecticut", "delaware", "district-of-columbia", "florida", "georgia",
-    "hawaii", "idaho", "illinois", "indiana", "iowa", "kansas", "kentucky",
-    "louisiana", "maine", "maryland", "massachusetts", "michigan", "minnesota",
-    "mississippi", "missouri", "montana", "nebraska", "nevada", "new-hampshire",
-    "new-jersey", "new-mexico", "new-york", "north-carolina", "north-dakota",
-    "ohio", "oklahoma", "oregon", "pennsylvania", "rhode-island",
-    "south-carolina", "south-dakota", "tennessee", "texas", "utah", "vermont",
-    "virginia", "washington", "west-virginia", "wisconsin", "wyoming",
-    "guam", "american-samoa",
+    "alabama",
+    "alaska",
+    "arizona",
+    "arkansas",
+    "california",
+    "colorado",
+    "connecticut",
+    "delaware",
+    "district-of-columbia",
+    "florida",
+    "georgia",
+    "hawaii",
+    "idaho",
+    "illinois",
+    "indiana",
+    "iowa",
+    "kansas",
+    "kentucky",
+    "louisiana",
+    "maine",
+    "maryland",
+    "massachusetts",
+    "michigan",
+    "minnesota",
+    "mississippi",
+    "missouri",
+    "montana",
+    "nebraska",
+    "nevada",
+    "new-hampshire",
+    "new-jersey",
+    "new-mexico",
+    "new-york",
+    "north-carolina",
+    "north-dakota",
+    "ohio",
+    "oklahoma",
+    "oregon",
+    "pennsylvania",
+    "rhode-island",
+    "south-carolina",
+    "south-dakota",
+    "tennessee",
+    "texas",
+    "utah",
+    "vermont",
+    "virginia",
+    "washington",
+    "west-virginia",
+    "wisconsin",
+    "wyoming",
+    "guam",
+    "american-samoa",
 ]
 
 # Highway tag set matching pull_osm_roads_legacy.py's current (unmerged dev-add-residental-roads)
@@ -92,21 +135,22 @@ ALL_STATES = [
 #   - "unclassified" is intentionally excluded entirely (not just unnamed ones) — despite the
 #     name, it's not "unknown"; in OSM it sits one step above residential, covering minor public
 #     connector roads between settlements too small to be tertiary.
-ROAD_HIGHWAY_VALUES = [
-    "motorway",
-    "trunk",
-    "primary",
-    "secondary",
-    "tertiary",
-    "residential",
-]
+ROAD_HIGHWAY_VALUES = ["motorway", "trunk", "primary", "secondary", "tertiary", "residential"]
 
 # Abandoned/demolished/proposed bridge types to exclude, matching pull_osm_bridges_legacy.py.
 UNWANTED_BRIDGE_TYPES = {
-    "highway-razed", "highway-proposed", "highway-abandoned",
-    "highway-destroyed", "highway-dismantled", "highway-demolished",
-    "railway-razed", "railway-proposed", "railway-abandoned",
-    "railway-destroyed", "railway-dismantled", "railway-demolished",
+    "highway-razed",
+    "highway-proposed",
+    "highway-abandoned",
+    "highway-destroyed",
+    "highway-dismantled",
+    "highway-demolished",
+    "railway-razed",
+    "railway-proposed",
+    "railway-abandoned",
+    "railway-destroyed",
+    "railway-dismantled",
+    "railway-demolished",
 }
 
 
@@ -177,9 +221,14 @@ def _osmium_filter_export(pbf_path: Path, filter_expr: str, geojson_path: Path, 
     filtered_pbf = geojson_path.with_suffix(".filtered.osm.pbf")
 
     filter_cmd = [
-        "osmium", "tags-filter", str(pbf_path),
+        "osmium",
+        "tags-filter",
+        str(pbf_path),
         filter_expr,
-        "-o", str(filtered_pbf), "--overwrite", "--no-progress",
+        "-o",
+        str(filtered_pbf),
+        "--overwrite",
+        "--no-progress",
     ]
     _run_osmium(filter_cmd, file_logger)
 
@@ -187,21 +236,24 @@ def _osmium_filter_export(pbf_path: Path, filter_expr: str, geojson_path: Path, 
     # and by inspecting the actual output), so without this flag we would not have any id.
     # osmium names this output field "@id" (confirmed by testing), matching KEEP_COLS/rename below.
     export_cmd = [
-        "osmium", "export", str(filtered_pbf),
-        "-o", str(geojson_path), "-f", "geojson", "-a", "id", "--overwrite", "--no-progress",
+        "osmium",
+        "export",
+        str(filtered_pbf),
+        "-o",
+        str(geojson_path),
+        "-f",
+        "geojson",
+        "-a",
+        "id",
+        "--overwrite",
+        "--no-progress",
     ]
     _run_osmium(export_cmd, file_logger)
 
     filtered_pbf.unlink(missing_ok=True)
 
 
-def _write_roads_parquet(
-    state: str,
-    pbf_path: Path,
-    roads_dir: Path,
-    file_logger,
-    screen_queue,
-):
+def _write_roads_parquet(state: str, pbf_path: Path, roads_dir: Path, file_logger, screen_queue):
     geojson_path = pbf_path.parent / f"{state}_roads.geojson"
     # we get all desired roads and will later exclude bridges segments from them -- see below.
     highway_filter = "w/highway=" + ",".join(ROAD_HIGHWAY_VALUES)
@@ -216,8 +268,7 @@ def _write_roads_parquet(
     # arbitrary OSM tag columns (fixme, note, etc.).
     KEEP_COLS = {"@id", "highway", "name", "bridge"}
     gdf = gdf.drop(
-        columns=[c for c in gdf.columns if c not in KEEP_COLS and c != gdf.geometry.name],
-        errors="ignore",
+        columns=[c for c in gdf.columns if c not in KEEP_COLS and c != gdf.geometry.name], errors="ignore"
     )
     if "@id" in gdf.columns:
         gdf = gdf.rename(columns={"@id": "osmid"})
@@ -229,7 +280,7 @@ def _write_roads_parquet(
     # expressions are OR'd for inclusion only — there's no one-shot "has tag A AND lacks tag B".
     # Replicating that AND-NOT at the osmium level would need a second chained tags-filter pass
     # (select by highway, then --invert-match to strip bridge=*). Since we already have to load
-    # this GeoJSON into a GeoDataFrame anyway, dropping bridge rows here is a free one-liner 
+    # this GeoJSON into a GeoDataFrame anyway, dropping bridge rows here is a free one-liner
     # instead of an extra osmium subprocess call.
     if "bridge" in gdf.columns:
         gdf = gdf[gdf["bridge"].isna()].drop(columns=["bridge"])
@@ -304,8 +355,7 @@ def _write_bridges_parquet(state: str, pbf_path: Path, bridges_dir: Path, file_l
     # Allowlist column drop.
     KEEP_COLS = {"osmid", "name", "bridge_type"}
     gdf = gdf.drop(
-        columns=[c for c in gdf.columns if c not in KEEP_COLS and c != gdf.geometry.name],
-        errors="ignore",
+        columns=[c for c in gdf.columns if c not in KEEP_COLS and c != gdf.geometry.name], errors="ignore"
     )
 
     if "osmid" in gdf.columns:
@@ -322,16 +372,7 @@ def _write_bridges_parquet(state: str, pbf_path: Path, bridges_dir: Path, file_l
     screen_queue.put(msg)
 
 
-def per_state_job(
-    state,
-    pbf_dir,
-    roads_dir,
-    bridges_dir,
-    keep_pbf,
-    file_logger,
-    screen_queue,
-    task_id,
-):
+def per_state_job(state, pbf_dir, roads_dir, bridges_dir, keep_pbf, file_logger, screen_queue, task_id):
     try:
         roads_out = roads_dir / f"{state}_roads.parquet"
         bridges_out = bridges_dir / f"{state}_bridges.parquet"
@@ -358,11 +399,7 @@ def per_state_job(
         return 0, [False]
 
 
-def pull_osm(
-    output_dir: str,
-    states: str = "",
-    keep_pbf: bool = False,
-) -> None:
+def pull_osm(output_dir: str, states: str = "", keep_pbf: bool = False) -> None:
     start_time = datetime.now(timezone.utc)
     out = Path(output_dir)
 
@@ -446,20 +483,23 @@ if __name__ == "__main__":
         "and bridge GeoParquet files."
     )
     parser.add_argument(
-        "-o", "--output_dir",
+        "-o",
+        "--output_dir",
         help="REQUIRED: root output folder. Creates states_parquet/roads/ and "
         "states_parquet/bridges/ subfolders.",
         required=True,
     )
     parser.add_argument(
-        "-s", "--states",
+        "-s",
+        "--states",
         help="OPTIONAL: space-delimited Geofabrik state slugs in quotes, "
         "e.g. 'delaware michigan'. Defaults to all states.",
         required=False,
         default="",
     )
     parser.add_argument(
-        "-k", "--keep_pbf",
+        "-k",
+        "--keep_pbf",
         help="OPTIONAL: add this flag to keep the downloaded .osm.pbf files "
         "(takes no value). If omitted, PBFs are removed",
         required=False,
