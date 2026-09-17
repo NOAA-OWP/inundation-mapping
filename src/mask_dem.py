@@ -10,6 +10,19 @@ import rasterio as rio
 from rasterio.mask import mask
 
 
+def filter_by_raster_bounds(gdf, raster_bounds):
+    """
+    Filter GeoDataFrame to features whose bounding box overlaps the raster.
+    Does NOT modify geometry shapes or run strict validity checks.
+    """
+    if gdf.empty:
+        return gdf
+
+    # Fast bounding-box spatial index query
+    possible_matches_index = list(gdf.sindex.intersection(raster_bounds))
+    return gdf.iloc[possible_matches_index]
+
+
 def mask_dem(
     dem_filename: str,
     nld_filename: str,
@@ -70,6 +83,9 @@ def mask_dem(
 
             if len(levelpath_levees) > 0:
                 selected_levees = leveed[leveed[levee_id_attribute].isin(levelpath_levees)]
+
+                # Pass raster.bounds directly to filter GeoDataFrame rows before extracting geoms:
+                selected_levees = filter_by_raster_bounds(selected_levees, dem.bounds)
                 geoms = [geom.__geo_interface__ for geom in selected_levees.geometry if geom is not None]
 
                 if len(geoms) > 0:
