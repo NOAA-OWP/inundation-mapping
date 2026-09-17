@@ -1,6 +1,46 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## 4.xx.x.x - 2026-09-17 - [PR#1883](https://github.com/NOAA-OWP/inundation-mapping/pull/1883)
+
+Currently, FIM calibration relies on observed rating curves at USS and RAS2FIM, and point observations. While this works well near gage locations, ungaged reaches have no calibration coefficients and fall back to default uncalibrated roughness values.
+This PR introduces a machine learning (ML) workflow to estimate and apply a reach-level calibration coefficient for branch 0 and GMS branches for ungaged reaches across FIM.
+The ML workflow:
+
+1. Extract rating curve parameters and reach attributes from existing hydratables.
+2. Enrich reaches with catchment geometry and static CONUS environmental covariates.
+3. Clean and aggregate ground truth calibration coefficients.
+4. Train an XGBoost regression model to predict calibration coefficients for ungaged reaches across CONUS, with an emphasis on GMS branches and branch 0.
+5. Apply the predicted coefficients back to the branch hydrotables, and update the HUC-level hydrotable.
+Additions
+
+### Additions
+**1. Data Preparation**
+`tools/htable_feature_extractor.py`: (step 1)
+- Scans branch hydrotables and extracts reach-level hydrotable parameters.
+
+`tools/extract_catchment_geometry.py`: (step 2)
+- Queries branch catchment GeoPackages and pulls `areasqkm` and `LengthKm`. Merges these attributes into the step 1 feature tables.
+
+`tools/aggregate_ml_calb_data.py`: (step 3)
+- Filters USGS records by acceptance criteria, distinguishes between actual gage locations and propagated reaches, and merges static CONUS environmental covariates.
+
+`tools/prepare_ml_calb_data.py`:
+- Driver script that runs steps 1, 2, and 3 in sequence.
+
+**2. Model Training and Inference**
+`tools/train_predict_ml_calb.py`:
+- Fits an XGBoost regressor using log10-transformed calibration targets.
+- Evaluates with 5-fold cross-validation and reports stats.
+- Generates predictions for uncalibrated reaches across CONUS, converts back to linear scale.
+
+**3. Hydrotable Application**
+`tools/apply_ml_calb_to_hydrotables.py`:
+- Reads the prediction file and applies predicted calibration factors to branch. This protects baseline flows, saves the original uncalibrated flows in precalb_discharge_cms on the first run, and uses them for subsequent runs so repeated runs produce the same result.
+### Changes
+`src/bash_variables.env`: Changes the optimized manning roughness values into constant values (channel roughness = 0.05 and overbank roughness = 0.09)
+<br/>
+
 ## 4.10.2.0 - 2026-09-11 - [PR#1900](https://github.com/NOAA-OWP/inundation-mapping/pull/1900)
 
 This PR closes issue #1864, by applying these improvements:
