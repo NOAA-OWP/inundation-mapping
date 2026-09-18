@@ -643,7 +643,7 @@ def inundate_probabilistic(
         flow_df = streamflow_percentiles[percentile].to_frame()
         flow_df = flow_df.rename(columns={percentile: "discharge"})
 
-        print("producing mosaicked inundaiton for percentile", percentile)
+        print("producing mosaicked inundation for percentile", percentile)
         produce_mosaicked_inundation(
             hydrofabric_dir,
             huc,
@@ -674,9 +674,9 @@ def inundate_probabilistic(
         profile.update(
             dtype=np.int8,
             nodata=127,
-            tiled=True,
             compress=profile.get('compress', 'DEFLATE'),
-            driver='COG'
+            driver='COG',
+            sparse_ok="YES"
         )
 
         out_rast = os.path.join(base_output_path, output_file_name.replace(".gpkg", ".tif"))
