@@ -6,12 +6,17 @@ import pickle
 import random
 import shutil
 import time
+import sys
 
 import geopandas as gpd
 import pandas as pd
 from dotenv import load_dotenv
 
 from src.utils.io import write_geodataframe
+
+import src.utils.shared_functions as sf
+import data.aws.aws_shared_functions as asf
+import data.aws.s3_shared_functions as s3_sf
 
 
 # # Force GDAL to use standard locking and synchronous write modes # TODO: Decide if needed
@@ -577,12 +582,22 @@ def finalize_sites_mapping_status(
 
         lid_status_new, lid_mapped_new = None, None
 
+        lid_model_list_str, lid_model_version_list_str = None, None
+
         # Create the new mapped and status values for this site based on whether it is in the mapped sites list
         if lid in mapped_sites_list:
             # If site is in mapped list, update mapped to "yes" and update status if it is not already
             # If we have mapped sites, we know mapping_completed is True so we don't need to check for it
-
             lid_mapped_new = "yes"
+
+            # Get a list of which model type(s) were mapped (HAND, HEC-RAS)
+            lid_model_list = huc_library_gdf[huc_library_gdf['nws_lid'] == lid]['model'].unique().tolist()
+            lid_model_version_list = (
+                huc_library_gdf[huc_library_gdf['nws_lid'] == lid]['model_version'].unique().tolist()
+            )
+
+            lid_model_list_str = "; ".join(lid_model_list)
+            lid_model_version_list_str = "; ".join(lid_model_version_list)
 
             if lid_status != "not set":  # Status val available (possible error)
                 lid_status_new = f"{lid_status}; {site_status_error_message}"
@@ -683,6 +698,10 @@ def finalize_sites_mapping_status(
         # Update the sites gdf with the new mapped and status values for this site
         sites_gdf.at[index, "status"] = lid_status_new
         sites_gdf.at[index, "mapped"] = lid_mapped_new
+
+        sites_gdf.at[index, "model"] = lid_model_list_str
+        sites_gdf.at[index, "model_version"] = lid_model_version_list_str
+
     # End of literating sites gdf loop
 
     # At this point, we should have a sites_gdf that has updated values for the 'mapped' and 'status' columns
@@ -1007,6 +1026,55 @@ def round_output_columns(df):
             df_new[new_name] = df_new[new_name].round(round_val)
 
     return df_new
+
+
+def setup_aws_s3_download(aws_creds_file):
+    '''
+    adapted FROM deploy to hydrovis
+    
+    
+    '''
+
+    s3_client, bucket_name = None, None
+
+    # Load bucket name from hv params
+    hv_params_file = '/foss_fim/config/hv_deploy_params.env'
+    load_dotenv(hv_params_file) # '/foss_fim/config/hv_deploy_params.env'
+    bucket_name = os.getenv("HV_S3_BUCKET_NAME")
+
+    if not aws_creds_file:
+        raise ValueError("AWS credentials file argument is None or empty")
+
+    if not os.path.isfile(aws_creds_file):
+        raise ValueError(f"AWS credentials file not found at provided path ({aws_creds_file})")
+
+    logging.info(f"Loading AWS credentials file ({aws_creds_file})")
+    load_dotenv(aws_creds_file)
+
+    hv_aws_access_key = sf.get_env_value("HV_AWS_ACCESS_KEY_ID")
+    hv_aws_secret_key = sf.get_env_value("HV_AWS_SECRET_ACCESS_KEY")
+    hv_aws_region = sf.get_env_value("HV_AWS_REGION_NAME")
+
+    # Create AWS client
+    is_success, return_msg, s3_client = asf.create_aws_client(
+        aws_service_type_name='s3',
+        aws_access_key_id=hv_aws_access_key,
+        aws_secret_access_key=hv_aws_secret_key,
+        aws_region=hv_aws_region,
+    )
+    if not is_success:  # if it was not already thrown from asf
+        logging.error(f'Unable to create AWS S3 client. Check the AWS creds env file and case.')
+        raise Exception(return_msg)
+
+    # Validate bucket
+    is_success, return_msg = s3_sf.does_s3_bucket_exist(s3_client, bucket_name)
+    if not is_success:
+        logging.error(
+            f"HV_S3_BUCKET_NAME value of {bucket_name}. Check the AWS creds env file and case."
+        )
+        raise Exception(return_msg)
+
+    return s3_client, bucket_name
 
 
 def update_line_status_or_warning(site, sites_gdf, message, set_mapped_to_no):
