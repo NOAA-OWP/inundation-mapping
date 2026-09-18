@@ -671,7 +671,13 @@ def inundate_probabilistic(
         odtype = profile['dtype']
         raster_crs = datasets[0].crs
         nodata = profile['nodata']
-        profile.update(dtype=np.int8, nodata=127, tiled=True, compress=profile.get('compress', 'DEFLATE'))
+        profile.update(
+            dtype=np.int8,
+            nodata=127,
+            tiled=True,
+            compress=profile.get('compress', 'DEFLATE'),
+            driver='COG'
+        )
 
         out_rast = os.path.join(base_output_path, output_file_name.replace(".gpkg", ".tif"))
         with rasterio.open(out_rast, "w+", **profile) as write_rst:
