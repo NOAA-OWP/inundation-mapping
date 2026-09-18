@@ -283,12 +283,13 @@ def run_fb_mapping(
 
         # Determine whether to inundate HEC-RAS for the site
         if inundate_hr is True:
-            # TODO: Do we also want to check that the inputs were made successfully here?
+            sites_models_df = pd.DataFrame()  # initialize value
+            sites_models_csv_path = os.path.join(huc_path, 'temp', f"{huc}_hr_sites_models.csv")
 
-            # Get model list from huc_controls_df
-            huc_models_df = pd.read_csv(os.path.join(huc_path, f"{huc}_hr_sites_models.csv"))
-            # TODO: Decide on permanent path of HUC models df
-            sites_models_df = huc_models_df[huc_models_df['nws_lid'] == ahps_site]
+            if os.path.exists(sites_models_csv_path):
+                # Get model list from huc_controls_df
+                huc_models_df = pd.read_csv(sites_models_csv_path)  # TODO: Decide on permanent path of HUC models df
+                sites_models_df = huc_models_df[huc_models_df['nws_lid'] == ahps_site]
 
             # Check whether there are HEC-RAS models available for the site
             if len(sites_models_df) > 0:
@@ -320,27 +321,26 @@ def run_fb_mapping(
                     logging.info(f"{huc} : {ahps_site} - {magnitude}")
                     logging.info(f'Inundating HEC-RAS tifs for {ahps_site} - {magnitude} - {model_name}...')
 
-                    # TODO: do we want to subset the HUC controls stuff here?
-
                     # Get site/magnitude/model-specific controls CSV
                     controls_filename = f"{ahps_site}_{magnitude}_{model_name}_controls.csv"
                     controls_csv = os.path.join(output_temp_dir, controls_filename)
+
                     # TODO: update controls_path to be the temp folder path?
+                    # huc_controls_csv_path = os.path.join(huc_path, 'temp', f"{huc}_controls.csv")
+                    # huc_controls_df = pd.read_csv(huc_controls_csv_path)
 
-                    huc_controls_csv_path = os.path.join(huc_path, f"{huc}_controls.csv")
-                    huc_controls_df = pd.read_csv(huc_controls_csv_path)
+                    # # Get the value of the collection_parent_folder column in the huc_controls_df for the rows matching the site/magnitude/model combination (there should only be one unique value, but just in case, we'll take the first one)
+                    # collection_parent_folder = huc_controls_df[
+                    #     (huc_controls_df['nws_lid'] == ahps_site)
+                    #     & (huc_controls_df['magnitude'] == magnitude)
+                    #     & (huc_controls_df['model_collection'] == model_name)
+                    # ]['collection_parent_folder'].unique()[0]
+                    # # Get the path to the library extent
+                    # library_extent_path = os.path.join( # TODO: Make sure these cols are correct with new S3 functionality
+                    #     collection_parent_folder, 'collections', model_name, 'library_extent'
+                    # ) # TODO: Clean up
 
-                    # Get the value of the collection_parent_folder column in the huc_controls_df for the rows matching the site/magnitude/model combination (there should only be one unique value, but just in case, we'll take the first one)
-                    collection_parent_folder = huc_controls_df[
-                        (huc_controls_df['nws_lid'] == ahps_site)
-                        & (huc_controls_df['magnitude'] == magnitude)
-                        & (huc_controls_df['model_collection'] == model_name)
-                    ]['collection_parent_folder'].unique()[0]
-
-                    # Get the path to the library extent
-                    library_extent_path = os.path.join(
-                        collection_parent_folder, 'collections', model_name, 'library_extent'
-                    )
+                    library_extent_path = os.path.join(huc_path, 'library_extent')
 
                     # Define output inundation extent tif path
                     tif_name = ahps_site + '_' + magnitude + '_' + model_name + '_extent_hr.tif'
@@ -437,7 +437,9 @@ def run_fb_mapping(
                     if os.path.exists(output_extent_tif):
                         hr_site_tifs_produced = True  # TODO: is there a better way to check for success?
                         hr_site_tifs_produced = bool(hr_site_tifs_produced)
+
             # End of HEC-RAS model/magnitude loop
+
         # End of HEC-RAS inundation for site
 
         # Determine whether to run HAND for the site
@@ -515,11 +517,16 @@ def run_fb_mapping(
                     logging.critical(traceback.format_exc())
                     sys.exit(1)
             # End of HAND magnitude loop
-
     # End of site loop
 
+    # Delete the library extent folder from the temp folder (because they're very large)
+    hecras_library_extent_path = os.path.join(huc_path, 'library_extent')
+    if os.path.exists(hecras_library_extent_path):
+        logging.info(f'{huc} - Mapping - Removing library extent path')
+        shutil.rmtree(hecras_library_extent_path)
+
     logging.info(" ")
-    logging.info(f"{huc} - Mapping - End of inundating and mosaicing")
+    logging.info(f"{huc} - Mapping - End of inundating and mosaicking")
 
     return sites_gdf, huc_library_df
 

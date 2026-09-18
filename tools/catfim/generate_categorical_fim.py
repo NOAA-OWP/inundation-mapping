@@ -1076,9 +1076,9 @@ def __validate_inputs(received_locals_dict):
         If the model tag ends with 'p', HEC-RAS preference is True (which means we will only run one HEC-RAS model per site)
         If not, we will run ALL available HEC-RAS models for each site (not recommended for full CatFIM runs).
     hecras_sites_csv - str
-        Path to the _ CSV from the CatFIM HEC-RAS preprocessing (or '' if inundate HR is false)
+        Path to the sites_with_hecras_models.csv CSV from the CatFIM HEC-RAS preprocessing (or '' if inundate HR is false)
     combined_controls_csv - str
-        Path to the _ CSV from the CatFIM HEC-RAS preprocessing (or '' if inundate HR is false)
+        Path to the combined_controls_output.csv CSV from the CatFIM HEC-RAS preprocessing (or '' if inundate HR is false)
     '''
 
     # Check for main directories
@@ -1270,7 +1270,7 @@ def __validate_inputs(received_locals_dict):
     if inundate_hr is True:
         if preprocessed_hecras_folder == "":
             # preprocessed_hecras_folder = os.getenv("hecras_files") # TODO: Add this in once I've added the env variable to the bash_variables file.
-            preprocessed_hecras_folder = "/home/rdp-user/projects/catfim_hecras_fb/hecras_preprocess_test4_full_run/catfim_hecras_preprocessing_20260910"
+            preprocessed_hecras_folder = "/projects/catfim_hecras_fb/hecras_preprocess_test4_full_run/catfim_hecras_preprocessing_20260910"
             # TODO: Remove hardcoding once I've added other default to env variables
 
             if not os.path.exists(preprocessed_hecras_folder):
@@ -1294,12 +1294,12 @@ def __validate_inputs(received_locals_dict):
 
         if not os.path.isfile(hecras_sites_csv):
             raise Exception(
-                f"Input HEC-RAS folder exusts but sites CSV not found at {hecras_sites_csv}"
+                f"Input HEC-RAS folder exists but sites CSV not found at {hecras_sites_csv}"
             )
 
         if not os.path.isfile(combined_controls_csv):
             raise Exception(
-                f"Input HEC-RAS folder exusts but controls CSV not found at {combined_controls_csv}"
+                f"Input HEC-RAS folder exists but controls CSV not found at {combined_controls_csv}"
             )
 
     else:

@@ -804,7 +804,7 @@ def download_files_by_search_key(
 
         if num_files_downloaded == 0:
             print(
-                "*** Warning: Downloading file using search key of 'search_key' found zero files to download."
+                f"*** Warning: Downloading file using search key of '{search_key}' and found zero files to download."
                 " Check the search key value and/or pathing"
             )
 
