@@ -676,7 +676,8 @@ def inundate_probabilistic(
             nodata=127,
             compress=profile.get('compress', 'DEFLATE'),
             driver='COG',
-            sparse_ok="YES"
+            sparse_ok="YES",
+            resampling='NEAREST'
         )
 
         out_rast = os.path.join(base_output_path, output_file_name.replace(".gpkg", ".tif"))
