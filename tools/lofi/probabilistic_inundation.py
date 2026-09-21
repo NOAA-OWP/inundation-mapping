@@ -794,32 +794,37 @@ def inundate_hucs(
 
     parameters_df = pd.read_parquet(parameters)
 
+    percentiles = (90, 75, 50, 25, 10)
+    with xr.open_dataset(ensembles) as ensembles_ds:
+        percentile_values = generate_streamflow_percentiles_vec(
+            ensembles_ds['streamflow'].max(dim='time'), parameters_df, percentiles
+        )
+
     if posterior_dist is not None:
         posterior_df = pd.read_parquet(posterior_dist)
     else:
         posterior_df = None
 
-    with xr.open_dataset(ensembles) as ensembles_ds:
-        for huc in hucs:
-            inundate_probabilistic(
-                ensembles=ensembles_ds,
-                parameters=parameters_df,
-                hydrofabric_dir=hydrofabric_dir,
-                outputs_dir=outputs_dir,
-                huc=huc,
-                mosaic_prob_output_name=f"{mosaic_prob_output_name[:mosaic_prob_output_name.rfind('.')]}_{huc}.gpkg",
-                posterior_dist=posterior_df,
-                day=day,
-                hour=hour,
-                overwrite=overwrite,
-                num_jobs=num_jobs,
-                num_threads=num_threads,
-                windowed=windowed,
-                output_raster=output_raster,
-                quiet=quiet,
-                log_file=log_file,
-                output_vector=output_vector,
-            )
+    for huc in hucs:
+        inundate_probabilistic(
+            percentile_values,
+            percentiles,
+            hydrofabric_dir=hydrofabric_dir,
+            outputs_dir=outputs_dir,
+            huc=huc,
+            mosaic_prob_output_name=f"{mosaic_prob_output_name[:mosaic_prob_output_name.rfind('.')]}_{huc}.gpkg",
+            posterior_dist=posterior_df,
+            day=day,
+            hour=hour,
+            overwrite=overwrite,
+            num_jobs=num_jobs,
+            num_threads=num_threads,
+            windowed=windowed,
+            output_raster=output_raster,
+            quiet=quiet,
+            log_file=log_file,
+            output_vector=output_vector,
+        )
 
 
 if __name__ == '__main__':
