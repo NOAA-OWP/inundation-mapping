@@ -1028,19 +1028,18 @@ def round_output_columns(df):
     return df_new
 
 
-def setup_aws_s3_download(aws_creds_file):
+def get_aws_credentials(aws_creds_file):
     '''
-    adapted FROM deploy to hydrovis
-    
+    Arguments
+    ---------
+    aws_creds_file - str
+        Path to the AWS credentials env file.
+
+    Returns
+    -------
+    # TODO: Fill in
     
     '''
-
-    s3_client, bucket_name = None, None
-
-    # Load bucket name from hv params
-    hv_params_file = '/foss_fim/config/hv_deploy_params.env'
-    load_dotenv(hv_params_file) # '/foss_fim/config/hv_deploy_params.env'
-    bucket_name = os.getenv("HV_S3_BUCKET_NAME")
 
     if not aws_creds_file:
         raise ValueError("AWS credentials file argument is None or empty")
@@ -1054,6 +1053,28 @@ def setup_aws_s3_download(aws_creds_file):
     hv_aws_access_key = sf.get_env_value("HV_AWS_ACCESS_KEY_ID")
     hv_aws_secret_key = sf.get_env_value("HV_AWS_SECRET_ACCESS_KEY")
     hv_aws_region = sf.get_env_value("HV_AWS_REGION_NAME")
+
+    return hv_aws_access_key, hv_aws_secret_key, hv_aws_region
+
+
+def setup_aws_s3_download(aws_creds_file):
+    '''
+    adapted FROM deploy to hydrovis
+
+
+    s3_client, bucket_name = setup_aws_s3_download(aws_creds_file)
+    
+    
+    '''
+
+    s3_client, bucket_name = None, None
+
+    # Load bucket name from hv params
+    hv_params_file = '/foss_fim/config/hv_deploy_params.env'
+    load_dotenv(hv_params_file) # '/foss_fim/config/hv_deploy_params.env'
+    bucket_name = os.getenv("HV_S3_BUCKET_NAME")
+
+    hv_aws_access_key, hv_aws_secret_key, hv_aws_region = get_aws_credentials(aws_creds_file)
 
     # Create AWS client
     is_success, return_msg, s3_client = asf.create_aws_client(

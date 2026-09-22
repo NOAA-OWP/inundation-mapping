@@ -233,7 +233,7 @@ def __create_runtime_args_file(
         file.write(f"FLOWS2FIM_PATH=\"{flows2fim_path}\"\n")
         file.write(f"RIPPLE_MODEL_STATUS_PATH=\"{ripple_model_status_path}\"\n")
         file.write(f"AWS_CREDS_FILE=\"{aws_creds_file}\"\n")
-        file.write(f"HV_PARAMS_FILE=\"{hv_params_file}\"\n")
+        # file.write(f"HV_PARAMS_FILE=\"{hv_params_file}\"\n")
     return
 
 
@@ -669,7 +669,7 @@ def catfim_hecras_preprocessing(
     # Get input variables
     magnitude_types = csf.MAGNITUDES_TYPES
     flows2fim_path = "/projects/catfim_hecras_fb/flows2fim_030/flows2fim"  # csf.FLOWS2FIM_PATH TODO: finalize file location and Add to shared vars
-    ripple_model_status_path = '/home/rdp-user/projects/catfim_hecras_fb/ripple_feature_ids_whitelist_final_20260729_1420_no_path.csv' # TODO: Finalize file location and update input path (maybe from an env file?) ... maybe eventually we will download this from S3 too
+    ripple_model_status_path = '/projects/catfim_hecras_fb/ripple_feature_ids_whitelist_final_20260729_1420_no_path.csv' # TODO: Finalize file location and update input path (maybe from an env file?) ... maybe eventually we will download this from S3 too
 
     # S3 Setup: Make the S3 client, get the bucket name, and validate S3 input paths
     aws_creds_file = '/data/config/aws_credentials.env' # TODO: should we get this from somewhere?

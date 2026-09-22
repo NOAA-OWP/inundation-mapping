@@ -1211,22 +1211,27 @@ def process_huc_hecras_data(
             valid_model_feature_id_list = huc_ripple_model_status_df[cond_model_id & cond_is_valid]['feature_id'].unique().tolist()
 
             # Filter the valid model feature ID list to be only the feature IDs affiliated with this site
-            full_site_feature_id_set = set(full_site_feature_id_list)
-            valid_site_model_feature_id_list = [item for item in valid_model_feature_id_list if item in full_site_feature_id_set]
+            valid_site_model_feature_id_list = [item for item in valid_model_feature_id_list if item in set(full_site_feature_id_list)]
 
-            logging.info(f'[from segments df] full_site_feature_id_list : {full_site_feature_id_list}')  # TEMP DEBUG
-            logging.info(f'[from segments df] full_site_feature_id_set : {full_site_feature_id_set}')  # TEMP DEBUG
-            logging.info(f'[from whitelist] valid_model_feature_id_list : {valid_model_feature_id_list}')  # TEMP DEBUG
-            logging.info(f'[from whitelist] valid_site_model_feature_id_list : {valid_site_model_feature_id_list}')  # TEMP DEBUG
+            # logging.info(f'[from segments df] full_site_feature_id_list : {full_site_feature_id_list}')  # TEMP DEBUG
+            logging.info(f'{huc} : {ahps_site} - Feature IDs w/ HEC-RAS models available for site (from HUC controls df) : {full_site_feature_id_list}')
+
+            # logging.info(f'[from whitelist] valid_model_feature_id_list : {valid_model_feature_id_list}')  # TEMP DEBUG
+            # logging.info(f'[from whitelist] valid_site_model_feature_id_list : {valid_site_model_feature_id_list}')  # TEMP DEBUG
+            # logging.info(f'{huc} : {ahps_site} : {model_name} - Feature IDs for which this model is valid in the whitelist (for this model): {valid_model_feature_id_list}')  # TEMP DEBUG
+            logging.info(f'{huc} : {ahps_site} : {model_name} - Feature IDs for which this model is valid in the whitelist (for this model + site combo): {valid_site_model_feature_id_list}')
 
             logging.info(f'{huc} : {ahps_site} : {model_name} - Valid HEC-RAS models available for {len(valid_site_model_feature_id_list)}/{len(full_site_feature_id_list)} feature IDs')  # TEMP DEBUG 
 
             if len(full_site_feature_id_list) > len(valid_site_model_feature_id_list):
                 logging.warning(f'{huc} : {ahps_site} : {model_name} - HEC-RAS models not available for all site feature IDs, HEC-RAS processing will not proceed for this site/model combination')
+                # TODO: Confirm that this is actually properly halting processing for this site/model combo
                 continue
 
+            # TODO: subset site_controls_df so it only includes feature IDs in valid_site_model_feature_id_list? or is this still necessary?
+
             # Add site/model combination to sites_models_list
-            sites_models_list.append({'nws_lid': ahps_site, 'model_collection': model_name})
+            sites_models_list.append({'nws_lid': ahps_site, 'model_collection': model_name, 'feature_ids': valid_site_model_feature_id_list})  # TODO: test this list stuff
 
             for magnitude in magnitude_list:
                 logging.info(
@@ -1238,6 +1243,8 @@ def process_huc_hecras_data(
                     (site_controls_df['model_collection'] == model_name)
                     & (site_controls_df['magnitude'] == magnitude)
                 ]
+
+                # Subset the controls CSV to only include sites that are also in the 
 
                 # Only keep these columns in the df: reach_id,flow,control_stage
                 controls_subset_df = controls_subset_df[['reach_id', 'flow', 'control_stage']]
@@ -1270,52 +1277,62 @@ def process_huc_hecras_data(
     logging.info(f'{huc} - Saved HUC controls to {huc_controls_csv_path}')
     logging.info(f'{huc} - Finished subsetting controls CSVs for {huc}')
 
-    # ---
-    # Download the necessary library extent folders from S3 to the HUC /library_extent/ folder
+    # # ---
+    # # Download the necessary library extent folders from S3 to the HUC /library_extent/ folder
+    # # TODO: Eventually will get rid of this and not download the library extents at all
 
-    # Setup S3 client and bucket name
-    aws_creds_file = '/data/config/aws_credentials.env' # TODO: should we get this from somewhere?
-    s3_client, bucket_name = csf.setup_aws_s3_download(aws_creds_file)
+    # # Setup S3 client and bucket name
+    # aws_creds_file = '/data/config/aws_credentials.env' # TODO: should we get this from somewhere?
+    # s3_client, bucket_name = csf.setup_aws_s3_download(aws_creds_file)
 
-    # Get the value of the collection_parent_folder column (just get first val bcs they should all be the same)
-    # TODO: Should this actually just be pulled from the args or from the HECRAS preprocessing args?
-    collection_parent_folder = huc_controls_df['collection_parent_folder'].iloc[0]
+    # # Get the value of the collection_parent_folder column (just get first val bcs they should all be the same)
+    # # TODO: Should this actually just be pulled from the args or from the HECRAS preprocessing args?
+    # collection_parent_folder = huc_controls_df['collection_parent_folder'].iloc[0]
 
-    for model_name in model_list:
-        logging.info(f'{huc} - Processing model_collection: {model_name}')
+    # for model_name in model_list:
+    #     logging.info(f'{huc} - Processing model_collection: {model_name}')
     
-        # Get a list of nwm_feature_ids for the given model_collection
-        model_collection_df = huc_controls_df[huc_controls_df['model_collection'] == model_name]
-        nwm_feature_ids = model_collection_df['nwm_feature_id'].unique().tolist()
-    
-        # Ensure that feature IDs are str
-        nwm_feature_ids = [str(x) for x in nwm_feature_ids]
-        logging.info(f'num of nwm_feature_ids to download data for: {len(nwm_feature_ids)}')  # TEMP DEBUG
+    #     # Get a list of nwm_feature_ids for the given model_collection
+    #     # model_collection_df = huc_controls_df[huc_controls_df['model_collection'] == model_name] # TODO: Clean up
+    #     # nwm_feature_ids = model_collection_df['nwm_feature_id'].unique().tolist()
 
-        # Download the library extent files for the valid feature IDs
-        for id in nwm_feature_ids:
+    #     # TODO: Need to filter this to the actual list of feature IDs that we are using! maybe move this up to where we create the feature ID list?
+    #     # maybe using sites_models_df.... also should just be one val but do we want to put in place a contingency for if there's two?
+    #     nwm_feature_ids = sites_models_df[sites_models_df['model_collection']==model_name]['feature_ids'].iloc[0] # TODO: test this list stuff
 
-            # TODO: This download process takes kind of a while because they're big ish files... should we add multiprocessing here?
-            # I think I can just adjust the num workers value. should test to see how that affects processing time
-            # num workers | total processing time | HUCs run
-            # 1           | 2 hours 12 mins       | 12100202 (test2)
-            # 5           | 
-            # 10?         | 
+    #     logging.info('sites_models_df: ')  # TEMP DEBUG
+    #     logging.info(sites_models_df)  # TEMP DEBUG
+    #     logging.info(f'nwm_feature_ids: {nwm_feature_ids}')  # TEMP DEBUG
 
-            id = id.removesuffix(".0")
+    #     # Ensure that feature IDs are str
+    #     nwm_feature_ids = [str(x).removesuffix(".0") for x in nwm_feature_ids]
 
-            s3_file_key = f'/fim/ripple/{collection_parent_folder}/collections/{model_name}/library_extent/{id}'
-            target_file_path = os.path.join(huc_path, 'temp', 'library_extent', id)
+    #     logging.info(f'{huc} : {model_name} - Downloading library extent files for {len(nwm_feature_ids)} feature IDs')  # TEMP DEBUG
+    #     download_start_dt = datetime.now(timezone.utc)
 
-            logging.info(f'Begin downloading library extent files for {id}')  # TEMP DEBUG
-            logging.info(f's3 client: {s3_client}')  # TEMP DEBUG
-            logging.info(f'bucket name: {bucket_name}')  # TEMP DEBUG
-            logging.info(f's3 file key: {s3_file_key}')  # TEMP DEBUG
-            logging.info(f'target filepath: {target_file_path}')  # TEMP DEBUG
+    #     # Download the library extent files for the valid feature IDs
+    #     # TODO: Decide, do we want to do this closer to where we're doing mapping? Probably not necessary, especially since I think
+    #     # the plan is to have flows2fim run with just the undownloaded model extents from S3 (rather than downloading here)
+    #     for id in nwm_feature_ids:
+    #         num_workers = 7  # TODO: Monitor that this amount of workers doesn't overload the system
 
-            s3_sf.download_folders(s3_client, bucket_name, s3_file_key, target_file_path, list_of_search_key=[''], num_workers=5)
+    #         s3_file_key = f'/fim/ripple/{collection_parent_folder}/collections/{model_name}/library_extent/{id}'
+    #         target_file_path = os.path.join(huc_path, 'temp', model_name, 'library_extent', id)
 
-    logging.info(f'{huc} - Finished downloading library extents and processing the HEC-RAS controls')
+    #         logging.info(f'{huc} : {model_name} : {id} - Begin downloading library extent files using {num_workers} workers...')
+    #         logging.info(f's3 file key: {s3_file_key}')  # TEMP DEBUG
+    #         logging.info(f'target filepath: {target_file_path}')  # TEMP DEBUG
+
+    #         s3_sf.download_folders(s3_client, bucket_name, s3_file_key, target_file_path, list_of_search_key=[''], num_workers=num_workers)
+
+    #     download_dur_msg = fh.print_date_time_duration(download_start_dt, datetime.now(timezone.utc), False)
+    #     logging.info(f'{huc} : {model_name} - Finished downloading library extents {download_dur_msg}')
+
+    #     # End feature ID loop
+    # # End model loop
+
+    # logging.info(f'{huc} - Finished downloading all library extents for HUC and processing the HEC-RAS controls')
+    logging.info(f'{huc} - Finished processing the HEC-RAS controls - TESTING NOT DOWNLOADING MODEL EXTENTS')  # TEMP DEBUG
 
     return
 

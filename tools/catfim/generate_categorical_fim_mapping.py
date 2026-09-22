@@ -325,22 +325,17 @@ def run_fb_mapping(
                     controls_filename = f"{ahps_site}_{magnitude}_{model_name}_controls.csv"
                     controls_csv = os.path.join(output_temp_dir, controls_filename)
 
-                    # TODO: update controls_path to be the temp folder path?
-                    # huc_controls_csv_path = os.path.join(huc_path, 'temp', f"{huc}_controls.csv")
-                    # huc_controls_df = pd.read_csv(huc_controls_csv_path)
+                    # Define the library extent path
+                    collection_parent_folder = '20260211_merged'  # TODO: get collection parent folder from args
+                    library_extent_path = os.path.join('vsis3', 'hydrovis-ti-deployment-us-east-1', 'fim', 'ripple', collection_parent_folder, 'collections', model_name, 'library_extent') # TODO: Testing not downloading the library extents
 
-                    # # Get the value of the collection_parent_folder column in the huc_controls_df for the rows matching the site/magnitude/model combination (there should only be one unique value, but just in case, we'll take the first one)
-                    # collection_parent_folder = huc_controls_df[
-                    #     (huc_controls_df['nws_lid'] == ahps_site)
-                    #     & (huc_controls_df['magnitude'] == magnitude)
-                    #     & (huc_controls_df['model_collection'] == model_name)
-                    # ]['collection_parent_folder'].unique()[0]
-                    # # Get the path to the library extent
-                    # library_extent_path = os.path.join( # TODO: Make sure these cols are correct with new S3 functionality
-                    #     collection_parent_folder, 'collections', model_name, 'library_extent'
-                    # ) # TODO: Clean up
+                    # Correct path:
+                    # '/vsis3/hydrovis-ti-deployment-us-east-1/fim/ripple/20260211_merged/collections/mip_12100204/library_extent/
 
-                    library_extent_path = os.path.join(huc_path, 'library_extent')
+                    # s3_client, bucket_name = csf.setup_aws_s3_download(aws_creds_file) # TODO: Clean up
+                    # library_extent_path = f'/vsis3/fim/ripple/{collection_parent_folder}/collections/{model_name}/library_extent'
+                    # /vsis3/ for example fimc-data/ripple/30_pcnt_domain/collections
+                    # /ble_12040103_EastForkSanJacinto/library would become /vsis3/fimc-data/ripple/30_pcnt_domain/collections
 
                     # Define output inundation extent tif path
                     tif_name = ahps_site + '_' + magnitude + '_' + model_name + '_extent_hr.tif'
@@ -350,7 +345,20 @@ def run_fb_mapping(
                         f"{huc} : {ahps_site} : {magnitude} - Begin HEC-RAS inundation for {tif_name}"
                     )
 
-                    subprocess_cmd = [
+                    # Configure AWS credentials
+                    aws_creds_file = '/data/config/aws_credentials.env' # TODO: should we get this from somewhere?
+                    hv_aws_access_key, hv_aws_secret_key, hv_aws_region = csf.get_aws_credentials(aws_creds_file)
+
+                    # config1_cmd = subprocess.run(["aws", "configure", "set", "aws_access_key_id", hv_aws_access_key], check=True) # TODO clean up
+                    # config2_cmd = subprocess.run(["aws", "configure", "set", "aws_secret_access_key", hv_aws_secret_key], check=True)
+                    # config3_cmd = subprocess.run(["aws", "configure", "set", "default.region", hv_aws_region], check=True)
+                    # config_cmd = ["export AWS_ACCESS_KEY_ID='", hv_aws_access_key, "' ; export AWS_SECRET_ACCESS_KEY='", hv_aws_secret_key, "'; export AWS_REGION='", hv_aws_region"'"]
+                    # config_cmd = f"export AWS_ACCESS_KEY_ID='{hv_aws_access_key}' ; export AWS_SECRET_ACCESS_KEY='{hv_aws_secret_key}' ; export AWS_REGION='{hv_aws_region}'"
+                    # logging.info('config command:')  # TEMP DEBUG
+                    # logging.info(config_cmd)  # TEMP DEBUG
+                    # validate_config_cmd = ["aws s3 ls s3://fim-dev/"]
+
+                    flows2fim_subprocess_cmd = [
                         flows2fim_path,
                         'fim',
                         '-lib',
@@ -368,7 +376,26 @@ def run_fb_mapping(
                         # Use subprocess to run flows2fim fim
                         # TODO: If we want to eval results, we can do result = subprocess but
                         # then will have to parse that result.
-                        subprocess.run(subprocess_cmd, capture_output=True, text=True, check=True)
+                        # subprocess.run(flows2fim_subprocess_cmd, capture_output=True, text=True, check=True)
+
+                        # Define AWS credentials
+                        aws_env = os.environ.copy()  # Copy existing system variables
+                        aws_env.update({
+                            "AWS_ACCESS_KEY_ID": hv_aws_access_key,
+                            "AWS_SECRET_ACCESS_KEY": hv_aws_secret_key,
+                            "AWS_DEFAULT_REGION": hv_aws_region
+                        })
+
+                        # Use subprocess to set up the AWS configuration and run flows2fim 
+                        subprocess.run(
+                            flows2fim_subprocess_cmd, 
+                            capture_output=True, 
+                            text=True, 
+                            env=aws_env, 
+                            check=True
+                        )
+                        # logging.info("Output:\n", result.stdout)
+
 
                     except FileNotFoundError:
                         logging.critical(
@@ -378,16 +405,15 @@ def run_fb_mapping(
 
                     except subprocess.CalledProcessError as e:
                         # Raised if the command ran but failed (non-zero exit code)
-                        logging.critical(f"Command failed with exit code {e.returncode}: {e.stderr}")
-                        sys.exit(1)  # TODO: Decide if critical (and exit) or just error (and continue)
+                        logging.error(f"{huc} : {ahps_site} : {magnitude} - Command failed with exit code {e.returncode}: {e.stderr}")
+                        continue  # sys.exit(1)  # TODO: Decide if critical (and exit) or just error (and continue)
 
-                    except Exception:
+                    except Exception as e:
                         logging.critical(
-                            "A critical error occurred while attempting HEC-RAS inundation"
-                            f" for {huc} - {ahps_site} - {magnitude}"
+                            f"{huc} : {ahps_site} : {magnitude} - A critical error occurred while attempting HEC-RAS inundation: {e}"
                         )
-                        logging.critical(traceback.format_exc())
-                        sys.exit(1)
+                        logging.error(traceback.format_exc())
+                        continue  # sys.exit(1)  # TODO: Decide if critical (and exit) or just error (and continue)
 
                     if not os.path.exists(output_extent_tif):
                         logging.error(
@@ -439,7 +465,6 @@ def run_fb_mapping(
                         hr_site_tifs_produced = bool(hr_site_tifs_produced)
 
             # End of HEC-RAS model/magnitude loop
-
         # End of HEC-RAS inundation for site
 
         # Determine whether to run HAND for the site
