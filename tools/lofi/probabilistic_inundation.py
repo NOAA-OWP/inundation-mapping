@@ -11,6 +11,7 @@ import rasterio
 import xarray as xr
 from inundate_mosaic_wrapper import produce_mosaicked_inundation
 from rasterio import features as riofeat
+from scipy.interpolate import interp1d
 from scipy.stats import expon, gamma, genextreme, genpareto, gumbel_r, kappa4, norm, pearson3, weibull_min
 from shapely.geometry import shape
 
@@ -91,19 +92,40 @@ def generate_streamflow_percentiles_vec(
     perc_df.loc[weibull_nomask] = ensemble_streamflow.sel(feature_id=feature_ids[weibull_nomask], ensemble="1").to_numpy()[:, np.newaxis]
 
     inter_ids = feature_ids.intersection(params_weibull.index.astype(feature_ids.dtype))
-    ensemble_subset = ensemble_streamflow.sel(feature_id=inter_ids)
-    # weibull_subset = params_weibull.loc[inter_ids]
-    inter_ids = inter_ids.astype('string[pyarrow]')
+    if len(inter_ids) > 0:
+        ensemble_subset = ensemble_streamflow.sel(feature_id=inter_ids)
+        # weibull_subset = params_weibull.loc[inter_ids]
+        inter_ids = inter_ids.astype('string[pyarrow]')
 
-    # wv = weibull_min(c=weibull_subset['param.c'].to_numpy(),
-    #                  loc=weibull_subset['param.loc'].to_numpy(),
-    #                  scale=weibull_subset['param.scale'].to_numpy())
+        # wv = weibull_min(c=weibull_subset['param.c'].to_numpy(),
+        #                  loc=weibull_subset['param.loc'].to_numpy(),
+        #                  scale=weibull_subset['param.scale'].to_numpy())
 
-    # If all values from ensemble streamflow forecasts are not identical or virtually the same
-    if not np.allclose(ensemble_subset, ensemble_subset[0, 0]):
+        # If all values from ensemble streamflow forecasts are identical or virtually the same
 
-        # Impute any values that are nan with the mean of the numeric values
         ensemble_subset = ensemble_subset.fillna(ensemble_subset.mean(dim='ensemble'))
+
+        val = ensemble_subset.sel(ensemble="1").to_numpy()
+        max_val = ensemble_subset.max(dim='ensemble').to_numpy()
+        min_val = ensemble_subset.min(dim='ensemble').to_numpy()
+
+        top_y_points = np.vstack([max_val, val])
+        bot_y_points = np.vstack([val, min_val])
+
+        interp_top = interp1d([10, 50], top_y_points, axis=0)
+        interp_bot = interp1d([50, 90], bot_y_points, axis=0)   
+        top_scaled = interp_top([10, 25, 50]).T[:, ::-1] 
+        bot_scaled = interp_bot([50, 75, 90]).T[:, ::-1]
+        percentile_values = np.column_stack([bot_scaled, top_scaled[:, 1:]])
+        np.maximum(0, percentile_values, out=percentile_values)
+        perc_df.loc[inter_ids] = percentile_values
+    return perc_df
+
+    same = xr.apply_ufunc(np.allclose, ensemble_subset, ensemble_subset.sel(ensemble="1"))
+    if xr.apply_ufunc(np.allclose, ensemble_subset, ensemble_subset.sel(ensemble="1")):
+        perc_df.loc[inter_ids] = max(0, ensemble_subset.sel(ensemble="1"))
+    else:
+        # Impute any values that are nan with the mean of the numeric values
         # likelihoods = wv.sf(ensemble_subset)
 
         # Scale the likelihoods to equal 1 and then generate a dataset given their likelihood
@@ -123,7 +145,7 @@ def generate_streamflow_percentiles_vec(
         top_scaled = np.interp(
             [10, 25, 50], 
             [10, 50], 
-            [ensemble_subset.max(), ensemble_subset[0, 0]]
+            [ensemble_subset.max(dim='ensemble'), ensemble_subset.sel(ensemble="1")]
         )[::-1]
 
         # bottom = np.interp([50, 75, 90], [50, 90], [scaled_likelihoods[0], maxlik])[::-1]
@@ -136,14 +158,12 @@ def generate_streamflow_percentiles_vec(
         bottom_scaled = np.interp(
             [50, 75, 90],
             [50, 90],
-            [ensemble_subset[0, 0], ensemble_subset.min()],
+            [ensemble_subset.sel(ensemble="1"), ensemble_subset.min(dim='ensemble')],
         )[::-1]
 
         percentile_values = np.hstack([bottom_scaled, top_scaled[1:]])
         np.maximum(0, percentile_values, out=percentile_values)
         perc_df.loc[inter_ids] = percentile_values
-    else:
-        perc_df.loc[inter_ids] = max(0, ensemble_subset[0,0])
 
     return perc_df
     
