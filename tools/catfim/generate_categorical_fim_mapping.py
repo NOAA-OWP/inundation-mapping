@@ -12,6 +12,7 @@ import sys
 import time
 import traceback
 from datetime import datetime, timezone
+from dotenv import load_dotenv
 
 import geopandas as gpd
 import numpy as np
@@ -305,6 +306,19 @@ def run_fb_mapping(
             logging.info(f"{huc} : {ahps_site} - HEC-RAS inundation...")
 
             flows2fim_path = "/projects/catfim_hecras_fb/flows2fim_030/flows2fim"  # TODO: pull from .env
+
+
+            # Get HEC-RAS-specific input args
+            # hecras_preprocess_runtime_args = os.getenv("HECRAS_PREPROCESS_RUNTIME_ARGS")  # TODO: Clean up
+            load_dotenv(os.getenv("HECRAS_PREPROCESS_RUNTIME_ARGS"))
+            collection_parent_folder = os.getenv("RIPPLE_FILENAME")  # example: "20260211_merged"
+            hydrovis_bucket_name = os.getenv("BUCKET_NAME")  # example: hydrovis-ti-deployment-us-east-1
+            aws_creds_file = os.getenv("AWS_CREDS_FILE")
+            # ripple_model_status_csv = os.getenv("RIPPLE_MODEL_STATUS_PATH")  # TODO: Clean up
+
+            # Configure AWS credentials
+            hv_aws_access_key, hv_aws_secret_key, hv_aws_region = csf.get_aws_credentials(aws_creds_file)
+
             model_list = (
                 sites_models_df[sites_models_df['nws_lid'] == ahps_site]['model_collection'].unique().tolist()
             )
@@ -318,24 +332,15 @@ def run_fb_mapping(
                         continue
 
                     logging.info(" ")
-                    logging.info(f"{huc} : {ahps_site} - {magnitude}")
-                    logging.info(f'Inundating HEC-RAS tifs for {ahps_site} - {magnitude} - {model_name}...')
+                    logging.info(f"{huc} : {ahps_site} : {magnitude}")
+                    logging.info(f'{huc} : {ahps_site} : {magnitude} : {model_name} - Inundating HEC-RAS tifs...')
 
                     # Get site/magnitude/model-specific controls CSV
                     controls_filename = f"{ahps_site}_{magnitude}_{model_name}_controls.csv"
                     controls_csv = os.path.join(output_temp_dir, controls_filename)
 
                     # Define the library extent path
-                    collection_parent_folder = '20260211_merged'  # TODO: get collection parent folder from args
-                    library_extent_path = os.path.join('vsis3', 'hydrovis-ti-deployment-us-east-1', 'fim', 'ripple', collection_parent_folder, 'collections', model_name, 'library_extent') # TODO: Testing not downloading the library extents
-
-                    # Correct path:
-                    # '/vsis3/hydrovis-ti-deployment-us-east-1/fim/ripple/20260211_merged/collections/mip_12100204/library_extent/
-
-                    # s3_client, bucket_name = csf.setup_aws_s3_download(aws_creds_file) # TODO: Clean up
-                    # library_extent_path = f'/vsis3/fim/ripple/{collection_parent_folder}/collections/{model_name}/library_extent'
-                    # /vsis3/ for example fimc-data/ripple/30_pcnt_domain/collections
-                    # /ble_12040103_EastForkSanJacinto/library would become /vsis3/fimc-data/ripple/30_pcnt_domain/collections
+                    library_extent_path = os.path.join('vsis3', hydrovis_bucket_name, 'fim', 'ripple', collection_parent_folder, 'collections', model_name, 'library_extent') # TODO: Testing not downloading the library extents
 
                     # Define output inundation extent tif path
                     tif_name = ahps_site + '_' + magnitude + '_' + model_name + '_extent_hr.tif'
@@ -344,19 +349,6 @@ def run_fb_mapping(
                     logging.info(
                         f"{huc} : {ahps_site} : {magnitude} - Begin HEC-RAS inundation for {tif_name}"
                     )
-
-                    # Configure AWS credentials
-                    aws_creds_file = '/data/config/aws_credentials.env' # TODO: should we get this from somewhere?
-                    hv_aws_access_key, hv_aws_secret_key, hv_aws_region = csf.get_aws_credentials(aws_creds_file)
-
-                    # config1_cmd = subprocess.run(["aws", "configure", "set", "aws_access_key_id", hv_aws_access_key], check=True) # TODO clean up
-                    # config2_cmd = subprocess.run(["aws", "configure", "set", "aws_secret_access_key", hv_aws_secret_key], check=True)
-                    # config3_cmd = subprocess.run(["aws", "configure", "set", "default.region", hv_aws_region], check=True)
-                    # config_cmd = ["export AWS_ACCESS_KEY_ID='", hv_aws_access_key, "' ; export AWS_SECRET_ACCESS_KEY='", hv_aws_secret_key, "'; export AWS_REGION='", hv_aws_region"'"]
-                    # config_cmd = f"export AWS_ACCESS_KEY_ID='{hv_aws_access_key}' ; export AWS_SECRET_ACCESS_KEY='{hv_aws_secret_key}' ; export AWS_REGION='{hv_aws_region}'"
-                    # logging.info('config command:')  # TEMP DEBUG
-                    # logging.info(config_cmd)  # TEMP DEBUG
-                    # validate_config_cmd = ["aws s3 ls s3://fim-dev/"]
 
                     flows2fim_subprocess_cmd = [
                         flows2fim_path,
@@ -373,11 +365,6 @@ def run_fb_mapping(
                         'extent',
                     ]
                     try:
-                        # Use subprocess to run flows2fim fim
-                        # TODO: If we want to eval results, we can do result = subprocess but
-                        # then will have to parse that result.
-                        # subprocess.run(flows2fim_subprocess_cmd, capture_output=True, text=True, check=True)
-
                         # Define AWS credentials
                         aws_env = os.environ.copy()  # Copy existing system variables
                         aws_env.update({
@@ -386,16 +373,20 @@ def run_fb_mapping(
                             "AWS_DEFAULT_REGION": hv_aws_region
                         })
 
-                        # Use subprocess to set up the AWS configuration and run flows2fim 
-                        subprocess.run(
+                        # Use subprocess to run flows2fim (with the AWS env)
+                        result = subprocess.run(
                             flows2fim_subprocess_cmd, 
                             capture_output=True, 
                             text=True, 
                             env=aws_env, 
                             check=True
                         )
-                        # logging.info("Output:\n", result.stdout)
-
+                        if result.stdout:
+                            result_list = result.stdout.strip().split('\n')
+                            for result in result_list:
+                                logging.info(f"{huc} : {ahps_site} : {magnitude} - {result}")
+                        else:
+                            logging.warning(f"{huc} : {ahps_site} : {magnitude} - No outputs returned for flows2fim subprocess")
 
                     except FileNotFoundError:
                         logging.critical(
@@ -404,20 +395,20 @@ def run_fb_mapping(
                         sys.exit(1)
 
                     except subprocess.CalledProcessError as e:
-                        # Raised if the command ran but failed (non-zero exit code)
-                        logging.error(f"{huc} : {ahps_site} : {magnitude} - Command failed with exit code {e.returncode}: {e.stderr}")
-                        continue  # sys.exit(1)  # TODO: Decide if critical (and exit) or just error (and continue)
+                        logging.error(f"{huc} : {ahps_site} : {magnitude} - flows2fim subprocess failed with non-zero exit code {e.returncode}: {e.stderr}")
+                        continue
 
                     except Exception as e:
                         logging.critical(
-                            f"{huc} : {ahps_site} : {magnitude} - A critical error occurred while attempting HEC-RAS inundation: {e}"
+                            f"{huc} : {ahps_site} : {magnitude} - flows2fim subprocess failed: {e}"
                         )
                         logging.error(traceback.format_exc())
-                        continue  # sys.exit(1)  # TODO: Decide if critical (and exit) or just error (and continue)
+                        continue
 
+                    # Exit this process if the flows2fim subprocess ran but the tif cannot be found
                     if not os.path.exists(output_extent_tif):
                         logging.error(
-                            f'{huc} : {ahps_site} : {magnitude} - TIF not found after inundation: {os.path.basename(output_extent_tif)}'
+                            f'{huc} : {ahps_site} : {magnitude} - flows2fim subprocess ran but expected output tif not found ({os.path.basename(output_extent_tif)})'
                         )
                         continue
 

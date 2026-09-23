@@ -495,7 +495,7 @@ def finalize_sites_mapping_status(
 
     logging.info(f"{huc} - Begin updating sites mapping status")
 
-    huc_function_tag = f"{huc} - Update Sites Mapping Status -"
+    huc_function_tag = f"{huc} - Update Mapping Status -"
 
     # ------------------------------------
     # Validate site_inputs (can be a filepath or a GDF)

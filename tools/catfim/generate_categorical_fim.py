@@ -195,8 +195,8 @@ def process_generate_categorical_fim(
             inundate_hand,
             inundate_hr,
             hr_preference,
-            hecras_sites_csv,
             combined_controls_csv,
+            hecras_preprocessing_runtime_args,
         ) = __validate_inputs(local_vals)
 
         # Note: this will handle a huc list arg of "all". If valid_fim_hucs is empty, it will thrown an exception
@@ -266,8 +266,8 @@ def process_generate_categorical_fim(
             inundate_hand,
             inundate_hr,
             hr_preference,
-            hecras_sites_csv,
             combined_controls_csv,
+            hecras_preprocessing_runtime_args,
         )
 
         # Throw a warning if any listed HUCs are in our FIM outputs
@@ -1270,7 +1270,7 @@ def __validate_inputs(received_locals_dict):
     if inundate_hr is True:
         if preprocessed_hecras_folder == "":
             # preprocessed_hecras_folder = os.getenv("hecras_files") # TODO: Add this in once I've added the env variable to the bash_variables file.
-            preprocessed_hecras_folder = "/projects/catfim_hecras_fb/hecras_preprocess_test4_full_run/catfim_hecras_preprocessing_20260910"
+            preprocessed_hecras_folder = "/projects/catfim_hecras_fb/hecras_preprocess_test5_full_run/catfim_hecras_preprocessing_20260922"
             # TODO: Remove hardcoding once I've added other default to env variables
 
             if not os.path.exists(preprocessed_hecras_folder):
@@ -1289,18 +1289,22 @@ def __validate_inputs(received_locals_dict):
         # as we are using in this CatFIM run.
 
         # Check whether the required HEC-RAS files exist in this folder
-        hecras_sites_csv = os.path.join(preprocessed_hecras_folder, 'sites_with_hecras_models.csv')
         combined_controls_csv = os.path.join(preprocessed_hecras_folder, 'combined_controls_output.csv')
-
-        if not os.path.isfile(hecras_sites_csv):
-            raise Exception(
-                f"Input HEC-RAS folder exists but sites CSV not found at {hecras_sites_csv}"
-            )
+        hecras_preprocessing_runtime_args = os.path.join(preprocessed_hecras_folder, 'runtime_args.env')
 
         if not os.path.isfile(combined_controls_csv):
             raise Exception(
                 f"Input HEC-RAS folder exists but controls CSV not found at {combined_controls_csv}"
             )
+        if not os.path.isfile(hecras_preprocessing_runtime_args):
+            raise Exception(
+                f"Input HEC-RAS folder exists but HEC-RAS pre-processing runtime args not found at {hecras_preprocessing_runtime_args}"
+            )
+
+
+
+        # TODO: Should we get the metadata and threshold files from the runtime args as well and make sure that
+        # they match the input filenames for this run? ...probably
 
     else:
         # Set default vals if inundate hr is false
@@ -1314,8 +1318,8 @@ def __validate_inputs(received_locals_dict):
         inundate_hand,
         inundate_hr,
         hr_preference,
-        hecras_sites_csv,
         combined_controls_csv,
+        hecras_preprocessing_runtime_args,
     )
 
 
@@ -1334,8 +1338,8 @@ def __create_runtime_args_file(
     inundate_hand,
     inundate_hr,
     hr_preference,
-    hecras_sites_csv,
     combined_controls_csv,
+    hecras_preprocessing_runtime_args,
 ):
     '''
     Create a runtime args environment file (saved as output_folder/runtime_args.env).
@@ -1375,9 +1379,9 @@ def __create_runtime_args_file(
         TODO: Fill in
     hr_preference - BOOL
         TODO: Fill in
-    hecras_sites_csv - str
-        TODO: Fill in
     combined_controls_csv - str
+        TODO: Fill in
+    hecras_preprocessing_runtime_args - str
         TODO: Fill in
     '''
 
@@ -1403,8 +1407,8 @@ def __create_runtime_args_file(
         file.write(f"INUNDATE_HAND={inundate_hand}\n")
         file.write(f"INUNDATE_HR={inundate_hr}\n")
         file.write(f"HR_PREFERENCE={hr_preference}\n")
-        file.write(f"HECRAS_SITES_CSV={hecras_sites_csv}\n")
         file.write(f"COMBINED_CONTROLS_CSV={combined_controls_csv}\n")
+        file.write(f"HECRAS_PREPROCESS_RUNTIME_ARGS={hecras_preprocessing_runtime_args}\n")
     return
 
 if __name__ == '__main__':

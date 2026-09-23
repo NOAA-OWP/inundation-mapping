@@ -320,7 +320,7 @@ def process_threshold_data(
         inundate_hr = bool(os.getenv('INUNDATE_HR'))
         hr_preference = bool(os.getenv('HR_PREFERENCE'))
 
-        ripple_model_status_csv = '/projects/catfim_hecras_fb/ripple_feature_ids_whitelist_final_20260729_1420_no_path.csv'
+        # ripple_model_status_csv = '/projects/catfim_hecras_fb/ripple_feature_ids_whitelist_final_20260729_1420_no_path.csv'
         # TODO: Put this path somewhere official (also figure out where this file should actually be)
 
         logging.info(f'inundate_hr: {inundate_hr}; hr_preference: {hr_preference}')  # TEMP DEBUG
@@ -333,18 +333,19 @@ def process_threshold_data(
         if inundate_hr is True:
             logging.info('Begin processing HEC-RAS input data...')  # TEMP DEBUG
 
-            # hecras_sites_csv = os.getenv('HECRAS_SITES_CSV') # TODO: remove altogether as an input
             combined_controls_csv = os.getenv('COMBINED_CONTROLS_CSV')
+            # hecras_preprocess_runtime_args = os.getenv('HECRAS_PREPROCESS_RUNTIME_ARGS') # TODO: Might not need to call this here, maybe can summon it inside of the function?
 
             process_huc_hecras_data(
                 huc,
                 huc_path,
                 combined_controls_csv,
-                ripple_model_status_csv,
+                # hecras_preprocess_runtime_args,
                 segments_file_path,
                 output_temp_dir,
                 valid_lids,
                 hr_preference,
+
             )
 
         # Save discharge dataframe (it is ok if this is empty, no need to throw error)
@@ -1014,7 +1015,7 @@ def process_huc_hecras_data(
     huc,
     huc_path,
     combined_controls_csv,
-    ripple_model_status_csv,
+    # hecras_preprocess_runtime_args, # TODO: Clean up
     segments_file_path,
     output_temp_dir,
     valid_lids,
@@ -1033,8 +1034,8 @@ def process_huc_hecras_data(
         Path to the HUC directory.
     combined_controls_csv - str
         Path to the combined controls CSV file (combined_controls_output.csv).
-    ripple_model_status_csv - str
-        Path to the ripple model status CSV (whitelist).
+    # hecras_preprocess_runtime_args - str
+        # TODO: Update
     segments_file_path - str
         Path to the segments CSV file.
     output_temp_dir - str
@@ -1046,6 +1047,15 @@ def process_huc_hecras_data(
     '''
 
     logging.info(f"{huc} - Begin subsetting HEC-RAS controls into site/magnitude/model-specific CSVs...")
+
+    # Get values from the HEC-RAS preprocessing args
+    load_dotenv(os.getenv('HECRAS_PREPROCESS_RUNTIME_ARGS'))
+    ripple_model_status_csv = os.getenv("RIPPLE_MODEL_STATUS_PATH")
+
+    # hecras_preprocess_runtime_args = os.getenv('HECRAS_PREPROCESS_RUNTIME_ARGS')
+    # ripple_filename = os.getenv("RIPPLE_FILENAME")  # example: "20260211_merged"
+    # hydrovis_bucket_name = os.getenv("BUCKET_NAME")  # example: hydrovis-ti-deployment-us-east-1
+    # aws_creds_file = os.getenv("AWS_CREDS_FILE") # TODO: Clean up
 
     # --- Process controls CSV ---
 
@@ -1129,8 +1139,8 @@ def process_huc_hecras_data(
         controls_model_list = site_controls_df['model_collection'].unique().tolist()
         controls_feature_id_list = huc_controls_df[huc_controls_df['nws_lid'] == ahps_site]['reach_id'].unique().tolist()
 
-        logging.info(f'Models available in controls CSV: {controls_model_list}')  # TEMP DEBUG
-        logging.info(f'Feature IDs available in controls CSV: {len(controls_feature_id_list)}')  # TEMP DEBUG
+        logging.info(f'{huc} : {ahps_site} - Models available in site controls CSV: {controls_model_list}')  # TEMP DEBUG
+        logging.info(f'{huc} : {ahps_site} - Feature IDs available in site controls CSV: {len(controls_feature_id_list)}')  # TEMP DEBUG
 
         # --- Filtering with whitelist ---
 
