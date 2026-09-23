@@ -1125,7 +1125,9 @@ def process_huc_hecras_data(
         )
 
         logging.info(f'{huc} : {ahps_site} - Models available in site controls CSV: {controls_model_list}')
-        logging.info(f'{huc} : {ahps_site} - Feature IDs available in site controls CSV: {len(controls_feature_id_list)}')
+        logging.info(
+            f'{huc} : {ahps_site} - Feature IDs available in site controls CSV: {len(controls_feature_id_list)}'
+        )
 
         # --- Filtering with whitelist ---
 
@@ -1232,7 +1234,7 @@ def process_huc_hecras_data(
             )
             logging.info(
                 f'{huc} : {ahps_site} : {model_name} - Valid HEC-RAS models available for {len(valid_site_model_feature_id_list)}/{len(full_site_feature_id_list)} feature IDs'
-                )
+            )
 
             if len(full_site_feature_id_list) > len(valid_site_model_feature_id_list):
                 logging.warning(
@@ -1248,7 +1250,7 @@ def process_huc_hecras_data(
                 {
                     'nws_lid': ahps_site,
                     'model_collection': model_name,
-                    'feature_ids': valid_site_model_feature_id_list
+                    'feature_ids': valid_site_model_feature_id_list,
                 }
             )  # TODO: test this list stuff
 

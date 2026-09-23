@@ -256,7 +256,7 @@ def download_ripple_file_from_s3(ripple_filename, collection_id, collection_temp
 
 
 def run_controls(
-        magnitude, collection_id, flows_filename, flows2fim_path, intermediates_folder, db_path, starts_csv
+    magnitude, collection_id, flows_filename, flows2fim_path, intermediates_folder, db_path, starts_csv
 ):
     '''
     Runs flows2fim controls for a given model and magnitude, using the specified flows file.
@@ -507,8 +507,8 @@ def run_controls_for_all_models_and_magnitudes(
             controls_df = pd.read_csv(controls_output_csv)
             controls_df['magnitude'] = magnitude
             controls_df['model_collection'] = collection_id
-            controls_df['collection_parent_folder'] = ripple_filename 
-            # TODO: Do we need this ripple_filename column? It should be the same for every row... 
+            controls_df['collection_parent_folder'] = ripple_filename
+            # TODO: Do we need this ripple_filename column? It should be the same for every row...
 
             # Join the identifiers_df to the controls_df to add the nws_lid column (joining on reach_id for controls_df and nwm_feature_id for identifiers df)
             controls_df = pd.merge(

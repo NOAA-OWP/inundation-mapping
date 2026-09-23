@@ -1085,7 +1085,7 @@ def setup_aws_s3_download(aws_creds_file):
         aws_region=hv_aws_region,
     )
     if not is_success:  # if it was not already thrown from asf
-        logging.error(f'Unable to create AWS S3 client. Check the AWS creds env file and case.')
+        logging.error('Unable to create AWS S3 client. Check the AWS creds env file and case.')
         raise Exception(return_msg)
 
     # Validate bucket

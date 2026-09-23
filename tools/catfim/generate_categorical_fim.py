@@ -1314,12 +1314,12 @@ def __validate_inputs(received_locals_dict):
             "RIPPLE_FILENAME",
             "BUCKET_NAME",
             "AWS_CREDS_FILE",
-            "RIPPLE_MODEL_STATUS_PATH"
+            "RIPPLE_MODEL_STATUS_PATH",
         ]
         hecras_path_list = ["AWS_CREDS_FILE", "RIPPLE_MODEL_STATUS_PATH"]
 
         for hecras_var in hecras_variable_list:
-            if not hecras_var in os.environ:
+            if hecras_var not in os.environ:
                 raise Exception(
                     f'Missing value {hecras_var} from HEC-RAS runtime args ({hecras_preprocessing_runtime_args})'
                 )

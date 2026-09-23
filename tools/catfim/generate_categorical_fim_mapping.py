@@ -379,7 +379,7 @@ def run_fb_mapping(
                             {
                                 "AWS_ACCESS_KEY_ID": hv_aws_access_key,
                                 "AWS_SECRET_ACCESS_KEY": hv_aws_secret_key,
-                                "AWS_DEFAULT_REGION": hv_aws_region
+                                "AWS_DEFAULT_REGION": hv_aws_region,
                             }
                         )
 
