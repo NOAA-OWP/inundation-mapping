@@ -1310,24 +1310,30 @@ def __validate_inputs(received_locals_dict):
         # Check that the necessary info is in the HEC-RAS runtime args file
         load_dotenv(hecras_preprocessing_runtime_args)
 
-        hecras_variable_list = ["RIPPLE_FILENAME", "BUCKET_NAME", "AWS_CREDS_FILE", "RIPPLE_MODEL_STATUS_PATH"]
+        hecras_variable_list = [
+            "RIPPLE_FILENAME",
+            "BUCKET_NAME",
+            "AWS_CREDS_FILE",
+            "RIPPLE_MODEL_STATUS_PATH"
+        ]
         hecras_path_list = ["AWS_CREDS_FILE", "RIPPLE_MODEL_STATUS_PATH"]
 
         for hecras_var in hecras_variable_list:
             if not hecras_var in os.environ:
-                raise Exception(f'Missing value {hecras_var} from HEC-RAS runtime args ({hecras_preprocessing_runtime_args})')
+                raise Exception(
+                    f'Missing value {hecras_var} from HEC-RAS runtime args ({hecras_preprocessing_runtime_args})'
+                )
 
         # Check that the provided paths are correct
         for hecras_path_key in hecras_path_list:
             hecras_path = os.getenv(hecras_path_key)
             if not os.path.isfile(hecras_path):
-                raise Exception(f'Input file not available at path provided in HEC-RAS runtime args: {hecras_path}')
+                raise Exception(
+                    f'Input file not available at path provided in HEC-RAS runtime args: {hecras_path}'
+                )
 
         # TODO: Should we get the metadata and threshold files from the runtime args as well and make sure that
         # they match the input filenames for this run? ...probably
-
-
-
 
     else:
         # Set default val if inundate hr is false
@@ -1408,7 +1414,7 @@ def __create_runtime_args_file(
         will only run one HEC-RAS model per site). If not, we will run ALL available HEC-RAS models for each site
         (not recommended for full CatFIM runs).
     combined_controls_csv - str
-        Filepath to the combined_controls_output.csv created in the CatFIM HEC-RAS preprocessing script. 
+        Filepath to the combined_controls_output.csv created in the CatFIM HEC-RAS preprocessing script.
     hecras_preprocessing_runtime_args - str
         Filepath to the runtime_args.env file created in the CatFIM HEC-RAS preprocessing script.
     flows2fim_software_path - str
@@ -1442,6 +1448,7 @@ def __create_runtime_args_file(
         file.write(f"FLOWS2FIM_SOFTWARE_PATH={flows2fim_software_path}\n")
 
     return
+
 
 if __name__ == '__main__':
     '''

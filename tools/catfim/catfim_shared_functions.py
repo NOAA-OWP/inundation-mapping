@@ -6,17 +6,15 @@ import pickle
 import random
 import shutil
 import time
-import sys
 
 import geopandas as gpd
 import pandas as pd
 from dotenv import load_dotenv
 
-from src.utils.io import write_geodataframe
-
-import src.utils.shared_functions as sf
 import data.aws.aws_shared_functions as asf
 import data.aws.s3_shared_functions as s3_sf
+import src.utils.shared_functions as sf
+from src.utils.io import write_geodataframe
 
 
 # # Force GDAL to use standard locking and synchronous write modes # TODO: Decide if needed
@@ -1037,8 +1035,13 @@ def get_aws_credentials(aws_creds_file):
 
     Returns
     -------
-    # TODO: Fill in
-    
+    hv_aws_access_key - str
+        AWS access key.
+    hv_aws_secret_key - str
+        AWS secret key.
+    hv_aws_region - str
+        AWS region.
+
     '''
 
     if not aws_creds_file:
@@ -1059,19 +1062,17 @@ def get_aws_credentials(aws_creds_file):
 
 def setup_aws_s3_download(aws_creds_file):
     '''
-    adapted FROM deploy to hydrovis
-
+    Adapted from deploy to hydrovis.
 
     s3_client, bucket_name = setup_aws_s3_download(aws_creds_file)
-    
-    
+
     '''
 
     s3_client, bucket_name = None, None
 
     # Load bucket name from hv params
     hv_params_file = '/foss_fim/config/hv_deploy_params.env'
-    load_dotenv(hv_params_file) # '/foss_fim/config/hv_deploy_params.env'
+    load_dotenv(hv_params_file)
     bucket_name = os.getenv("HV_S3_BUCKET_NAME")
 
     hv_aws_access_key, hv_aws_secret_key, hv_aws_region = get_aws_credentials(aws_creds_file)
@@ -1090,9 +1091,7 @@ def setup_aws_s3_download(aws_creds_file):
     # Validate bucket
     is_success, return_msg = s3_sf.does_s3_bucket_exist(s3_client, bucket_name)
     if not is_success:
-        logging.error(
-            f"HV_S3_BUCKET_NAME value of {bucket_name}. Check the AWS creds env file and case."
-        )
+        logging.error(f"HV_S3_BUCKET_NAME value of {bucket_name}. Check the AWS creds env file and case.")
         raise Exception(return_msg)
 
     return s3_client, bucket_name

@@ -12,12 +12,12 @@ import sys
 import time
 import traceback
 from datetime import datetime, timezone
-from dotenv import load_dotenv
 
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio
+from dotenv import load_dotenv
 from rasterio.features import shapes
 from rasterio.warp import Resampling, reproject
 from shapely.geometry.multipolygon import MultiPolygon
@@ -289,7 +289,7 @@ def run_fb_mapping(
 
             if os.path.exists(sites_models_csv_path):
                 # Get model list from huc_controls_df
-                huc_models_df = pd.read_csv(sites_models_csv_path)  # TODO: Decide on permanent path of HUC models df
+                huc_models_df = pd.read_csv(sites_models_csv_path)
                 sites_models_df = huc_models_df[huc_models_df['nws_lid'] == ahps_site]
 
             # Check whether there are HEC-RAS models available for the site
@@ -330,14 +330,25 @@ def run_fb_mapping(
 
                     logging.info(" ")
                     logging.info(f"{huc} : {ahps_site} : {magnitude}")
-                    logging.info(f'{huc} : {ahps_site} : {magnitude} : {model_name} - Inundating HEC-RAS tifs...')
+                    logging.info(
+                        f'{huc} : {ahps_site} : {magnitude} : {model_name} - Inundating HEC-RAS tifs...'
+                    )
 
                     # Get site/magnitude/model-specific controls CSV
                     controls_filename = f"{ahps_site}_{magnitude}_{model_name}_controls.csv"
                     controls_csv = os.path.join(output_temp_dir, controls_filename)
 
                     # Define the library extent path
-                    library_extent_path = os.path.join('vsis3', hydrovis_bucket_name, 'fim', 'ripple', collection_parent_folder, 'collections', model_name, 'library_extent') # TODO: Testing not downloading the library extents
+                    library_extent_path = os.path.join(
+                        'vsis3',
+                        hydrovis_bucket_name,
+                        'fim',
+                        'ripple',
+                        collection_parent_folder,
+                        'collections',
+                        model_name,
+                        'library_extent',
+                    )
 
                     # Define output inundation extent tif path
                     tif_name = ahps_site + '_' + magnitude + '_' + model_name + '_extent_hr.tif'
@@ -364,26 +375,26 @@ def run_fb_mapping(
                     try:
                         # Define AWS credentials
                         aws_env = os.environ.copy()  # Copy existing system variables
-                        aws_env.update({
-                            "AWS_ACCESS_KEY_ID": hv_aws_access_key,
-                            "AWS_SECRET_ACCESS_KEY": hv_aws_secret_key,
-                            "AWS_DEFAULT_REGION": hv_aws_region
-                        })
+                        aws_env.update(
+                            {
+                                "AWS_ACCESS_KEY_ID": hv_aws_access_key,
+                                "AWS_SECRET_ACCESS_KEY": hv_aws_secret_key,
+                                "AWS_DEFAULT_REGION": hv_aws_region
+                            }
+                        )
 
                         # Use subprocess to run flows2fim (with the AWS env)
                         result = subprocess.run(
-                            flows2fim_subprocess_cmd, 
-                            capture_output=True, 
-                            text=True, 
-                            env=aws_env, 
-                            check=True
+                            flows2fim_subprocess_cmd, capture_output=True, text=True, env=aws_env, check=True
                         )
                         if result.stdout:
                             result_list = result.stdout.strip().split('\n')
                             for result in result_list:
                                 logging.info(f"{huc} : {ahps_site} : {magnitude} - {result}")
                         else:
-                            logging.warning(f"{huc} : {ahps_site} : {magnitude} - No outputs returned for flows2fim subprocess")
+                            logging.warning(
+                                f"{huc} : {ahps_site} : {magnitude} - No outputs returned for flows2fim subprocess"
+                            )
 
                     except FileNotFoundError:
                         logging.critical(
@@ -392,7 +403,9 @@ def run_fb_mapping(
                         sys.exit(1)
 
                     except subprocess.CalledProcessError as e:
-                        logging.error(f"{huc} : {ahps_site} : {magnitude} - flows2fim subprocess failed with non-zero exit code {e.returncode}: {e.stderr}")
+                        logging.error(
+                            f"{huc} : {ahps_site} : {magnitude} - flows2fim subprocess failed with non-zero exit code {e.returncode}: {e.stderr}"
+                        )
                         continue
 
                     except Exception as e:
@@ -418,8 +431,8 @@ def run_fb_mapping(
 
                     # Open the source raster file
                     with rasterio.open(
-                            output_extent_tif, mode='r+', IGNORE_COG_LAYOUT_BREAK='YES'
-                        ) as output_extent_src:
+                        output_extent_tif, mode='r+', IGNORE_COG_LAYOUT_BREAK='YES'
+                    ) as output_extent_src:
 
                         # Read the raster data array and copy the metadata profile
                         output_extent_array = output_extent_src.read(1)

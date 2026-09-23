@@ -11,16 +11,12 @@ from datetime import datetime, timezone
 
 import geopandas as gpd
 import pandas as pd
+from dotenv import load_dotenv
 from tools_shared_functions import filter_nwm_segments_by_stream_order, flow_data, get_nwm_segs
 
-from dotenv import load_dotenv
-
-# foss_fim imports
-from src.utils.shared_functions import FIM_Helpers as fh
 import data.wrds.download_process_wrds as dpw
 import src.utils.shared_functions as sf
 import tools.catfim.catfim_shared_functions as csf
-import data.aws.s3_shared_functions as s3_sf
 
 
 gpd.options.io_engine = "pyogrio"
@@ -28,9 +24,6 @@ gpd.options.io_engine = "pyogrio"
 # helps with gpkg.to_file writes
 os.environ["GDAL_GEO_TRUNCATE_JOURNAL"] = "YES"
 os.environ["OGR_SQLITE_SYNCHRONOUS"] = "OFF"  # Speeds up network writes
-
-
-
 
 
 """
@@ -344,7 +337,6 @@ def process_threshold_data(
                 output_temp_dir,
                 valid_lids,
                 hr_preference,
-
             )
 
         # Save discharge dataframe (it is ok if this is empty, no need to throw error)
@@ -1011,13 +1003,7 @@ def __get_fb_discharge_and_library_data_per_lid(huc, lid, sites_gdf, lid_thresho
 
 
 def process_huc_hecras_data(
-    huc,
-    huc_path,
-    combined_controls_csv,
-    segments_file_path,
-    output_temp_dir,
-    valid_lids,
-    hr_preference,
+    huc, huc_path, combined_controls_csv, segments_file_path, output_temp_dir, valid_lids, hr_preference
 ):
     '''
     Currently only run for flow-based CatFIM. Runs at the HUC level.
@@ -1074,7 +1060,9 @@ def process_huc_hecras_data(
     hecras_site_list = huc_controls_df['nws_lid'].unique().tolist()
 
     if len(hecras_site_list) == 0:
-        logging.info(f"{huc} - No HEC-RAS models found for any sites in this HUC, skipping HEC-RAS controls processing")
+        logging.info(
+            f"{huc} - No HEC-RAS models found for any sites in this HUC, skipping HEC-RAS controls processing"
+        )
         return
     else:
         logging.info(f"{huc} - Found {len(hecras_site_list)} site(s) with available HEC-RAS models")
@@ -1096,7 +1084,9 @@ def process_huc_hecras_data(
     ripple_model_status_df = pd.read_csv(local_copy_ripple_model_status_csv)
 
     # Filter ripple_model_status_df to contain only the nwm_feature_ids in HUC feature ID list
-    huc_ripple_model_status_df = ripple_model_status_df[ripple_model_status_df['feature_id'].isin(huc_feature_id_list)]
+    huc_ripple_model_status_df = ripple_model_status_df[
+        ripple_model_status_df['feature_id'].isin(huc_feature_id_list)
+    ]
 
     # Filter the ripple_model_status_df to only include rows where 'is_valid' is True
     huc_ripple_model_status_df = huc_ripple_model_status_df[huc_ripple_model_status_df['is_valid'] == True]
@@ -1119,7 +1109,9 @@ def process_huc_hecras_data(
         logging.info(f"{huc} : {ahps_site} - Subsetting controls CSVs...")
 
         # Get a full list of the feature IDs affiliated with this site
-        full_site_feature_id_list = segments_df[segments_df['lid'] == ahps_site]['feature_id'].unique().tolist()
+        full_site_feature_id_list = (
+            segments_df[segments_df['lid'] == ahps_site]['feature_id'].unique().tolist()
+        )
 
         # --- Getting models and feature IDs available in controls CSV ---
 
@@ -1128,19 +1120,29 @@ def process_huc_hecras_data(
 
         # Get a list of models and feature IDs available for the site in the controls CSV
         controls_model_list = site_controls_df['model_collection'].unique().tolist()
-        controls_feature_id_list = huc_controls_df[huc_controls_df['nws_lid'] == ahps_site]['reach_id'].unique().tolist()
+        controls_feature_id_list = (
+            huc_controls_df[huc_controls_df['nws_lid'] == ahps_site]['reach_id'].unique().tolist()
+        )
 
-        logging.info(f'{huc} : {ahps_site} - Models available in site controls CSV: {controls_model_list}')  # TEMP DEBUG
-        logging.info(f'{huc} : {ahps_site} - Feature IDs available in site controls CSV: {len(controls_feature_id_list)}')  # TEMP DEBUG
+        logging.info(f'{huc} : {ahps_site} - Models available in site controls CSV: {controls_model_list}')
+        logging.info(f'{huc} : {ahps_site} - Feature IDs available in site controls CSV: {len(controls_feature_id_list)}')
 
         # --- Filtering with whitelist ---
 
         # Use the feature IDs from the control CSV to subset the whitelist
         # This will make a list of models that have models available in the controls CSV and are valid in the whitelist
-        model_list = huc_ripple_model_status_df[huc_ripple_model_status_df['feature_id'].isin(controls_feature_id_list)]['collection_id'].unique().tolist()
+        model_list = (
+            huc_ripple_model_status_df[
+                huc_ripple_model_status_df['feature_id'].isin(controls_feature_id_list)
+            ]['collection_id']
+            .unique()
+            .tolist()
+        )
 
         if len(model_list) == 0:
-            logging.warning(f"{huc} : {ahps_site} - No valid models left after filtering with ripple whitelist and controls CSV")
+            logging.warning(
+                f"{huc} : {ahps_site} - No valid models left after filtering with ripple whitelist and controls CSV"
+            )
             # Move on to next site
             continue
 
@@ -1161,7 +1163,9 @@ def process_huc_hecras_data(
 
                 # Return an error if both lists are len of zero
                 if len(mip_model_list) == 0 and len(ble_model_list) == 0:
-                    logging.error(f'{huc} : {ahps_site} - No mip or ble models found in model list ({model_list})')
+                    logging.error(
+                        f'{huc} : {ahps_site} - No mip or ble models found in model list ({model_list})'
+                    )
                     preferred_model = None
 
                 if len(mip_model_list) == 1:
@@ -1180,10 +1184,12 @@ def process_huc_hecras_data(
                 elif len(ble_model_list) == 1:
                     # If no MIP models are available but one BLE model is available, use that.
                     preferred_model = ble_model_list[0]
-                    logging.info(f'{huc} : {ahps_site} - No MIP models available using BLE model: {preferred_model}')
+                    logging.info(
+                        f'{huc} : {ahps_site} - No MIP models available using BLE model: {preferred_model}'
+                    )
 
                 elif len(ble_model_list) > 1:
-                    # If no MIP models are available but and more than one BLE model is available, 
+                    # If no MIP models are available but and more than one BLE model is available,
                     # use the first one but return an error
                     preferred_model = ble_model_list[0]
                     logging.error(
@@ -1209,30 +1215,42 @@ def process_huc_hecras_data(
             # Get a list of feature IDs that have valid HEC-RAS models for this model/site combination
             cond_model_id = huc_ripple_model_status_df['collection_id'] == model_name
             cond_is_valid = huc_ripple_model_status_df['is_valid'] == True
-            valid_model_feature_id_list = huc_ripple_model_status_df[cond_model_id & cond_is_valid]['feature_id'].unique().tolist()
+            valid_model_feature_id_list = (
+                huc_ripple_model_status_df[cond_model_id & cond_is_valid]['feature_id'].unique().tolist()
+            )
 
             # Filter the valid model feature ID list to be only the feature IDs affiliated with this site
-            valid_site_model_feature_id_list = [item for item in valid_model_feature_id_list if item in set(full_site_feature_id_list)]
+            valid_site_model_feature_id_list = [
+                item for item in valid_model_feature_id_list if item in set(full_site_feature_id_list)
+            ]
 
-            # logging.info(f'[from segments df] full_site_feature_id_list : {full_site_feature_id_list}')  # TEMP DEBUG
-            logging.info(f'{huc} : {ahps_site} - Feature IDs w/ HEC-RAS models available for site (from HUC controls df) : {full_site_feature_id_list}')
-
-            # logging.info(f'[from whitelist] valid_model_feature_id_list : {valid_model_feature_id_list}')  # TEMP DEBUG
-            # logging.info(f'[from whitelist] valid_site_model_feature_id_list : {valid_site_model_feature_id_list}')  # TEMP DEBUG
-            # logging.info(f'{huc} : {ahps_site} : {model_name} - Feature IDs for which this model is valid in the whitelist (for this model): {valid_model_feature_id_list}')  # TEMP DEBUG
-            logging.info(f'{huc} : {ahps_site} : {model_name} - Feature IDs for which this model is valid in the whitelist (for this model + site combo): {valid_site_model_feature_id_list}')
-
-            logging.info(f'{huc} : {ahps_site} : {model_name} - Valid HEC-RAS models available for {len(valid_site_model_feature_id_list)}/{len(full_site_feature_id_list)} feature IDs')  # TEMP DEBUG 
+            logging.info(
+                f'{huc} : {ahps_site} - Feature IDs w/ HEC-RAS models available for site (from HUC controls df) : {full_site_feature_id_list}'
+            )
+            logging.info(
+                f'{huc} : {ahps_site} : {model_name} - Feature IDs for which this model is valid in the whitelist (for this model + site combo): {valid_site_model_feature_id_list}'
+            )
+            logging.info(
+                f'{huc} : {ahps_site} : {model_name} - Valid HEC-RAS models available for {len(valid_site_model_feature_id_list)}/{len(full_site_feature_id_list)} feature IDs'
+                )
 
             if len(full_site_feature_id_list) > len(valid_site_model_feature_id_list):
-                logging.warning(f'{huc} : {ahps_site} : {model_name} - HEC-RAS models not available for all site feature IDs, HEC-RAS processing will not proceed for this site/model combination')
+                logging.warning(
+                    f'{huc} : {ahps_site} : {model_name} - HEC-RAS models not available for all site feature IDs, HEC-RAS processing will not proceed for this site/model combination'
+                )
                 # TODO: Confirm that this is actually properly halting processing for this site/model combo
                 continue
 
             # TODO: subset site_controls_df so it only includes feature IDs in valid_site_model_feature_id_list? or is this still necessary?
 
             # Add site/model combination to sites_models_list
-            sites_models_list.append({'nws_lid': ahps_site, 'model_collection': model_name, 'feature_ids': valid_site_model_feature_id_list})  # TODO: test this list stuff
+            sites_models_list.append(
+                {
+                    'nws_lid': ahps_site,
+                    'model_collection': model_name,
+                    'feature_ids': valid_site_model_feature_id_list
+                }
+            )  # TODO: test this list stuff
 
             for magnitude in magnitude_list:
                 logging.info(
@@ -1245,7 +1263,7 @@ def process_huc_hecras_data(
                     & (site_controls_df['magnitude'] == magnitude)
                 ]
 
-                # Subset the controls CSV to only include sites that are also in the 
+                # Subset the controls CSV to only include sites that are also in the whitelist? TODO: Check if this is still needed
 
                 # Only keep these columns in the df: reach_id,flow,control_stage
                 controls_subset_df = controls_subset_df[['reach_id', 'flow', 'control_stage']]
@@ -1264,11 +1282,13 @@ def process_huc_hecras_data(
         return
 
     # If models are available, save output CSVs and download the necessary ripple files
-    logging.info(f"{huc} - Found {len(sites_models_list)} site/model combination(s) for HEC-RAS sites in this HUC")
+    logging.info(
+        f"{huc} - Found {len(sites_models_list)} site/model combination(s) for HEC-RAS sites in this HUC"
+    )
 
     # Create a df from the sites_models_list to save as a CSV with the site/model combinations available for the HEC-RAS sites in the HUC
     sites_models_df = pd.DataFrame(sites_models_list)
-    sites_models_csv_path = os.path.join(huc_path, 'temp', f"{huc}_hr_sites_models.csv")  # TODO: Decide where to save, <huc>/temp folder I think
+    sites_models_csv_path = os.path.join(huc_path, 'temp', f"{huc}_hr_sites_models.csv")
     sites_models_df.to_csv(sites_models_csv_path, index=False)
     logging.info(f'{huc} - Saved sites/models CSV to {sites_models_csv_path}')
 

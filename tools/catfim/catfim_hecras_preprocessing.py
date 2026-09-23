@@ -4,16 +4,16 @@ import argparse
 import logging
 import os
 import re
+import shutil
 import subprocess
 import traceback
-import shutil
 from datetime import date, datetime, timezone
 
 import pandas as pd
 
+import data.aws.s3_shared_functions as s3_sf
 import src.utils.shared_functions as sf
 import tools.catfim.catfim_shared_functions as csf
-import data.aws.s3_shared_functions as s3_sf
 from src.utils.shared_functions import FIM_Helpers as fh
 
 
@@ -42,7 +42,9 @@ def create_output_folder(output_folder_location):
     # Confirm that the parent dir of the output folder exists
     output_folder_parent_dir = os.path.dirname(output_folder_location)
     if not os.path.isdir(output_folder_parent_dir):
-        raise Exception(f"Output folder parent dir does not exist, unable to create output folder at {output_folder_location}")
+        raise Exception(
+            f"Output folder parent dir does not exist, unable to create output folder at {output_folder_location}"
+        )
 
     # Make output folder
     date_formatted = date.today().strftime("%Y%m%d")
@@ -240,19 +242,22 @@ def __create_runtime_args_file(
 def download_ripple_file_from_s3(ripple_filename, collection_id, collection_temp_folder, filename):
     '''
     Download the necessary ripple files from S3.
-    
     '''
 
     s3_file_key = f'/fim/ripple/{ripple_filename}/collections/{collection_id}/{filename}'
     target_file_path = os.path.join(collection_temp_folder, filename)
 
-    does_file_exist = s3_sf.download_s3_file(S3_CLIENT, BUCKET_NAME, s3_file_key, target_file_path, test_bucket_exists=True)
+    does_file_exist = s3_sf.download_s3_file(
+        S3_CLIENT, BUCKET_NAME, s3_file_key, target_file_path, test_bucket_exists=True
+    )
     logging.info(f'File exists at {BUCKET_NAME}/{s3_file_key}: {does_file_exist}')
 
     return target_file_path
 
 
-def run_controls(magnitude, collection_id, flows_filename, flows2fim_path, intermediates_folder, db_path, starts_csv):
+def run_controls(
+        magnitude, collection_id, flows_filename, flows2fim_path, intermediates_folder, db_path, starts_csv
+):
     '''
     Runs flows2fim controls for a given model and magnitude, using the specified flows file.
     Saves the output CSV to the intermediate files path.
@@ -386,11 +391,6 @@ def run_controls_for_all_models_and_magnitudes(
     output_folder : str
         The path to the output folder where final outputs will be saved.
 
-    Returns
-    -------
-    compiled_controls_path : str
-        The path to the compiled controls output CSV file created by concatenating all individual controls CSVs
-
     '''
     logging.info('')
     logging.info("Begin running controls....")
@@ -467,13 +467,17 @@ def run_controls_for_all_models_and_magnitudes(
         collection_temp_folder = os.path.join(intermediates_folder, collection_id)
 
         if os.path.exists(collection_temp_folder):
-            logging.info(f'Removing previously-made collection temp folder')
+            logging.info('Removing previously-made collection temp folder')
             shutil.rmtree(collection_temp_folder)
 
         os.mkdir(collection_temp_folder, mode=0o777)
 
-        db_path = download_ripple_file_from_s3(ripple_filename, collection_id, collection_temp_folder, "ripple.gpkg")
-        starts_csv = download_ripple_file_from_s3(ripple_filename, collection_id, collection_temp_folder, "start_reaches.csv")
+        db_path = download_ripple_file_from_s3(
+            ripple_filename, collection_id, collection_temp_folder, "ripple.gpkg"
+        )
+        starts_csv = download_ripple_file_from_s3(
+            ripple_filename, collection_id, collection_temp_folder, "start_reaches.csv"
+        )
 
         print(f"Downloaded files to {collection_temp_folder}:")  # TEMP DEBUG
         print(f" - {db_path}")  # TEMP DEBUG
@@ -484,7 +488,13 @@ def run_controls_for_all_models_and_magnitudes(
             flows_filename = flows_csv_dict[magnitude]
 
             controls_output_csv = run_controls(
-                magnitude, collection_id, flows_filename, flows2fim_path, intermediates_folder, db_path, starts_csv
+                magnitude,
+                collection_id,
+                flows_filename,
+                flows2fim_path,
+                intermediates_folder,
+                db_path,
+                starts_csv,
             )
 
             if controls_output_csv is None:
@@ -497,11 +507,14 @@ def run_controls_for_all_models_and_magnitudes(
             controls_df = pd.read_csv(controls_output_csv)
             controls_df['magnitude'] = magnitude
             controls_df['model_collection'] = collection_id
-            controls_df['collection_parent_folder'] = ripple_filename # TODO: Do we need this column? It should be the same for every row... 
+            controls_df['collection_parent_folder'] = ripple_filename 
+            # TODO: Do we need this ripple_filename column? It should be the same for every row... 
 
             # Join the identifiers_df to the controls_df to add the nws_lid column (joining on reach_id for controls_df and nwm_feature_id for identifiers df)
-            controls_df = pd.merge(controls_df, identifiers_df, left_on='reach_id', right_on='nwm_feature_id', how='left')
-            # TODO: Fix if possible... I don't think this is working because the last two cols seem to be blank in the combined outputs? 
+            controls_df = pd.merge(
+                controls_df, identifiers_df, left_on='reach_id', right_on='nwm_feature_id', how='left'
+            )
+            # TODO: Fix if possible... I don't think this is working because the last two cols seem to be blank in the combined outputs?
 
             # Save the controls CSV for the collection/magnitude
             controls_df.to_csv(controls_output_csv, index=False)
@@ -523,21 +536,20 @@ def run_controls_for_all_models_and_magnitudes(
 
     # Compile the outputs of the controls in controls_output_csv_list and delete the input temp folder
     combined_df = pd.concat([pd.read_csv(f) for f in controls_output_csv_list], ignore_index=True)
-    logging.info('Compiled all controls files, deleting temp folder with magnitude/collection-specific controls files')
+    logging.info(
+        'Compiled all controls files, deleting temp folder with magnitude/collection-specific controls files'
+    )
     shutil.rmtree(intermediates_folder)
-
 
     # TODO: fix the feature ID column? (instead of in CatFIM code)
 
-
-
     # Save the combined DataFrame to a new CSV file
-    compiled_controls_path = os.path.join(output_folder, f'combined_controls_output.csv')
+    compiled_controls_path = os.path.join(output_folder, 'combined_controls_output.csv')
     combined_df.to_csv(compiled_controls_path, index=False)
 
     logging.info(f'Compiled controls output saved to {os.path.basename(compiled_controls_path)}')
 
-    return compiled_controls_path
+    return
 
 
 def parse_subprocess_outputs(result, common_warning_list, collection_id, magnitude):
@@ -585,66 +597,6 @@ def parse_subprocess_outputs(result, common_warning_list, collection_id, magnitu
     return
 
 
-def create_site_model_table(compiled_controls_path, output_folder): # TODO: Remove?
-    '''
-    Creates a table of sites that have HEC-RAS models available.
-    Creates the sites_with_hecras_models.csv file.
-
-    Arguments
-    ----------
-    compiled_controls_path : str
-        The path to the compiled controls CSV file.
-    output_folder : str
-        The path to the output folder where the resulting table will be saved.
-
-    '''
-    logging.info('')
-    logging.info('Creating list of sites with HEC-RAS models available...')
-
-    # Read compiled_outputs_path and filter out rows that have NaN in the nws_lid column
-    compiled_controls_df = pd.read_csv(compiled_controls_path)
-    compiled_controls_df = compiled_controls_df[~compiled_controls_df['nws_lid'].isna()]
-
-    # Remove unneeded columns (flow, control_stage, magnitude, model_collection, collection_parent_folder) and then remove duplicate rows, keeping the first occurrence of each LID
-    all_hecras_sites_df = compiled_controls_df.drop(columns=['flow', 'control_stage', 'magnitude', 'model_collection', 'collection_parent_folder'])
-    # TODO: Test that it's ok that we removed model collection and collection parent folder...
-
-
-    # Remvove duplicate site IDs
-    all_hecras_sites_df = compiled_controls_df.drop_duplicates(subset=['nws_lid'], keep='first')
-
-
-    # Filter with whiteist? (removed)
-    # # TODO: Is this correct to be done here? no... the hecras sites DF does not contain any model information.
-    # It just connects sites to reach IDs and shows which sites have HECRAS data
-    # TODO: Clean up
-    # # Filter the compiled df to only include feature IDs where is_valid = True in the whitelist
-    # ripple_model_status_table = pd.read_csv(ripple_model_status_path)
-    # valid_ripple_reach_id_list = (
-    #     ripple_model_status_table[ripple_model_status_table['is_valid'] == True]['feature_id']
-    #     .unique()
-    #     .tolist()
-    # )
-    # # Filter out sites from compiled_df where the reach_id is not in the valid_ripple_reach_id_list
-    # compiled_controls_df = compiled_controls_df[compiled_controls_df['reach_id'].isin(valid_ripple_reach_id_list)]
-
-    # # Print a list of sites that were removed due to not being valid
-    # invalid_sites_list = compiled_controls_df[~compiled_controls_df['reach_id'].isin(valid_ripple_reach_id_list)]['nws_lid'].unique().tolist()
-    # if len(invalid_sites_list) > 0:
-    #     logging.warning(
-    #         f'The {len(invalid_sites_list)} sites were removed from the final list due to not being valid: {invalid_sites_list}'
-    #     )
-
-    # Save the resulting DataFrame to a new CSV file with the date in the filename
-    sites_with_hecras_models_path = os.path.join(output_folder, 'sites_with_hecras_models.csv')
-    all_hecras_sites_df.to_csv(sites_with_hecras_models_path, index=False)
-
-    logging.info(f'Compiled HEC-RAS model info for {len(all_hecras_sites_df['nws_lid'].unique().to_list())} AHPS sites')
-    logging.info(f'Saved sites/model table to {os.path.basename(sites_with_hecras_models_path)}')
-
-    return
-
-
 # Main function
 def catfim_hecras_preprocessing(
     threshold_file, nwm_meta_file, ripple_filename, output_folder_location, lst_models
@@ -669,10 +621,10 @@ def catfim_hecras_preprocessing(
     # Get input variables
     magnitude_types = csf.MAGNITUDES_TYPES
     flows2fim_path = "/projects/catfim_hecras_fb/flows2fim_030/flows2fim"  # csf.FLOWS2FIM_PATH TODO: finalize file location and Add to shared vars
-    ripple_model_status_path = '/projects/catfim_hecras_fb/ripple_feature_ids_whitelist_final_20260729_1420_no_path.csv' # TODO: Finalize file location and update input path (maybe from an env file?) ... maybe eventually we will download this from S3 too
+    ripple_model_status_path = '/projects/catfim_hecras_fb/ripple_feature_ids_whitelist_final_20260729_1420_no_path.csv'  # TODO: Finalize file location and update input path (maybe from an env file?) ... maybe eventually we will download this from S3 too
 
     # S3 Setup: Make the S3 client, get the bucket name, and validate S3 input paths
-    aws_creds_file = '/data/config/aws_credentials.env' # TODO: should we get this from somewhere?
+    aws_creds_file = '/data/config/aws_credentials.env'  # TODO: should we get this from somewhere?
     global BUCKET_NAME, S3_CLIENT
     S3_CLIENT, BUCKET_NAME = csf.setup_aws_s3_download(aws_creds_file)
 
@@ -713,10 +665,9 @@ def catfim_hecras_preprocessing(
         logging.info("")
         logging.info(f"Logs will be saved to {log_file_path}")
         logging.info("")
-        logging.info(f"Using S3 bucket: {BUCKET_NAME}") ### TEMP DEBUG
+        logging.info(f"Using S3 bucket: {BUCKET_NAME}")
         logging.info(f"Using Ripple filename: {ripple_filename}")
         logging.info("")
-
 
         # Make flows file from the input WRDS data
         flows_csv_dict, identifiers_csv_path = create_flows_files(
@@ -724,7 +675,7 @@ def catfim_hecras_preprocessing(
         )
 
         # Create the controls CSVs for the model/magnitude combinations
-        compiled_controls_path = run_controls_for_all_models_and_magnitudes(
+        run_controls_for_all_models_and_magnitudes(
             magnitude_types,
             flows_csv_dict,
             collections_path,
@@ -736,9 +687,6 @@ def catfim_hecras_preprocessing(
             lst_models,
             output_folder,
         )
-
-        # Create a table matching AHPS sites to available HEC-RAS models
-        # create_site_model_table(compiled_controls_path, output_folder) # TODO: Rename? (take model out?)
 
         # Create a runtime args file to document the input parameters and files used
         __create_runtime_args_file(
