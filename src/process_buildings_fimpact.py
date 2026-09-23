@@ -1,25 +1,10 @@
 import argparse
-import glob
-import os
-import re
 from pathlib import Path
 
 import geopandas as gpd
 import numpy as np
-import pandas as pd
 import rasterio
-import xarray as xr
-from rasterio import features
-from rasterio.warp import Resampling, reproject
 from rasterstats import zonal_stats
-
-
-def min_hand_excluding_zero(values):
-    # Convert to unmasked array and drop 0 and masked/nodata
-    # return np.nan if on NoData Hand to be able to filter them later
-    data = np.ma.filled(values.astype(float), np.nan)  # Convert masked to nan
-    valid = data[(data != 0) & (~np.isnan(data))]
-    return float(np.min(valid)) if valid.size > 0 else np.nan
 
 
 def process_buildings_fimpact(
@@ -30,21 +15,16 @@ def process_buildings_fimpact(
 
     Parameters:
     - source_hand_raster (str): REQUIRED. Path to the source HAND raster file
-    - buildings_polygons (str): REQUIRED. Path to a GeoPackage (GPKG) file containing the buildings segments.
-    - catchments (srr): REQUIRED. Path to HAND catchment
+    - buildings_polygons (str): REQUIRED. Path to a GeoParquet file containing the buildings segments.
+    - catchments (str): REQUIRED. Path to HAND catchment GeoParquet file
     - output_path (str): REQUIRED. Path where the output CSV file will be saved.
 
     """
     # get branch id from output file passed from fim pipeline
     branch_id = Path(output_path).parent.name
 
-    # read hand grid
-    with rasterio.open(hand_grid_raster, 'r') as hand_grid:
-        hand_grid_profile = hand_grid.profile
-        hand_grid_array = hand_grid.read(1)
-
     # read buildings data
-    buildings_gdf = gpd.read_file(buildings_polygons)
+    buildings_gdf = gpd.read_parquet(buildings_polygons)
 
     # read catchments to split the building polygons for each intersected HYDROID/feature_id.
     catchments_df = gpd.read_parquet(catchments_path, columns=['HydroID', 'feature_id', 'geometry'])
@@ -53,6 +33,37 @@ def process_buildings_fimpact(
     catchments_df['feature_id'] = catchments_df['feature_id'].astype(int).astype(str)
     catchments_df['HydroID'] = catchments_df['HydroID'].astype(int).astype(str)
 
+    if not buildings_gdf.empty:
+        original_count = len(buildings_gdf)
+
+        with rasterio.open(hand_grid_raster, 'r') as hand_grid:
+            hand_grid_profile = hand_grid.profile
+            hand_grid_array = hand_grid.read(1)
+
+            # Cheap prefilter: drop buildings whose HAND value is outside the max stage
+            # (> 25m) before the expensive overlay() and zonal_stats() calls below. Uses
+            # rasterio's built-in point sampler rather than zonal_stats, since rasterizing
+            # every building polygon just to check if it's obviously out of range is wasteful.
+            pts = buildings_gdf.geometry.representative_point()
+            hand_at_point = np.array([v[0] for v in hand_grid.sample(zip(pts.x, pts.y))])
+
+        # HAND uses 0 to mark channel cells, which we need to exclude from the min threshold.
+        # remap 0 -> nodata once here (single vectorized pass over the raster) so the built-in
+        # `min` stat below can exclude it natively, instead of a per-feature python callback.
+        nodata = hand_grid_profile['nodata']
+        hand_grid_array = np.where(hand_grid_array == 0, nodata, hand_grid_array)
+
+        # sample() returns the raster's nodata value for out-of-bounds/nodata points; treat
+        # those as NaN and keep them, and use ~(> 25) rather than (<= 25) so NaN is kept, not
+        # dropped -- a single sampled point isn't proof the whole building has no valid HAND
+        # coverage, so those cases are left for the real overlay() + zonal_stats() + dropna()
+        # pipeline below to resolve. We only prune the unambiguous, definitively >25 cases here.
+        hand_at_point = np.where(hand_at_point == nodata, np.nan, hand_at_point)
+        buildings_gdf = buildings_gdf[~(hand_at_point > 25)]
+
+        removed_pct = (original_count - len(buildings_gdf)) / original_count * 100
+        print(f'{branch_id}: HAND prefilter removed {removed_pct:.1f}% of {original_count} buildings')
+
     # split buildings by HAND catchment boundaries so each piece has the correct HydroID
     buildings_gdf = gpd.overlay(buildings_gdf, catchments_df, how="intersection")
     buildings_gdf = buildings_gdf.explode(index_parts=True).reset_index(drop=True)
@@ -60,18 +71,18 @@ def process_buildings_fimpact(
     if not buildings_gdf.empty:
         buildings_gdf['branch'] = branch_id
 
-        # Call zonal_stats with the custom stat
-        stats = zonal_stats(
-            buildings_gdf['geometry'],
-            hand_grid_array,
-            affine=hand_grid_profile['transform'],
-            nodata=hand_grid_profile["nodata"],
-            all_touched=True,
-            stats=[],  # No built-in stats needed
-            add_stats={"min_ex0": min_hand_excluding_zero},
-        )
+        # Call zonal_stats with the built-in min stat
+        with rasterio.Env():
+            stats = zonal_stats(
+                buildings_gdf['geometry'],
+                hand_grid_array,
+                affine=hand_grid_profile['transform'],
+                nodata=nodata,
+                all_touched=True,
+                stats=['min'],
+            )
 
-        buildings_gdf.loc[:, 'threshold_hand'] = [x.get('min_ex0') for x in stats]
+        buildings_gdf.loc[:, 'threshold_hand'] = [x.get('min') for x in stats]
 
         # it is possible that buildings cross areas of a HAND with nan data (levee), so make sure to remove those Nan threshold hands
         buildings_gdf = buildings_gdf.dropna(subset=['threshold_hand'])
@@ -98,8 +109,8 @@ if __name__ == "__main__":
     Sample usage :
         python foss_fim/src/process_buildings_fimpact.py
         -g outputs/buildings/02050206/branches/0/rem_zeroed_masked_0.tif
-        -r outputs/buildings/02050206/buildings_subset.gpkg
-        -c outputs/roads/02050206/branches/0/gw_catchments_reaches_filtered_addedAttributes_crosswalked_0.gpkg
+        -r outputs/buildings/02050206/buildings_subset.parquet
+        -c outputs/roads/02050206/branches/0/gw_catchments_reaches_filtered_addedAttributes_crosswalked_0.parquet
         -o outputs/buildings/02050206/branches/0/buildings_fimpact_0.csv
 
     '''
@@ -113,15 +124,12 @@ if __name__ == "__main__":
     parser.add_argument(
         '-r',
         '--buildings_polygons',
-        help='REQUIRED: Path to a GPKG file containing the buildings polygons ',
+        help='REQUIRED: Path to a Geoparquet file containing the buildings polygons ',
         required=True,
     )
 
     parser.add_argument(
-        '-c',
-        '--catchments_path',
-        help='REQUIRED: Path and file name of the HAND catchments geopackage',
-        required=True,
+        '-c', '--catchments_path', help='REQUIRED: Path to the HAND catchments GeoParquet file', required=True
     )
 
     parser.add_argument(
