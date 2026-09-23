@@ -58,6 +58,7 @@ def process_generate_categorical_fim(
     get_new_threshold_data,
     model,
     preprocessed_hecras_folder,
+    flows2fim_software_path,
     skip_processing,
     overwrite,
 ):
@@ -101,6 +102,8 @@ def process_generate_categorical_fim(
         Only works on OWP servers, not Amazon AWS.
     preprocessed_hecras_folder - str
         Filepath to the folder containing preprocessed HEC-RAS files.
+    flows2fim_software_path - str
+        TODO: Add
     skip_processing - bool
         If True, this function will set up all of the initial 'pre-processing' steps, but will
         not continue with the processing of the hucs or post processing.
@@ -197,13 +200,11 @@ def process_generate_categorical_fim(
             hr_preference,
             combined_controls_csv,
             hecras_preprocessing_runtime_args,
+            flows2fim_software_path,
         ) = __validate_inputs(local_vals)
 
         # Note: this will handle a huc list arg of "all". If valid_fim_hucs is empty, it will thrown an exception
         # valid_fim_hucs are hucs that have valid huc folders in the fim output dir.
-
-        # TODO: Aug 1, 2026: Finish this.. its important.
-        # It has not yet been compared to metadata and sites.
 
         # Make output folder
         permissions_code = 0o776
@@ -268,6 +269,7 @@ def process_generate_categorical_fim(
             hr_preference,
             combined_controls_csv,
             hecras_preprocessing_runtime_args,
+            flows2fim_software_path,
         )
 
         # Throw a warning if any listed HUCs are in our FIM outputs
@@ -1269,9 +1271,10 @@ def __validate_inputs(received_locals_dict):
 
     if inundate_hr is True:
         if preprocessed_hecras_folder == "":
-            # preprocessed_hecras_folder = os.getenv("hecras_files") # TODO: Add this in once I've added the env variable to the bash_variables file.
-            preprocessed_hecras_folder = "/projects/catfim_hecras_fb/hecras_preprocess_test5_full_run/catfim_hecras_preprocessing_20260922"
-            # TODO: Remove hardcoding once I've added other default to env variables
+
+            # For now, we do not have a permanent path for the preprocessed CatFIM HEC-RAS data, so CatFIM will error out if this is not provided
+            # # preprocessed_hecras_folder = os.getenv("hecras_files")
+            # TODO: Add this check back in once there is a permanent path that can be pulled from the environment file
 
             if not os.path.exists(preprocessed_hecras_folder):
                 raise Exception(
@@ -1284,9 +1287,6 @@ def __validate_inputs(received_locals_dict):
                     f"Preprocessed HEC-RAS inputs not found at {preprocessed_hecras_folder}"
                     " Using filepath from input arguments. Check env file input variables."
                 )
-
-        # TODO: Add a check to make sure that these preprocessed HECRAS inputs use the same metadata and thresholds input files
-        # as we are using in this CatFIM run.
 
         # Check whether the required HEC-RAS files exist in this folder
         combined_controls_csv = os.path.join(preprocessed_hecras_folder, 'combined_controls_output.csv')
@@ -1301,14 +1301,37 @@ def __validate_inputs(received_locals_dict):
                 f"Input HEC-RAS folder exists but HEC-RAS pre-processing runtime args not found at {hecras_preprocessing_runtime_args}"
             )
 
+        # Validate flows2fim software path
+        flows2fim_software_path = received_locals_dict["flows2fim_software_path"]
 
+        if not os.path.exists(flows2fim_software_path):
+            raise Exception(f'File not found at flows2fim software path: {flows2fim_software_path}')
+
+        # Check that the necessary info is in the HEC-RAS runtime args file
+        load_dotenv(hecras_preprocessing_runtime_args)
+
+        hecras_variable_list = ["RIPPLE_FILENAME", "BUCKET_NAME", "AWS_CREDS_FILE", "RIPPLE_MODEL_STATUS_PATH"]
+        hecras_path_list = ["AWS_CREDS_FILE", "RIPPLE_MODEL_STATUS_PATH"]
+
+        for hecras_var in hecras_variable_list:
+            if not hecras_var in os.environ:
+                raise Exception(f'Missing value {hecras_var} from HEC-RAS runtime args ({hecras_preprocessing_runtime_args})')
+
+        # Check that the provided paths are correct
+        for hecras_path_key in hecras_path_list:
+            hecras_path = os.getenv(hecras_path_key)
+            if not os.path.isfile(hecras_path):
+                raise Exception(f'Input file not available at path provided in HEC-RAS runtime args: {hecras_path}')
 
         # TODO: Should we get the metadata and threshold files from the runtime args as well and make sure that
         # they match the input filenames for this run? ...probably
 
+
+
+
     else:
-        # Set default vals if inundate hr is false
-        hecras_sites_csv, combined_controls_csv = '', ''
+        # Set default val if inundate hr is false
+        combined_controls_csv = ''
 
     return (
         valid_fim_hucs,
@@ -1320,6 +1343,7 @@ def __validate_inputs(received_locals_dict):
         hr_preference,
         combined_controls_csv,
         hecras_preprocessing_runtime_args,
+        flows2fim_software_path,
     )
 
 
@@ -1340,6 +1364,7 @@ def __create_runtime_args_file(
     hr_preference,
     combined_controls_csv,
     hecras_preprocessing_runtime_args,
+    flows2fim_software_path,
 ):
     '''
     Create a runtime args environment file (saved as output_folder/runtime_args.env).
@@ -1374,15 +1399,20 @@ def __create_runtime_args_file(
         Stage-Based only. How many feet past major do you want to go for the interval FIMs?
         of the machine. Defaults to 5.
     inundate_hand - BOOL
-        TODO: Fill in
+        Whether or not to inundate the HAND models.
     inundate_hr - BOOL
-        TODO: Fill in
+        Whether or not to inundate the HEC-RAS models (if available)
     hr_preference - BOOL
-        TODO: Fill in
+        Whether to run all available HEC-RAS and HAND models or to just run the preferred HEC-RAS model when available
+        and otherwise run the HAND model. If the model tag ends with 'p', HEC-RAS preference is True (which means we
+        will only run one HEC-RAS model per site). If not, we will run ALL available HEC-RAS models for each site
+        (not recommended for full CatFIM runs).
     combined_controls_csv - str
-        TODO: Fill in
+        Filepath to the combined_controls_output.csv created in the CatFIM HEC-RAS preprocessing script. 
     hecras_preprocessing_runtime_args - str
-        TODO: Fill in
+        Filepath to the runtime_args.env file created in the CatFIM HEC-RAS preprocessing script.
+    flows2fim_software_path - str
+        TODO: Update
     '''
 
     args_file_name = "runtime_args.env"
@@ -1409,6 +1439,8 @@ def __create_runtime_args_file(
         file.write(f"HR_PREFERENCE={hr_preference}\n")
         file.write(f"COMBINED_CONTROLS_CSV={combined_controls_csv}\n")
         file.write(f"HECRAS_PREPROCESS_RUNTIME_ARGS={hecras_preprocessing_runtime_args}\n")
+        file.write(f"FLOWS2FIM_SOFTWARE_PATH={flows2fim_software_path}\n")
+
     return
 
 if __name__ == '__main__':
@@ -1630,7 +1662,17 @@ if __name__ == '__main__':
         ' e.g.: /data/catfim/hecras/catfim_hecras_preprocessing_20260910 . Default value comes from bash_variables.'
         ' Must contain the following files: sites_with_hecras_models.csv and combined_controls_output.csv',
         required=False,
-        default="",
+        default="/projects/catfim_hecras_fb/hecras_preprocess_test5_full_run/catfim_hecras_preprocessing_20260922",
+        # TODO: eventually should pull this from the env file once this has a permanent home
+    )
+
+    parser.add_argument(
+        '-fp',
+        '--flows2fim-software-path',
+        help='OPTIONAL: Path to the flows2fim software.',
+        required=False,
+        default="/projects/catfim_hecras_fb/flows2fim_030/flows2fim",
+        # TODO: eventually should pull this from the env file once this has a permanent home
     )
 
     parser.add_argument(

@@ -305,16 +305,13 @@ def run_fb_mapping(
             logging.info(" ")
             logging.info(f"{huc} : {ahps_site} - HEC-RAS inundation...")
 
-            flows2fim_path = "/projects/catfim_hecras_fb/flows2fim_030/flows2fim"  # TODO: pull from .env
-
+            flows2fim_path = os.getenv("FLOWS2FIM_SOFTWARE_PATH")
 
             # Get HEC-RAS-specific input args
-            # hecras_preprocess_runtime_args = os.getenv("HECRAS_PREPROCESS_RUNTIME_ARGS")  # TODO: Clean up
             load_dotenv(os.getenv("HECRAS_PREPROCESS_RUNTIME_ARGS"))
             collection_parent_folder = os.getenv("RIPPLE_FILENAME")  # example: "20260211_merged"
             hydrovis_bucket_name = os.getenv("BUCKET_NAME")  # example: hydrovis-ti-deployment-us-east-1
             aws_creds_file = os.getenv("AWS_CREDS_FILE")
-            # ripple_model_status_csv = os.getenv("RIPPLE_MODEL_STATUS_PATH")  # TODO: Clean up
 
             # Configure AWS credentials
             hv_aws_access_key, hv_aws_secret_key, hv_aws_region = csf.get_aws_credentials(aws_creds_file)

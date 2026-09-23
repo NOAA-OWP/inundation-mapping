@@ -340,7 +340,6 @@ def process_threshold_data(
                 huc,
                 huc_path,
                 combined_controls_csv,
-                # hecras_preprocess_runtime_args,
                 segments_file_path,
                 output_temp_dir,
                 valid_lids,
@@ -1015,7 +1014,6 @@ def process_huc_hecras_data(
     huc,
     huc_path,
     combined_controls_csv,
-    # hecras_preprocess_runtime_args, # TODO: Clean up
     segments_file_path,
     output_temp_dir,
     valid_lids,
@@ -1034,8 +1032,6 @@ def process_huc_hecras_data(
         Path to the HUC directory.
     combined_controls_csv - str
         Path to the combined controls CSV file (combined_controls_output.csv).
-    # hecras_preprocess_runtime_args - str
-        # TODO: Update
     segments_file_path - str
         Path to the segments CSV file.
     output_temp_dir - str
@@ -1047,15 +1043,6 @@ def process_huc_hecras_data(
     '''
 
     logging.info(f"{huc} - Begin subsetting HEC-RAS controls into site/magnitude/model-specific CSVs...")
-
-    # Get values from the HEC-RAS preprocessing args
-    load_dotenv(os.getenv('HECRAS_PREPROCESS_RUNTIME_ARGS'))
-    ripple_model_status_csv = os.getenv("RIPPLE_MODEL_STATUS_PATH")
-
-    # hecras_preprocess_runtime_args = os.getenv('HECRAS_PREPROCESS_RUNTIME_ARGS')
-    # ripple_filename = os.getenv("RIPPLE_FILENAME")  # example: "20260211_merged"
-    # hydrovis_bucket_name = os.getenv("BUCKET_NAME")  # example: hydrovis-ti-deployment-us-east-1
-    # aws_creds_file = os.getenv("AWS_CREDS_FILE") # TODO: Clean up
 
     # --- Process controls CSV ---
 
@@ -1096,6 +1083,10 @@ def process_huc_hecras_data(
     huc_feature_id_list = segments_df[segments_df['lid'].isin(hecras_site_list)]['feature_id'].tolist()
 
     # --- Process whitelist ---
+
+    # Get values from the HEC-RAS preprocessing args
+    load_dotenv(os.getenv('HECRAS_PREPROCESS_RUNTIME_ARGS'))
+    ripple_model_status_csv = os.getenv("RIPPLE_MODEL_STATUS_PATH")
 
     # Read in whitelist and process it to get a list of whitelisted models for each site (if applicable)
     ripple_model_status_filename = os.path.basename(ripple_model_status_csv)
@@ -1287,62 +1278,7 @@ def process_huc_hecras_data(
     logging.info(f'{huc} - Saved HUC controls to {huc_controls_csv_path}')
     logging.info(f'{huc} - Finished subsetting controls CSVs for {huc}')
 
-    # # ---
-    # # Download the necessary library extent folders from S3 to the HUC /library_extent/ folder
-    # # TODO: Eventually will get rid of this and not download the library extents at all
-
-    # # Setup S3 client and bucket name
-    # aws_creds_file = '/data/config/aws_credentials.env' # TODO: should we get this from somewhere?
-    # s3_client, bucket_name = csf.setup_aws_s3_download(aws_creds_file)
-
-    # # Get the value of the collection_parent_folder column (just get first val bcs they should all be the same)
-    # # TODO: Should this actually just be pulled from the args or from the HECRAS preprocessing args?
-    # collection_parent_folder = huc_controls_df['collection_parent_folder'].iloc[0]
-
-    # for model_name in model_list:
-    #     logging.info(f'{huc} - Processing model_collection: {model_name}')
-    
-    #     # Get a list of nwm_feature_ids for the given model_collection
-    #     # model_collection_df = huc_controls_df[huc_controls_df['model_collection'] == model_name] # TODO: Clean up
-    #     # nwm_feature_ids = model_collection_df['nwm_feature_id'].unique().tolist()
-
-    #     # TODO: Need to filter this to the actual list of feature IDs that we are using! maybe move this up to where we create the feature ID list?
-    #     # maybe using sites_models_df.... also should just be one val but do we want to put in place a contingency for if there's two?
-    #     nwm_feature_ids = sites_models_df[sites_models_df['model_collection']==model_name]['feature_ids'].iloc[0] # TODO: test this list stuff
-
-    #     logging.info('sites_models_df: ')  # TEMP DEBUG
-    #     logging.info(sites_models_df)  # TEMP DEBUG
-    #     logging.info(f'nwm_feature_ids: {nwm_feature_ids}')  # TEMP DEBUG
-
-    #     # Ensure that feature IDs are str
-    #     nwm_feature_ids = [str(x).removesuffix(".0") for x in nwm_feature_ids]
-
-    #     logging.info(f'{huc} : {model_name} - Downloading library extent files for {len(nwm_feature_ids)} feature IDs')  # TEMP DEBUG
-    #     download_start_dt = datetime.now(timezone.utc)
-
-    #     # Download the library extent files for the valid feature IDs
-    #     # TODO: Decide, do we want to do this closer to where we're doing mapping? Probably not necessary, especially since I think
-    #     # the plan is to have flows2fim run with just the undownloaded model extents from S3 (rather than downloading here)
-    #     for id in nwm_feature_ids:
-    #         num_workers = 7  # TODO: Monitor that this amount of workers doesn't overload the system
-
-    #         s3_file_key = f'/fim/ripple/{collection_parent_folder}/collections/{model_name}/library_extent/{id}'
-    #         target_file_path = os.path.join(huc_path, 'temp', model_name, 'library_extent', id)
-
-    #         logging.info(f'{huc} : {model_name} : {id} - Begin downloading library extent files using {num_workers} workers...')
-    #         logging.info(f's3 file key: {s3_file_key}')  # TEMP DEBUG
-    #         logging.info(f'target filepath: {target_file_path}')  # TEMP DEBUG
-
-    #         s3_sf.download_folders(s3_client, bucket_name, s3_file_key, target_file_path, list_of_search_key=[''], num_workers=num_workers)
-
-    #     download_dur_msg = fh.print_date_time_duration(download_start_dt, datetime.now(timezone.utc), False)
-    #     logging.info(f'{huc} : {model_name} - Finished downloading library extents {download_dur_msg}')
-
-    #     # End feature ID loop
-    # # End model loop
-
-    # logging.info(f'{huc} - Finished downloading all library extents for HUC and processing the HEC-RAS controls')
-    logging.info(f'{huc} - Finished processing the HEC-RAS controls - TESTING NOT DOWNLOADING MODEL EXTENTS')  # TEMP DEBUG
+    logging.info(f'{huc} - Finished processing the HEC-RAS controls')
 
     return
 
