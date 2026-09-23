@@ -11,9 +11,9 @@ from datetime import datetime, timezone
 
 import geopandas as gpd
 import pandas as pd
+from dotenv import load_dotenv
 from tools_shared_functions import filter_nwm_segments_by_stream_order, flow_data, get_nwm_segs
 
-# foss_fim imports
 import data.wrds.download_process_wrds as dpw
 import src.utils.shared_functions as sf
 import tools.catfim.catfim_shared_functions as csf
@@ -24,6 +24,7 @@ gpd.options.io_engine = "pyogrio"
 # helps with gpkg.to_file writes
 os.environ["GDAL_GEO_TRUNCATE_JOURNAL"] = "YES"
 os.environ["OGR_SQLITE_SYNCHRONOUS"] = "OFF"  # Speeds up network writes
+
 
 """
 Sites_gdf:
@@ -226,6 +227,13 @@ def process_threshold_data(
     metadata_json - LIST of JSON
         List of JSONs containing the site metadata.
 
+    inundate_hr - BOOL # TODO: Should these be pulled from the args instead?
+        (Flow-based only) Whether or not to inundate HEC-RAS models (if available)
+    hr_preference - BOOL # TODO: Should these be pulled from the args instead?
+        (Flow-based only) If HEC-RAS models are being inundated, whether to run just
+        the preferred model (True) or run all models (False)
+
+
     Returns
     -------
     sites_gdf - Geopandas GeoDataFrame
@@ -290,21 +298,51 @@ def process_threshold_data(
         # Note: This will not create the interval records at this point. It will do it much later
         # after it has passed a number of tests per mag.
 
+        # Save the segments files
+        if len(huc_segments_df) > 0:
+            huc_segments_df.to_csv(segments_file_path, index=False)
+            logging.info(f"Saving segment file to {segments_file_path}")
+
     else:
         # Create and process flow-based threshold and discharge data
         sites_gdf, huc_library_df, huc_segments_df, huc_discharges_df = __create_fb_huc_library_data(
             huc, valid_lids, sites_gdf, threshold_huc_df, metadata_json, nwm_flows_region_df
         )
 
+        # If inundate HEC-RAS is true, process and subset the necessary model inputs
+        inundate_hr = bool(os.getenv('INUNDATE_HR'))
+        hr_preference = bool(os.getenv('HR_PREFERENCE'))
+
+        # ripple_model_status_csv = '/projects/catfim_hecras_fb/ripple_feature_ids_whitelist_final_20260729_1420_no_path.csv'
+        # TODO: Put this path somewhere official (also figure out where this file should actually be)
+
+        logging.info(f'inundate_hr: {inundate_hr}; hr_preference: {hr_preference}')  # TEMP DEBUG
+
+        # Save the segments files
+        if len(huc_segments_df) > 0:
+            huc_segments_df.to_csv(segments_file_path, index=False)
+            logging.info(f"Saving segment file to {segments_file_path}")
+
+        if inundate_hr is True:
+            logging.info('Begin processing HEC-RAS input data...')  # TEMP DEBUG
+
+            combined_controls_csv = os.getenv('COMBINED_CONTROLS_CSV')
+            # hecras_preprocess_runtime_args = os.getenv('HECRAS_PREPROCESS_RUNTIME_ARGS') # TODO: Might not need to call this here, maybe can summon it inside of the function?
+
+            process_huc_hecras_data(
+                huc,
+                huc_path,
+                combined_controls_csv,
+                segments_file_path,
+                output_temp_dir,
+                valid_lids,
+                hr_preference,
+            )
+
         # Save discharge dataframe (it is ok if this is empty, no need to throw error)
         if len(huc_discharges_df) > 0:
             huc_discharges_df.to_csv(discharge_file_path, index=False)
             logging.info(f"Saving discharge file to {discharge_file_path}")
-
-    # Save the segments files
-    if len(huc_segments_df) > 0:
-        huc_segments_df.to_csv(segments_file_path, index=False)
-        logging.info(f"Saving segment file to {segments_file_path}")
 
     # Note: It is ok if they are empty. Errors have been handled already for the sites_gdf.
     # This will auto have filtered out some recs based on applicable stages and/or flows
@@ -964,6 +1002,309 @@ def __get_fb_discharge_and_library_data_per_lid(huc, lid, sites_gdf, lid_thresho
     return sites_gdf, lid_library_df, lid_discharges_df
 
 
+def process_huc_hecras_data(
+    huc, huc_path, combined_controls_csv, segments_file_path, output_temp_dir, valid_lids, hr_preference
+):
+    '''
+    Currently only run for flow-based CatFIM. Runs at the HUC level.
+    Generates HUC/Site/Model/Magnitude-specific controls CSVs for the HEC-RAS sites in the HUC (if they exist).
+    Downloads the necessary library extents folders from S3.
+
+    Arguments
+    ---------
+    huc - str
+        Hydrologic Unit Code.
+    huc_path - str
+        Path to the HUC directory.
+    combined_controls_csv - str
+        Path to the combined controls CSV file (combined_controls_output.csv).
+    segments_file_path - str
+        Path to the segments CSV file.
+    output_temp_dir - str
+        Path to the temporary output directory.
+    valid_lids - list
+        List of valid NWS LID identifiers to process.
+    hr_preference - bool
+        Flag indicating whether to prefer MIP models over BLE models when multiple HEC-RAS models are available for a site.
+    '''
+
+    logging.info(f"{huc} - Begin subsetting HEC-RAS controls into site/magnitude/model-specific CSVs...")
+
+    # --- Process controls CSV ---
+
+    # Copy the controls output CSV into the folder (temporarily)
+    combined_controls_csv_filename = os.path.basename(combined_controls_csv)
+    local_copy_combined_controls_csv = os.path.join(huc_path, combined_controls_csv_filename)
+    shutil.copyfile(combined_controls_csv, local_copy_combined_controls_csv)
+
+    # Read in the controls CSV and subset it to only the rows with reach_ids in the this HUC's feature ID list
+    all_controls_df = pd.read_csv(local_copy_combined_controls_csv)
+
+    # Get a list of the Feature IDs for the HEC RAS site list from the segments csv
+    segments_df = pd.read_csv(segments_file_path)  # columns: feature_id,lid
+
+    # Merge the segments df to get the AHPS LIDs into the huc_controls_df (merge on reach_id and feature_id)
+    all_controls_df = all_controls_df.merge(
+        segments_df, left_on='reach_id', right_on='feature_id', how='left'
+    )
+
+    # Drop the original (incomplete) 'nws_lid' and 'nwm_feature_id' cols,
+    # then rename 'lid' -> 'nws_lid' and 'feature_id' -> 'nwm_feature_id'
+    all_controls_df = all_controls_df.drop(columns=['nws_lid', 'nwm_feature_id'])
+    all_controls_df = all_controls_df.rename(columns={'lid': 'nws_lid', 'feature_id': 'nwm_feature_id'})
+
+    # Subset the cleaned-up controls df to only have the valid LIDs in this HUC
+    huc_controls_df = all_controls_df[all_controls_df['nws_lid'].isin(valid_lids)]
+
+    # Get a list of sites that have HEC-RAS models in this HUC
+    hecras_site_list = huc_controls_df['nws_lid'].unique().tolist()
+
+    if len(hecras_site_list) == 0:
+        logging.info(
+            f"{huc} - No HEC-RAS models found for any sites in this HUC, skipping HEC-RAS controls processing"
+        )
+        return
+    else:
+        logging.info(f"{huc} - Found {len(hecras_site_list)} site(s) with available HEC-RAS models")
+
+    # Get a list of feature IDs that have HEC-RAS models for this HUC
+    huc_feature_id_list = segments_df[segments_df['lid'].isin(hecras_site_list)]['feature_id'].tolist()
+
+    # --- Process whitelist ---
+
+    # Get values from the HEC-RAS preprocessing args
+    load_dotenv(os.getenv('HECRAS_PREPROCESS_RUNTIME_ARGS'))
+    ripple_model_status_csv = os.getenv("RIPPLE_MODEL_STATUS_PATH")
+
+    # Read in whitelist and process it to get a list of whitelisted models for each site (if applicable)
+    ripple_model_status_filename = os.path.basename(ripple_model_status_csv)
+    local_copy_ripple_model_status_csv = os.path.join(huc_path, ripple_model_status_filename)
+    shutil.copyfile(ripple_model_status_csv, local_copy_ripple_model_status_csv)
+
+    ripple_model_status_df = pd.read_csv(local_copy_ripple_model_status_csv)
+
+    # Filter ripple_model_status_df to contain only the nwm_feature_ids in HUC feature ID list
+    huc_ripple_model_status_df = ripple_model_status_df[
+        ripple_model_status_df['feature_id'].isin(huc_feature_id_list)
+    ]
+
+    # Filter the ripple_model_status_df to only include rows where 'is_valid' is True
+    huc_ripple_model_status_df = huc_ripple_model_status_df[huc_ripple_model_status_df['is_valid'] == True]
+
+    # ---
+
+    # Remove files that were temporarily copied over
+    os.remove(local_copy_combined_controls_csv)
+    os.remove(local_copy_ripple_model_status_csv)
+
+    # ---
+
+    # Create a list of avail. models for each site (will be saved as a CSV)
+    sites_models_list = []  # format will be {'nws_lid': ahps_site, 'model_collection': model_name}
+
+    # For each site in the HEC RAS site list, get the preferred model (if applicable)
+    # and subset the controls CSV to only the rows for that site/model/magnitude combination
+    for ahps_site in hecras_site_list:
+
+        logging.info(f"{huc} : {ahps_site} - Subsetting controls CSVs...")
+
+        # Get a full list of the feature IDs affiliated with this site
+        full_site_feature_id_list = (
+            segments_df[segments_df['lid'] == ahps_site]['feature_id'].unique().tolist()
+        )
+
+        # --- Getting models and feature IDs available in controls CSV ---
+
+        # Subset the controls CSV to only the controls for the AHPS site
+        site_controls_df = huc_controls_df[huc_controls_df['nws_lid'] == ahps_site]
+
+        # Get a list of models and feature IDs available for the site in the controls CSV
+        controls_model_list = site_controls_df['model_collection'].unique().tolist()
+        controls_feature_id_list = (
+            huc_controls_df[huc_controls_df['nws_lid'] == ahps_site]['reach_id'].unique().tolist()
+        )
+
+        logging.info(f'{huc} : {ahps_site} - Models available in site controls CSV: {controls_model_list}')
+        logging.info(
+            f'{huc} : {ahps_site} - Feature IDs available in site controls CSV: {len(controls_feature_id_list)}'
+        )
+
+        # --- Filtering with whitelist ---
+
+        # Use the feature IDs from the control CSV to subset the whitelist
+        # This will make a list of models that have models available in the controls CSV and are valid in the whitelist
+        model_list = (
+            huc_ripple_model_status_df[
+                huc_ripple_model_status_df['feature_id'].isin(controls_feature_id_list)
+            ]['collection_id']
+            .unique()
+            .tolist()
+        )
+
+        if len(model_list) == 0:
+            logging.warning(
+                f"{huc} : {ahps_site} - No valid models left after filtering with ripple whitelist and controls CSV"
+            )
+            # Move on to next site
+            continue
+
+        else:  # one or more model is available for the site
+            logging.info(f'{huc} : {ahps_site} - Found {len(model_list)} valid model(s): {model_list}')
+
+            # Adjust site model list, if needed
+            if hr_preference == True:
+                # TODO: should we keep this preference code? or should I just hard code the preference
+                # to be yes, since I think that's what Heidi has implemented....
+
+                # --- Filtering to MIP models ---
+                # Models should have one of the following prefix: 'mip_' or 'ble_'.
+                # If we have two sets of models available (& preference is True), choose MIP over BLE.
+
+                mip_model_list = [model for model in model_list if model.startswith('mip_')]
+                ble_model_list = [model for model in model_list if model.startswith('ble_')]
+
+                # Return an error if both lists are len of zero
+                if len(mip_model_list) == 0 and len(ble_model_list) == 0:
+                    logging.error(
+                        f'{huc} : {ahps_site} - No mip or ble models found in model list ({model_list})'
+                    )
+                    preferred_model = None
+
+                if len(mip_model_list) == 1:
+                    # If one MIP model is available, use that.
+                    preferred_model = mip_model_list[0]
+                    logging.info(f'{huc} : {ahps_site} - Using MIP model: {preferred_model}')
+
+                elif len(mip_model_list) > 1:
+                    # If more than one MIP model is available, return an error and choose the first one
+                    preferred_model = mip_model_list[0]
+                    logging.error(
+                        f'{huc} : {ahps_site} - Found {len(ble_model_list)} MIP models (expected 1): {ble_model_list}'
+                    )
+                    logging.error(f'{huc} : {ahps_site} - Using first model in list: {preferred_model}')
+
+                elif len(ble_model_list) == 1:
+                    # If no MIP models are available but one BLE model is available, use that.
+                    preferred_model = ble_model_list[0]
+                    logging.info(
+                        f'{huc} : {ahps_site} - No MIP models available using BLE model: {preferred_model}'
+                    )
+
+                elif len(ble_model_list) > 1:
+                    # If no MIP models are available but and more than one BLE model is available,
+                    # use the first one but return an error
+                    preferred_model = ble_model_list[0]
+                    logging.error(
+                        f'{huc} : {ahps_site} - Found {len(ble_model_list)} BLE models (expected 1): {ble_model_list}'
+                    )
+                    logging.error(f'{huc} : {ahps_site} - Using first model in list: {preferred_model}')
+
+                else:
+                    # If another case occurs, return an error (this shouldn't happen I think?) # TODO: Test this scenario
+                    preferred_model = None
+
+            else:
+                logging.info(f'{huc} : {ahps_site} - Processing all HR models for site')
+
+        # At this point, we should have a model list with at least one model to process for the site
+
+        # Get a list of available magnitudes for the site from the site_controls_df
+        magnitude_list = site_controls_df['magnitude'].unique().tolist()
+
+        # Subset the controls CSV for each site/model/magnitude combination
+        for model_name in model_list:
+
+            # Get a list of feature IDs that have valid HEC-RAS models for this model/site combination
+            cond_model_id = huc_ripple_model_status_df['collection_id'] == model_name
+            cond_is_valid = huc_ripple_model_status_df['is_valid'] == True
+            valid_model_feature_id_list = (
+                huc_ripple_model_status_df[cond_model_id & cond_is_valid]['feature_id'].unique().tolist()
+            )
+
+            # Filter the valid model feature ID list to be only the feature IDs affiliated with this site
+            valid_site_model_feature_id_list = [
+                item for item in valid_model_feature_id_list if item in set(full_site_feature_id_list)
+            ]
+
+            logging.info(
+                f'{huc} : {ahps_site} - Feature IDs w/ HEC-RAS models available for site (from HUC controls df) : {full_site_feature_id_list}'
+            )
+            logging.info(
+                f'{huc} : {ahps_site} : {model_name} - Feature IDs for which this model is valid in the whitelist (for this model + site combo): {valid_site_model_feature_id_list}'
+            )
+            logging.info(
+                f'{huc} : {ahps_site} : {model_name} - Valid HEC-RAS models available for {len(valid_site_model_feature_id_list)}/{len(full_site_feature_id_list)} feature IDs'
+            )
+
+            if len(full_site_feature_id_list) > len(valid_site_model_feature_id_list):
+                logging.warning(
+                    f'{huc} : {ahps_site} : {model_name} - HEC-RAS models not available for all site feature IDs, HEC-RAS processing will not proceed for this site/model combination'
+                )
+                # TODO: Confirm that this is actually properly halting processing for this site/model combo
+                continue
+
+            # TODO: subset site_controls_df so it only includes feature IDs in valid_site_model_feature_id_list? or is this still necessary?
+
+            # Add site/model combination to sites_models_list
+            sites_models_list.append(
+                {
+                    'nws_lid': ahps_site,
+                    'model_collection': model_name,
+                    'feature_ids': valid_site_model_feature_id_list,
+                }
+            )  # TODO: test this list stuff
+
+            for magnitude in magnitude_list:
+                logging.info(
+                    f'{huc} : {ahps_site} - Subsetting controls CSV for {ahps_site} - {model_name} - {magnitude}...'
+                )
+
+                # Subset the controls CSV to only the magnitude/model combination
+                controls_subset_df = site_controls_df[
+                    (site_controls_df['model_collection'] == model_name)
+                    & (site_controls_df['magnitude'] == magnitude)
+                ]
+
+                # Subset the controls CSV to only include sites that are also in the whitelist? TODO: Check if this is still needed
+
+                # Only keep these columns in the df: reach_id,flow,control_stage
+                controls_subset_df = controls_subset_df[['reach_id', 'flow', 'control_stage']]
+
+                # Save controls CSV to filepath
+                controls_filename = f"{ahps_site}_{magnitude}_{model_name}_controls.csv"
+                controls_subset_filepath = os.path.join(output_temp_dir, controls_filename)
+                controls_subset_df.to_csv(controls_subset_filepath, index=False)
+
+                logging.info(f'{huc} : {ahps_site} - Saved controls CSV to {controls_subset_filepath}')
+        # End of model/magnitude loop
+    # End of site loop
+
+    if len(sites_models_list) == 0:
+        logging.warning(f"{huc} - No site/model combinations found for HEC-RAS sites in this HUC")
+        return
+
+    # If models are available, save output CSVs and download the necessary ripple files
+    logging.info(
+        f"{huc} - Found {len(sites_models_list)} site/model combination(s) for HEC-RAS sites in this HUC"
+    )
+
+    # Create a df from the sites_models_list to save as a CSV with the site/model combinations available for the HEC-RAS sites in the HUC
+    sites_models_df = pd.DataFrame(sites_models_list)
+    sites_models_csv_path = os.path.join(huc_path, 'temp', f"{huc}_hr_sites_models.csv")
+    sites_models_df.to_csv(sites_models_csv_path, index=False)
+    logging.info(f'{huc} - Saved sites/models CSV to {sites_models_csv_path}')
+
+    # Save huc_controls_df to huc_path
+    huc_controls_csv_path = os.path.join(huc_path, 'temp', f"{huc}_controls.csv")
+    huc_controls_df.to_csv(huc_controls_csv_path, index=False)
+    logging.info(f'{huc} - Saved HUC controls to {huc_controls_csv_path}')
+    logging.info(f'{huc} - Finished subsetting controls CSVs for {huc}')
+
+    logging.info(f'{huc} - Finished processing the HEC-RAS controls')
+
+    return
+
+
 # We are still talking about raw threshold data at this point
 def __create_lid_mag_library_rec(catfim_type, lid, lid_sites_gdf, magnitude_type, lid_threshold_data):
     '''
@@ -1064,6 +1405,10 @@ def __create_lid_mag_library_rec(catfim_type, lid, lid_sites_gdf, magnitude_type
         line_df["interval_stage"] = None
         line_df["lid_usgs_elev"] = csf.ELEV_NODATA_VALUE  # This is a temp processing column
         line_df["hand_stage"] = csf.ELEV_NODATA_VALUE
+
+    elif catfim_type == "fb":  # TODO: Decide if this is needed...
+        line_df["model"] = None
+        line_df["model_version"] = None
 
     return line_df
 
