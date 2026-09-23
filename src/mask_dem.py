@@ -2,6 +2,7 @@
 
 import argparse
 import os
+import warnings
 
 import geopandas as gpd
 import numpy as np
@@ -12,13 +13,13 @@ from rasterio.mask import mask
 
 def filter_by_raster_bounds(gdf, raster_bounds):
     """
-    Filter GeoDataFrame to features whose bounding box overlaps the raster.
-    Does NOT modify geometry shapes or run strict validity checks.
+    Filters a GeoDataFrame to only features whose bounding boxes overlap
+    the raster extent using spatial indexing. Preserves original geometry shapes.
     """
     if gdf.empty:
         return gdf
 
-    # Fast bounding-box spatial index query
+    # Spatial index query checks bounding box overlap without modifying geometries
     possible_matches_index = list(gdf.sindex.intersection(raster_bounds))
     return gdf.iloc[possible_matches_index]
 
@@ -74,15 +75,18 @@ def mask_dem(
         dem_crs = dem.crs
 
         if branch_id == branch_zero_id:
-            # Mask if branch zero
-            leveed = gpd.read_file(nld_filename, engine='fiona')
+            leveed = gpd.read_file(nld_filename, engine="fiona")
             if leveed.crs != dem_crs:
                 leveed = leveed.to_crs(dem_crs)
 
-            geoms = [geom.__geo_interface__ for geom in leveed.geometry if geom is not None]
+            # Filter by bounding box prior to geometry extraction
+            leveed_in_bounds = filter_by_raster_bounds(leveed, dem.bounds)
+            geoms = [geom.__geo_interface__ for geom in leveed_in_bounds.geometry if geom is not None]
 
             if len(geoms) > 0:
-                dem_masked, _ = mask(dem, geoms, invert=True)
+                with warnings.catch_warnings():
+                    warnings.filterwarnings("ignore", category=UserWarning, module="rasterio.mask")
+                    dem_masked, _ = mask(dem, geoms, invert=True)
 
         elif os.path.exists(levee_levelpaths):
             # Mask levee-protected areas protected against level path
@@ -105,13 +109,15 @@ def mask_dem(
 
             if len(levelpath_levees) > 0:
                 selected_levees = leveed[leveed[levee_id_attribute].isin(levelpath_levees)]
-
-                # Pass raster.bounds directly to filter GeoDataFrame rows before extracting geoms:
-                selected_levees = filter_by_raster_bounds(selected_levees, dem.bounds)
-                geoms = [geom.__geo_interface__ for geom in selected_levees.geometry if geom is not None]
+                selected_levees_in_bounds = filter_by_raster_bounds(selected_levees, dem.bounds)
+                geoms = [
+                    geom.__geo_interface__ for geom in selected_levees_in_bounds.geometry if geom is not None
+                ]
 
                 if len(geoms) > 0:
-                    dem_masked, _ = mask(dem, geoms, invert=True)
+                    with warnings.catch_warnings():
+                        warnings.filterwarnings("ignore", category=UserWarning, module="rasterio.mask")
+                        dem_masked, _ = mask(dem, geoms, invert=True)
 
             # Mask levee-protected areas not protected against level path
             # Ensure catchments have same CRS as leveed before overlay
@@ -121,13 +127,16 @@ def mask_dem(
 
             # Select levee catchments not associated with level path
             levee_catchments_to_mask = leveed_area_catchments.loc[
-                ~leveed_area_catchments[levee_id_attribute].isna() & leveed_area_catchments['ID'].isna(), :
+                ~leveed_area_catchments[levee_id_attribute].isna() & leveed_area_catchments["ID"].isna(), :
             ]
 
-            geoms = [geom.__geo_interface__ for geom in levee_catchments_to_mask.geometry if geom is not None]
+            catchments_in_bounds = filter_by_raster_bounds(levee_catchments_to_mask, dem.bounds)
+            geoms = [geom.__geo_interface__ for geom in catchments_in_bounds.geometry if geom is not None]
 
             if len(geoms) > 0:
-                levee_catchments_masked, _ = mask(dem, geoms, invert=True)
+                with warnings.catch_warnings():
+                    warnings.filterwarnings("ignore", category=UserWarning, module="rasterio.mask")
+                    levee_catchments_masked, _ = mask(dem, geoms, invert=True)
 
         out_masked = None
         if dem_masked is None:

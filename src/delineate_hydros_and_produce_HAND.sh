@@ -19,7 +19,7 @@ fi
 
 ## MASK LEVEE-PROTECTED AREAS FROM DEM ##
 if [[ "$mask_leveed_area_toggle" == "True"  &&  -f "${tempHucDataDir}/LeveeProtectedAreas_subset.gpkg" ]]; then
-    echo -e "${startDiv}Mask levee-protected areas from DEM (*Overwrite dem_meters.tif output) ${hucNumber} ${current_branch_id}"
+    echo -e "${startDiv}Mask levee-protected areas from DEM ${hucNumber} ${current_branch_id}"
     args=(
         -dem "${tempCurrentBranchDataDir}/dem_meters_${current_branch_id}.tif"
         -nld "${tempHucDataDir}/LeveeProtectedAreas_subset.gpkg"
@@ -33,7 +33,12 @@ if [[ "$mask_leveed_area_toggle" == "True"  &&  -f "${tempHucDataDir}/LeveeProte
     )
     python3 "${srcDir}/mask_dem.py" "${args[@]}"
 else
-    echo -e "No levees in this HUC. Copying dem_meters_${current_branch_id}.tif to dem_meters_masked_${current_branch_id}.tif"
+    echo -e "No levees in this HUC."
+fi
+
+if [[ ! -f "${tempCurrentBranchDataDir}/dem_meters_masked_${current_branch_id}.tif" ]]; then
+    
+    echo -e "Copying dem_meters_${current_branch_id}.tif to dem_meters_masked_${current_branch_id}.tif"
 
     cp ${tempCurrentBranchDataDir}/dem_meters_${current_branch_id}.tif ${tempCurrentBranchDataDir}/dem_meters_masked_${current_branch_id}.tif
 fi
