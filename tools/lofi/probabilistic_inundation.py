@@ -93,15 +93,9 @@ def generate_streamflow_percentiles_vec(
 
     inter_ids = feature_ids.intersection(params_weibull.index.astype(feature_ids.dtype))
     if len(inter_ids) > 0:
+        print(f"Interpolating {len(inter_ids)} feature_ids...")
         ensemble_subset = ensemble_streamflow.sel(feature_id=inter_ids)
-        # weibull_subset = params_weibull.loc[inter_ids]
         inter_ids = inter_ids.astype('string[pyarrow]')
-
-        # wv = weibull_min(c=weibull_subset['param.c'].to_numpy(),
-        #                  loc=weibull_subset['param.loc'].to_numpy(),
-        #                  scale=weibull_subset['param.scale'].to_numpy())
-
-        # If all values from ensemble streamflow forecasts are identical or virtually the same
 
         ensemble_subset = ensemble_subset.fillna(ensemble_subset.mean(dim='ensemble'))
 
@@ -109,14 +103,13 @@ def generate_streamflow_percentiles_vec(
         max_val = ensemble_subset.max(dim='ensemble').to_numpy()
         min_val = ensemble_subset.min(dim='ensemble').to_numpy()
 
-        top_y_points = np.vstack([max_val, val])
-        bot_y_points = np.vstack([val, min_val])
-
-        interp_top = interp1d([10, 50], top_y_points, axis=0)
-        interp_bot = interp1d([50, 90], bot_y_points, axis=0)   
+        interp_top = interp1d([10, 50], np.vstack([max_val, val]), axis=0)
         top_scaled = interp_top([10, 25, 50]).T[:, ::-1] 
-        bot_scaled = interp_bot([50, 75, 90]).T[:, ::-1]
-        percentile_values = np.column_stack([bot_scaled, top_scaled[:, 1:]])
+
+        interp_bottom = interp1d([50, 90], np.vstack([val, min_val]), axis=0)   
+        bottom_scaled = interp_bottom([50, 75, 90]).T[:, ::-1]
+
+        percentile_values = np.column_stack([bottom_scaled, top_scaled[:, 1:]])
         np.maximum(0, percentile_values, out=percentile_values)
         perc_df.loc[inter_ids] = percentile_values
     return perc_df
@@ -657,7 +650,7 @@ def inundate_probabilistic(
             continue
 
         pcol = f"discharge_cms.{percentile}"
-        subhdf = full_p_table[htable_req_static_cols + [pcol]]
+        subhdf = full_p_table[htable_req_static_cols + [pcol]].copy()
         subhdf = subhdf.rename(columns={pcol: "discharge_cms"})
 
         flow_df = streamflow_percentiles[percentile].to_frame()
