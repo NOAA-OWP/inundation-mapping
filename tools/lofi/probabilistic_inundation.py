@@ -113,52 +113,6 @@ def generate_streamflow_percentiles_vec(
         np.maximum(0, percentile_values, out=percentile_values)
         perc_df.loc[inter_ids] = percentile_values
     return perc_df
-
-    same = xr.apply_ufunc(np.allclose, ensemble_subset, ensemble_subset.sel(ensemble="1"))
-    if xr.apply_ufunc(np.allclose, ensemble_subset, ensemble_subset.sel(ensemble="1")):
-        perc_df.loc[inter_ids] = max(0, ensemble_subset.sel(ensemble="1"))
-    else:
-        # Impute any values that are nan with the mean of the numeric values
-        # likelihoods = wv.sf(ensemble_subset)
-
-        # Scale the likelihoods to equal 1 and then generate a dataset given their likelihood
-        # scaled_likelihoods = np.squeeze(likelihoods / np.sum(likelihoods)) * np.linspace(1, 0.9, 6)
-
-        # minlik = scaled_likelihoods.min(axis=1)
-        # maxlik = scaled_likelihoods.max(axis=1)
-
-        # Interpolate streamflow values so that member 1 represents the 50th percentile
-        # top = np.interp([10, 25, 50], [10, 50], [minlik, scaled_likelihoods[0]])[::-1]
-
-        # top_scaled = np.interp(
-        #     top,
-        #     [minlik, scaled_likelihoods[0]],
-        #     [np.max(ensemble_subset), ensemble_subset[0]],
-        # )
-        top_scaled = np.interp(
-            [10, 25, 50], 
-            [10, 50], 
-            [ensemble_subset.max(dim='ensemble'), ensemble_subset.sel(ensemble="1")]
-        )[::-1]
-
-        # bottom = np.interp([50, 75, 90], [50, 90], [scaled_likelihoods[0], maxlik])[::-1]
-        # bottom_scaled = np.interp(
-        #     bottom,
-        #     [scaled_likelihoods[0], maxlik],
-        #     [ensemble_subset[0], np.min(ensemble_subset)],
-        # )
-
-        bottom_scaled = np.interp(
-            [50, 75, 90],
-            [50, 90],
-            [ensemble_subset.sel(ensemble="1"), ensemble_subset.min(dim='ensemble')],
-        )[::-1]
-
-        percentile_values = np.hstack([bottom_scaled, top_scaled[1:]])
-        np.maximum(0, percentile_values, out=percentile_values)
-        perc_df.loc[inter_ids] = percentile_values
-
-    return perc_df
     
 
 def generate_streamflow_percentiles(
