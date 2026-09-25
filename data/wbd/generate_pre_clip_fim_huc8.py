@@ -74,9 +74,9 @@ LOG_FILE_PATH = ""
 # CLI options: user selects layers to preclip; all others default to copy.
 args_preclip_options = [
     "boundaries",
-    "nwm_lakes",
-    "nwm_streams_headwater",
-    "nwm_catchments",
+    'lakes',
+    'streams_headwater',
+    'catchments',
     "levees",
     "osm_bridges",
     "osm_roads",
@@ -613,7 +613,7 @@ if __name__ == '__main__':
     )
 
     parser.add_argument('-n', '--outputs_dir', help='Directory to output all of the HUC level .gpkg files')
-    parser.add_argument('-u', '--huc_list', help='List of HUCs to genereate pre-clipped vectors for.')
+    parser.add_argument('-u', '--huc_list', help='List of HUCs to generate pre-clipped vectors for.')
 
     parser.add_argument(
         '-j',

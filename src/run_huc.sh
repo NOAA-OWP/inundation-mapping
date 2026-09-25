@@ -29,31 +29,34 @@ branchSummaryLogFile=$tempHucDataDir/logs/"$hucNumber"_summary_branch.log
 branchSummaryLog_Adj_File=$tempHucDataDir/logs/"$hucNumber"_summary_branch_adj.csv
 huc2Identifier=${hucNumber:0:2}
 
-## SET input DEM domain
+## SET CRS and input DEM domain
+# Alaska EPSG:3338
 if [ $huc2Identifier -eq 19 ]; then
     huc_input_DEM_domain=$input_DEM_domain_Alaska
     input_DEM=$input_DEM_Alaska
     input_pit_fill=$input_DEM_pit_fills_Alaska
     input_bridge_elev_diff=$input_bridge_elev_diff_alaska
-
+    
+# Guam EPSG:6637
 elif [ $hucNumber -eq 22010000 ]; then
     huc_input_DEM_domain=$input_DEM_domain_Guam
     input_DEM=$input_DEM_Guam
     input_pit_fill=$input_DEM_pit_fills_Guam
     input_bridge_elev_diff=$input_bridge_elev_diff_guam
 
+# American Samoa EPSG:32702
 elif [ $hucNumber -eq 22030001 ]; then
     huc_input_DEM_domain=$input_DEM_domain_AmericanSamoa
     input_DEM=$input_DEM_AmericanSamoa
     input_pit_fill=$input_DEM_pit_fills_AmericanSamoa
     input_bridge_elev_diff=$input_bridge_elev_diff_americansamoa
 
+# CONUS EPSG:5070
 else
     huc_input_DEM_domain=$input_DEM_domain
     input_DEM=$input_DEM
     input_pit_fill=$input_DEM_pit_fills
     input_bridge_elev_diff=$input_bridge_elev_diff
-
 fi
 
 huc_CRS=$(get_crs_for_huc "$hucNumber")
@@ -188,6 +191,7 @@ gdalwarp "${gdal_opts[@]}" "${input_pit_fill}" "${tempHucDataDir}/dem_meters_pit
 gdalwarp "${gdal_opts[@]}" "${input_bridge_elev_diff}" "${tempHucDataDir}/bridge_elev_diff_meters.tif"
 
 ## Combine Raw DEM with Pit Fill DEM (use pit fill elev)
+echo -e "Pit-fill DEM"
 gdal_opts=(
     -ot "Float32"
     -of "GTiff"

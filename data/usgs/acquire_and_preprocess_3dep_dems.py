@@ -29,11 +29,7 @@ gpd.options.io_engine = "pyogrio"
 TODO:
     - Add input args for resolution size, which means URL and block size also have to be parameterized.
 
-    - Add an arg to skip straight to polygonize as we had a conus run that failed after dems but in polygonize.
-
     - the -lf system needs testing.
-
-    - Add MP or MT to polygonize
 
 '''
 
@@ -52,7 +48,6 @@ def acquire_and_preprocess_3dep_dems(
     target_output_folder_path='',
     number_of_jobs=1,
     repair=False,
-    skip_polygons=False,
     target_projection='EPSG:5070',
     lst_file_names='all',
 ):
@@ -217,19 +212,11 @@ def acquire_and_preprocess_3dep_dems(
         extent_file_names, target_output_folder_path, number_of_jobs, repair, target_projection, file_logger
     )
 
-    # TODO: Jan 28, 2026: Something failed in a conus run of polygonize, but all of the dems
-    # above were just fine.
-    # Manually hacked code to skip to polygonize. Put in an argument later to do this, polygonize only.
-    if skip_polygons is False:
-        if len(failed_file_names) > 0:
-            msg = "Errors have occurred while downloading. Polygonizating can not be completed."
-            " Program aborted."
-            file_logger.critical(msg)
-            sf.l_print(msg, file_logger, "critical")
-        else:
-            __polygonize(target_output_folder_path, file_logger)
-    else:
-        file_logger.info("polygonize skipped")
+    if len(failed_file_names) > 0:
+        msg = "Errors have occurred while downloading."
+        " Program aborted."
+        file_logger.critical(msg)
+        sf.l_print(msg, file_logger, "critical")
 
     sf.l_print("==========================================================", file_logger, "info")
     end_time = datetime.now(timezone.utc)
@@ -542,15 +529,15 @@ if __name__ == '__main__':
     '''
     sample usage (min params): (AK)
         python3 /foss_fim/data/usgs/acquire_and_preprocess_3dep_dems.py
-            -e /data/inputs/wbd/WBDs_for_DEM_downloading/HUC8_South_Alaska/ -proj "EPSG:3338"
-            -t /data/inputs/dems/3dep_dems/10m_South_Alaska/20250301
+            -e /data/inputs/wbd/WBDs_for_DEM_downloading/HUC8_SouthAlaska/ -proj "EPSG:3338"
+            -t /data/inputs/dems/3dep_dems/10m_SouthAlaska/20250301
             -j 6
 
     Pathing and epsg for the regions are:
 
     -e /data/inputs/wbd/WBDs_for_DEM_downloading/HUC8_CONUS/ -proj "EPSG:5070"
-    -e /data/inputs/wbd/WBDs_for_DEM_downloading/HUC8_South_Alaska/ -proj "EPSG:3338"
-    -e /data/inputs/wbd/WBDs_for_DEM_downloading/HUC8_American_Samoa/ -proj "EPSG:32702"
+    -e /data/inputs/wbd/WBDs_for_DEM_downloading/HUC8_SouthAlaska/ -proj "EPSG:3338"
+    -e /data/inputs/wbd/WBDs_for_DEM_downloading/HUC8_AmericanSamoa/ -proj "EPSG:32702"
     -e /data/inputs/wbd/WBDs_for_DEM_downloading/HUC8_Guam/ -proj "EPSG:6637"
 
 
@@ -638,15 +625,6 @@ if __name__ == '__main__':
         '--repair',
         help='OPTIONAL: If included, it process only file names missing output DEMs'
         ' which happen. Read all inline notes about this feature.',
-        required=False,
-        action='store_true',
-        default=False,
-    )
-
-    parser.add_argument(
-        '-sp',
-        '--skip_polygons',
-        help='OPTIONAL: If this flag is included, polygons of the dems will not be made.',
         required=False,
         action='store_true',
         default=False,
