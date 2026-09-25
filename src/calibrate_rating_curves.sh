@@ -118,7 +118,9 @@ if [ "$src_subdiv_toggle" = "True" ] && [ "$src_bankfull_toggle" = "True" ]; the
     # Run SRC Subdivision & Variable Roughness routine
     python3 $srcDir/subdiv_chan_obank_src.py \
         -huc_dir $tempHucDataDir \
-        -mann $vmann_input_file \
+        -mann "$vmann_input_file" \
+        -chan_n ${channel_n:-0.05} \
+        -obank_n ${ovarbank_n:-0.09} \
         -jb $jobBranchLimit
 fi
 
