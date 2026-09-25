@@ -116,7 +116,7 @@ def variable_mannings_calc(args):
                 'Calculating subdiv variables for SRC: ' + str(huc) + '  branch id: ' + str(branch_id) + '\n'
             )
             df_src = subdiv_geometry(df_src_orig)
-            
+
             ## Assign Manning's n (table merge or direct scalar broadcast)
             if df_mann is not None:
                 df_src = df_src.merge(df_mann, how='left', on='feature_id')
@@ -138,8 +138,6 @@ def variable_mannings_calc(args):
             else:
                 df_src['channel_n'] = channel_n
                 df_src['overbank_n'] = overbank_n
-
-            
 
             ## Check if there are any missing data in the 'Stage_bankfull' column
             ##   (these are locations where subdiv will not be applied)
@@ -402,7 +400,16 @@ def multi_process(variable_mannings_calc, procs_list, log_file, branch_jobs, ver
     log_file.writelines(["%s\n" % item for item in map_output])
 
 
-def run_prep(huc_dir, mann_n_table, output_suffix, branch_jobs, verbose, src_plot_option, channel_n=0.05, overbank_n=0.09):
+def run_prep(
+    huc_dir,
+    mann_n_table,
+    output_suffix,
+    branch_jobs,
+    verbose,
+    src_plot_option,
+    channel_n=0.05,
+    overbank_n=0.09,
+):
     procs_list = []
 
     print(f"Writing progress to log file here: {huc_dir}/logs/subdiv_src_{output_suffix}.log")
@@ -420,9 +427,13 @@ def run_prep(huc_dir, mann_n_table, output_suffix, branch_jobs, verbose, src_plo
     log_file.write('#########################################################\n\n')
 
     ## Check if table is provided or if using uniform scalar values
-    use_table = mann_n_table is not None and str(mann_n_table).strip() != "" and str(mann_n_table).lower() != "none"
+    use_table = (
+        mann_n_table is not None and str(mann_n_table).strip() != "" and str(mann_n_table).lower() != "none"
+    )
     if use_table:
-        assert os.path.isfile(mann_n_table), 'Can not find the input roughness/feature_id file: ' + str(mann_n_table)
+        assert os.path.isfile(mann_n_table), 'Can not find the input roughness/feature_id file: ' + str(
+            mann_n_table
+        )
         print('Importing the Manning roughness data file: ' + mann_n_table)
         df_mann = pd.read_csv(mann_n_table, dtype={'feature_id': 'int64'})
         if (
@@ -513,21 +524,21 @@ if __name__ == '__main__':
         type=str,
     )
     parser.add_argument(
-            '-chan-n',
-            '--channel-n',
-            help="Uniform channel Manning's n value",
-            default=0.05,
-            required=False,
-            type=float,
-        )
+        '-chan-n',
+        '--channel-n',
+        help="Uniform channel Manning's n value",
+        default=0.05,
+        required=False,
+        type=float,
+    )
     parser.add_argument(
-            '-obank-n',
-            '--overbank-n',
-            help="Uniform overbank Manning's n value",
-            default="0.09",
-            required=False,
-            type=float,
-        )
+        '-obank-n',
+        '--overbank-n',
+        help="Uniform overbank Manning's n value",
+        default="0.09",
+        required=False,
+        type=float,
+    )
     parser.add_argument(
         '-suff',
         '--output-suffix',
