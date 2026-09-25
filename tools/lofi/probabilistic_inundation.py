@@ -671,7 +671,7 @@ def inundate_probabilistic(
                     d.read(1, out=tmpm, window=window)
 
                     # Only run on the last percentile (greatest extent possible)
-                    if p == 10:
+                    if p == percentiles[-1]:
                         np.equal(tmpm, nodata, out=nodata_mask)
 
                     # equivalent to np.where(tmpm > 0, int(p), 0)
@@ -681,8 +681,6 @@ def inundate_probabilistic(
 
                     np.maximum(maxx, tmpm, out=maxx)
 
-                    # Only run on the last percentile (greatest extent possible)
-                    #if p == 10:
                 np.copyto(maxx, 127, where=nodata_mask)
                 write_rst.write(maxx, window=window, indexes=1)
 
