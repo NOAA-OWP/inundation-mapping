@@ -11,7 +11,6 @@ import rasterio
 import xarray as xr
 from inundate_mosaic_wrapper import produce_mosaicked_inundation
 from rasterio import features as riofeat
-from scipy.interpolate import interp1d
 from scipy.stats import expon, gamma, genextreme, genpareto, gumbel_r, kappa4, norm, pearson3, weibull_min
 from shapely.geometry import shape
 
@@ -79,6 +78,22 @@ def get_fim_probability_distributions(
     return channel_dist, obank_dist, slope_dist
 
 
+def interp(eval_pts, x, y):
+    # Vectorized linear interpolation with a goal of minimizing memory use
+    x0, x1 = x
+    y0, y1 = y
+
+    slope = y1 - y0
+    np.divide(slope, x1 - x0, out=slope)
+
+    rv = np.empty((len(eval_pts), len(y0)), dtype=float)
+    for i, _x in enumerate(eval_pts):
+        out = rv[i]
+        np.multiply(slope, _x - x0, out=out)
+        np.add(out, y0, out=out)
+    return rv
+
+
 @use_pandas_3_behavior()
 def generate_streamflow_percentiles_vec(
         ensemble_streamflow, params_weibull, percentiles
@@ -103,11 +118,8 @@ def generate_streamflow_percentiles_vec(
         max_val = ensemble_subset.max(dim='ensemble').to_numpy()
         min_val = ensemble_subset.min(dim='ensemble').to_numpy()
 
-        interp_top = interp1d([10, 50], np.vstack([max_val, val]), axis=0)
-        top_scaled = interp_top([10, 25, 50]).T[:, ::-1] 
-
-        interp_bottom = interp1d([50, 90], np.vstack([val, min_val]), axis=0)   
-        bottom_scaled = interp_bottom([50, 75, 90]).T[:, ::-1]
+        top_scaled = interp([10, 25, 50], [10, 50], [max_val, val])[::-1].T
+        bottom_scaled = interp([50, 75, 90], [50, 90], [val, min_val])[::-1].T
 
         percentile_values = np.column_stack([bottom_scaled, top_scaled[:, 1:]])
         np.maximum(0, percentile_values, out=percentile_values)
