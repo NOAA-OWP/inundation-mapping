@@ -464,14 +464,19 @@ def __make_windows_generator(
             break
 
         # make windows
+        def __return_huc_in_hucSet(hucCode, hucSet):
+            for hs in hucSet:
+                if hs.startswith(hucCode):
+                    return hucCode
+
+        if isinstance(catchment_poly, str):
+            if os.path.splitext(catchment_poly)[-1].lower() == '.parquet':
+                catchment_poly = gpd.read_parquet(catchment_poly)
+            else:
+                catchment_poly = gpd.read_file(catchment_poly)
+                
         for huc in hucs:
             # returns hucCode if current huc is in hucSet (at least starts with)
-            def __return_huc_in_hucSet(hucCode, hucSet):
-                for hs in hucSet:
-                    if hs.startswith(hucCode):
-                        return hucCode
-
-                return None
 
             if __return_huc_in_hucSet(huc['properties'][hucColName], hucSet) is None:
                 continue
@@ -482,27 +487,12 @@ def __make_windows_generator(
                     rem_array, window_transform = mask(rem, shape(huc['geometry']), crop=True, indexes=1)
                     catchments_array = mask(catchments, shape(huc['geometry']), crop=True, indexes=1)
                 elif mask_type == "filter":
-
-                    if isinstance(catchment_poly, str):
-                        if os.path.splitext(catchment_poly)[-1].lower() == '.parquet':
-                            catchment_poly = gpd.read_parquet(catchment_poly)
-                        else:
-                            catchment_poly = gpd.read_file(catchment_poly)
-                    elif isinstance(catchment_poly, gpd.GeoDataFrame):
-                        pass
-                    elif isinstance(catchment_poly, None):
-                        pass
-                    else:
-                        raise TypeError("Pass geopandas dataset or filepath for catchment polygons")
-
                     fossid = huc['properties']['fossid']
-                    if catchment_poly.HydroID.dtype != 'str':
-                        catchment_poly.HydroID = catchment_poly.HydroID.astype(str)
-                    catchment_poly = catchment_poly[catchment_poly.HydroID.str.startswith(fossid)]
+                    hid = catchment_poly.HydroID.astype("string")
+                    catchments = catchment_poly.loc[hid.str.startswith(fossid)]
 
-                    rem_array, window_transform = mask(rem, catchment_poly['geometry'], crop=True, indexes=1)
-                    catchments_array, _ = mask(catchments, catchment_poly['geometry'], crop=True, indexes=1)
-                    del catchment_poly
+                    rem_array, window_transform = mask(rem, catchments['geometry'], crop=True, indexes=1)
+                    catchments_array, _ = mask(catchments, catchments['geometry'], crop=True, indexes=1)
                 elif mask_type is None:
                     pass
                 else:
