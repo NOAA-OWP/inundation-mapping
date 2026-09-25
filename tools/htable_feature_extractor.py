@@ -305,6 +305,14 @@ def run_hydro_extraction(
 
 
 if __name__ == '__main__':
+
+    """
+    Example usage:
+    python /foss_fim/tools/htable_feature_extractor.py \
+        -r /outputs/huc_test/ \
+        -o /outputs/step1/step1.csv \
+        -w 10
+    """
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
     parser = argparse.ArgumentParser(
         description="Extract hydrotable features and rating curve (a, b) parameters."

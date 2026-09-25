@@ -5,7 +5,7 @@ import sys
 import time
 from datetime import datetime, timezone
 
-from aggregate_ml_calb_data import ensure_dir, run_ml_prep
+from aggregate_ml_calb_data import DEFAULT_CONS_INPUTS, ensure_dir, run_ml_prep
 from extract_catchment_geometry import run_gpkg_extraction
 from htable_feature_extractor import run_hydro_extraction
 
@@ -84,6 +84,11 @@ def setup_logger(output_dir: str) -> str:
 def main() -> None:
     """
     Run the ML calibration data preparation.
+    Example usage:
+    python /foss_fim/tools/prepare_ml_calb_data.py \
+        -r /outputs/huc_test/ \
+        -o /outputs/out_test/ \
+        --steps 1
     """
     parser = argparse.ArgumentParser(description="Prepare data for the ML calibration model.")
     parser.add_argument(
@@ -99,8 +104,8 @@ def main() -> None:
         "--const-inputs",
         dest="const_inputs",
         type=str,
-        default=None,
-        help="Path to conus_constant_inputs.parquet.",
+        default=DEFAULT_CONS_INPUTS,
+        help="Path to conus_constant_inputs.parquet. (default: $ml_constant_inputs env var)",
     )
     parser.add_argument(
         "-o",

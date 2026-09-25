@@ -178,6 +178,14 @@ def run_gpkg_extraction(
 
 
 if __name__ == '__main__':
+    """
+    Example usage:
+    python /foss_fim/tools/extract_catchment_geometry.py \
+        -i /outputs/step1/step1.csv \
+        -r /outputs/huc_test/ \
+        -o /outputs/step2/step2.csv \
+        -w 10
+    """
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
     parser = argparse.ArgumentParser(
         description="Extract areasqkm and LengthKm from branch GeoPackages and merge with hydro features."

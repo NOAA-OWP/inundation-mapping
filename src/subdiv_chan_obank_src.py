@@ -524,7 +524,7 @@ if __name__ == '__main__':
         type=str,
     )
     parser.add_argument(
-        '-chan-n',
+        '-chan_n',
         '--channel-n',
         help="Uniform channel Manning's n value",
         default=0.05,
@@ -532,7 +532,7 @@ if __name__ == '__main__':
         type=float,
     )
     parser.add_argument(
-        '-obank-n',
+        '-obank_n',
         '--overbank-n',
         help="Uniform overbank Manning's n value",
         default="0.09",

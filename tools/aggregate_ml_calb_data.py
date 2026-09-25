@@ -5,6 +5,7 @@ import re
 from typing import Optional
 
 import pandas as pd
+from dotenv import load_dotenv
 from tools_shared_functions import filter_usgs_by_acceptance_criteria
 
 
@@ -25,9 +26,11 @@ This script:
    - ml_input.parquet / ml_input.csv (Training dataset for ML models)
    - prediction_input.parquet (Inference dataset of ungaged reaches across CONUS)
 """
-
+srcDir = os.getenv('srcDir')
+load_dotenv(f'{srcDir}/bash_variables.env')
+DEFAULT_CONS_INPUTS = os.getenv('ml_constant_inputs')
 logger = logging.getLogger("PR_Pipeline.Step3")
-
+print(DEFAULT_CONS_INPUTS)
 # HUC prefixes to exclude (OCONUS)
 OCONUS_PREFIXES = ('19', '20', '21', '22')
 
@@ -144,7 +147,7 @@ def run_ml_prep(
     features_csv_path: str,
     fim_dir: str,
     output_dir: str = './ml_output',
-    const_inputs_path: Optional[str] = None,
+    const_inputs_path: Optional[str] = DEFAULT_CONS_INPUTS,
     apply_acceptance_filter: bool = True,
 ) -> bool:
     """
@@ -270,6 +273,14 @@ def run_ml_prep(
 
 
 if __name__ == '__main__':
+    """
+    Example usage:
+    python /foss_fim/tools/aggregate_ml_calb_data.py\
+        -i /outputs/step2/step2.csv \
+        -d /outputs/huc_test/ \
+        -o /outputs/step3/
+
+    """
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
     parser = argparse.ArgumentParser(
         description="Clean calibration observations and merge CONUS constants for ML training."
@@ -281,7 +292,11 @@ if __name__ == '__main__':
         '-d', '--fim_dir', help='Root FIM directory containing HUC subfolders.', required=True, type=str
     )
     parser.add_argument(
-        '-c', '--const_inputs', help='Path to conus_constant_inputs.parquet.', default=None, type=str
+        '-c',
+        '--const_inputs',
+        help='Path to conus_constant_inputs.parquet.',
+        default=DEFAULT_CONS_INPUTS,
+        type=str,
     )
     parser.add_argument('-o', '--output_dir', help='Output directory.', default='./ml_output', type=str)
     parser.add_argument(
