@@ -662,7 +662,7 @@ def inundate_probabilistic(
 
         out_rast = os.path.join(base_output_path, output_file_name.replace(".gpkg", ".tif"))
         with rasterio.open(out_rast, "w+", **profile) as write_rst:
-            for _, window in datasets[0].block_windows():
+            for _, window in write_rst.block_windows():
                 maxx = np.zeros((window.height, window.width), dtype=odtype)
                 tmpm = np.zeros_like(maxx)
                 mask = np.empty((window.height, window.width), dtype='bool')
@@ -671,8 +671,8 @@ def inundate_probabilistic(
                     d.read(1, out=tmpm, window=window)
 
                     # Only run on the last percentile (greatest extent possible)
-                    #if p == 10:
-                    np.equal(tmpm, nodata, out=nodata_mask)
+                    if p == 10:
+                        np.equal(tmpm, nodata, out=nodata_mask)
 
                     # equivalent to np.where(tmpm > 0, int(p), 0)
                     np.greater(tmpm, 0, out=mask)
@@ -683,8 +683,7 @@ def inundate_probabilistic(
 
                     # Only run on the last percentile (greatest extent possible)
                     #if p == 10:
-                    np.copyto(maxx, 127, where=nodata_mask)
-
+                np.copyto(maxx, 127, where=nodata_mask)
                 write_rst.write(maxx, window=window, indexes=1)
 
     if output_vector is True:
