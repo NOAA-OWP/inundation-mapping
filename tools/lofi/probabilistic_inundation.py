@@ -11,6 +11,7 @@ import rasterio
 import xarray as xr
 from inundate_mosaic_wrapper import produce_mosaicked_inundation
 from rasterio import features as riofeat
+from scipy.interpolate import make_interp_spline
 from scipy.stats import expon, gamma, genextreme, genpareto, gumbel_r, kappa4, norm, pearson3, weibull_min
 from shapely.geometry import shape
 
@@ -118,10 +119,14 @@ def generate_streamflow_percentiles_vec(
         max_val = ensemble_subset.max(dim='ensemble').to_numpy()
         min_val = ensemble_subset.min(dim='ensemble').to_numpy()
 
-        top_scaled = interp([10, 25, 50], [10, 50], [max_val, val])[::-1].T
-        bottom_scaled = interp([50, 75, 90], [50, 90], [val, min_val])[::-1].T
+        # k=1 is necessary for linear interpolation
+        spline = make_interp_spline([10, 50, 90], [min_val, val, max_val], k=1)
+        percentile_values = spline(percentiles).T
 
-        percentile_values = np.column_stack([bottom_scaled, top_scaled[:, 1:]])
+        # top_scaled = interp([10, 25, 50], [10, 50], [max_val, val])[::-1].T
+        # bottom_scaled = interp([50, 75, 90], [50, 90], [val, min_val])[::-1].T
+        # percentile_values = np.column_stack([bottom_scaled, top_scaled[:, 1:]])
+
         np.maximum(0, percentile_values, out=percentile_values)
         perc_df.loc[inter_ids] = percentile_values
     return perc_df
