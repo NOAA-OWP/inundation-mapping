@@ -96,6 +96,31 @@ def interp(eval_pts, x, y):
 
 
 @use_pandas_3_behavior()
+def generate_streamflow_quantiles(
+    ensemble_streamflow, params_weibull, percentiles
+):
+    """Vectorize the computation of weibull distribution"""
+    feature_ids = ensemble_streamflow.indexes['feature_id']
+    perc_df = pd.DataFrame(columns=percentiles, index=feature_ids.astype('string[pyarrow]'), dtype=float)
+
+    # For features that have no params, copy first ensemble streamflow
+    weibull_nomask = ~perc_df.index.isin(params_weibull.index.astype('string[pyarrow]'))
+    perc_df.loc[weibull_nomask] = ensemble_streamflow.sel(feature_id=feature_ids[weibull_nomask], ensemble="1").to_numpy()[:, np.newaxis]
+
+    inter_ids = feature_ids.intersection(params_weibull.index.astype(feature_ids.dtype))
+    if len(inter_ids) > 0:
+        print(f"Interpolating {len(inter_ids)} feature_ids...")
+        ensemble_subset = ensemble_streamflow.sel(feature_id=inter_ids)
+        inter_ids = inter_ids.astype('string[pyarrow]')
+
+        ensemble_subset = ensemble_subset.fillna(ensemble_subset.mean(dim='ensemble'))
+        q = np.atleast_1d(percentiles)
+        values = ensemble_subset.quantiles(q/100, dim='ensemble').to_dataframe().unstack(level='quantile')
+        perc_df.loc[inter_ids] = values.clip(lower=0)
+    return perc_df
+
+
+@use_pandas_3_behavior()
 def generate_streamflow_percentiles_vec(
         ensemble_streamflow, params_weibull, percentiles
 ):
