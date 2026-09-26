@@ -62,6 +62,8 @@ def variable_mannings_calc(args):
     output_suffix = args[5]
     src_plot_option = args[6]
     huc_output_dir = args[7]
+    channel_n = args[8]
+    overbank_n = args[9]
 
     ## Read the src_full_crosswalked.csv
     log_text = 'Calculating modified SRC: ' + str(huc) + '  branch id: ' + str(branch_id) + '\n'
@@ -115,30 +117,27 @@ def variable_mannings_calc(args):
             )
             df_src = subdiv_geometry(df_src_orig)
 
-            ## Merge (crosswalk) the df of Manning's n with the SRC df
-            ##   (using the channel/fplain delination in the 'Stage_bankfull')
-            df_src = df_src.merge(df_mann, how='left', on='feature_id')
-            check_null = df_src['channel_n'].isnull().sum() + df_src['overbank_n'].isnull().sum()
-            if check_null > 0:
-                msg = (
-                    "WARNING:"
-                    + str(huc)
-                    + '  branch id: '
-                    + str(branch_id)
-                    + ' --> '
-                    + 'Null feature_ids found in crosswalk btw roughness dataframe and src dataframe (these will be set to default n values)'
-                    + ' --> missing entries= '
-                    + str(check_null / 84)
-                )
-                print(msg)
-                log_text += f"{msg} \n"
-
-            ## Set default channel and overbank n values
-            default_channel_n = 0.06
-            default_overbank_n = 0.12
-            ## Fill in the missing values with the default n values
-            df_src['channel_n'] = df_src['channel_n'].fillna(default_channel_n)
-            df_src['overbank_n'] = df_src['overbank_n'].fillna(default_overbank_n)
+            ## Assign Manning's n (table merge or direct scalar broadcast)
+            if df_mann is not None:
+                df_src = df_src.merge(df_mann, how='left', on='feature_id')
+                check_null = df_src['channel_n'].isnull().sum() + df_src['overbank_n'].isnull().sum()
+                if check_null > 0:
+                    log_text += (
+                        "WARNING:"
+                        + str(huc)
+                        + '  branch id: '
+                        + str(branch_id)
+                        + ' --> '
+                        + 'Null feature_ids found in crosswalk btw roughness dataframe and src dataframe (these will be set to default n values)'
+                        + ' --> missing entries= '
+                        + str(check_null / 84)
+                        + '\n'
+                    )
+                df_src['channel_n'] = df_src['channel_n'].fillna(channel_n)
+                df_src['overbank_n'] = df_src['overbank_n'].fillna(overbank_n)
+            else:
+                df_src['channel_n'] = channel_n
+                df_src['overbank_n'] = overbank_n
 
             ## Check if there are any missing data in the 'Stage_bankfull' column
             ##   (these are locations where subdiv will not be applied)
@@ -401,7 +400,16 @@ def multi_process(variable_mannings_calc, procs_list, log_file, branch_jobs, ver
     log_file.writelines(["%s\n" % item for item in map_output])
 
 
-def run_prep(huc_dir, mann_n_table, output_suffix, branch_jobs, verbose, src_plot_option):
+def run_prep(
+    huc_dir,
+    mann_n_table,
+    output_suffix,
+    branch_jobs,
+    verbose,
+    src_plot_option,
+    channel_n=0.05,
+    overbank_n=0.09,
+):
     procs_list = []
 
     print(f"Writing progress to log file here: {huc_dir}/logs/subdiv_src_{output_suffix}.log")
@@ -418,25 +426,26 @@ def run_prep(huc_dir, mann_n_table, output_suffix, branch_jobs, verbose, src_plo
     log_file.write('START TIME: ' + str(begin_time) + '\n')
     log_file.write('#########################################################\n\n')
 
-    ## Check that the input fim_dir exists
-    # assert os.path.isdir(fim_dir), 'ERROR: could not find the input fim_dir location: ' + str(fim_dir)
-    ## Check that the manning's roughness input filepath exists and then read to dataframe
-    assert os.path.isfile(mann_n_table), 'Can not find the input roughness/feature_id file: ' + str(
-        mann_n_table
+    ## Check if table is provided or if using uniform scalar values
+    use_table = (
+        mann_n_table is not None and str(mann_n_table).strip() != "" and str(mann_n_table).lower() != "none"
     )
-
-    ## Read the Manning's n csv (ensure that it contains feature_id, channel mannings, floodplain mannings)
-    print('Importing the Manning roughness data file: ' + mann_n_table)
-    df_mann = pd.read_csv(mann_n_table, dtype={'feature_id': 'int64'})
-    if (
-        'channel_n' not in df_mann.columns
-        or 'overbank_n' not in df_mann.columns
-        or 'feature_id' not in df_mann.columns
-    ):
-        print(
-            'Missing required data column ("feature_id","channel_n", and/or "overbank_n")!!! --> ' + df_mann
+    if use_table:
+        assert os.path.isfile(mann_n_table), 'Can not find the input roughness/feature_id file: ' + str(
+            mann_n_table
         )
+        print('Importing the Manning roughness data file: ' + mann_n_table)
+        df_mann = pd.read_csv(mann_n_table, dtype={'feature_id': 'int64'})
+        if (
+            'channel_n' not in df_mann.columns
+            or 'overbank_n' not in df_mann.columns
+            or 'feature_id' not in df_mann.columns
+        ):
+            print('Missing required data column ("feature_id","channel_n", and/or "overbank_n") in table!')
+            return
     else:
+        print(f"Using uniform Manning's n values: channel_n={channel_n}, overbank_n={overbank_n}")
+        df_mann = None
         print('Running the variable_mannings_calc function...')
         huc = os.path.basename(os.path.normpath(huc_dir))
         huc_branches_dir = os.path.join(huc_dir, 'branches')
@@ -457,6 +466,8 @@ def run_prep(huc_dir, mann_n_table, output_suffix, branch_jobs, verbose, src_plo
                         output_suffix,
                         src_plot_option,
                         huc_plot_output_dir,
+                        channel_n,
+                        overbank_n,
                     ]
                 )
             else:
@@ -508,8 +519,25 @@ if __name__ == '__main__':
         '-mann',
         '--mann-n-table',
         help="Path to a csv file containing Manning's n values by featureid",
-        required=True,
+        required=False,
+        default=None,
         type=str,
+    )
+    parser.add_argument(
+        '-chan_n',
+        '--channel-n',
+        help="Uniform channel Manning's n value",
+        default=0.05,
+        required=False,
+        type=float,
+    )
+    parser.add_argument(
+        '-obank_n',
+        '--overbank-n',
+        help="Uniform overbank Manning's n value",
+        default="0.09",
+        required=False,
+        type=float,
     )
     parser.add_argument(
         '-suff',
