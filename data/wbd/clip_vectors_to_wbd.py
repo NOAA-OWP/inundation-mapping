@@ -36,8 +36,8 @@ output_filenames = {
     "levee_lines": "nld_subset_levees.gpkg",
     "levee_lines_burned": "3d_nld_subset_levees_burned.gpkg",
     "levee_protected_areas": "LeveeProtectedAreas_subset.gpkg",
-    "osm_bridges": "osm_bridges_subset.gpkg",
-    "osm_roads": "osm_roads_subset.gpkg",
+    "osm_bridges": "osm_bridges_subset.parquet",
+    "osm_roads": "osm_roads_subset.parquet",
     "buildings": "buildings_subset.parquet",
 }
 
@@ -168,10 +168,10 @@ def subset_vector_layers(
     nwm_streams = huc_vars['streams']
     nwm_headwaters = huc_vars['headwaters']
     levee_protected_areas = huc_vars['levee_protected_areas']
-    osm_roads = huc_vars['roads']
     input_LANDSEA = huc_vars['landsea']
 
     osm_bridges_modified_dir = os.getenv('osm_bridges_modified_dir')
+    osm_roads_per_huc_dir = os.getenv('osm_roads_per_huc_dir')
 
     # read wbd and wbd_buffered that are needed for clipping
     wbd = gpd.read_file(os.path.join(huc_directory, wbd_filename))
@@ -301,7 +301,9 @@ def subset_vector_layers(
         else:
             logging.warning(f"Missing file: osm_bridges for {huc} not found at {src}.")
     else:
-        # Bridge modified files are already HUC-level, so stage them directly.
+        # Bridge modified files are already HUC-level GeoParquet (written by
+        # make_rasters_using_lidar.py), so stage them directly rather than reading and
+        # rewriting them.
         dst = os.path.join(huc_directory, output_filenames['osm_bridges'])
 
         if not osm_bridges_modified_dir:
@@ -309,7 +311,7 @@ def subset_vector_layers(
                 "Missing osm_bridges_modified_dir environment variable; osm_bridges not transferred."
             )
         else:
-            src = os.path.join(osm_bridges_modified_dir, f'huc_{huc}_osm_bridges_modified.gpkg')
+            src = os.path.join(osm_bridges_modified_dir, f'huc_{huc}_osm_bridges_modified.parquet')
             if os.path.exists(src):
                 logging.info(f"Transferring recently pulled osm_bridges for {huc} from {src}.")
                 shutil.copy2(src, dst)
@@ -325,23 +327,20 @@ def subset_vector_layers(
         else:
             logging.warning(f"Missing file: osm_roads for {huc} not found at {src}.")
     else:
-        # Subset OSM (Open Street Map) roads
-        logging.info(f"Clipping OSM roads for {huc}")
-        if os.path.exists(osm_roads):
-            logging.info(f"Using osm_roads source for {huc}: {osm_roads}")
-            subset_osm_roads_gdb = gpd.read_file(osm_roads, mask=wbd_buffer, engine="fiona")
-            if subset_osm_roads_gdb.empty:
-                print("-- No applicable roads for this HUC")
-                logging.info("-- No applicable roads for this HUC")
-            else:
-                write_geodataframe(
-                    subset_osm_roads_gdb,
-                    os.path.join(huc_directory, output_filenames['osm_roads']),
-                    index=False,
-                    crs=huc_CRS,
-                )
+        # Road files are already HUC-level GeoParquet (roads_{HUC8}.parquet, written by
+        # make_osm_roads_per_huc.py) and already reprojected to this HUC's CRS.. the same pattern
+        # used above for osm_bridges.
+        dst = os.path.join(huc_directory, output_filenames['osm_roads'])
 
-            del subset_osm_roads_gdb
+        if not osm_roads_per_huc_dir:
+            logging.warning("Missing osm_roads_per_huc_dir environment variable; osm_roads not transferred.")
+        else:
+            src = os.path.join(osm_roads_per_huc_dir, f'roads_{huc}.parquet')
+            if os.path.exists(src):
+                logging.info(f"Transferring recently pulled osm_roads for {huc} from {src}.")
+                shutil.copy2(src, dst)
+            else:
+                logging.warning(f"Missing file: recently pulled osm_roads for {huc} not found at {src}.")
 
     if not preclipping_flags['buildings']:
         src = os.path.join(copy_from_dir, huc, output_filenames['buildings'])

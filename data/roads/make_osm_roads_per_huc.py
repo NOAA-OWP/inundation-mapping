@@ -33,6 +33,8 @@ from __future__ import annotations
 import argparse
 import os
 import re
+import shlex
+import sys
 import traceback
 from datetime import datetime, timezone
 from pathlib import Path
@@ -47,7 +49,7 @@ from data.osm.geofabrik_clip_utils import (
     find_overlapping_parquets,
 )
 from src.utils.io import write_geodataframe
-from src.utils.shared_functions import run_with_mp, setup_mp_file_logger
+from src.utils.shared_functions import get_huc_vars, run_with_mp, setup_mp_file_logger
 
 
 srcDir = os.getenv('srcDir')
@@ -113,6 +115,11 @@ def single_huc_job(
             screen_queue.put(msg)
             return 1, [True]
 
+        # A state parquet's CRS is not necessarily the HUC's CRS (e.g. the shared American
+        # Oceania parquet covers both Guam and American Samoa and is stored in EPSG:4326).
+        # Reprojecting also keeps the catchment overlay in split_roads in a matching CRS.
+        roads_gdf = roads_gdf.to_crs(get_huc_vars(huc8)['crs'])
+
         roads_gdf["huc8"] = huc8
 
         splitted = split_roads(roads_gdf, split_boundary_path, file_logger, screen_queue, task_id)
@@ -130,7 +137,12 @@ def single_huc_job(
 
 
 def make_osm_roads(
-    roads_parquet_dir: str, preclip_dir: str, output_dir: str, number_jobs: int = 4, lst_hucs: str = ""
+    roads_parquet_dir: str,
+    preclip_dir: str,
+    output_dir: str,
+    number_jobs: int = 4,
+    lst_hucs: str = "",
+    cli_args: str | None = None,
 ) -> None:
     start_time = datetime.now(timezone.utc)
     roads_dir = Path(roads_parquet_dir)
@@ -144,6 +156,8 @@ def make_osm_roads(
     print("==================================")
     print("Starting OSM roads per-HUC")
     file_logger.info("Starting OSM roads per-HUC")
+    if cli_args:
+        file_logger.info(f"CLI invocation: {cli_args}")
     file_logger.info(f"Start time: {start_time.strftime('%m/%d/%Y %H:%M:%S')}")
 
     parquet_files = sorted(roads_dir.glob("*.parquet"))
@@ -258,4 +272,5 @@ if __name__ == "__main__":
     )
 
     args = vars(parser.parse_args())
+    args["cli_args"] = shlex.join(sys.argv)
     make_osm_roads(**args)

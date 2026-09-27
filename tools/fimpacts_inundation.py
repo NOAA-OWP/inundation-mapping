@@ -69,7 +69,7 @@ def inundation_status(
     supported_feature_types = {
         'roads': {
             'fimpact_filename': 'osm_roads_fimpact.csv',
-            'subset_filename': 'osm_roads_subset.gpkg',
+            'subset_filename': 'osm_roads_subset.parquet',
             'join_id': 'osmid_catchid',
             'id_columns': ['osmid', 'huc8', 'HydroID', 'feature_id', 'branch'],
         },

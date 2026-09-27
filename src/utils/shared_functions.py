@@ -709,7 +709,7 @@ def get_env_value(env_var_name):
 def get_huc_vars(huc):
     """Return the region-specific env vars (CRS and input paths) for a given 8-digit HUC number.
 
-    Keys are consistent across all regions ('crs', 'landsea', 'roads', 'NLD',
+    Keys are consistent across all regions ('crs', 'landsea', 'NLD',
     'levees_preprocessed', 'levee_protected_areas', 'lakes', 'nwm_catchments',
     'streams', 'headwaters', 'wbd', 'dem_domain'); a key is None where a region
     has no dedicated value (e.g. American Samoa has no NLD/levee inputs).
@@ -721,7 +721,6 @@ def get_huc_vars(huc):
         return {
             'crs': os.getenv('ALASKA_CRS'),
             'landsea': os.getenv('input_landsea_Alaska'),
-            'roads': os.getenv('osm_roads_alaska'),
             'NLD': os.getenv('input_NLD_Alaska'),
             'levees_preprocessed': os.getenv('input_levees_preprocessed_Alaska'),
             'levee_protected_areas': os.getenv('input_nld_levee_protected_areas_Alaska'),
@@ -736,7 +735,6 @@ def get_huc_vars(huc):
         return {
             'crs': os.getenv('GUAM_CRS'),
             'landsea': os.getenv('input_landsea_Guam'),
-            'roads': os.getenv('osm_roads_guam'),
             'NLD': os.getenv('input_NLD_Guam'),
             'levees_preprocessed': os.getenv('input_levees_preprocessed_Guam'),
             'levee_protected_areas': os.getenv('input_nld_levee_protected_areas_Guam'),
@@ -751,7 +749,6 @@ def get_huc_vars(huc):
         return {
             'crs': os.getenv('AMERICAN_SAMOA_CRS'),
             'landsea': os.getenv('input_landsea_AmericanSamoa'),
-            'roads': os.getenv('osm_roads_americansamoa'),
             'NLD': None,
             'levees_preprocessed': None,
             'levee_protected_areas': None,
@@ -768,7 +765,6 @@ def get_huc_vars(huc):
             'landsea': (
                 os.getenv('input_GL_boundaries') if str(huc).startswith('04') else os.getenv('input_landsea')
             ),
-            'roads': os.getenv('osm_roads'),
             'NLD': os.getenv('input_NLD'),
             'levees_preprocessed': os.getenv('input_levees_preprocessed'),
             'levee_protected_areas': os.getenv('input_nld_levee_protected_areas'),

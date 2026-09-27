@@ -24,7 +24,7 @@ from data.create_vrt_file import create_vrt_file
 from src.utils.shared_functions import run_with_mp, setup_mp_file_logger
 
 
-"""Build bridge DEM-difference rasters from HUC8 bridge GeoPackages and lidar rasters."""
+"""Build bridge DEM-difference rasters from HUC8 bridge GeoParquet files and lidar rasters."""
 
 
 def rasters_to_point(tif_paths, file_logger, screen_queue, task_id):
@@ -74,10 +74,10 @@ def make_one_diff(
         ]
 
         if not os.path.exists(huc_bridge_file):
-            file_logger.info(f"No HUC8 bridge gpkg found for {HUC} at {huc_bridge_file}")
-            screen_queue.put(f"No HUC8 bridge gpkg found for {HUC} at {huc_bridge_file}")
+            file_logger.info(f"No HUC8 bridge parquet found for {HUC} at {huc_bridge_file}")
+            screen_queue.put(f"No HUC8 bridge parquet found for {HUC} at {huc_bridge_file}")
         else:
-            OSM_bridge_lines_gdf = gpd.read_file(huc_bridge_file)
+            OSM_bridge_lines_gdf = gpd.read_parquet(huc_bridge_file)
             cols_to_keep = ['osmid', 'geometry']
             OSM_bridge_lines_gdf = OSM_bridge_lines_gdf[cols_to_keep]
             OSM_bridge_lines_gdf['osmid'] = OSM_bridge_lines_gdf['osmid'].astype(str)
@@ -197,7 +197,7 @@ def make_dif_rasters(dem_dir, lidar_processing_dir, OSM_bridge_dir, output_dir, 
                 tasks_args_list.append(
                     {
                         'dem_file': dem_file,
-                        'huc_bridge_file': os.path.join(OSM_bridge_dir, f"huc_{HUC}_osm_bridges.gpkg"),
+                        'huc_bridge_file': os.path.join(OSM_bridge_dir, f"bridges_{HUC}.parquet"),
                         'lidar_processing_dir': lidar_processing_dir,
                         'HUC': HUC,
                         'output_diff_path': output_diff_path,
@@ -297,7 +297,8 @@ if __name__ == "__main__":
     parser.add_argument(
         '-i',
         '--OSM_bridge_dir',
-        help='REQUIRED: Folder containing all HUC-level gpkg original bridge line files for all regions.',
+        help='REQUIRED: Folder containing all HUC-level original bridge line GeoParquet files '
+        '(bridges_{HUC8}.parquet, made by make_osm_bridges_per_huc.py) for all regions.',
         required=True,
     )
 

@@ -17,7 +17,7 @@ from shapely.geometry import box
 
 
 def compute_state_parquet_bounds_4326(parquet_files: List[Path]) -> dict[Path, tuple]:
-    """Load each state parquet once and return its bounding box in EPSG:4326, skipping empty files."""
+    """Load each state parquet once and return its bounding box in EPSG:4326"""
     bounds: dict[Path, tuple] = {}
     for pq_path in parquet_files:
         gdf_tmp = gpd.read_parquet(pq_path)

@@ -356,14 +356,14 @@ if [[ "${healed_hand_hydrocondition}" == "true" && "${current_branch_id}" == "${
 fi
 
 ## HEAL HAND BRIDGES ##
-if [[ -f "${tempHucDataDir}/osm_bridges_subset.gpkg" ]]; then
+if [[ -f "${tempHucDataDir}/osm_bridges_subset.parquet" ]]; then
     echo -e "${startDiv}Burn in bridges ${hucNumber} ${current_branch_id}"
     date -u
     Tstart
     args=(
         -g "${tempCurrentBranchDataDir}/rem_zeroed_masked_${current_branch_id}.tif"
         -d "${tempCurrentBranchDataDir}/bridge_elev_diff_meters_${current_branch_id}.tif"
-        -s "${tempHucDataDir}/osm_bridges_subset.gpkg"
+        -s "${tempHucDataDir}/osm_bridges_subset.parquet"
         -b1 10
         -b2 1.5
         -p "${tempCurrentBranchDataDir}/gw_catchments_reaches_filtered_addedAttributes_crosswalked_${current_branch_id}.parquet"
@@ -376,13 +376,13 @@ else
 fi
 
 ## Process roads FIMpact ##
-if  [[ -f "${tempHucDataDir}/osm_roads_subset.gpkg" ]]; then
+if  [[ -f "${tempHucDataDir}/osm_roads_subset.parquet" ]]; then
     echo -e "${startDiv}Process roads FIMpact ${hucNumber} ${current_branch_id}"
     date -u
     Tstart
     args=(
         -g "${tempCurrentBranchDataDir}/rem_zeroed_masked_${current_branch_id}.tif"
-        -r "${tempHucDataDir}/osm_roads_subset.gpkg"
+        -r "${tempHucDataDir}/osm_roads_subset.parquet"
         -c "${tempCurrentBranchDataDir}/gw_catchments_reaches_filtered_addedAttributes_crosswalked_${current_branch_id}.parquet"
         -o "${tempCurrentBranchDataDir}/osm_roads_fimpact_${current_branch_id}.csv"
     )

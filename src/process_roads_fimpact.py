@@ -102,7 +102,7 @@ if __name__ == "__main__":
         python foss_fim/src/process_roads_fimpact.py
         -g outputs/roads/02050206/branches/0/rem_zeroed_masked_0.tif
         -c outputs/roads/02050206/branches/0/gw_catchments_reaches_filtered_addedAttributes_crosswalked_0.parquet
-        -r outputs/roads/02050206/osm_roads_subset.gpkg
+        -r outputs/roads/02050206/osm_roads_subset.parquet
         -o outputs/roads/02050206/branches/0/osm_roads_fimpact_0.csv
 
     '''

@@ -2,7 +2,7 @@
 Geofabrik-based replacement for the per-HUC portion of pull_osm_bridges_legacy.py (Overpass API,
 now deprecated). For each HUC8: reads state bridge parquets that spatially overlap the
 HUC, clips bridges to the HUC boundary, applies the dissolve-touching-lines step from
-pull_osm_bridges_legacy.py, and writes huc_{HUC8}_osm_bridges.parquet.
+pull_osm_bridges_legacy.py, and writes bridges_{HUC8}.parquet.
 
 Upstream: data/osm/pull_osm.py must have already written per-state bridge parquets to
   <osm_base>/states_parquet/bridges/<state>.parquet
@@ -36,6 +36,8 @@ from __future__ import annotations
 import argparse
 import os
 import re
+import shlex
+import sys
 import traceback
 import warnings
 from datetime import datetime, timezone
@@ -54,7 +56,7 @@ from data.osm.geofabrik_clip_utils import (
     find_overlapping_parquets,
 )
 from src.utils.io import write_geodataframe
-from src.utils.shared_functions import run_with_mp, setup_mp_file_logger
+from src.utils.shared_functions import get_huc_vars, run_with_mp, setup_mp_file_logger
 
 
 srcDir = os.getenv('srcDir')
@@ -96,8 +98,8 @@ def dissolve_touching_lines(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     then convert buffered polygons back to LineStrings — matching
     pull_osm_bridges_legacy.py lines 208-236.
 
-    Must be called after the GeoDataFrame has been projected (parquets from
-    pull_osm.py are already in the target projected CRS).
+    Must be called after the GeoDataFrame has been reprojected to the HUC's own projected
+    CRS (single_huc_job does this) — the buffer distance is in that CRS's units.
     """
     buffered = gdf.copy()
     buffered["geometry"] = buffered["geometry"].buffer(0.0001)
@@ -137,7 +139,7 @@ def single_huc_job(
     task_id,
 ):
     try:
-        output_path = Path(output_dir) / f"huc_{huc8}_osm_bridges.parquet"
+        output_path = Path(output_dir) / f"bridges_{huc8}.parquet"
         if output_path.exists():
             output_path.unlink()
 
@@ -151,9 +153,11 @@ def single_huc_job(
             screen_queue.put(msg)
             return 1, [True]
 
-        # Add HUC columns matching pull_osm_bridges_legacy.py lines 103-109.
+        # A state parquet's CRS is not necessarily the HUC's CRS (e.g. the shared American
+        # Oceania parquet covers both Guam and American Samoa and is stored in EPSG:4326).
+        bridges_gdf = bridges_gdf.to_crs(get_huc_vars(huc8)['crs'])
+
         bridges_gdf["huc8"] = huc8
-        bridges_gdf["huc10"] = ""
 
         final_gdf = dissolve_touching_lines(bridges_gdf)
 
@@ -174,7 +178,7 @@ def single_huc_job(
         # Rename bad output to _bad.parquet so it can be filtered out later,
         # matching pull_osm_bridges_legacy.py error handling.
         try:
-            bad_path = Path(output_dir) / f"huc_{huc8}_osm_bridges.parquet"
+            bad_path = Path(output_dir) / f"bridges_{huc8}.parquet"
             if bad_path.exists():
                 bad_path.rename(bad_path.with_stem(bad_path.stem + "_bad"))
         except Exception:
@@ -184,7 +188,12 @@ def single_huc_job(
 
 
 def make_osm_bridges(
-    bridges_parquet_dir: str, preclip_dir: str, output_dir: str, number_jobs: int = 4, lst_hucs: str = ""
+    bridges_parquet_dir: str,
+    preclip_dir: str,
+    output_dir: str,
+    number_jobs: int = 4,
+    lst_hucs: str = "",
+    cli_args: str | None = None,
 ) -> None:
     start_time = datetime.now(timezone.utc)
     bridges_dir = Path(bridges_parquet_dir)
@@ -198,6 +207,8 @@ def make_osm_bridges(
     print("==================================")
     print("Starting OSM bridges per-HUC")
     file_logger.info("Starting OSM bridges per-HUC")
+    if cli_args:
+        file_logger.info(f"CLI invocation: {cli_args}")
     file_logger.info(f"Start time: {start_time.strftime('%m/%d/%Y %H:%M:%S')}")
 
     parquet_files = sorted(bridges_dir.glob("*.parquet"))
@@ -287,7 +298,7 @@ if __name__ == "__main__":
         "-o",
         "--output_dir",
         required=True,
-        help="REQUIRED: folder to write per-HUC huc_*_osm_bridges.parquet files",
+        help="REQUIRED: folder to write per-HUC bridges_{HUC8}.parquet files",
     )
     parser.add_argument(
         "-j",
@@ -306,4 +317,5 @@ if __name__ == "__main__":
     )
 
     args = vars(parser.parse_args())
+    args["cli_args"] = shlex.join(sys.argv)
     make_osm_bridges(**args)

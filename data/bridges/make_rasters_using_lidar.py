@@ -289,7 +289,7 @@ def make_lidar_footprints():
 def write_modified_bridge_file(OSM_bridge_lines_gdf, modified_bridge_dir, huc_output_dir, HUC):
     os.makedirs(modified_bridge_dir, exist_ok=True)
 
-    output_bridge_path = os.path.join(modified_bridge_dir, f"huc_{HUC}_osm_bridges_modified.gpkg")
+    output_bridge_path = os.path.join(modified_bridge_dir, f"huc_{HUC}_osm_bridges_modified.parquet")
     created_tif_ids = {
         os.path.splitext(os.path.basename(path))[0]
         for path in glob.glob(os.path.join(huc_output_dir, 'lidar_osm_rasters', '*.tif'))
@@ -400,9 +400,9 @@ def process_single_bridge_file(
     logging.info(f"Saving results in {output_dir}")
 
     # check input file veracity
-    if not OSM_bridge_file.endswith(".gpkg"):
-        logging.critical(f" Error: {OSM_bridge_file} is not a .gpkg file. Program terminated.")
-        sys.exit(f" Error: {OSM_bridge_file} is not a .gpkg file. Program terminated.")
+    if not OSM_bridge_file.endswith(".parquet"):
+        logging.critical(f" Error: {OSM_bridge_file} is not a .parquet file. Program terminated.")
+        sys.exit(f" Error: {OSM_bridge_file} is not a .parquet file. Program terminated.")
 
     try:
 
@@ -415,7 +415,7 @@ def process_single_bridge_file(
 
         text = 'read osm bridge lines and make a polygon footprint'
         logging.info(text)
-        OSM_bridge_lines_gdf = gpd.read_file(OSM_bridge_file)
+        OSM_bridge_lines_gdf = gpd.read_parquet(OSM_bridge_file)
 
         # osm file must contain osmid field
         if 'osmid' not in OSM_bridge_lines_gdf.columns:
@@ -574,9 +574,12 @@ def process_bridges_lidar_data(
     if not os.path.isdir(OSM_bridge_input):
         sys.exit(f"Error: {OSM_bridge_input} is not a directory. Program terminated.")
 
-    bridge_files = sorted(glob.glob(os.path.join(OSM_bridge_input, '*.gpkg')))
+    bridge_files = sorted(glob.glob(os.path.join(OSM_bridge_input, 'bridges_*.parquet')))
     if not bridge_files:
-        sys.exit(f"Error: {OSM_bridge_input} does not contain any .gpkg bridge files. Program terminated.")
+        sys.exit(
+            f"Error: {OSM_bridge_input} does not contain any bridges_XXXXXXXX.parquet files. "
+            "Program terminated."
+        )
 
     if lst_hucs != '':
         lst_hucs = lst_hucs.strip()
@@ -584,7 +587,7 @@ def process_bridges_lidar_data(
         bridge_files = [
             bridge_file
             for bridge_file in bridge_files
-            if (huc_match := re.match(r'^huc_(\d{8})_osm_bridges\.gpkg$', os.path.basename(bridge_file)))
+            if (huc_match := re.match(r'^bridges_(\d{8})\.parquet$', os.path.basename(bridge_file)))
             and huc_match.group(1) in selected_hucs
         ]
 
@@ -604,11 +607,11 @@ def process_bridges_lidar_data(
     total_hucs = len(bridge_files)
 
     for huc_index, bridge_file in enumerate(bridge_files, start=1):
-        huc_match = re.match(r'^huc_(\d{8})_osm_bridges\.gpkg$', os.path.basename(bridge_file))
+        huc_match = re.match(r'^bridges_(\d{8})\.parquet$', os.path.basename(bridge_file))
         if not huc_match:
             sys.exit(
                 f"Error: {os.path.basename(bridge_file)} does not match the expected "
-                "huc_XXXXXXXX_osm_bridges.gpkg naming pattern. Program terminated."
+                "bridges_XXXXXXXX.parquet naming pattern. Program terminated."
             )
 
         huc_num = huc_match.group(1)
@@ -700,7 +703,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '-i',
         '--OSM_bridge_input',
-        help='REQUIRED: folder path location where individual HUC8 geopackages for bridge lines are located',
+        help='REQUIRED: folder path location where the per-HUC8 bridge line GeoParquet files are located',
         required=True,
     )
 

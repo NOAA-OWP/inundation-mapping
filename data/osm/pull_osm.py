@@ -30,8 +30,10 @@ Sample usage:
 import argparse
 import logging
 import os
+import shlex
 import shutil
 import subprocess
+import sys
 import traceback
 from datetime import datetime, timezone
 from pathlib import Path
@@ -49,23 +51,24 @@ srcDir = os.getenv('srcDir')
 load_dotenv(f'{srcDir}/bash_variables.env')
 DEFAULT_FIM_PROJECTION_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
 ALASKA_CRS = os.getenv('ALASKA_CRS')
-GUAM_CRS = os.getenv('GUAM_CRS')
-AMERICAN_SAMOA_CRS = os.getenv('AMERICAN_SAMOA_CRS')
+
+# Geofabrik's "American Oceania" extract bundles Guam, American Samoa and the Northern Mariana
+# Islands into one file, which can only have one CRS. It is kept in EPSG:4326 (native OSM CRS)
+# rather than any one territory's projected CRS, which would badly distort the others. The
+# per-HUC scripts reproject each clipped result into the HUC's own CRS (get_huc_vars).
+AMERICAN_OCEANIA_SLUG = "american-oceania"
+AMERICAN_OCEANIA_CRS = "EPSG:4326"
 
 
 GEOFABRIK_BASE_URL = "https://download.geofabrik.de/north-america/us"
 
-# Territory slugs whose Geofabrik files live outside north-america/us/.
-# Geofabrik does not publish standalone "guam" or "american-samoa" extracts — those slugs
-# 302-redirect to the bare homepage instead of a file. Guam is covered by Geofabrik's
-# Micronesia extract (which also includes Palau, the Marshall Islands, and the Northern
-# Mariana Islands); American Samoa is covered by Geofabrik's Samoa extract (which also
-# includes the independent nation of Samoa). The extra out-of-scope territory data is
-# harmless here since downstream processing clips to HUC boundaries.
-# Verify these URLs if Geofabrik reorganises their layout.
+# Slugs whose Geofabrik files live outside north-america/us/.
+# Geofabrik does not publish standalone "guam" or "american-samoa" extracts. Both territories
+# (plus the Northern Mariana Islands, which have no HUC in the FIM domain)
+# are covered by Geofabrik's "American Oceania" extract.
+# Verify this URL if Geofabrik reorganises their layout.
 GEOFABRIK_URL_OVERRIDES = {
-    "guam": "https://download.geofabrik.de/australia-oceania/micronesia-latest.osm.pbf",
-    "american-samoa": "https://download.geofabrik.de/australia-oceania/samoa-latest.osm.pbf",
+    AMERICAN_OCEANIA_SLUG: "https://download.geofabrik.de/australia-oceania/american-oceania-latest.osm.pbf"
 }
 
 # All supported state/territory slugs (Geofabrik naming convention).
@@ -121,8 +124,9 @@ ALL_STATES = [
     "west-virginia",
     "wisconsin",
     "wyoming",
-    "guam",
-    "american-samoa",
+    "puerto-rico",
+    "us-virgin-islands",
+    AMERICAN_OCEANIA_SLUG,  # Guam + American Samoa (+ Northern Mariana Islands)
 ]
 
 # Highway tag set matching pull_osm_roads_legacy.py's current (unmerged dev-add-residental-roads)
@@ -157,10 +161,8 @@ UNWANTED_BRIDGE_TYPES = {
 def _crs_for_state(state: str) -> str:
     if state == "alaska":
         return ALASKA_CRS
-    if state == "guam":
-        return GUAM_CRS
-    if state == "american-samoa":
-        return AMERICAN_SAMOA_CRS
+    if state == AMERICAN_OCEANIA_SLUG:
+        return AMERICAN_OCEANIA_CRS
     return DEFAULT_FIM_PROJECTION_CRS
 
 
@@ -399,7 +401,7 @@ def per_state_job(state, pbf_dir, roads_dir, bridges_dir, keep_pbf, file_logger,
         return 0, [False]
 
 
-def pull_osm(output_dir: str, states: str = "", keep_pbf: bool = False) -> None:
+def pull_osm(output_dir: str, states: str = "", keep_pbf: bool = False, cli_args: str | None = None) -> None:
     start_time = datetime.now(timezone.utc)
     out = Path(output_dir)
 
@@ -415,6 +417,8 @@ def pull_osm(output_dir: str, states: str = "", keep_pbf: bool = False) -> None:
 
     file_logger.info("==================================")
     file_logger.info("Starting OSM download (Geofabrik)")
+    if cli_args:
+        file_logger.info(f"CLI invocation: {cli_args}")
     file_logger.info(f"Start time: {start_time.strftime('%m/%d/%Y %H:%M:%S')}")
     print("==================================")
     print("Starting OSM download (Geofabrik)")
@@ -501,9 +505,10 @@ if __name__ == "__main__":
         "-k",
         "--keep_pbf",
         help="OPTIONAL: add this flag to keep the downloaded .osm.pbf files "
-        "(takes no value). If omitted, PBFs are removed",
+        "(takes no value). If omitted, PBFs are removed.",
         required=False,
         action="store_true",
     )
     args = vars(parser.parse_args())
+    args["cli_args"] = shlex.join(sys.argv)
     pull_osm(**args)
