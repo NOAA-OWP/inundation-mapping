@@ -606,43 +606,55 @@ def process_bridges_lidar_data(
 
     total_hucs = len(bridge_files)
 
-    for huc_index, bridge_file in enumerate(bridge_files, start=1):
-        huc_match = re.match(r'^bridges_(\d{8})\.parquet$', os.path.basename(bridge_file))
-        if not huc_match:
-            sys.exit(
-                f"Error: {os.path.basename(bridge_file)} does not match the expected "
-                "bridges_XXXXXXXX.parquet naming pattern. Program terminated."
+    # Run one HUC at a time (max_workers=1, matching the previous plain sequential loop)
+    # through a worker process that gets torn down and replaced after every single HUC
+    # (max_tasks_per_child=1). GDAL/geopandas/rasterio retain memory across many sequential
+    # calls within the same long-lived process (confirmed for pull_osm.py's equivalent
+    # per-state loop — see data/osm/pull_osm.py), which silently OOM-kills a plain sequential
+    # run like this one partway through a large HUC list. Recycling the worker after each HUC
+    # is the only thing that reliably reclaims that memory.
+    with ProcessPoolExecutor(max_workers=1, max_tasks_per_child=1) as executor:
+        for huc_index, bridge_file in enumerate(bridge_files, start=1):
+            huc_match = re.match(r'^bridges_(\d{8})\.parquet$', os.path.basename(bridge_file))
+            if not huc_match:
+                sys.exit(
+                    f"Error: {os.path.basename(bridge_file)} does not match the expected "
+                    "bridges_XXXXXXXX.parquet naming pattern. Program terminated."
+                )
+
+            huc_num = huc_match.group(1)
+            bridge_output_dir = os.path.join(lidar_processing_dir, huc_num)
+            print(f"working on HUC {huc_num} ({huc_index}/{total_hucs})")
+
+            future = executor.submit(
+                process_single_bridge_file,
+                OSM_bridge_file=bridge_file,
+                huc_num=huc_num,
+                buffer_width=buffer_width,
+                raster_resolution=raster_resolution,
+                output_dir=bridge_output_dir,
+                modified_bridge_dir=modified_bridge_dir,
+                job_number_lidar=job_number_lidar,
+                job_number_raster=job_number_raster,
+                base_entwine_footprints_gdf=base_entwine_footprints_gdf,
+                remove_las_files=remove_las_files,
+                cli_args=cli_args,
             )
+            # Block until this HUC finishes before submitting the next one, so behavior stays
+            # fully sequential (one HUC at a time, in order) — only the process-recycling is new.
+            future.result()
 
-        huc_num = huc_match.group(1)
-        bridge_output_dir = os.path.join(lidar_processing_dir, huc_num)
-        print(f"working on HUC {huc_num} ({huc_index}/{total_hucs})")
+            classification_summary_path = os.path.join(bridge_output_dir, 'classifications_summary.csv')
+            if os.path.exists(classification_summary_path):
+                classification_df = pd.read_csv(classification_summary_path)
+                classification_df['HUC'] = huc_num
+                per_file_classification_summaries.append(classification_df)
 
-        process_single_bridge_file(
-            OSM_bridge_file=bridge_file,
-            huc_num=huc_num,
-            buffer_width=buffer_width,
-            raster_resolution=raster_resolution,
-            output_dir=bridge_output_dir,
-            modified_bridge_dir=modified_bridge_dir,
-            job_number_lidar=job_number_lidar,
-            job_number_raster=job_number_raster,
-            base_entwine_footprints_gdf=base_entwine_footprints_gdf,
-            remove_las_files=remove_las_files,
-            cli_args=cli_args,
-        )
-
-        classification_summary_path = os.path.join(bridge_output_dir, 'classifications_summary.csv')
-        if os.path.exists(classification_summary_path):
-            classification_df = pd.read_csv(classification_summary_path)
-            classification_df['HUC'] = huc_num
-            per_file_classification_summaries.append(classification_df)
-
-        elevation_summary_path = os.path.join(bridge_output_dir, 'bridge_elevation_filter_summary.csv')
-        if os.path.exists(elevation_summary_path):
-            elevation_df = pd.read_csv(elevation_summary_path)
-            elevation_df['HUC'] = huc_num
-            per_file_elevation_summaries.append(elevation_df)
+            elevation_summary_path = os.path.join(bridge_output_dir, 'bridge_elevation_filter_summary.csv')
+            if os.path.exists(elevation_summary_path):
+                elevation_df = pd.read_csv(elevation_summary_path)
+                elevation_df['HUC'] = huc_num
+                per_file_elevation_summaries.append(elevation_df)
 
     if len(bridge_files) > 1:
         if per_file_classification_summaries:
