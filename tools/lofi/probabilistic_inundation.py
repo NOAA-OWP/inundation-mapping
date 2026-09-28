@@ -115,7 +115,7 @@ def generate_streamflow_quantiles(
 
         ensemble_subset = ensemble_subset.fillna(ensemble_subset.mean(dim='ensemble'))
         q = np.atleast_1d(percentiles)
-        values = ensemble_subset.quantiles(q/100, dim='ensemble').to_dataframe().unstack(level='quantile')
+        values = ensemble_subset.quantile(q/100, dim='ensemble').to_dataframe().unstack(level='quantile')
         perc_df.loc[inter_ids] = values.clip(lower=0)
     return perc_df
 
