@@ -360,7 +360,7 @@ def compute_manning_subdivision(df_src, eps=1e-5):
     # Compute volume overbank
     vol_obank = vvol - vol_chan
     np.maximum(vol_obank, 0.0, out=vol_obank)  # Ensure that vol_obank is always positive
-    np.putmask(vol_obank, mask, 0.0)  # Set overbank to 0 where stage doesn't exceed bankfull
+    np.copyto(vol_obank, 0.0, where=mask)  # Set overbank to 0 where stage doesn't exceed bankfull
 
     wetarea_chan = np.divide(vol_chan, lengthm, out=vol_chan)
     del vol_chan
@@ -371,7 +371,7 @@ def compute_manning_subdivision(df_src, eps=1e-5):
 
     bedarea_obank = vbedarea - bedarea_chan
     np.maximum(bedarea_obank, 0.0, out=bedarea_obank)
-    np.putmask(bedarea_obank, mask, 0.0)
+    np.copyto(bedarea_obank, 0.0, where=mask)
 
     wettedperim_chan = bedarea_chan / lengthm
     np.multiply(delta_stage, 2, out=delta_stage)
@@ -423,7 +423,7 @@ def compute_manning_subdivision(df_src, eps=1e-5):
     q_total = np.add(q_chan, q_obank, out=q_chan)
     del q_chan, q_obank
     np.equal(vstage, 0, out=mask)
-    np.putmask(q_total, mask, 0.0)
+    np.copyto(q_total, 0.0, where=mask)
 
     subdiv_applied = np.isnan(vstage_bf, out=mask)
     np.copyto(q_total, vq_orig, where=subdiv_applied)
