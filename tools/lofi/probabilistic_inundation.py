@@ -375,7 +375,9 @@ def compute_manning_subdivision(df_src, eps=1e-5):
 
     wettedperim_chan = bedarea_chan / lengthm
     np.multiply(delta_stage, 2, out=delta_stage)
+    np.logical_not(mask, out=mask)
     np.add(wettedperim_chan, delta_stage, out=wettedperim_chan, where=mask)
+    np.logical_not(mask, out=mask)
     del delta_stage, bedarea_chan
 
     np.maximum(wettedperim_chan, eps, out=wettedperim_chan)
@@ -478,13 +480,6 @@ def get_subdivided_src(crosswalk, hydrotable):
     )
     df_computed = df_computed.set_index(["HydroID", "stage"])
     return df_computed
-
-    df_htable = hydrotable.merge(
-        df_computed, how='left', left_on=['HydroID', 'stage'], right_on=['HydroID', 'stage']
-    )
-    df_htable = df_htable.set_index(['HydroID', 'stage'])
-    df_htable['precalb_discharge_cms'] = 0
-    return df_htable
 
 
 @use_pandas_3_behavior()
