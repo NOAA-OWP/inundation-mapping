@@ -602,6 +602,8 @@ def inundate_probabilistic(
             h_tables.append(h_table)
             del h_table
         p_table = pd.concat(h_tables, axis=1)
+        p_table['branch_id'] = branch
+        p_table = p_table.set_index('branch_id', append=True)
         branch_percentile_df.append(p_table)
         del h_tables, p_table
         del crosswalk
@@ -622,7 +624,7 @@ def inundate_probabilistic(
     ]
 
     inundation_paths = []
-    full_p_table = df_htable.merge(pd.concat(branch_percentile_df), how='left', left_on=["HydroID", "stage"], right_index=True)
+    full_p_table = df_htable.merge(pd.concat(branch_percentile_df), how='left', left_on=["HydroID", "stage", "branch_id"], right_index=True)
     del df_htable
     del branch_percentile_df
     print("Producing inundation...")
