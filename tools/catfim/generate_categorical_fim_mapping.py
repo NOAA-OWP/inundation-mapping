@@ -320,7 +320,7 @@ def run_fb_mapping(
                 sites_models_df[sites_models_df['nws_lid'] == ahps_site]['model_collection'].unique().tolist()
             )
 
-            logging.info(f"{huc} : {ahps_site} - Found the following model(s): {model_list}")
+            logging.info(f"{huc} : {ahps_site} - HEC-RAS model(s) available for site: {model_list}")
 
             # Iterate through magnitudes and models
             for model_name in model_list:
@@ -396,7 +396,7 @@ def run_fb_mapping(
                                 f"{huc} : {ahps_site} : {magnitude} - No outputs returned for flows2fim subprocess"
                             )
 
-                    except FileNotFoundError:
+                    except FileNotFoundError: # catfim_hecras_fb TODO: Should I simplify these try except statements? Feels like I don't need this many. 
                         logging.critical(
                             "A critical error occurred while attempting HEC-RAS inundation: flows2fim fim command not found."
                         )
@@ -462,7 +462,7 @@ def run_fb_mapping(
 
                     # If at least one extent tif was made, set hr_site_tifs_produced to true
                     if os.path.exists(output_extent_tif):
-                        hr_site_tifs_produced = True  # TODO: is there a better way to check for success?
+                        hr_site_tifs_produced = True  # catfim_hecras_fb TODO: is there a better way to check for success?
                         hr_site_tifs_produced = bool(hr_site_tifs_produced)
 
             # End of HEC-RAS model/magnitude loop
@@ -484,10 +484,10 @@ def run_fb_mapping(
         # - inundate_hand is False
         # - inundate_hand is True but hr_preference is True and we already have HR tifs produced for the site
 
-        logging.info(f"{huc} : {ahps_site} - hr_preference: {hr_preference}")  # TEMP DEBUG
-        logging.info(f"{huc} : {ahps_site} - inundate_hand: {inundate_hand}")  # TEMP DEBUG
-        logging.info(f"{huc} : {ahps_site} - hr_site_tifs_produced: {hr_site_tifs_produced}")  # TEMP DEBUG
-        logging.info(f"{huc} : {ahps_site} - inundate_hand_for_site: {inundate_hand_for_site}")  # TEMP DEBUG
+        # logging.info(f"{huc} : {ahps_site} - hr_preference: {hr_preference}")  # TEMP DEBUG
+        # logging.info(f"{huc} : {ahps_site} - inundate_hand: {inundate_hand}")  # TEMP DEBUG
+        # logging.info(f"{huc} : {ahps_site} - hr_site_tifs_produced: {hr_site_tifs_produced}")  # TEMP DEBUG
+        # logging.info(f"{huc} : {ahps_site} - inundate_hand_for_site: {inundate_hand_for_site}")  # TEMP DEBUG
 
         if inundate_hand_for_site is True:
             logging.info(f"{huc} : {ahps_site} - HAND inundation...")  # TEMP DEBUG
@@ -690,13 +690,11 @@ def run_fb_inundation(  # renamed from run_inundation
     # Modify output_extent_grid to match inundation.py saved filename.
     # Search for this file, if it didn't create, send message to log file.
 
-    # base_file_path, extension = os.path.splitext(output_extent_tif)
-    # saved_extent_grid_filename = "{}_{}{}".format(base_file_path, huc, extension)
-
     if not os.path.exists(output_extent_tif):
         # TODO: Doublecheck that this is the way we want to check for success
         logging.critical(f"{huc} : {ahps_site} : {magnitude} - FAILURE: map failed to create")
     # TODO: maybe add a bool for critical error for the try catch if we keep it?
+
     return
 
 
@@ -1588,7 +1586,6 @@ def post_process_huc_mapping(huc, catfim_type, sites_gdf, huc_library_df, output
     logging.info("")
     logging.info(f"{huc} - Post-Process HUC Mapping")
 
-    # inundate_hr = bool(os.getenv('INUNDATE_HR')) # TODO: Clean up if we don't need this
     hr_preference = bool(os.getenv('HR_PREFERENCE'))
 
     # -----------------------
@@ -1838,7 +1835,7 @@ def post_process_huc_mapping(huc, catfim_type, sites_gdf, huc_library_df, output
         huc_library_gdf = huc_library_gdf.dissolve(
             by=['nws_lid', 'magnitude', 'model', 'model_version'], as_index=False
         )
-        # TODO: Do we need to update the HUC library with model info? Test...
+        # catfim_hecras_fb TODO: Do we need to update the HUC library with model info? Test...
 
         # Exit post process HUC early if the library GDF is empty after dissolving (if it was previously not empty)
         if len(huc_library_gdf) == 0 and len(huc_library_undissolved_gdf) > 0:
@@ -1879,9 +1876,9 @@ def reformat_inundation_maps(
     is_interval - bool?
         Indicates whether the inundation is interval (True) or not (False)
     model - STR
-        TODO: Fill in
+        # catfim_hecras_fb TODO: Fill in
     model_version - STR
-        TODO: Fill in
+        # catfim_hecras_fb TODO: Fill in
     Returns
     -------
     extent_poly_diss - Multipolygon

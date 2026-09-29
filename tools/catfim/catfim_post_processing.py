@@ -15,7 +15,7 @@ from src.utils.io import write_geodataframe
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
-# TODO: Decide if eneded
+# TODO: Decide if needed
 # # Force GDAL to use standard locking and synchronous write modes
 # # helps with gpkg.to_file writes
 # os.environ["GDAL_GEO_TRUNCATE_JOURNAL"] = "YES"
@@ -236,13 +236,6 @@ def catfim_post_processing(output_folder):
 
             # Save the compiled GeoDataFrames to GeoPackage files
             write_geodataframe(compiled_sites_gdf, sites_gpkg_path, index=False)
-            # compiled_sites_gdf.to_file( # TODO: Clean up
-            #     sites_gpkg_path,
-            #     driver='GPKG',
-            #     engine='fiona',
-            #     index=False,
-            #     layer_options={"OVERWRITE": "YES"},
-            # )
             logging.info(f"Saved sites GeoPackage to {sites_gpkg_path}")
 
             # Save the GeoDataFrames to GeoParquet files
@@ -264,13 +257,6 @@ def catfim_post_processing(output_folder):
             compiled_library_gdf.rename(columns={'nws_lid': 'ahps_lid'}, inplace=True)
 
             write_geodataframe(compiled_library_gdf, library_gpkg_path, index=False)
-            # compiled_library_gdf.to_file(  # TODO: Clean up
-            #     library_gpkg_path,
-            #     driver='GPKG',
-            #     engine='fiona',
-            #     index=False,
-            #     layer_options={"OVERWRITE": "YES"},
-            # )
             logging.info(f"Saved library GeoPackage to {library_gpkg_path}")
 
             # Save the GeoDataFrames to GeoParquet files

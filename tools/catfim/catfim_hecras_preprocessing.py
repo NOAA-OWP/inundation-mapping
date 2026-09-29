@@ -508,13 +508,13 @@ def run_controls_for_all_models_and_magnitudes(
             controls_df['magnitude'] = magnitude
             controls_df['model_collection'] = collection_id
             controls_df['collection_parent_folder'] = ripple_filename
-            # TODO: Do we need this ripple_filename column? It should be the same for every row...
+            # catfim_hecras_fb TODO: Do we need this ripple_filename column? It should be the same for every row...
 
             # Join the identifiers_df to the controls_df to add the nws_lid column (joining on reach_id for controls_df and nwm_feature_id for identifiers df)
             controls_df = pd.merge(
                 controls_df, identifiers_df, left_on='reach_id', right_on='nwm_feature_id', how='left'
             )
-            # TODO: Fix if possible... I don't think this is working because the last two cols seem to be blank in the combined outputs?
+            # catfim_hecras_fb TODO: Fix if possible... I don't think this is working because the last two cols seem to be blank in the combined outputs?
 
             # Save the controls CSV for the collection/magnitude
             controls_df.to_csv(controls_output_csv, index=False)
@@ -541,7 +541,7 @@ def run_controls_for_all_models_and_magnitudes(
     )
     shutil.rmtree(intermediates_folder)
 
-    # TODO: fix the feature ID column? (instead of in CatFIM code)
+    # catfim_hecras_fb TODO: fix the feature ID column? (instead of in CatFIM code)
 
     # Save the combined DataFrame to a new CSV file
     compiled_controls_path = os.path.join(output_folder, 'combined_controls_output.csv')
@@ -620,11 +620,11 @@ def catfim_hecras_preprocessing(
     '''
     # Get input variables
     magnitude_types = csf.MAGNITUDES_TYPES
-    flows2fim_path = "/projects/catfim_hecras_fb/flows2fim_030/flows2fim"  # csf.FLOWS2FIM_PATH TODO: finalize file location and Add to shared vars
-    ripple_model_status_path = '/projects/catfim_hecras_fb/ripple_feature_ids_whitelist_final_20260729_1420_no_path.csv'  # TODO: Finalize file location and update input path (maybe from an env file?) ... maybe eventually we will download this from S3 too
+    flows2fim_path = "/projects/catfim_hecras_fb/flows2fim_030/flows2fim"  # csf.FLOWS2FIM_PATH catfim_hecras_fb TODO: finalize file location and Add to shared vars
+    ripple_model_status_path = '/projects/catfim_hecras_fb/ripple_feature_ids_whitelist_final_20260729_1420_no_path.csv'  # catfim_hecras_fb TODO: Finalize file location and update input path (maybe from an env file?) ... maybe eventually we will download this from S3 too
 
     # S3 Setup: Make the S3 client, get the bucket name, and validate S3 input paths
-    aws_creds_file = '/data/config/aws_credentials.env'  # TODO: should we get this from somewhere?
+    aws_creds_file = '/data/config/aws_credentials.env'  # TODO: catfim_hecras_fb should we get this from somewhere?
     global BUCKET_NAME, S3_CLIENT
     S3_CLIENT, BUCKET_NAME = csf.setup_aws_s3_download(aws_creds_file)
 
@@ -755,7 +755,7 @@ if __name__ == '__main__':
 
     parser.add_argument(
         '-r',
-        '--ripple-filename',  # TODO: or should we get this val from the whitelist CSV?
+        '--ripple-filename',  # catfim_hecras_fb TODO: or should we get this val from the whitelist CSV?
         help='REQUIRED: Folder from which to get Ripple model inputs, ie ripple_100_20251004',
         required=True,
     )

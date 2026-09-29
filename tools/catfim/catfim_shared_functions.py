@@ -1050,7 +1050,6 @@ def get_aws_credentials(aws_creds_file):
     if not os.path.isfile(aws_creds_file):
         raise ValueError(f"AWS credentials file not found at provided path ({aws_creds_file})")
 
-    logging.info(f"Loading AWS credentials file ({aws_creds_file})")
     load_dotenv(aws_creds_file)
 
     hv_aws_access_key = sf.get_env_value("HV_AWS_ACCESS_KEY_ID")
