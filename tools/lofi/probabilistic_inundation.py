@@ -412,9 +412,6 @@ def compute_manning_subdivision(df_src, eps=1e-5):
     q_obank = np.multiply(wetarea_obank, hydraulicrad_obank, out=wetarea_obank)
     del wetarea_obank, hydraulicrad_obank
 
-    np.maximum(vslope_main, eps, out=slope)
-    np.sqrt(slope, out=slope)
-
     np.multiply(q_obank, slope, out=q_obank)
     np.divide(q_obank, vobn, out=q_obank)
     del slope
