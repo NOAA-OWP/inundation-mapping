@@ -5,15 +5,55 @@ import sys
 
 import numpy as np
 import rasterio as rio
+import rioxarray as rxr
+import xarray as xr
+
+from utils.fim_enums import FIM_exit_codes
 
 
 def convert_raster_file_to_int16_in_memory(
-    raster_path: str, scale_factor: float = 1000.0, nodata_out: int = 32767
+    branch_dir: str,
+    catchment_path: str,
+    raster_path: str,
+    scale_factor: float = 1000.0,
+    nodata_out: int = 32767,
 ) -> None:
     """Converts a floating-point HAND/REM raster (meters) to Int16 millimeters (mm)
 
     matching the dev baseline statistics (Min: 0, Max: 32766, NoData: 32767).
     """
+
+    catchment = rxr.open_rasterio(catchment_path)
+
+    # Check if converting data is possible
+    if (np.unique(catchment).shape[0] > 32766) | (len(str(int(np.max(catchment)))) > 8):
+
+        print(
+            "Catchment raster has either more than 32766 unique HydroIDs or has HydroIDs with more",
+            "than 8 digits.  Please adjust data accordingly before running Int16 data conversion.",
+        )
+        sys.exit(FIM_exit_codes.CANNOT_CONVERT_HYDROIDS_TO_INT16.value)
+
+    # Save a copy
+    catchment.rio.to_raster(catchment_path.replace('.tif', '_int32.tif'), compress="LZW", tiled=True)
+
+    hydroid_prefix = str(int(np.floor(catchment.max() / 10000)))
+
+    # Preserve the last four digits only since the first four of HydroIDs are ubiquitous amongst all HUC08
+    nodata, crs = catchment.rio.nodata, catchment.rio.crs
+    catchment.data = xr.where(catchment != nodata, catchment - int(hydroid_prefix) * 10000, catchment)
+
+    catchment = catchment.astype(np.int16)
+    catchment.rio.write_nodata(nodata, inplace=True)
+    catchment.rio.write_crs(crs, inplace=True)
+
+    catchment.rio.to_raster(catchment_path, dtype=np.int16, compress="LZW", tiled=True)
+
+    hydroid_prefix_path = os.path.join(branch_dir, 'hydroid_prefix.txt')
+    if not os.path.exists(hydroid_prefix_path):
+        with open(hydroid_prefix_path, 'w') as file:
+            file.write(hydroid_prefix)
+
     # 1. Preserve native float32 raster prior to conversion (Dev truth line)
     float32_path = raster_path.replace(".tif", "_float32.tif")
     if not os.path.exists(float32_path):

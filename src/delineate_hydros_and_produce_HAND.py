@@ -24,7 +24,7 @@ import rasterio as rio
 import shapely
 from convert_to_int16 import convert_raster_file_to_int16_in_memory
 from evaluate_crosswalk import evaluate_crosswalk_in_memory
-from osgeo import gdal, ogr
+from osgeo import gdal
 
 # Direct In-Memory Module Imports (NQA comments suppress E402 where sys.path modification is required)
 from accumulate_headwaters import accumulate_headwaters_in_memory
@@ -1000,33 +1000,33 @@ def delineate_and_produce_hand(
     with open(out_src_json_path, "w", encoding="utf-8") as f:
         json.dump(src_json_dict, f, sort_keys=True, indent=2)
 
-    # --- 23.5 RE-BURN CATCHMENTS AGAINST ZEROED MASKED REM TEMPLATE ---
-    log_step(
-        f"--> [Step 23.5] Re-burning catchment raster against zeroed masked REM template for {current_branch_id}"
-    )
+    # # --- 23.5 RE-BURN CATCHMENTS AGAINST ZEROED MASKED REM TEMPLATE ---
+    # log_step(
+    #     f"--> [Step 23.5] Re-burning catchment raster against zeroed masked REM template for {current_branch_id}"
+    # )
 
-    zeroed_masked_rem_path = tempCurrentBranchDataDir / f"rem_zeroed_masked_{current_branch_id}.tif"
+    # zeroed_masked_rem_path = tempCurrentBranchDataDir / f"rem_zeroed_masked_{current_branch_id}.tif"
 
-    if zeroed_masked_rem_path.exists():
-        # Align cross_catch_gdf strictly by driving reach order before re-burning
-        cross_hydro_order = {hid: idx for idx, hid in enumerate(cross_flows_gdf['HydroID'])}
-        cross_catch_gdf['_sort_key'] = cross_catch_gdf['HydroID'].map(cross_hydro_order)
-        cross_catch_gdf = (
-            cross_catch_gdf.sort_values('_sort_key').drop(columns=['_sort_key']).reset_index(drop=True)
-        )
-        cross_catch_gdf["HydroID_Index"] = np.arange(1, len(cross_catch_gdf) + 1, dtype=np.int16)
+    # if zeroed_masked_rem_path.exists():
+    #     # Align cross_catch_gdf strictly by driving reach order before re-burning
+    #     cross_hydro_order = {hid: idx for idx, hid in enumerate(cross_flows_gdf['HydroID'])}
+    #     cross_catch_gdf['_sort_key'] = cross_catch_gdf['HydroID'].map(cross_hydro_order)
+    #     cross_catch_gdf = (
+    #         cross_catch_gdf.sort_values('_sort_key').drop(columns=['_sort_key']).reset_index(drop=True)
+    #     )
+    #     cross_catch_gdf["HydroID_Index"] = np.arange(1, len(cross_catch_gdf) + 1, dtype=np.int16)
 
-        rasterize_vector(
-            vector_path_or_gdf=cross_catch_gdf,
-            template_raster_path=str(zeroed_masked_rem_path),
-            output_raster_path=str(
-                tempCurrentBranchDataDir
-                / f"gw_catchments_reaches_filtered_addedAttributes_{current_branch_id}.tif"
-            ),
-            attribute="HydroID_Index",
-            init_value=0,
-            dtype=np.int16,
-        )
+    #     rasterize_vector(
+    #         vector_path_or_gdf=cross_catch_gdf,
+    #         template_raster_path=str(zeroed_masked_rem_path),
+    #         output_raster_path=str(
+    #             tempCurrentBranchDataDir
+    #             / f"gw_catchments_reaches_filtered_addedAttributes_{current_branch_id}.tif"
+    #         ),
+    #         attribute="HydroID_Index",
+    #         init_value=0,
+    #         dtype=np.int16,
+    #     )
 
     # --- 26. HEAL HAND (BRANCH ZERO) ---
     if is_healed_hand and current_branch_id == branch_zero_id:
@@ -1135,35 +1135,41 @@ def delineate_and_produce_hand(
         log_step(f"--> [Step 31] Convert REM to Int16 in-memory {huc_number} {current_branch_id}")
 
         rem_zero_tif = tempCurrentBranchDataDir / f"rem_zeroed_masked_{current_branch_id}.tif"
+        catchments_tif = (
+            tempCurrentBranchDataDir
+            / f"gw_catchments_reaches_filtered_addedAttributes_{current_branch_id}.tif"
+        )
 
         if rem_zero_tif.is_file():
-            convert_raster_file_to_int16_in_memory(str(rem_zero_tif), nodata_out=32767)
+            convert_raster_file_to_int16_in_memory(
+                str(tempCurrentBranchDataDir), str(catchments_tif), str(rem_zero_tif), nodata_out=32767
+            )
 
-    # --- Step 32: FINAL CATCHMENT RE-BURN AGAINST INT16 REM TEMPLATE ---
-    log_step(f"--> [Step 32] Re-burning final catchment raster against int16 REM for {current_branch_id}")
+    # # --- Step 32: FINAL CATCHMENT RE-BURN AGAINST INT16 REM TEMPLATE ---
+    # log_step(f"--> [Step 32] Re-burning final catchment raster against int16 REM for {current_branch_id}")
 
-    final_rem_tif = tempCurrentBranchDataDir / f"rem_zeroed_masked_{current_branch_id}.tif"
-    out_catch_tif = (
-        tempCurrentBranchDataDir / f"gw_catchments_reaches_filtered_addedAttributes_{current_branch_id}.tif"
-    )
+    # final_rem_tif = tempCurrentBranchDataDir / f"rem_zeroed_masked_{current_branch_id}.tif"
+    # out_catch_tif = (
+    #     tempCurrentBranchDataDir / f"gw_catchments_reaches_filtered_addedAttributes_{current_branch_id}.tif"
+    # )
 
-    if final_rem_tif.is_file():
-        # Ensure cross_catch_gdf is strictly aligned by driving reach order before final rasterization
-        cross_hydro_order = {hid: idx for idx, hid in enumerate(cross_flows_gdf['HydroID'])}
-        cross_catch_gdf['_sort_key'] = cross_catch_gdf['HydroID'].map(cross_hydro_order)
-        cross_catch_gdf = (
-            cross_catch_gdf.sort_values('_sort_key').drop(columns=['_sort_key']).reset_index(drop=True)
-        )
-        cross_catch_gdf["HydroID_Index"] = np.arange(1, len(cross_catch_gdf) + 1, dtype=np.int16)
+    # if final_rem_tif.is_file():
+    #     # Ensure cross_catch_gdf is strictly aligned by driving reach order before final rasterization
+    #     cross_hydro_order = {hid: idx for idx, hid in enumerate(cross_flows_gdf['HydroID'])}
+    #     cross_catch_gdf['_sort_key'] = cross_catch_gdf['HydroID'].map(cross_hydro_order)
+    #     cross_catch_gdf = (
+    #         cross_catch_gdf.sort_values('_sort_key').drop(columns=['_sort_key']).reset_index(drop=True)
+    #     )
+    #     cross_catch_gdf["HydroID_Index"] = np.arange(1, len(cross_catch_gdf) + 1, dtype=np.int16)
 
-        rasterize_vector(
-            vector_path_or_gdf=cross_catch_gdf,
-            template_raster_path=str(final_rem_tif),
-            output_raster_path=str(out_catch_tif),
-            attribute="HydroID_Index",
-            init_value=0,
-            dtype=np.int16,
-        )
+    #     rasterize_vector(
+    #         vector_path_or_gdf=cross_catch_gdf,
+    #         template_raster_path=str(final_rem_tif),
+    #         output_raster_path=str(out_catch_tif),
+    #         attribute="HydroID_Index",
+    #         init_value=0,
+    #         dtype=np.int16,
+    #     )
 
     print(f"=== [SUCCESS] Completed delineate_hydros_and_produce_HAND for HUC {huc_number} ===")
 
