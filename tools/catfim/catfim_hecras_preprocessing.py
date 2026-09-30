@@ -624,7 +624,7 @@ def catfim_hecras_preprocessing(
     ripple_model_status_path = '/projects/catfim_hecras_fb/ripple_feature_ids_whitelist_final_20260729_1420_no_path.csv'  # catfim_hecras_fb TODO: Finalize file location and update input path (maybe from an env file?) ... maybe eventually we will download this from S3 too
 
     # S3 Setup: Make the S3 client, get the bucket name, and validate S3 input paths
-    aws_creds_file = '/data/config/aws_credentials.env'  # TODO: catfim_hecras_fb should we get this from somewhere?
+    aws_creds_file = '/data/config/aws_credentials.env'
     global BUCKET_NAME, S3_CLIENT
     S3_CLIENT, BUCKET_NAME = csf.setup_aws_s3_download(aws_creds_file)
 

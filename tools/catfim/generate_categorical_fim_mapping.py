@@ -238,7 +238,9 @@ def run_fb_mapping(
     # bool(os.getenv("VALUE")) would just return True (whether or not that's the value in the .env file)
     # since it is indicating that the value exists
 
-    logging.info(f"Inundate HAND: {inundate_hand}; Inundate HEC-RAS: {inundate_hr}; HR preference: {hr_preference}")
+    logging.info(
+        f"Inundate HAND: {inundate_hand}; Inundate HEC-RAS: {inundate_hr}; HR preference: {hr_preference}"
+    )
 
     # -----------------------
     # Get list of AHPS sites in HUC from the sites GDF (excluding sites where mapped = no, we only
@@ -401,8 +403,8 @@ def run_fb_mapping(
                             logging.warning(
                                 f"{huc} : {ahps_site} : {magnitude} - No outputs returned for flows2fim subprocess"
                             )
-
-                    except FileNotFoundError: # catfim_hecras_fb TODO: Should I simplify these try except statements? Feels like I don't need this many. 
+                    # catfim_hecras_fb TODO: Should I simplify these try except statements? Feels like I don't need this many. 
+                    except FileNotFoundError:
                         logging.critical(
                             "A critical error occurred while attempting HEC-RAS inundation: flows2fim fim command not found."
                         )
@@ -468,8 +470,8 @@ def run_fb_mapping(
 
                     # If at least one extent tif was made, set hr_site_tifs_produced to true
                     if os.path.exists(output_extent_tif):
-                        hr_site_tifs_produced = True  # catfim_hecras_fb TODO: is there a better way to check for success?
-                        # hr_site_tifs_produced = bool(hr_site_tifs_produced) # TODO: Is this necessary?
+                        hr_site_tifs_produced = True
+                        # catfim_hecras_fb TODO: is there a better way to check for success?
 
             # End of HEC-RAS model/magnitude loop
         # End of HEC-RAS inundation for site
