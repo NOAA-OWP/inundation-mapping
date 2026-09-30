@@ -1337,7 +1337,7 @@ def __validate_inputs(received_locals_dict):
 
     else:
         # Set default val if inundate hr is false
-        combined_controls_csv = ''
+        hecras_preprocessing_runtime_args, combined_controls_csv, flows2fim_software_path = '', '', ''
 
     return (
         valid_fim_hucs,

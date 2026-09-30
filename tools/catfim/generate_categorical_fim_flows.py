@@ -316,7 +316,8 @@ def process_threshold_data(
         if len(huc_library_df) > 0:
 
             # If inundate HEC-RAS is true, process and subset the necessary model inputs
-            if bool(os.getenv('INUNDATE_HR')) is True:
+            inundate_hr = os.getenv('INUNDATE_HR') == "True"
+            if inundate_hr is True:
                 logging.info(f'{huc} - Inundate HEC-RAS is True, processing HEC-RAS data...')
 
                 process_huc_hecras_data( # TODO: Reorder inputs to match order of __create_fb_huc_library_data 
@@ -1108,11 +1109,12 @@ def process_huc_hecras_data(huc, valid_lids, sites_gdf, huc_path, segments_file_
             logging.info(f'{huc} : {ahps_site} - Found {len(model_list)} valid model(s): {model_list}')
 
             # If no preference is applied, just process all HR models for the site
-            if bool(os.getenv('HR_PREFERENCE')) == False:
+            hr_preference = os.getenv('HR_PREFERENCE') == "True"
+            if hr_preference == False:
                 logging.info(f'{huc} : {ahps_site} - Processing all HR models for site')
 
             # If HR preference is True, adjust site model list based on preferring MIP
-            elif bool(os.getenv('HR_PREFERENCE')) == True:
+            elif hr_preference == True:
                 logging.info(f'{huc} : {ahps_site} - Processing only the preferred HR model for site')
                 # If we have two sets of models available (& preference is True), choose MIP over BLE.
 

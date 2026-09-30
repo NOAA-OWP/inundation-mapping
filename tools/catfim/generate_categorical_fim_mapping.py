@@ -228,14 +228,17 @@ def run_fb_mapping(
 
     '''
 
-    inundate_hand = bool(os.getenv("INUNDATE_HAND"))
-    inundate_hr = bool(os.getenv("INUNDATE_HR"))
-    hr_preference = bool(os.getenv("HR_PREFERENCE"))
-
     logging.info(" ")
     logging.info(f"{huc} - Mapping -  Start inundating and mosaicing...")
 
-    logging.info(f"Inundate HAND: {inundate_hand}; Inundate HEC-RAS: {inundate_hr}")
+    inundate_hand = os.getenv("INUNDATE_HAND") == "True"
+    inundate_hr = os.getenv("INUNDATE_HR") == "True"
+    hr_preference = os.getenv("HR_PREFERENCE") == "True"
+    # Note: os.getenv pulls these values as string so this is how we make them into booleans
+    # bool(os.getenv("VALUE")) would just return True (whether or not that's the value in the .env file)
+    # since it is indicating that the value exists
+
+    logging.info(f"Inundate HAND: {inundate_hand}; Inundate HEC-RAS: {inundate_hr}; HR preference: {hr_preference}")
 
     # -----------------------
     # Get list of AHPS sites in HUC from the sites GDF (excluding sites where mapped = no, we only
@@ -272,8 +275,9 @@ def run_fb_mapping(
         logging.info(" ")
         logging.info(f"{huc} : {ahps_site}")
 
-        hr_site_tifs_produced = bool(False)  # initialize value for site
-        inundate_hand_for_site = bool(False)  # initialize value for site
+        hr_site_tifs_produced = False  # initialize value for site
+        inundate_hand_for_site = False  # initialize value for site
+        # inundate_hr_for_site = False # initialize value for site # TODO: Clean up
 
         # Get a list of available magnitudes
         huc_thresholds_long_df_site = huc_thresholds_long_df[huc_thresholds_long_df['nws_lid'] == ahps_site]
@@ -295,11 +299,13 @@ def run_fb_mapping(
             # Check whether there are HEC-RAS models available for the site
             if len(sites_models_df) > 0:
                 # If there's sites available, run HR
-                inundate_hr_for_site = bool(True)
+                inundate_hr_for_site = True
 
             elif len(sites_models_df) == 0:
-                inundate_hr_for_site = bool(False)
+                inundate_hr_for_site = False
                 logging.info(f"{huc} : {ahps_site} - No HEC-RAS models found for site")
+        else:
+            inundate_hr_for_site = False
 
         if inundate_hr_for_site is True:
             logging.info(" ")
@@ -463,7 +469,7 @@ def run_fb_mapping(
                     # If at least one extent tif was made, set hr_site_tifs_produced to true
                     if os.path.exists(output_extent_tif):
                         hr_site_tifs_produced = True  # catfim_hecras_fb TODO: is there a better way to check for success?
-                        hr_site_tifs_produced = bool(hr_site_tifs_produced)
+                        # hr_site_tifs_produced = bool(hr_site_tifs_produced) # TODO: Is this necessary?
 
             # End of HEC-RAS model/magnitude loop
         # End of HEC-RAS inundation for site
@@ -483,11 +489,6 @@ def run_fb_mapping(
         # We do not inundate HAND for the site if:
         # - inundate_hand is False
         # - inundate_hand is True but hr_preference is True and we already have HR tifs produced for the site
-
-        # logging.info(f"{huc} : {ahps_site} - hr_preference: {hr_preference}")  # TEMP DEBUG
-        # logging.info(f"{huc} : {ahps_site} - inundate_hand: {inundate_hand}")  # TEMP DEBUG
-        # logging.info(f"{huc} : {ahps_site} - hr_site_tifs_produced: {hr_site_tifs_produced}")  # TEMP DEBUG
-        # logging.info(f"{huc} : {ahps_site} - inundate_hand_for_site: {inundate_hand_for_site}")  # TEMP DEBUG
 
         if inundate_hand_for_site is True:
             logging.info(f"{huc} : {ahps_site} - HAND inundation...")  # TEMP DEBUG
@@ -1586,7 +1587,7 @@ def post_process_huc_mapping(huc, catfim_type, sites_gdf, huc_library_df, output
     logging.info("")
     logging.info(f"{huc} - Post-Process HUC Mapping")
 
-    hr_preference = bool(os.getenv('HR_PREFERENCE'))
+    hr_preference = os.getenv('HR_PREFERENCE') == "True"
 
     # -----------------------
     # Iterate through tifs
