@@ -158,20 +158,63 @@ def load_config_from_env_files() -> dict:
     return config
 
 
+# Map GDAL data types to NumPy dtypes
+GDAL_TO_NUMPY_DTYPES = {
+    gdal.GDT_Byte: np.uint8,
+    gdal.GDT_UInt16: np.uint16,
+    gdal.GDT_Int16: np.int16,
+    gdal.GDT_UInt32: np.uint32,
+    gdal.GDT_Int32: np.int32,
+    gdal.GDT_Float32: np.float32,
+    gdal.GDT_Float64: np.float64,
+}
+
+
 def persist_dataset(
-    src_ds: gdal.Dataset, dst_path: str, srs_wkt: str = None, force: bool = True, nodata_val: float = None
+    src_ds: gdal.Dataset,
+    dst_path: str,
+    srs_wkt: str = None,
+    force: bool = True,
+    nodata_val: float = None,
+    dtype: int = None,
 ):
     """Flushes in-memory rasters to disk using multi-threaded CPU compression."""
     if not force and os.path.exists(dst_path):
         return
 
+    band = src_ds.GetRasterBand(1)
     if nodata_val is not None:
-        src_ds.GetRasterBand(1).SetNoDataValue(float(nodata_val))
+        band.SetNoDataValue(float(nodata_val))
 
     driver = gdal.GetDriverByName("GTiff")
-    dst_ds = driver.CreateCopy(str(dst_path), src_ds, options=TIFF_WRITE_OPTIONS)
-    if srs_wkt:
-        dst_ds.SetProjection(srs_wkt)
+    target_dtype = dtype if dtype is not None else band.DataType
+
+    if target_dtype != band.DataType:
+        target_np_dtype = GDAL_TO_NUMPY_DTYPES.get(target_dtype, np.int32)
+        mem_driver = gdal.GetDriverByName("MEM")
+
+        converted_ds = mem_driver.Create("", src_ds.RasterXSize, src_ds.RasterYSize, 1, target_dtype)
+        converted_ds.SetGeoTransform(src_ds.GetGeoTransform())
+
+        if srs_wkt:
+            converted_ds.SetProjection(srs_wkt)
+        else:
+            converted_ds.SetProjection(src_ds.GetProjectionRef())
+
+        converted_band = converted_ds.GetRasterBand(1)
+        if nodata_val is not None:
+            converted_band.SetNoDataValue(float(nodata_val))
+
+        arr = band.ReadAsArray().astype(target_np_dtype)
+        converted_band.WriteArray(arr)
+
+        dst_ds = driver.CreateCopy(str(dst_path), converted_ds, options=TIFF_WRITE_OPTIONS)
+        converted_ds = None
+    else:
+        dst_ds = driver.CreateCopy(str(dst_path), src_ds, options=TIFF_WRITE_OPTIONS)
+        if srs_wkt:
+            dst_ds.SetProjection(srs_wkt)
+
     dst_ds.FlushCache()
     dst_ds = None
 
@@ -442,37 +485,67 @@ def delineate_and_produce_hand(
     ds_flows = gdal_multiply_in_memory(ds_flowdir, ds_streams, nodata_val=0)
 
     # TAUDEM C++ BOUNDARY FLUSH
-    persist_dataset(ds_dem, tempCurrentBranchDataDir / f"dem_meters_{current_branch_id}.tif", srs_wkt)
+    # Elevation grids: NoData = -999999.0, Float32
     persist_dataset(
-        ds_dem_adj, tempCurrentBranchDataDir / f"dem_lateral_thalweg_adj_{current_branch_id}.tif", srs_wkt
+        ds_dem,
+        tempCurrentBranchDataDir / f"dem_meters_{current_branch_id}.tif",
+        srs_wkt,
+        nodata_val=-999999.0,
+        dtype=gdal.GDT_Float32,
+    )
+    persist_dataset(
+        ds_dem_adj,
+        tempCurrentBranchDataDir / f"dem_lateral_thalweg_adj_{current_branch_id}.tif",
+        srs_wkt,
+        nodata_val=-999999.0,
+        dtype=gdal.GDT_Float32,
     )
     persist_dataset(
         ds_flows,
         tempCurrentBranchDataDir / f"flowdir_d8_burned_filled_flows_{current_branch_id}.tif",
         srs_wkt,
+        nodata_val=0,
+        dtype=gdal.GDT_Int32,
     )
+    # Stream Pixels: Background is 0, NoData = -32768.0, Int32
     persist_dataset(
-        ds_streams, tempCurrentBranchDataDir / f"demDerived_streamPixels_{current_branch_id}.tif", srs_wkt
+        ds_streams,
+        tempCurrentBranchDataDir / f"demDerived_streamPixels_{current_branch_id}.tif",
+        srs_wkt,
+        nodata_val=-32768.0,
+        dtype=gdal.GDT_Int32,
     )
+
+    # Stream Pixel IDs & Allocation: NoData = -32768.0, Float64 (Matches Base)
     persist_dataset(
         ds_stream_ids,
         tempCurrentBranchDataDir / f"demDerived_streamPixels_ids_{current_branch_id}.tif",
         srs_wkt,
+        nodata_val=-32768.0,
+        dtype=gdal.GDT_Float64,
     )
     persist_dataset(
         ds_allo,
         tempCurrentBranchDataDir / f"demDerived_streamPixels_ids_{current_branch_id}_allo.tif",
         srs_wkt,
+        nodata_val=-32768.0,
+        dtype=gdal.GDT_Float64,
     )
     persist_dataset(
         ds_dist,
         tempCurrentBranchDataDir / f"demDerived_streamPixels_ids_{current_branch_id}_dist.tif",
         srs_wkt,
+        nodata_val=-32768.0,
+        dtype=gdal.GDT_Float32,
     )
+
+    # Flow Accumulation: NoData = -32768.0, Int32 (Matches Base)
     persist_dataset(
         ds_flowaccum,
         tempCurrentBranchDataDir / f"flowaccum_d8_burned_filled_{current_branch_id}.tif",
         srs_wkt,
+        nodata_val=-32768.0,
+        dtype=gdal.GDT_Int32,
     )
 
     # FREE STEP 1-5 RASTER MEMORY
