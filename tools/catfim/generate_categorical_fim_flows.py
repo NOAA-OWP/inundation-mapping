@@ -320,7 +320,7 @@ def process_threshold_data(
             if inundate_hr is True:
                 logging.info(f'{huc} - Inundate HEC-RAS is True, processing HEC-RAS data...')
 
-                process_huc_hecras_data( # TODO: Reorder inputs to match order of __create_fb_huc_library_data 
+                process_huc_hecras_data(
                     huc, valid_lids, sites_gdf, huc_path, segments_file_path, output_temp_dir
                 )
 
@@ -1206,8 +1206,7 @@ def process_huc_hecras_data(huc, valid_lids, sites_gdf, huc_path, segments_file_
 
             # Print the feature ID count summary
             logging.info('')
-            logging.info(
-                f'{huc} : {ahps_site} : {model_name} - Feature ID count summary:')
+            logging.info(f'{huc} : {ahps_site} : {model_name} - Feature ID count summary:')
             logging.info(
                 f'{huc} : {ahps_site} : {model_name} - # feature IDs affiliated with this site (from segments df):                {len(all_feature_ids_for_site)}'
             )
@@ -1228,7 +1227,9 @@ def process_huc_hecras_data(huc, valid_lids, sites_gdf, huc_path, segments_file_
                     f'{huc} : {ahps_site} : {model_name} - Valid HEC-RAS models not available for all site feature IDs, HEC-RAS processing will not proceed for this site/model combination'
                 )
                 diff1 = list(set(all_feature_ids_for_site) - set(valid_site_model_feature_id_list))
-                logging.info(f'Feature IDs that are in all_feature_ids_for_site but not in valid_site_model_feature_id_list: {diff1}')
+                logging.info(
+                    f'Feature IDs that are in all_feature_ids_for_site but not in valid_site_model_feature_id_list: {diff1}'
+                )
                 continue
 
             # Add site/model combination to sites_models_list

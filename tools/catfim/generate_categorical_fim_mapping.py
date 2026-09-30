@@ -403,7 +403,7 @@ def run_fb_mapping(
                             logging.warning(
                                 f"{huc} : {ahps_site} : {magnitude} - No outputs returned for flows2fim subprocess"
                             )
-                    # catfim_hecras_fb TODO: Should I simplify these try except statements? Feels like I don't need this many. 
+                    # catfim_hecras_fb TODO: Should I simplify these try except statements? Feels like I don't need this many
                     except FileNotFoundError:
                         logging.critical(
                             "A critical error occurred while attempting HEC-RAS inundation: flows2fim fim command not found."
