@@ -145,7 +145,7 @@ def generate_streamflow_percentiles_vec(
         min_val = ensemble_subset.min(dim='ensemble').to_numpy()
 
         # k=1 is necessary for linear interpolation
-        spline = make_interp_spline([90, 50, 10], [min_val, val, max_val], k=1)
+        spline = make_interp_spline([10, 50, 90], [max_val, val, min_val], k=1)
         percentile_values = spline(percentiles).T
 
         # top_scaled = interp([10, 25, 50], [10, 50], [max_val, val])[::-1].T
