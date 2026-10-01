@@ -153,7 +153,7 @@ def generate_streamflow_percentiles_vec(
         # percentile_values = np.column_stack([bottom_scaled, top_scaled[:, 1:]])
 
         np.maximum(0, percentile_values, out=percentile_values)
-        perc_df.loc[inter_ids] = percentile_values
+        perc_df.loc[inter_ids] = np.flip(percentile_values, axis=1)
     return perc_df
     
 
