@@ -235,6 +235,7 @@ def __inundate_gms_generator(
         if isinstance(hydro_table_df, pd.DataFrame):
             hydro_table_branch = hydro_table_df.loc[int(branch_id)].reset_index()
             hydro_table_branch = hydro_table_branch.set_index(src_indexes)
+            hydro_table_branch = hydro_table_branch.sort_values(src_indexes + ['stage'])
         elif isinstance(hydro_table_df, str):
             hydro_table_branch = hydro_table_df.format(branch_id)
         else:
