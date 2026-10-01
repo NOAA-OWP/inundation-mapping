@@ -475,7 +475,6 @@ def get_subdivided_src(crosswalk, hydrotable):
         },
         copy=False,
     )
-    df_computed = df_computed.set_index(["HydroID", "stage"])
     return df_computed
 
 
@@ -603,7 +602,6 @@ def inundate_probabilistic(
             del h_table
         p_table = pd.concat(h_tables, axis=1)
         p_table['branch_id'] = branch
-        p_table = p_table.set_index('branch_id', append=True)
         branch_percentile_df.append(p_table)
         del h_tables, p_table
         del crosswalk
@@ -624,9 +622,11 @@ def inundate_probabilistic(
     ]
 
     inundation_paths = []
-    full_p_table = df_htable.merge(pd.concat(branch_percentile_df), how='left', left_on=["HydroID", "stage", "branch_id"], right_index=True)
+    branch_df = pd.concat(branch_percentile_df)
+    full_p_table = df_htable.merge(branch_df, how='left', on=["HydroID", "stage", "branch_id"])
+    full_p_table = full_p_table.sort_values(['HUC', 'branch_id', 'feature_id', 'HydroID', 'stage'])
     del df_htable
-    del branch_percentile_df
+    del branch_percentile_df, branch_df
     print("Producing inundation...")
     for percentile in percentiles:
         # Establish directory to save the final mosaiced inundation
