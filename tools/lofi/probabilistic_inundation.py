@@ -363,7 +363,7 @@ def compute_manning_subdivision(df_src, eps=1e-5):
     np.copyto(vol_obank, 0.0, where=mask)  # Set overbank to 0 where stage doesn't exceed bankfull
 
     wetarea_chan = np.divide(vol_chan, lengthm, out=vol_chan)
-    del vol_chan
+    # del vol_chan
 
     # Compute channel bedarea
     bedarea_chan = np.where(mask, vbedarea, vbedarea_bf)
@@ -378,47 +378,47 @@ def compute_manning_subdivision(df_src, eps=1e-5):
     np.logical_not(mask, out=mask)
     np.add(wettedperim_chan, delta_stage, out=wettedperim_chan, where=mask)
     np.logical_not(mask, out=mask)
-    del delta_stage, bedarea_chan
+    # del delta_stage, bedarea_chan
 
     np.maximum(wettedperim_chan, eps, out=wettedperim_chan)
     hydraulicrad_chan = np.divide(wetarea_chan, wettedperim_chan, out=wettedperim_chan)
-    del wettedperim_chan
+    # del wettedperim_chan
 
     hydraulicrad_chan = np.maximum(hydraulicrad_chan, 0.0, out=hydraulicrad_chan)
     np.power(hydraulicrad_chan, 2 / 3, out=hydraulicrad_chan)
 
     # Compute channel discharge
     q_chan = np.multiply(wetarea_chan, hydraulicrad_chan, out=wetarea_chan)
-    del wetarea_chan
+    # del wetarea_chan
 
     slope = np.maximum(vslope_main, eps, out=hydraulicrad_chan)
     np.sqrt(slope, out=slope)
-    del hydraulicrad_chan
+    # del hydraulicrad_chan
 
     np.multiply(q_chan, slope, out=q_chan)
     np.divide(q_chan, vchann, out=q_chan)
 
     wetarea_obank = np.divide(vol_obank, lengthm, out=vol_obank)
-    del vol_obank
+    # del vol_obank
 
     wettedperim_obank = np.divide(bedarea_obank, lengthm, out=bedarea_obank)
     np.maximum(wettedperim_obank, eps, out=wettedperim_obank)
-    del bedarea_obank
+    # del bedarea_obank
 
     hydraulicrad_obank = np.divide(wetarea_obank, wettedperim_obank, out=wettedperim_obank)
     np.maximum(hydraulicrad_obank, 0.0, out=hydraulicrad_obank)
     np.power(hydraulicrad_obank, 2 / 3, out=hydraulicrad_obank)
 
     q_obank = np.multiply(wetarea_obank, hydraulicrad_obank, out=wetarea_obank)
-    del wetarea_obank, hydraulicrad_obank
+    # del wetarea_obank, hydraulicrad_obank
 
     np.multiply(q_obank, slope, out=q_obank)
     np.divide(q_obank, vobn, out=q_obank)
-    del slope
+    # del slope
 
     # Compute total discharge
     q_total = np.add(q_chan, q_obank, out=q_chan)
-    del q_chan, q_obank
+    # del q_chan, q_obank
     np.equal(vstage, 0, out=mask)
     np.copyto(q_total, 0.0, where=mask)
 
