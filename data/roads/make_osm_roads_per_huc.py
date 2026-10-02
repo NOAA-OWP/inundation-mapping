@@ -1,8 +1,8 @@
 """
-Geofabrik-based replacement for the per-HUC portion of pull_osm_roads_legacy.py (Overpass API,
+Geofabrik-based replacement for the per-HUC portion of legacy/pull_osm_roads.py (Overpass API,
 now deprecated). For each HUC8: reads state road parquets that spatially overlap the HUC,
 clips roads to the HUC boundary, splits by NWM catchments, and writes
-roads_{HUC8}.parquet — matching the output data of pull_osm_roads_legacy.py, written as GeoParquet.
+roads_{HUC8}.parquet — matching the output data of legacy/pull_osm_roads.py, written as GeoParquet.
 
 Upstream: data/osm/pull_osm.py must have already written per-state road parquets to
   <osm_base>/states_parquet/roads/<state>.parquet
@@ -59,7 +59,7 @@ load_dotenv(f'{srcDir}/bash_variables.env')
 def split_roads(gdf_roads: gpd.GeoDataFrame, catchment_path: str, file_logger, screen_queue, task_id):
     """
     Overlay road segments on NWM catchment boundaries, adding catchment_id and
-    osmid_catchid columns — matching split_roads() in pull_osm_roads_legacy.py.
+    osmid_catchid columns — matching split_roads() in legacy/pull_osm_roads.py.
     """
     huc_number = os.path.basename(os.path.dirname(catchment_path)) if catchment_path else ""
 

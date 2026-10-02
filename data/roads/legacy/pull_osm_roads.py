@@ -13,7 +13,7 @@ NWM catchment boundaries for use in flood impact (FIMpact) calculations.
 
 Important: Bridge segments (tagged with bridge=*) are explicitly EXCLUDED from the road
 downloads to prevent unrealistic flood depth calculations. Bridge segments are handled
-separately via pull_osm_bridges_legacy.py and the bridge-healing workflow.
+separately via legacy/pull_osm_bridges.py and the bridge-healing workflow.
 """
 
 import argparse
@@ -122,7 +122,7 @@ def pull_roads(HUC_no, huc_geom, file_logger, screen_queue, task_id):
 
     Note: Bridge segments (tagged with bridge=*) are explicitly excluded to prevent
     unrealistic flood depth calculations in FIMpact analyses. Bridges are handled
-    separately via pull_osm_bridges_legacy.py and the bridge-healing workflow.
+    separately via legacy/pull_osm_bridges.py and the bridge-healing workflow.
     """
     road_data = pd.DataFrame()
 
@@ -130,7 +130,7 @@ def pull_roads(HUC_no, huc_geom, file_logger, screen_queue, task_id):
     bbox_query = f"({miny},{minx},{maxy},{maxx})"
 
     # Exclude bridge segments to prevent unrealistic flood depth calculations
-    # Bridge segments are pulled separately via pull_osm_bridges_legacy.py and handled differently
+    # Bridge segments are pulled separately via legacy/pull_osm_bridges.py and handled differently
     query_template = """
     [out:json];
     (
@@ -414,7 +414,7 @@ def pull_osm_roads(preclip_dir, output_dir, number_jobs, lst_hucs):
 
 if __name__ == "__main__":
     print(
-        "\n❌ DEPRECATED: pull_osm_roads_legacy.py (Overpass API) has been replaced by the "
+        "\n❌ DEPRECATED: legacy/pull_osm_roads.py (Overpass API) has been replaced by the "
         "Geofabrik-based pipeline in data/osm/pull_osm.py + data/roads/make_osm_roads_per_huc.py.\n"
         "See data/osm/pull_osm.py for the current approach. This script is kept for "
         "reference only and will not run.\n",
@@ -425,7 +425,7 @@ if __name__ == "__main__":
     # Only need to run this code once, since it looks for all hucs (conus, alaska, Guam, Am Somoa) from preclip folder
 
     # sample usage:
-    # python foss_fim/data/roads/pull_osm_roads_legacy.py
+    # python foss_fim/data/roads/legacy/pull_osm_roads.py
     #     -p data/inputs/pre_clip_huc8/20250218
     #     -o outputs/roads/test/20250910  (the FIM Dev convention is to make a folder with the date at the end)
 

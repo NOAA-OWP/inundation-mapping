@@ -1,8 +1,8 @@
 """
-Geofabrik-based replacement for the per-HUC portion of pull_osm_bridges_legacy.py (Overpass API,
+Geofabrik-based replacement for the per-HUC portion of legacy/pull_osm_bridges.py (Overpass API,
 now deprecated). For each HUC8: reads state bridge parquets that spatially overlap the
 HUC, clips bridges to the HUC boundary, applies the dissolve-touching-lines step from
-pull_osm_bridges_legacy.py, and writes bridges_{HUC8}.parquet.
+legacy/pull_osm_bridges.py, and writes bridges_{HUC8}.parquet.
 
 Upstream: data/osm/pull_osm.py must have already written per-state bridge parquets to
   <osm_base>/states_parquet/bridges/<state>.parquet
@@ -66,7 +66,7 @@ load_dotenv(f'{srcDir}/bash_variables.env')
 def find_touching_groups(gdf: gpd.GeoDataFrame) -> list:
     """
     Return connected components of touching geometries as a list of index sets,
-    matching find_touching_groups() in pull_osm_bridges_legacy.py.
+    matching find_touching_groups() in legacy/pull_osm_bridges.py.
     """
     # Create a graph
     graph = Graph()
@@ -96,7 +96,7 @@ def dissolve_touching_lines(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     """
     Buffer-then-dissolve touching bridge line geometries in the projected CRS,
     then convert buffered polygons back to LineStrings — matching
-    pull_osm_bridges_legacy.py lines 208-236.
+    legacy/pull_osm_bridges.py lines 208-236.
 
     Must be called after the GeoDataFrame has been reprojected to the HUC's own projected
     CRS (single_huc_job does this) — the buffer distance is in that CRS's units.
@@ -176,7 +176,7 @@ def single_huc_job(
         file_logger.error(traceback.format_exc())
 
         # Rename bad output to _bad.parquet so it can be filtered out later,
-        # matching pull_osm_bridges_legacy.py error handling.
+        # matching legacy/pull_osm_bridges.py error handling.
         try:
             bad_path = Path(output_dir) / f"bridges_{huc8}.parquet"
             if bad_path.exists():

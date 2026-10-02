@@ -2,8 +2,8 @@
 Download per-state OSM road and bridge data from Geofabrik and convert to
 per-state GeoParquet files, using osmium-tool for tag-based extraction.
 
-This replaces the per-HUC Overpass API calls in pull_osm_roads_legacy.py and
-pull_osm_bridges_legacy.py, which are unreliable from AWS-hosted environments
+This replaces the per-HUC Overpass API calls in legacy/pull_osm_roads.py and
+legacy/pull_osm_bridges.py, which are unreliable from AWS-hosted environments
 (Overpass blocks AWS/Azure IP ranges as anti-abuse policy).
 
 Pipeline:
@@ -129,7 +129,7 @@ ALL_STATES = [
     AMERICAN_OCEANIA_SLUG,  # Guam + American Samoa (+ Northern Mariana Islands)
 ]
 
-# Highway tag set matching pull_osm_roads_legacy.py's current (unmerged dev-add-residental-roads)
+# Highway tag set matching legacy/pull_osm_roads.py's current (unmerged dev-add-residental-roads)
 # 5-category set, plus residential:
 #   - motorway through tertiary: all ways regardless of name.
 #   - residential: named ways only (filtered in _write_roads_parquet). Unnamed residential ways
@@ -141,7 +141,7 @@ ALL_STATES = [
 #     connector roads between settlements too small to be tertiary.
 ROAD_HIGHWAY_VALUES = ["motorway", "trunk", "primary", "secondary", "tertiary", "residential"]
 
-# Abandoned/demolished/proposed bridge types to exclude, matching pull_osm_bridges_legacy.py.
+# Abandoned/demolished/proposed bridge types to exclude, matching legacy/pull_osm_bridges.py.
 UNWANTED_BRIDGE_TYPES = {
     "highway-razed",
     "highway-proposed",
@@ -278,7 +278,7 @@ def _write_roads_parquet(state: str, pbf_path: Path, roads_dir: Path, file_logge
 
     # Exclude bridge segments from roads.
     # Done here in pandas rather than in the osmium tags-filter step above: unlike Overpass QL's
-    # single-clause ["highway"~"..."][!"bridge"] (used by pull_osm_roads_legacy.py), osmium tags-filter's
+    # single-clause ["highway"~"..."][!"bridge"] (used by legacy/pull_osm_roads.py), osmium tags-filter's
     # expressions are OR'd for inclusion only — there's no one-shot "has tag A AND lacks tag B".
     # Replicating that AND-NOT at the osmium level would need a second chained tags-filter pass
     # (select by highway, then --invert-match to strip bridge=*). Since we already have to load
@@ -331,13 +331,13 @@ def _write_bridges_parquet(state: str, pbf_path: Path, bridges_dir: Path, file_l
         gdf = gdf.rename(columns={"@id": "osmid"})
 
     # Ensure highway and railway columns exist before building bridge_type,
-    # matching pull_osm_bridges_legacy.py lines 113-118.
+    # matching legacy/pull_osm_bridges.py lines 113-118.
     if "highway" not in gdf.columns:
         gdf["highway"] = None
     if "railway" not in gdf.columns:
         gdf["railway"] = None
 
-    # Build bridge_type from highway or railway tag, matching pull_osm_bridges_legacy.py
+    # Build bridge_type from highway or railway tag, matching legacy/pull_osm_bridges.py
     gdf["bridge_type"] = gdf.apply(
         lambda row: (
             f"highway-{row['highway']}" if pd.notna(row["highway"]) else f"railway-{row['railway']}"
@@ -345,7 +345,7 @@ def _write_bridges_parquet(state: str, pbf_path: Path, bridges_dir: Path, file_l
         axis=1,
     )
 
-    # Remove abandoned/demolished/proposed bridges, matching pull_osm_bridges_legacy.py lines 131-146.
+    # Remove abandoned/demolished/proposed bridges, matching legacy/pull_osm_bridges.py lines 131-146.
     gdf = gdf[~gdf["bridge_type"].isin(UNWANTED_BRIDGE_TYPES)]
 
     if gdf.empty:
