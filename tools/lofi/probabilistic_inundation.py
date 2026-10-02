@@ -78,49 +78,8 @@ def get_fim_probability_distributions(
     return channel_dist, obank_dist, slope_dist
 
 
-def interp(eval_pts, x, y):
-    # Vectorized linear interpolation with a goal of minimizing memory use
-    x0, x1 = x
-    y0, y1 = y
-
-    slope = y1 - y0
-    np.divide(slope, x1 - x0, out=slope)
-
-    rv = np.empty((len(eval_pts), len(y0)), dtype=float)
-    for i, _x in enumerate(eval_pts):
-        out = rv[i]
-        np.multiply(slope, _x - x0, out=out)
-        np.add(out, y0, out=out)
-    return rv
-
-
 @use_pandas_3_behavior()
-def generate_streamflow_quantiles(
-    ensemble_streamflow, params_weibull, percentiles
-):
-    """Vectorize the computation of weibull distribution"""
-    feature_ids = ensemble_streamflow.indexes['feature_id']
-    perc_df = pd.DataFrame(columns=percentiles, index=feature_ids.astype('string[pyarrow]'), dtype=float)
-
-    # For features that have no params, copy first ensemble streamflow
-    weibull_nomask = ~perc_df.index.isin(params_weibull.index.astype('string[pyarrow]'))
-    perc_df.loc[weibull_nomask] = ensemble_streamflow.sel(feature_id=feature_ids[weibull_nomask], ensemble="1").to_numpy()[:, np.newaxis]
-
-    inter_ids = feature_ids.intersection(params_weibull.index.astype(feature_ids.dtype))
-    if len(inter_ids) > 0:
-        print(f"Interpolating {len(inter_ids)} feature_ids...")
-        ensemble_subset = ensemble_streamflow.sel(feature_id=inter_ids)
-        inter_ids = inter_ids.astype('string[pyarrow]')
-
-        ensemble_subset = ensemble_subset.fillna(ensemble_subset.mean(dim='ensemble'))
-        q = np.atleast_1d(percentiles)
-        values = ensemble_subset.quantile(q/100, dim='ensemble').to_dataframe().unstack(level='quantile')
-        perc_df.loc[inter_ids] = values.clip(lower=0)
-    return perc_df
-
-
-@use_pandas_3_behavior()
-def generate_streamflow_percentiles_vec(
+def generate_streamflow_percentiles(
         ensemble_streamflow, params_weibull, percentiles
 ):
     """Vectorize the computation of weibull distribution"""
@@ -147,83 +106,9 @@ def generate_streamflow_percentiles_vec(
         spline = make_interp_spline([10, 50, 90], [max_val, val, min_val], k=1)
         percentile_values = spline(percentiles).T
 
-        # top_scaled = interp([10, 25, 50], [10, 50], [max_val, val])[::-1].T
-        # bottom_scaled = interp([50, 75, 90], [50, 90], [val, min_val])[::-1].T
-        # percentile_values = np.column_stack([bottom_scaled, top_scaled[:, 1:]])
-
         np.maximum(0, percentile_values, out=percentile_values)
         perc_df.loc[inter_ids] = percentile_values
     return perc_df
-
-
-# TODO: Replace this code with future LoFI Optimization
-# def analyze_nonmonotonic_src(srcs_df):
-#     """
-#     Check for any non-monotonically increasing discharge and enforce monotonicity.
-
-#     Parameters
-#     ----------
-#     srcs_df : pd.DataFrame
-#         Original synthetic rating curve DataFrame.
-
-#     Returns
-#     -------
-#     pd.DataFrame
-#         Synthetic rating curve DataFrame equal to original or adjusted for discharge monotonicity.
-
-#     """
-
-#     srcs_df.loc[srcs_df['Stage'] == 0, 'Discharge (m3s-1)_subdiv'] = 0
-
-#     cond_chan = srcs_df['bankfull_proxy'] == 'channel'
-#     srcs_df_chan = srcs_df[cond_chan]
-#     non_monotonic_index = srcs_df_chan.index[srcs_df_chan['Discharge (m3s-1)_subdiv'].diff().lt(0)].tolist()
-
-#     # Recalculate 'Discharge' values before the last non-monotonic row
-#     # Note: No change has been applied on WetArea, Volume, LENGTHKM
-#     if non_monotonic_index:
-#         # Get the target values from the last non-monotonic index
-#         target_idx = non_monotonic_index[-1]
-#         target_numCells = srcs_df.loc[target_idx, 'Number of Cells']
-#         target_SurfaceArea = srcs_df.loc[target_idx, 'SurfaceArea (m2)']
-#         target_BedArea = srcs_df.loc[target_idx, 'BedArea (m2)']
-
-#         # Define the slice (up to but not including target_idx)
-#         row_slice = slice(0, target_idx)
-
-#         # Assign target values to the selected rows
-#         srcs_df.loc[row_slice, 'Number of Cells'] = target_numCells
-#         srcs_df.loc[row_slice, 'SurfaceArea (m2)'] = target_SurfaceArea
-#         srcs_df.loc[row_slice, 'BedArea (m2)'] = target_BedArea
-
-#         # Recalculate discharge variables
-#         length_km = srcs_df.loc[row_slice, 'LENGTHKM']
-#         # Avoid division by zero
-#         length_km = length_km.replace(0, np.nan)
-
-#         target_TopWidth = target_SurfaceArea / length_km / 1000
-#         target_WettedPerimeter = target_BedArea / length_km / 1000
-
-#         wet_area = srcs_df.loc[row_slice, 'WetArea (m2)']
-#         target_HydraulicRadius = wet_area / target_WettedPerimeter
-
-#         srcs_df.loc[row_slice, 'TopWidth (m)'] = target_TopWidth
-#         srcs_df.loc[row_slice, 'WettedPerimeter (m)'] = target_WettedPerimeter
-#         srcs_df.loc[row_slice, 'HydraulicRadius (m)'] = target_HydraulicRadius
-#         srcs_df['HydraulicRadius (m)'] = srcs_df['HydraulicRadius (m)'].fillna(0)
-
-#         # Recalculate Discharge (m3s-1) for the selected rows
-#         srcs_df.loc[row_slice, 'Discharge (m3s-1)_subdiv'] = (
-#             wet_area
-#             * (srcs_df.loc[row_slice, 'HydraulicRadius (m)'] ** (2.0 / 3))
-#             * pow(
-#                 np.maximum(srcs_df.loc[row_slice, 'SLOPE'], np.repeat(1e-5, srcs_df.loc[row_slice].shape[0])),
-#                 0.5,
-#             )
-#             / srcs_df['channel_n']
-#         )
-
-#     return srcs_df
 
 
 @use_pandas_3_behavior()
