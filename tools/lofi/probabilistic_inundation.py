@@ -236,7 +236,7 @@ def read_crosswalk(hydrofabric_dir, huc, branch):
 
 
 @use_pandas_3_behavior()
-def get_subdivided_src(crosswalk, hydrotable):
+def get_subdivided_src(crosswalk):
     """
     Method for subdividing a synthetic rating curve based on the high water threshold
 
@@ -362,7 +362,7 @@ def inundate_probabilistic(
     # Apply inundation map to each percentile
     branch_percentile_df = []
     print("Computing branch percentile hydrotables...")
-    for branch, htable_branch in df_htable.groupby("branch_id", as_index=False):
+    for branch in df_htable['branch_id'].unique():
         crosswalk = read_crosswalk(hydrofabric_dir, huc, str(branch))
 
         # Copy the channel_n, overbank_n, and SLOPE values
@@ -381,7 +381,7 @@ def inundate_probabilistic(
                 # Adjust the channel, overbank, and slope parameters
                 crosswalk[adj_cols] = adj_copies + [channel_n_adj, overbank_n_adj, slope_adj]
 
-            h_table = get_subdivided_src(crosswalk, htable_branch)
+            h_table = get_subdivided_src(crosswalk)
             h_table = h_table.rename(columns={n: f"{n}.{percentile}" for n in h_table.columns if n.startswith("discharge_cms")})
             h_tables.append(h_table)
             del h_table
@@ -392,11 +392,7 @@ def inundate_probabilistic(
         del h_tables, p_table
         del crosswalk
         del adj_copies
-        del htable_branch
 
-        # flow_df = pd.DataFrame(
-        #     {"feature_id": streamflow_percentiles['feature_id'], "discharge": streamflow_percentiles[percentile]}
-        # )
     htable_req_static_cols = [
         "branch_id",
         "feature_id",
