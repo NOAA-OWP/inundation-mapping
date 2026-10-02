@@ -73,18 +73,18 @@ def Mosaic_inundation(
     mosaic_attribute: Optional[str] = "inundation_raster_paths",  # or depths_rasters_paths
     # Aug 2026: has to be huc8, unless significant inundation system upgrade, but left in for now
     unit_attribute_name: Optional[str] = "huc8",
-    nodata: Optional[int] = elev_raster_ndv,
-    # num_threads: Optional[int] = 1,  # dropped because of masking system drop
-    num_parent_workers: Optional[int] = 1,   # Used only for memory allocation management (see notes below)
-    remove_intermediate_files: Optional[bool] = True,
+    nodata: int = elev_raster_ndv,
+    # num_threads: int = 1,  # dropped because of masking system drop
+    num_parent_workers: int = 1,   # Used only for memory allocation management (see notes below)
+    remove_intermediate_files: bool = True,
     # subset: Optional[str] = None,  # has no validity consider inundation arch.
-    verbose: Optional[bool] = True,
+    verbose: bool = True,
     # Aug 2026: is_mosaic_for_branches was the wrong name, it really was for intermediate files for rolling
     # up by huc level (ag in tqdm) as intermediate files to help with final rollup.
     # Only inundate_nation used it. But it would have done it by default anyways, so it is pointless
     # appends to the output file names. Really only has value if more than one huc is processed.
     # Name "per huc" but technically, it is per unit_attribute)
-    is_mosaic_for_branches: Optional[bool] = False,  # usually the value of the huc number
+    is_mosaic_for_branches: bool = False,  # usually the value of the huc number
     inundation_polygon: Optional[str] = None,  # Aug 2026: No scripts are using this, but leave it in for now
     # ) -> str:  (see note about return value below)
 ):
@@ -110,21 +110,21 @@ def Mosaic_inundation(
     #           Name of file to inclusively mask final output file
             unit_attribute_name: Optional[str], default = None
                 Processing unit to mosaic inundation  # technicallyi not needed anymore
-            nodata: Optional[int], default = elev_raster_ndv
+            nodata: int, default = elev_raster_ndv
                 Value to represent nodata
-    #        num_threads: Optional[int], default = 1
+    #        num_threads: int, default = 1
     #            Number of parallel processes to use - no longer used
             num_parent_workers : int
                 Number of worker processes assigned to original parent number of jobs
                 for processpool or threadpool if applicable. Used in conjuction with the number
                 of branch workers for memory allocation only.
-            remove_intermediate_files: Optional[bool], default = False
+            remove_intermediate_files: bool, default = False
                 Whether to remove intermediate input files
     #       subset: Optional[str], default = None
     #           Path to file for subsetting inundation files
-            verbose: Optional[bool], default = True
+            verbose: bool, default = True
                 Quiet output
-            is_mosaic_for_branches: Optional[bool] = False,
+            is_mosaic_for_branches: bool = False,
                 This is not a good name, add_huc_to_mosaic_file_name would likely be a better name
                 Whether to append branch name after output  # usually just appends the huc number to the file name
     #        inundation_polygon: Optional[str], default = None
@@ -345,11 +345,11 @@ def Mosaic_inundation(
 def mosaic_by_unit(
     inundation_maps_list: list,
     mosaic_output_path: str,
-    nodata: Optional[int] = elev_raster_ndv,
-    # num_threads: Optional[int] = 1,
-    remove_intermediate_files: Optional[bool] = False,
+    nodata: int = elev_raster_ndv,
+    # num_threads: int = 1,
+    remove_intermediate_files: bool = False,
     # mask_path: Optional[str] = None,
-    # verbose: Optional[bool] = False,
+    # verbose: bool = False,
 ) -> Union[list, None]:
     """
         Mosaic inundation extents or depths
@@ -360,15 +360,15 @@ def mosaic_by_unit(
             List of inundation maps to mosaic based on agkey if applicable
         mosaic_output_path: str
             Name of final mosaicked inundation file
-        nodata: Optional[int], default = elev_raster_ndv
+        nodata: int, default = elev_raster_ndv
             Value to represent nodata
-    #    workers: Optional[int], default = 1
+    #    workers: int, default = 1
     #        Number of parallel processes to use
-        remove_intermediate_files: Optional[bool], default = False
+        remove_intermediate_files: bool, default = False
             Whether to remove intermediate input files
     #     mask_path: Optional[str], default = None
     #        Name of file to inclusively mask final output file
-    #    verbose: Optional[bool], default = False
+    #    verbose: bool, default = False
     #        Quiet output
 
         Returns

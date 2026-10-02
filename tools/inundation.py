@@ -47,13 +47,13 @@ def inundate(
     # hucs_layerName: Optional[str] = None,  # n/a
     # subset_hucs: Optional[Union[str, List[str]]] = None,  n/a
     # num_workers: Optional[int] = 1,   # n/a
-    # aggregate: Optional[bool] = False, # n/a
+    # aggregate: bool = False, # n/a
     inundation_raster_path: Optional[str] = None,
     depths_raster_path: Optional[str] = None,
     # src_table: Optional[str] = None, # n/a
-    verbose: Optional[bool] = False,  # temp not in use
-    precalb_option: Optional[bool] = False,
-    windowed: Optional[bool] = False,
+    verbose: bool = False,  # temp not in use
+    precalb_option: bool = False,
+    windowed: bool = False,
 ):
     """
 
@@ -91,7 +91,7 @@ def inundate(
     #     further subset hucs file for inundating.
     # num_workers : Optional[int], default=1
     #     Batch mode only. Number of workers to use in batch mode. Must be 1 or greater.
-    # aggregate : Optional[bool], default=False
+    # aggregate : bool, default=False
     #     Batch mode only. Aggregates output rasters to VRT mosaic files and merges polygons to single GPKG file
     #     Currently not functional. Raises warning and sets to false. On to-do list.
     inundation_raster_path : Optional[str], default=None
@@ -100,11 +100,11 @@ def inundate(
         Path to optional depths raster output. Appends HUC number if ran in batch mode.
     # src_table : Optional[str], default=None
     #     Table to subset main hydrotable.
-    verbose : Optional[bool], default=False
+    verbose : bool, default=False
         verbose output.
-    precalb_option : Optional[bool], default=False
+    precalb_option : bool, default=False
         Whether to use precalb discharge in hydrotable. If True, will use precalb_discharge_cms column
-    windowed : Optional[bool], default=False
+    windowed : bool, default=False
         Memory efficient operation to process inundation
 
     Returns
@@ -331,8 +331,8 @@ def __inundate_in_huc(
     catchment_stages_dict: typed.Dict,
     depths_raster_path: str,
     inundation_raster_path: str,
-    # verbose: Optional[bool] = False,
-    window: Optional[bool] = None,
+    # verbose: bool = False,
+    window: bool = None,
     inundation_nodata: Optional[int] = None,  # never will be None, Should min be zero?
     min_value=30,
 ) -> Tuple[str, str]:
@@ -358,9 +358,9 @@ def __inundate_in_huc(
             Name of inundation depth dataset
         inundation_raster_path : str
             Name of inundation extent dataset
-        # verbose : Optional[bool], default = None
+        # verbose : bool, default = None
         #     Whether to supress printed output
-        window : Optional[bool], default = None
+        window : bool, default = None
             Whether to use window memory optimization
         inundation_nodata : Optional[int], default = None
             Value for inundation extent nodata
@@ -494,7 +494,7 @@ def __make_windows_generator(
     # verbose: bool,
     #    hucs: Optional[list] = None,
     #    hucSet: Optional[list] = None,
-    windowed: Optional[bool] = False,
+    windowed: bool = False,
     # July 2026: The only script that passes in depth raster paths is interpolate_water_surface, but if
     # this was accidently changed to a string, that tool likely was not working.
     # depth_rst: Optional[str] = None,
@@ -530,7 +530,7 @@ def __make_windows_generator(
     #     HUC values to process
     # hucSet : Optional[list], default=None
     #     Prefixes of HUC to look for and process
-    windowed: Optional[bool], default = False
+    windowed: bool, default = False
         Whether to use memory optimized windows
     depths_raster_path: Optional[str], default = None
         Name of depth raster to output
@@ -885,7 +885,7 @@ def __subset_hydroTable_to_forecast(
     return catchment_stages_dict
 
 
-def read_nwm_forecast_file(forecast_file, rename_headers: Optional[bool] = True) -> pd.DataFrame:
+def read_nwm_forecast_file(forecast_file, rename_headers: bool = True) -> pd.DataFrame:
     """
     Reads NWM netcdf comp files and converts to forecast data frame
 
@@ -893,7 +893,7 @@ def read_nwm_forecast_file(forecast_file, rename_headers: Optional[bool] = True)
     ----------
     forecast_file: str
         Filepath for the forecast file
-    rename_headers: Optional[bool], default = True
+    rename_headers: bool, default = True
         Whether to rename the headers in the forecast file
 
     Returns

@@ -24,7 +24,7 @@ from src.utils.shared_variables import elev_raster_ndv
 # processpool on the outside and mosaic the hucs together if you need too.
 def produce_mosaicked_inundation(
     hydrofabric_dir: str,
-    hucs: Union[str, List[str]],
+    hucs: Union[str, list[str]],
     flow_file_path: str,
     # This name is used and adjusted to make different huc / branch rasters, and file name
     # is the final mosaicked file name. It is also used in inundation as a base file name
@@ -47,19 +47,19 @@ def produce_mosaicked_inundation(
     # There are only threads from here downstream. MP no longer available. It is the user's responsility if they
     # use MP before getting here (not all do) to ensure over usign system resources.
     # Note: You will find that you can use more threads then cpu's, so the limit does not apply.
-    # num_workers: Optional[int] = 1, Also see notes for new arg below called num_parent_workers.
+    # num_workers: int = 1, Also see notes for new arg below called num_parent_workers.
     # Aug 2026: Nothing is using it but keep it for now in case someone wants it
     # for debugging. This is really just for branch tifs
-    remove_intermediate_files: Optional[bool] = True,
-    verbose: Optional[bool] = False,
+    remove_intermediate_files: bool = True,
+    verbose: bool = False,
     # unit_attribute_name which is already the value of 'huc8' and really can not be otherwise.
-    is_mosaic_for_branches: Optional[bool] = False,
-    num_threads: Optional[int] = 1,
-    num_parent_workers: Optional[int] = 1,   # Used only for memory allocation management (see notes below)
-    precalb_option: Optional[bool] = False,
-    windowed: Optional[bool] = False,
+    is_mosaic_for_branches: bool = False,
+    num_threads: int = 1,
+    num_parent_workers: int = 1,   # Used only for memory allocation management (see notes below)
+    precalb_option: bool = False,
+    windowed: bool = False,
     # log_file: Optional[str] = None,  # each calling script should have its own logging now
-    nodata: Optional[int] = elev_raster_ndv,
+    nodata: int = elev_raster_ndv,
     # gms_multi_process: Optional[bool] = False,
     mosaic_attribute: Optional[str] = "inundation_raster_paths",
 ):
@@ -107,32 +107,32 @@ def produce_mosaicked_inundation(
     #        The inclusive mask for the final mosaicked datasets
     #    unit_attribute_name : Optional[str], default="huc8"
     #        The name of the processing unit
-    #    num_workers : Optional[int]:
+    #    num_workers : int:
     #        Number of parallel processes to run.
-        remove_intermediate_files : Optional[bool], default=True
+        remove_intermediate_files : bool, default=True
             Option to keep intermediate files.
-        verbose : Optional[bool], default=False
+        verbose : bool, default=False
             Print verbose messages to screen. Not tested.
-        is_mosaic_for_branches : Optional[Bool], default=False
+        is_mosaic_for_branches : bool, default=False
             Whether the mosaic routine appends the huc name to the mosaic output file name.
             Technically, it would append the unit_attribute_name which is almost always huc8.
             This feature primarily has value when mosaicing multiple hucs as each huc
             is mosaicked for its branches.
-        num_threads : Optional[int], default=1
+        num_threads : int, default=1
             Number of threads to process
         num_parent_workers : int
             Number of worker processes assigned to original parent number of jobs
             for processpool or threadpool if applicable. Used in conjuction with the number
             of branch workers for memory allocation only.
-        precalb_option : Optional[bool], default=False
+        precalb_option : bool, default=False
             Whether to use precalb discharge in hydrotable. If True, will use precalb_discharge_cms column
-        windowed : Optional[bool], default=False
+        windowed : bool, default=False
             Memory conscious creation of inundation and depth datasets
     #    log_file : Optional[str], default=None
     #        File path for log file
-        nodata : Optional[int], default=elev_raster_ndv
+        nodata : int, default=elev_raster_ndv
             Nodata to pass to the mosaic_inundation function
-    #    gms_multi_process : Optional[bool], default=False
+    #    gms_multi_process : bool, default=False
     #        Use processes for parallel processing instead of threads
     """
 

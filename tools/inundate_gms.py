@@ -47,25 +47,25 @@ logging.getLogger('numba').setLevel(logging.WARNING)
 def Inundate_gms(
     hydrofabric_dir: str,
     forecast_file_path: str,
-    hucs: List[str],  # Not optional, but can be a list of one huc
-    num_parent_workers: Optional[int] = 1,  # Used only for memory allocation management, not MT's (see notes below)
-    num_threads: Optional[int] = 1,
+    hucs: list[str],  # Not optional, but can be a list of one huc
+    num_parent_workers: int = 1,  # Used only for memory allocation management, not MT's (see notes below)
+    num_threads: int = 1,
     # Most use a path to HUC HT, interpolates leaves it empty, no one sends in a dataframe
     hydro_table_path: Optional[str] = None,
     # inundation_raster_path is never used as a final file, just used as a base file name to append
     # intermedary files will processing. In mosiack, it uses this true file name for the final mosaicked file
     inundation_raster_path: Optional[str] = None,
     depths_raster_path: Optional[str] = None,  # Used by interpolate_water_surface
-    verbose: Optional[bool] = False,
+    verbose: bool = False,
     # log_file: Optional[str] = None,
     # output_fileNames (renaming it) was not be used by any scripts, but
     # will open the option to save the dataframe of huc8, branchs and raster paths in case
     # something wants it later. Renamed from output_fileNames to inundation_results_file_path
     inundation_mapping_file_path: Optional[str] = None,
-    precalb_option: Optional[bool] = False,
-    windowed: Optional[bool] = False,
-    # multi_process: Optional[bool] = False,
-    show_progress_bar: Optional[bool] = False,
+    precalb_option: bool = False,
+    windowed: bool = False,
+    # multi_process: bool = False,
+    show_progress_bar: bool = False,
 ) -> pd.DataFrame:
     """
 
@@ -75,11 +75,11 @@ def Inundate_gms(
         Directory with flood inundation mapping outputs
     forecast_file_path: str
         path to the forecast file
-    hucs: List[str]]
+    hucs: list[str]]
         List of hucs to process GMS
-#    num_workers: Optional[int], default = 1
+#    num_workers: int, default = 1
 #        Number of threads to useNumber of processes to run in parallel
-    num_threads : Optional[int], default=1
+    num_threads : int, default=1
         Number of threads to process
     num_parent_workers : int
         Number of worker processes assigned to original parent number of jobs
@@ -93,17 +93,17 @@ def Inundate_gms(
 #        Name of inundation polygon vector
     depths_raster_path : str
         Name of depth raster
-    verbose: Optional[bool], default = False
+    verbose: bool, default = False
         Whether to silence output or not
 #    log_file: Optional[str], default = None
 #        Name of file to log output
     inundation_mapping_file_path: Optional[str], default = None
         Name of file to output filenames from inundation routine
-    precalb_option: Optional[bool], default = False
+    precalb_option: bool, default = False
         Whether to use precalb discharge in hydrotable
-    windowed: Optional[bool], default = False
+    windowed: bool, default = False
         Whether to use window memory optimization
-    show_progress_bar: Optional[bool], default = False
+    show_progress_bar: bool, default = False
         Do you want the tqdm progress bar to be shown?
 
     Returns
@@ -400,9 +400,9 @@ def __inundate_gms_generator(
     forecast_file_path: str,
     hydro_table_path: str,
     verbose: bool = False,
-    precalb_option: Optional[bool] = False,
-    windowed: Optional[bool] = False,
-    # ) -> Tuple[dict, List[str]]:
+    precalb_option: bool = False,
+    windowed: bool = False,
+    # ) -> Tuple[dict, list[str]]:
 ) -> List[dict]:
     """
     Generator for use in parallelizing inundation
@@ -421,11 +421,11 @@ def __inundate_gms_generator(
         Dataset with streamflow associated with feature id
     hydro_table_path: str
         Hydrotable DataFrame.
-    verbose: Optional[bool], default = False
+    verbose: bool, default = False
         Whether to silence output or not
-    precalb_option: Optional[bool], default = False
+    precalb_option: bool, default = False
         Whether to use precalb discharge in hydrotable
-    windowed: Optional[bool], default = False
+    windowed: bool, default = False
         Whether to use window memory optimization
 
     Returns
