@@ -220,7 +220,7 @@ if __name__ == "__main__":
         python3 src/heal_bridges_osm.py
             -g /outputs/fim_4_4_15_0/1209301/branches/3763000013/rem_zeroed_masked_3763000013.tif
             -d /outputs/fim_4_4_15_0/1209301/branches/3763000013/bridge_elev_diff_meters_3763000013.tif
-            -s /outputs/fim_4_4_15_0/1209301/osm_bridges_subset.gpkg
+            -s /outputs/fim_4_4_15_0/1209301/osm_bridges_subset.parquet
             -b1 10
             -b2 1.5
             -p /outputs/fim_4_4_15_0/1209301/branches/3763000013/gw_catchments_reaches_filtered_addedAttributes_crosswalked_3763000013.gpkg

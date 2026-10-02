@@ -5,6 +5,7 @@ import logging
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -26,6 +27,7 @@ from shapely.geometry import MultiPoint, Point
 from tqdm import tqdm
 
 from src.utils.io import write_geodataframe
+from src.utils.shared_functions import run_with_mp, setup_mp_file_logger
 
 
 PDAL_CLI_PATH = os.environ.get("PDAL_CLI_PATH", "pdal")
@@ -289,7 +291,7 @@ def make_lidar_footprints():
 def write_modified_bridge_file(OSM_bridge_lines_gdf, modified_bridge_dir, huc_output_dir, HUC):
     os.makedirs(modified_bridge_dir, exist_ok=True)
 
-    output_bridge_path = os.path.join(modified_bridge_dir, f"huc_{HUC}_osm_bridges_modified.gpkg")
+    output_bridge_path = os.path.join(modified_bridge_dir, f"huc_{HUC}_osm_bridges_modified.parquet")
     created_tif_ids = {
         os.path.splitext(os.path.basename(path))[0]
         for path in glob.glob(os.path.join(huc_output_dir, 'lidar_osm_rasters', '*.tif'))
@@ -400,9 +402,9 @@ def process_single_bridge_file(
     logging.info(f"Saving results in {output_dir}")
 
     # check input file veracity
-    if not OSM_bridge_file.endswith(".gpkg"):
-        logging.critical(f" Error: {OSM_bridge_file} is not a .gpkg file. Program terminated.")
-        sys.exit(f" Error: {OSM_bridge_file} is not a .gpkg file. Program terminated.")
+    if not OSM_bridge_file.endswith(".parquet"):
+        logging.critical(f" Error: {OSM_bridge_file} is not a .parquet file. Program terminated.")
+        sys.exit(f" Error: {OSM_bridge_file} is not a .parquet file. Program terminated.")
 
     try:
 
@@ -415,7 +417,7 @@ def process_single_bridge_file(
 
         text = 'read osm bridge lines and make a polygon footprint'
         logging.info(text)
-        OSM_bridge_lines_gdf = gpd.read_file(OSM_bridge_file)
+        OSM_bridge_lines_gdf = gpd.read_parquet(OSM_bridge_file)
 
         # osm file must contain osmid field
         if 'osmid' not in OSM_bridge_lines_gdf.columns:
@@ -452,8 +454,6 @@ def process_single_bridge_file(
         text = 'Identify USGS/Entwine lidar URLs for intersecting with each bridge polygon'
         logging.info(text)
         OSM_polygons_gdf = gpd.overlay(OSM_polygons_gdf, entwine_footprints_gdf, how='intersection')
-
-        write_geodataframe(OSM_polygons_gdf, os.path.join(output_dir, 'buffered_bridges.gpkg'))
 
         text = f'download last-return lidar points within each bridge polygon from the identified URLs using {job_number_lidar} processors'
         logging.info(text)
@@ -560,6 +560,57 @@ def process_single_bridge_file(
         sys.exit(1)
 
 
+def _process_single_bridge_file_task(
+    OSM_bridge_file,
+    huc_num,
+    buffer_width,
+    raster_resolution,
+    output_dir,
+    modified_bridge_dir,
+    job_number_lidar,
+    job_number_raster,
+    base_entwine_footprints_gdf,
+    remove_las_files,
+    cli_args,
+    file_logger,
+    screen_queue,
+    task_id,
+):
+    """
+    run_with_mp-compatible wrapper around process_single_bridge_file. Converts any failure —
+    including process_single_bridge_file's own internal sys.exit() calls — into a normal
+    (0, [False]) return instead of letting it kill the whole run: one HUC's lidar/raster
+    processing failing (e.g. a transient GDAL/SQLite write error) should not stop every other,
+    unrelated HUC after it, matching how every other MP-driven script in this repo treats a
+    per-unit failure. Full step-by-step detail for a given HUC is still in that HUC's own log
+    file (output_dir, set up by process_single_bridge_file's __setup_logger); this wrapper only
+    reports the top-level start/success/failure to the shared master log.
+    """
+    screen_queue.put(f"[{task_id}] Starting")
+    try:
+        process_single_bridge_file(
+            OSM_bridge_file=OSM_bridge_file,
+            huc_num=huc_num,
+            buffer_width=buffer_width,
+            raster_resolution=raster_resolution,
+            output_dir=output_dir,
+            modified_bridge_dir=modified_bridge_dir,
+            job_number_lidar=job_number_lidar,
+            job_number_raster=job_number_raster,
+            base_entwine_footprints_gdf=base_entwine_footprints_gdf,
+            remove_las_files=remove_las_files,
+            cli_args=cli_args,
+        )
+        return 1, [True]
+    except SystemExit as ex:
+        file_logger.error(f"[{task_id}] Failed (exit code {ex.code}) — see {output_dir} for details.")
+        return 0, [False]
+    except Exception:
+        file_logger.error(f"[{task_id}] Failed — see {output_dir} for details.")
+        file_logger.error(traceback.format_exc())
+        return 0, [False]
+
+
 def process_bridges_lidar_data(
     OSM_bridge_input,
     buffer_width,
@@ -574,9 +625,12 @@ def process_bridges_lidar_data(
     if not os.path.isdir(OSM_bridge_input):
         sys.exit(f"Error: {OSM_bridge_input} is not a directory. Program terminated.")
 
-    bridge_files = sorted(glob.glob(os.path.join(OSM_bridge_input, '*.gpkg')))
+    bridge_files = sorted(glob.glob(os.path.join(OSM_bridge_input, 'bridges_*.parquet')))
     if not bridge_files:
-        sys.exit(f"Error: {OSM_bridge_input} does not contain any .gpkg bridge files. Program terminated.")
+        sys.exit(
+            f"Error: {OSM_bridge_input} does not contain any bridges_XXXXXXXX.parquet files. "
+            "Program terminated."
+        )
 
     if lst_hucs != '':
         lst_hucs = lst_hucs.strip()
@@ -584,7 +638,7 @@ def process_bridges_lidar_data(
         bridge_files = [
             bridge_file
             for bridge_file in bridge_files
-            if (huc_match := re.match(r'^huc_(\d{8})_osm_bridges\.gpkg$', os.path.basename(bridge_file)))
+            if (huc_match := re.match(r'^bridges_(\d{8})\.parquet$', os.path.basename(bridge_file)))
             and huc_match.group(1) in selected_hucs
         ]
 
@@ -598,47 +652,126 @@ def process_bridges_lidar_data(
     modified_bridge_dir = os.path.join(output_dir, 'modified_osm_bridges')
     base_entwine_footprints_gdf = make_lidar_footprints()
 
-    per_file_classification_summaries = []
-    per_file_elevation_summaries = []
+    # Master log for the whole run, separate from the per-HUC log files process_single_bridge_file
+    # writes via __setup_logger(). Those per-HUC logs hold full step-by-step detail for that one
+    # HUC only, with no console output and no shared file across HUCs — there was previously no
+    # single place to see progress or failures across a run of many HUCs without opening each
+    # HUC's own log individually.
+    start_time = datetime.now(timezone.utc)
+    master_log_path = os.path.join(
+        output_dir, f"make_rasters_using_lidar_{start_time.strftime('%Y%m%d-%H%M')}.log"
+    )
+    master_logger = setup_mp_file_logger(master_log_path, "make_rasters_using_lidar")
+    master_logger.info("==================================")
+    master_logger.info("Starting bridges lidar raster processing")
+    if cli_args:
+        master_logger.info(f"CLI invocation: {cli_args}")
+    master_logger.info(f"Start time: {start_time.strftime('%m/%d/%Y %H:%M:%S')}")
 
     total_hucs = len(bridge_files)
+    master_logger.info(f"HUCs to process: {total_hucs}")
 
-    for huc_index, bridge_file in enumerate(bridge_files, start=1):
-        huc_match = re.match(r'^huc_(\d{8})_osm_bridges\.gpkg$', os.path.basename(bridge_file))
+    # Resume support: a HUC is considered already done only once its FINAL output
+    # (huc_{HUC}_osm_bridges_modified.parquet) has been written — that's the last thing
+    # process_single_bridge_file does, after all lidar/raster work succeeds. Re-running against
+    # the same -o path should pick up where a previous (possibly interrupted, e.g. OOM-killed or
+    # Ctrl-C'd) run left off instead of re-downloading lidar and re-generating rasters for
+    # thousands of already-finished HUCs.
+    huc_nums = []
+    tasks_args_list = []
+    already_done_hucs = []
+    for bridge_file in bridge_files:
+        huc_match = re.match(r'^bridges_(\d{8})\.parquet$', os.path.basename(bridge_file))
         if not huc_match:
             sys.exit(
                 f"Error: {os.path.basename(bridge_file)} does not match the expected "
-                "huc_XXXXXXXX_osm_bridges.gpkg naming pattern. Program terminated."
+                "bridges_XXXXXXXX.parquet naming pattern. Program terminated."
             )
-
         huc_num = huc_match.group(1)
-        bridge_output_dir = os.path.join(lidar_processing_dir, huc_num)
-        print(f"working on HUC {huc_num} ({huc_index}/{total_hucs})")
+        huc_nums.append(huc_num)
 
-        process_single_bridge_file(
-            OSM_bridge_file=bridge_file,
-            huc_num=huc_num,
-            buffer_width=buffer_width,
-            raster_resolution=raster_resolution,
-            output_dir=bridge_output_dir,
-            modified_bridge_dir=modified_bridge_dir,
-            job_number_lidar=job_number_lidar,
-            job_number_raster=job_number_raster,
-            base_entwine_footprints_gdf=base_entwine_footprints_gdf,
-            remove_las_files=remove_las_files,
-            cli_args=cli_args,
+        modified_bridge_path = os.path.join(
+            modified_bridge_dir, f"huc_{huc_num}_osm_bridges_modified.parquet"
         )
+        if os.path.exists(modified_bridge_path):
+            already_done_hucs.append(huc_num)
+            continue
+
+        # Not done yet. If a previous attempt got partway through this HUC before being
+        # interrupted, process_single_bridge_file refuses to run against a non-empty output_dir
+        # (its own safety check) — clear it so a genuinely incomplete HUC can be retried cleanly
+        # rather than being stuck failing that check forever.
+        huc_output_dir = os.path.join(lidar_processing_dir, huc_num)
+        shutil.rmtree(huc_output_dir, ignore_errors=True)
+
+        tasks_args_list.append(
+            {
+                "OSM_bridge_file": bridge_file,
+                "huc_num": huc_num,
+                "buffer_width": buffer_width,
+                "raster_resolution": raster_resolution,
+                "output_dir": huc_output_dir,
+                "modified_bridge_dir": modified_bridge_dir,
+                "job_number_lidar": job_number_lidar,
+                "job_number_raster": job_number_raster,
+                "base_entwine_footprints_gdf": base_entwine_footprints_gdf,
+                "remove_las_files": remove_las_files,
+                "cli_args": cli_args,
+            }
+        )
+
+    if already_done_hucs:
+        master_logger.info(f"Skipping {len(already_done_hucs)} already-processed HUC(s): {already_done_hucs}")
+    master_logger.info(f"HUCs remaining to process: {len(tasks_args_list)}")
+
+    if tasks_args_list:
+        # One HUC at a time (max_workers=1, matching the previous sequential loop), with the
+        # worker process torn down and replaced after every single HUC (max_tasks_per_child=1).
+        # GDAL/geopandas/rasterio retain memory across many sequential calls within the same
+        # long-lived process (confirmed for pull_osm.py's equivalent per-state loop — see
+        # data/osm/pull_osm.py), which silently OOM-kills a plain sequential run like this one
+        # partway through a large HUC list. Recycling the worker after each HUC is the only thing
+        # that reliably reclaims that memory. A single HUC's failure does not stop the remaining
+        # HUCs (see _process_single_bridge_file_task, which returns 0 rather than letting an
+        # exception or sys.exit() propagate) — matching how every other MP-driven script in this
+        # repo treats a per-unit failure.
+        mp_results = run_with_mp(
+            task_function=_process_single_bridge_file_task,
+            tasks_args_list=tasks_args_list,
+            file_logger=master_logger,
+            task_id_key="huc_num",
+            max_workers=1,
+            show_progress=True,
+            max_tasks_per_child=1,
+        )
+
+        failed_hucs = [huc8 for huc8, result in mp_results.items() if not result[0]]
+        if not failed_hucs:
+            master_logger.info("✅ All remaining HUCs succeeded")
+        else:
+            master_logger.error(f"❌ {len(failed_hucs)} HUC(s) failed: {failed_hucs}")
+    else:
+        master_logger.info("Nothing to do — every requested HUC already has a final output.")
+
+    # Collect classification/elevation summaries from every HUC that has them, whether it was
+    # processed in this run or an earlier (resumed-from) one, so the combined CSVs stay complete
+    # across multiple resumed runs rather than only reflecting this run's own successes.
+    per_file_classification_summaries = []
+    per_file_elevation_summaries = []
+
+    for huc8 in huc_nums:
+        bridge_output_dir = os.path.join(lidar_processing_dir, huc8)
 
         classification_summary_path = os.path.join(bridge_output_dir, 'classifications_summary.csv')
         if os.path.exists(classification_summary_path):
             classification_df = pd.read_csv(classification_summary_path)
-            classification_df['HUC'] = huc_num
+            classification_df['HUC'] = huc8
             per_file_classification_summaries.append(classification_df)
 
         elevation_summary_path = os.path.join(bridge_output_dir, 'bridge_elevation_filter_summary.csv')
         if os.path.exists(elevation_summary_path):
             elevation_df = pd.read_csv(elevation_summary_path)
-            elevation_df['HUC'] = huc_num
+            elevation_df['HUC'] = huc8
             per_file_elevation_summaries.append(elevation_df)
 
     if len(bridge_files) > 1:
@@ -653,6 +786,9 @@ def process_bridges_lidar_data(
             combined_elevation_df.to_csv(
                 os.path.join(output_dir, 'all_bridge_elevation_filter_summary.csv'), index=False
             )
+
+    end_time = datetime.now(timezone.utc)
+    master_logger.info(f"Done. Duration: {end_time - start_time}")
 
 
 def __setup_logger(output_folder_path):
@@ -700,7 +836,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '-i',
         '--OSM_bridge_input',
-        help='REQUIRED: folder path location where individual HUC8 geopackages for bridge lines are located',
+        help='REQUIRED: folder path location where the per-HUC8 bridge line GeoParquet files are located',
         required=True,
     )
 
