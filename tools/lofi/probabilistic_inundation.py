@@ -1,8 +1,7 @@
 import argparse
-import ast
 import os
 from contextlib import ExitStack
-from typing import Optional, Union
+from typing import Optional
 
 import geopandas as gpd
 import numpy as np
@@ -12,7 +11,7 @@ import xarray as xr
 from inundate_mosaic_wrapper import produce_mosaicked_inundation
 from rasterio import features as riofeat
 from scipy.interpolate import make_interp_spline
-from scipy.stats import expon, gamma, genextreme, genpareto, gumbel_r, kappa4, norm, pearson3, weibull_min
+from scipy.stats import weibull_min
 from shapely.geometry import shape
 
 from utils.io import write_geodataframe
@@ -155,106 +154,6 @@ def generate_streamflow_percentiles_vec(
         np.maximum(0, percentile_values, out=percentile_values)
         perc_df.loc[inter_ids] = percentile_values
     return perc_df
-    
-
-def generate_streamflow_percentiles(
-    feature: int, ensemble_forecast: xr.Dataset, params_weibull: pd.DataFrame
-) -> dict[str, Union[int, float]]:
-    """
-    Calculates Percentiles for the streamflow distribution
-
-    Parameters
-    ----------
-    feature : int
-        ID of feature to process
-    ensemble_forecast : xr.Dataset
-        NWM medium range ensembles
-    params_weibull : pd.DataFrame
-        Parameters for features
-
-    Returns
-    -------
-    dict
-        Dictionary of percentiles for streamflow distribution and feature_id
-    """
-
-    # Distributions
-    dist_dict = {
-        "expon": expon,
-        "gamma": gamma,
-        "genextreme": genextreme,
-        "genpareto": genpareto,
-        "gumbel_r": gumbel_r,
-        "kappa": kappa4,
-        "pearson3": pearson3,
-        "norm": norm,
-        "weibull_min": weibull_min,
-    }
-
-    dkeys = ['90', '75', '50', '25', '10']
-
-    # If there is no feature in the NWM parameters file
-    if feature not in params_weibull.index:
-        rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'ensemble': '1'})['streamflow']))
-        rv['feature_id'] = str(feature)
-        return rv
-    else:
-        parameters = params_weibull.loc[feature]
-
-    # Create probability distribution
-    params = ast.literal_eval(parameters['parameters'])
-
-    try:
-        r = dist_dict[parameters['distribution_name']](**params)
-
-    except Exception:
-        rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'ensemble': '1'})['streamflow']))
-        rv['feature_id'] = str(feature)
-        return rv
-
-    streamflow_values = np.squeeze(ensemble_forecast['streamflow'].values)
-
-    # If all values from ensemble streamflow forecasts are not identical or virtually the same
-    if not np.allclose(streamflow_values, streamflow_values[0]):
-
-        # Impute any values that are nan with the mean of the numeric values
-        streamflow_values[np.isnan(streamflow_values)] = np.nanmean(streamflow_values)
-        likelihoods = 1 - r.cdf(streamflow_values)
-
-        # Scale the likelihoods to equal 1 and then generate a dataset given their likelihood
-        scaled_likelihoods = np.squeeze(likelihoods / np.sum(likelihoods)) * np.linspace(1, 0.9, 6) * 10000
-
-        # Interpolate streamflow values so that member 1 represents the 50th percentile
-        top = np.interp([10, 25, 50], [10, 50], [np.min(scaled_likelihoods), scaled_likelihoods[0]])[::-1]
-
-        top_scaled = np.interp(
-            top,
-            [np.min(scaled_likelihoods), scaled_likelihoods[0]],
-            [np.max(streamflow_values), streamflow_values[0]],
-        )
-
-        bottom = np.interp([50, 75, 90], [50, 90], [scaled_likelihoods[0], np.max(scaled_likelihoods)])[::-1]
-        bottom_scaled = np.interp(
-            bottom,
-            [scaled_likelihoods[0], np.max(scaled_likelihoods)],
-            [streamflow_values[0], np.min(streamflow_values)],
-        )
-
-        percentile_values = np.hstack([bottom_scaled, top_scaled[1:]])
-
-        return {
-            '90': max(0, percentile_values[0]),
-            '75': max(0, percentile_values[1]),
-            '50': max(0, streamflow_values[0]),
-            '25': max(0, percentile_values[3]),
-            '10': max(0, percentile_values[4]),
-            'feature_id': str(feature),
-        }
-
-    else:
-        rv = dict.fromkeys(dkeys, max(0, streamflow_values[0]))
-        rv['feature_id'] = str(feature)
-        return rv
 
 
 # TODO: Replace this code with future LoFI Optimization
