@@ -376,7 +376,7 @@ else
 fi
 
 ## Process roads FIMpact ##
-if  [[ -f "${tempHucDataDir}/osm_roads_subset.parquet" ]]; then
+if [[ "$process_roads_fimpact" = "True" && -f "${tempHucDataDir}/osm_roads_subset.parquet" ]]; then
     echo -e "${startDiv}Process roads FIMpact ${hucNumber} ${current_branch_id}"
     date -u
     Tstart
@@ -388,6 +388,8 @@ if  [[ -f "${tempHucDataDir}/osm_roads_subset.parquet" ]]; then
     )
     python3 "${srcDir}/process_roads_fimpact.py" "${args[@]}"
     Tcount
+elif [[ "$process_roads_fimpact" != "True" ]]; then
+    echo -e $startDiv"Skipping roads FIMpact processing (toggle off) for $hucNumber"
 else
     echo -e "${startDiv}No osm roads data for ${hucNumber}"
 fi
