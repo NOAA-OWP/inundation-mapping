@@ -404,9 +404,9 @@ def inundate_probabilistic(
     ]
 
     inundation_paths = []
-    branch_df = pd.concat(branch_percentile_df).reset_index()
-    full_p_table = df_htable.merge(branch_df, how='left', on=["HydroID", "stage", "branch_id"])
-    full_p_table = full_p_table.sort_values(['HUC', 'branch_id', 'feature_id', 'HydroID', 'stage'])
+    branch_df = pd.concat(branch_percentile_df)
+    full_p_table = df_htable.merge(branch_df, how='left', left_on=["HydroID", "stage", "branch_id"], right_index=True)
+    full_p_table = full_p_table.sort_values(['branch_id', 'feature_id', 'HydroID', 'stage']).reset_index()
     del df_htable
     del branch_percentile_df, branch_df
     print("Producing inundation...")
