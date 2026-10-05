@@ -697,8 +697,8 @@ def get_env_value(env_var_name):
 def get_huc_vars(huc):
     """Return the region-specific env vars (CRS and input paths) for a given 8-digit HUC number.
 
-    Keys are consistent across all regions ('crs', 'landsea', 'roads', 'NLD',
-    'levees_preprocessed', 'levee_protected_areas', 'lakes', 'nwm_catchments',
+    Keys are consistent across all regions ('crs', 'landsea', 'roads', 'levees',
+    'levees_preprocessed', 'levee_protected_areas', 'lakes', 'catchments',
     'streams', 'headwaters', 'wbd', 'dem_domain'); a key is None where a region
     has no dedicated value (e.g. American Samoa has no NLD/levee inputs).
     'landsea' resolves to the Great Lakes boundary for HUCs in region 04,
@@ -706,30 +706,40 @@ def get_huc_vars(huc):
     Expects bash_variables.env to have been loaded by the calling script.
     """
     if str(huc).startswith('19'):
-        return {
+        huc_vars = {
             'crs': os.getenv('ALASKA_CRS'),
             'landsea': os.getenv('input_landsea_Alaska'),
             'roads': os.getenv('osm_roads_alaska'),
-            'NLD': os.getenv('input_NLD_Alaska'),
+            'levees': os.getenv('input_NLD_Alaska'),
             'levees_preprocessed': os.getenv('input_levees_preprocessed_Alaska'),
             'levee_protected_areas': os.getenv('input_nld_levee_protected_areas_Alaska'),
-            'lakes': os.getenv('input_nwm_lakes_Alaska'),
-            'nwm_catchments': os.getenv('input_nwm_catchments_Alaska'),
-            'streams': os.getenv('input_nwm_flows_Alaska'),
-            'headwaters': os.getenv('input_nwm_headwaters_Alaska'),
             'wbd': os.getenv('input_WBD_gdb_Alaska'),
             'dem_domain': os.getenv('input_DEM_domain_Alaska'),
         }
+
+        if str(huc) in ['19010301', '19080306', '19080307']:
+            huc_vars['lakes'] = os.getenv('input_lakes_NorthAlaska')
+            huc_vars['catchments'] = os.getenv('input_catchments_NorthAlaska')
+            huc_vars['streams'] = os.getenv('input_flows_NorthAlaska')
+            huc_vars['headwaters'] = os.getenv('input_headwaters_NorthAlaska')
+        else:
+            huc_vars['lakes'] = os.getenv('input_nwm_lakes_SouthAlaska')
+            huc_vars['catchments'] = os.getenv('input_nwm_catchments_SouthAlaska')
+            huc_vars['streams'] = os.getenv('input_nwm_flows_SouthAlaska')
+            huc_vars['headwaters'] = os.getenv('input_nwm_headwaters_SouthAlaska')
+
+        return huc_vars
+
     elif str(huc) == '22010000':
         return {
             'crs': os.getenv('GUAM_CRS'),
             'landsea': os.getenv('input_landsea_Guam'),
             'roads': os.getenv('osm_roads_guam'),
-            'NLD': os.getenv('input_NLD_Guam'),
+            'levees': os.getenv('input_NLD_Guam'),
             'levees_preprocessed': os.getenv('input_levees_preprocessed_Guam'),
             'levee_protected_areas': os.getenv('input_nld_levee_protected_areas_Guam'),
             'lakes': os.getenv('input_nhd_lakes_Guam'),
-            'nwm_catchments': os.getenv('input_nwm_catchments_Guam'),
+            'catchments': os.getenv('input_catchments_Guam'),
             'streams': os.getenv('input_nhd_flows_Guam'),
             'headwaters': os.getenv('input_nhd_headwaters_Guam'),
             'wbd': os.getenv('input_WBD_gdb_Guam'),
@@ -740,11 +750,11 @@ def get_huc_vars(huc):
             'crs': os.getenv('AMERICAN_SAMOA_CRS'),
             'landsea': os.getenv('input_landsea_AmericanSamoa'),
             'roads': os.getenv('osm_roads_americansamoa'),
-            'NLD': None,
+            'levees': None,
             'levees_preprocessed': None,
             'levee_protected_areas': None,
             'lakes': os.getenv('input_nhd_lakes_AmericanSamoa'),
-            'nwm_catchments': os.getenv('input_nwm_catchments_AmericanSamoa'),
+            'catchments': os.getenv('input_catchments_AmericanSamoa'),
             'streams': os.getenv('input_nhd_flows_AmericanSamoa'),
             'headwaters': os.getenv('input_nhd_headwaters_AmericanSamoa'),
             'wbd': os.getenv('input_WBD_gdb_AmericanSamoa'),
@@ -757,11 +767,11 @@ def get_huc_vars(huc):
                 os.getenv('input_GL_boundaries') if str(huc).startswith('04') else os.getenv('input_landsea')
             ),
             'roads': os.getenv('osm_roads'),
-            'NLD': os.getenv('input_NLD'),
+            'levees': os.getenv('input_NLD'),
             'levees_preprocessed': os.getenv('input_levees_preprocessed'),
             'levee_protected_areas': os.getenv('input_nld_levee_protected_areas'),
             'lakes': os.getenv('input_nwm_lakes'),
-            'nwm_catchments': os.getenv('input_nwm_catchments'),
+            'catchments': os.getenv('input_nwm_catchments'),
             'streams': os.getenv('input_nwm_flows'),
             'headwaters': os.getenv('input_nwm_headwaters'),
             'wbd': os.getenv('input_WBD_gdb'),

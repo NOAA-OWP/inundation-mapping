@@ -34,7 +34,7 @@ You may update this checklist before and/or after creating the PR. If you're uns
 - [ ] New functions are documented (with a description, list of inputs, and expected output)
 - [ ] Placeholder code is flagged / future todos are captured in comments. Please use the convention of "TODO (date)" (case-sensitive) and description of the future fix.
 - [ ] [CHANGELOG](/docs/CHANGELOG.md) updated with template version number, e.g. `4.x.x.x`
-- [ ] Where applicable, has fim_pipeline been tested with muliple HUCs, including some other unaffected HUCs?
+- [ ] Where applicable, has fim_pipeline been tested with multiple HUCs, including some other unaffected HUCs?
 - [ ] If applicable, have you worked with Devops for new or updated docker images, pip files, inputs, pre-clips, etc. **CRITICAL: If yes, please update the Deployment Plan section and work with DevOps on it.**
 
 
