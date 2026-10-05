@@ -578,7 +578,7 @@ def inundate_hucs(
 
     percentiles = (90, 75, 50, 25, 10)
     with xr.open_dataset(ensembles) as ensembles_ds:
-        percentile_values = generate_streamflow_percentiles_vec(
+        percentile_values = generate_streamflow_percentiles(
             ensembles_ds['streamflow'].max(dim='time'), parameters_df, percentiles
         )
 
