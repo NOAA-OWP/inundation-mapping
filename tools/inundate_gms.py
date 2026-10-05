@@ -121,12 +121,14 @@ def Inundate_gms(
     branch_ids = [None] * number_of_branches
 
     executor_generator = {executor.submit(inundate, **inp): ids for inp, ids in inundate_input_generator}
-    for idx, future in enumerate(tqdm(
-        as_completed(executor_generator),
-        total=len(executor_generator),
-        desc=f"Inundating branches with {num_workers} workers",
-        disable=(not verbose),
-    )):
+    for idx, future in enumerate(
+        tqdm(
+            as_completed(executor_generator),
+            total=len(executor_generator),
+            desc=f"Inundating branches with {num_workers} workers",
+            disable=(not verbose),
+        )
+    ):
         hucCode, branch_id = executor_generator[future]
 
         try:

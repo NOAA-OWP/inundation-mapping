@@ -18,7 +18,6 @@ from rasterio.io import DatasetReader
 from rasterio.mask import mask
 from shapely.geometry import shape
 
-
 gpd.options.io_engine = "pyogrio"
 
 
@@ -203,7 +202,7 @@ def inundate(
             inundation_rst = stack.enter_context(rasterio.open(inundation_raster, "w+", **inundation_profile))
 
         if int_16:
-            nodata = np.int16(inundation_profile['nodata']) 
+            nodata = np.int16(inundation_profile['nodata'])
         else:
             nodata = np.int32(inundation_profile['nodata'])
 
@@ -474,7 +473,7 @@ def __make_windows_generator(
                 catchment_poly = gpd.read_parquet(catchment_poly)
             else:
                 catchment_poly = gpd.read_file(catchment_poly)
-                
+
         for huc in hucs:
             # returns hucCode if current huc is in hucSet (at least starts with)
 

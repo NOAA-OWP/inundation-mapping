@@ -79,16 +79,16 @@ def get_fim_probability_distributions(
 
 
 @use_pandas_3_behavior()
-def generate_streamflow_percentiles(
-        ensemble_streamflow, params_weibull, percentiles
-):
+def generate_streamflow_percentiles(ensemble_streamflow, params_weibull, percentiles):
     """Vectorize the computation of weibull distribution"""
     feature_ids = ensemble_streamflow.indexes['feature_id']
     perc_df = pd.DataFrame(columns=percentiles, index=feature_ids.astype('string[pyarrow]'), dtype=float)
 
     # For features that have no params, copy first ensemble streamflow
     weibull_nomask = ~perc_df.index.isin(params_weibull.index.astype('string[pyarrow]'))
-    perc_df.loc[weibull_nomask] = ensemble_streamflow.sel(feature_id=feature_ids[weibull_nomask], ensemble="1").to_numpy()[:, np.newaxis]
+    perc_df.loc[weibull_nomask] = ensemble_streamflow.sel(
+        feature_id=feature_ids[weibull_nomask], ensemble="1"
+    ).to_numpy()[:, np.newaxis]
 
     inter_ids = feature_ids.intersection(params_weibull.index.astype(feature_ids.dtype))
     if len(inter_ids) > 0:
@@ -342,12 +342,12 @@ def inundate_probabilistic(
 
     htable_cols = ['HydroID', 'feature_id', 'HUC', 'branch_id', 'stage', 'SurfaceArea (m2)', 'LakeID']
     df_htable = pd.read_parquet(
-        os.path.join(hydrofabric_dir, huc, "hydrotable.parquet"),
-        engine='pyarrow',
-        columns=htable_cols
+        os.path.join(hydrofabric_dir, huc, "hydrotable.parquet"), engine='pyarrow', columns=htable_cols
     )
     df_htable = df_htable.reset_index()
-    df_htable = df_htable.astype({'HUC': "string[pyarrow]", 'HydroID': 'string[pyarrow]', 'feature_id': "string[pyarrow]"})
+    df_htable = df_htable.astype(
+        {'HUC': "string[pyarrow]", 'HydroID': 'string[pyarrow]', 'feature_id': "string[pyarrow]"}
+    )
     df_htable["precalb_discharge_cms"] = 0
 
     adj_cols = ['channel_n', 'overbank_n', 'SLOPE']
@@ -375,7 +375,9 @@ def inundate_probabilistic(
                 crosswalk[adj_cols] = adj_copies + [channel_n_adj, overbank_n_adj, slope_adj]
 
             h_table = get_subdivided_src(crosswalk)
-            h_table = h_table.rename(columns={n: f"{n}.{percentile}" for n in h_table.columns if n.startswith("discharge_cms")})
+            h_table = h_table.rename(
+                columns={n: f"{n}.{percentile}" for n in h_table.columns if n.startswith("discharge_cms")}
+            )
             h_tables.append(h_table)
             del h_table
         p_table = pd.concat(h_tables, axis=1)
@@ -393,12 +395,14 @@ def inundate_probabilistic(
         "stage",
         "HUC",
         "LakeID",
-        "precalb_discharge_cms"
+        "precalb_discharge_cms",
     ]
 
     inundation_paths = []
     branch_df = pd.concat(branch_percentile_df)
-    full_p_table = df_htable.merge(branch_df, how='left', left_on=["HydroID", "stage", "branch_id"], right_index=True)
+    full_p_table = df_htable.merge(
+        branch_df, how='left', left_on=["HydroID", "stage", "branch_id"], right_index=True
+    )
     full_p_table = full_p_table.sort_values(['branch_id', 'feature_id', 'HydroID', 'stage']).reset_index()
     del df_htable
     del branch_percentile_df, branch_df
@@ -440,7 +444,6 @@ def inundate_probabilistic(
         del flow_df, subhdf
     del full_p_table
 
-
     # For every percentile inundation map convert values to percentile
     print("Writing rasters...")
     with ExitStack() as stack:
@@ -456,7 +459,7 @@ def inundate_probabilistic(
             driver='COG',
             sparse_ok="YES",
             resampling='NEAREST',
-            blocksize=512
+            blocksize=512,
         )
 
         out_rast = os.path.join(base_output_path, output_file_name.replace(".gpkg", ".tif"))
