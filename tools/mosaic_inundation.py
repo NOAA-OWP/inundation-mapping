@@ -123,7 +123,6 @@ def Mosaic_inundation(
         tqdm_disable = True
 
     ag_mosaic_output = ""
-    remove_at_end = []
 
     for ag in tqdm(aggregation_units, disable=tqdm_disable, desc="Mosaicing FIMs"):
         try:
@@ -141,7 +140,7 @@ def Mosaic_inundation(
         if (is_mosaic_for_branches) and (ag not in mosaic_output):
             ag_mosaic_output = fh.append_id_to_file_name(mosaic_output, ag)  # change it
 
-        remove_list = mosaic_by_unit(
+        mosaic_by_unit(
             inundation_maps_list,
             ag_mosaic_output,
             nodata,

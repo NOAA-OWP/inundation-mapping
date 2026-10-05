@@ -254,7 +254,7 @@ def get_subdivided_src(crosswalk):
         {
             'HydroID': crosswalk['HydroID'],
             'stage': crosswalk['Stage'],
-            #'subdiv_discharge_cms': final_discharge,
+            'subdiv_discharge_cms': final_discharge,
             'discharge_cms': final_discharge,  # create a copy of vmann modified discharge (used to track future changes)
         },
         copy=False,
