@@ -328,8 +328,6 @@ def inundate_probabilistic(
     if output_raster is False and output_vector is False:
         raise ValueError("Either output_raster or output_vector must be set to True")
 
-    #magnitude = ensembles.attrs['magnitude'] if 'magnitude' in ensembles.attrs else None
-
     channel_dist, obank_dist, slope_dist = get_fim_probability_distributions(
         posterior_dist=posterior_dist, huc=int(huc)
     )
@@ -342,10 +340,6 @@ def inundate_probabilistic(
     if is_local_path(base_output_path):
         os.makedirs(base_output_path, exist_ok=True)
 
-    # Find the original hydrotable
-    # all_branches = s3_or_local_glob(os.path.join(hydrofabric_dir, huc, "branches", "*"))
-    # all_branches = list(map(os.path.basename, all_branches))
-
     htable_cols = ['HydroID', 'feature_id', 'HUC', 'branch_id', 'stage', 'SurfaceArea (m2)', 'LakeID']
     df_htable = pd.read_parquet(
         os.path.join(hydrofabric_dir, huc, "hydrotable.parquet"),
@@ -357,7 +351,6 @@ def inundate_probabilistic(
     df_htable["precalb_discharge_cms"] = 0
 
     adj_cols = ['channel_n', 'overbank_n', 'SLOPE']
-    # crosswalk_static_cols = ['HydroID', 'Stage', 'Bathymetry_source']
 
     # Apply inundation map to each percentile
     branch_percentile_df = []
