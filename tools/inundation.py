@@ -2,10 +2,10 @@
 
 import argparse
 import os
+from contextlib import ExitStack
 from os.path import splitext
 from typing import List, Optional, Tuple, Union
 from warnings import warn
-from contextlib import ExitStack
 
 import fiona
 import geopandas as gpd
@@ -14,8 +14,8 @@ import pandas as pd
 import rasterio
 import xarray as xr
 from numba import njit, typed, types
-from rasterio.mask import mask
 from rasterio.io import DatasetReader
+from rasterio.mask import mask
 from shapely.geometry import shape
 
 

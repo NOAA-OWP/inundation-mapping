@@ -15,7 +15,7 @@ from scipy.stats import weibull_min
 from shapely.geometry import shape
 
 from utils.io import write_geodataframe
-from utils.shared_functions import s3_or_local_path_exists, is_local_path, use_pandas_3_behavior
+from utils.shared_functions import is_local_path, s3_or_local_path_exists, use_pandas_3_behavior
 
 
 @use_pandas_3_behavior()
