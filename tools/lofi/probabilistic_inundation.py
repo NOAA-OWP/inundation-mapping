@@ -495,7 +495,7 @@ def inundate_probabilistic(
                 yield shape(p), v
 
         with rasterio.open(out_rast, 'r') as rst:
-            shapes = riofeat.shapes(rst.read(1), mask=None, transform=rst.transform)
+            shapes = riofeat.shapes(rasterio.band(rst, 1))
             gdf = gpd.GeoDataFrame(_make_geometry(shapes), columns=['geometry', 'value'], crs=raster_crs)
             gdf = gdf.set_geometry('geometry')
             write_geodataframe(gdf, out_vec)
