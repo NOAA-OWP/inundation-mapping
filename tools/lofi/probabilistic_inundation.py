@@ -81,7 +81,7 @@ def get_fim_probability_distributions(
 @use_pandas_3_behavior()
 def generate_streamflow_percentiles(ensemble_streamflow, params_weibull, percentiles):
     """Vectorize the computation of weibull distribution
-    
+
     Parameters
     ---------
     ensemble_streamflow: xr.DataArray
@@ -229,7 +229,7 @@ def compute_manning_subdivision(df_src, eps=1e-5):
 
 @use_pandas_3_behavior()
 def read_crosswalk(hydrofabric_dir, huc, branch):
-    """ Read crosswalk csv
+    """Read crosswalk csv
 
     Parameters
     ---------
@@ -245,7 +245,7 @@ def read_crosswalk(hydrofabric_dir, huc, branch):
     pd.DataFrame
         Crosswalk for particular huc and branch.
     """
-    
+
     read_cols = [
         'Stage',
         'Stage_bankfull',
