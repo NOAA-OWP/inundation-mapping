@@ -1,5 +1,6 @@
 import argparse
 import os
+import time
 from contextlib import ExitStack
 from typing import Optional
 
@@ -391,6 +392,7 @@ def inundate_probabilistic(
     # Apply inundation map to each percentile
     branch_percentile_df = []
     print("Computing branch percentile hydrotables...")
+    start = time.perf_counter()
     for branch in df_htable['branch_id'].unique():
         crosswalk = read_crosswalk(hydrofabric_dir, huc, str(branch))
 
@@ -423,6 +425,7 @@ def inundate_probabilistic(
         del h_tables, p_table
         del crosswalk
         del adj_copies
+    print(f"[HUC: {huc}]: Branch percentile discharges {round(time.perf_counter() - start, 2)}s")
 
     htable_req_static_cols = [
         "branch_id",
@@ -442,7 +445,7 @@ def inundate_probabilistic(
     full_p_table = full_p_table.sort_values(['branch_id', 'feature_id', 'HydroID', 'stage']).reset_index()
     del df_htable
     del branch_percentile_df, branch_df
-    print("Producing inundation...")
+    start = time.perf_counter()
     for percentile in percentiles:
         # Establish directory to save the final mosaiced inundation
         final_inundation_path = os.path.join(
@@ -479,9 +482,11 @@ def inundate_probabilistic(
         # Release objects
         del flow_df, subhdf
     del full_p_table
+    print(f"[HUC: {huc}]: Mosaicked inundation {round(time.perf_counter() - start, 2)}s")
+
 
     # For every percentile inundation map convert values to percentile
-    print("Writing rasters...")
+    start = time.perf_counter()
     with ExitStack() as stack:
         datasets = [stack.enter_context(rasterio.open(file)) for file in inundation_paths]
         profile = datasets[0].profile
@@ -523,6 +528,7 @@ def inundate_probabilistic(
 
                 np.copyto(maxx, 127, where=nodata_mask)
                 write_rst.write(maxx, window=window, indexes=1)
+    print(f"[HUC: {huc}]: Writing max raster {round(time.perf_counter() - start, 2)}s")
 
     if output_vector is True:
 
@@ -538,7 +544,6 @@ def inundate_probabilistic(
             gdf = gdf.set_geometry('geometry')
             write_geodataframe(gdf, out_vec)
 
-    print("Cleaning up...")
     for file in inundation_paths:
         os.remove(file)
 
