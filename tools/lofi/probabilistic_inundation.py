@@ -10,6 +10,7 @@ import rasterio
 import xarray as xr
 from inundate_mosaic_wrapper import produce_mosaicked_inundation
 from rasterio import features as riofeat
+from rasterio import windows as riowin
 from scipy.interpolate import make_interp_spline
 from scipy.stats import weibull_min
 from shapely.geometry import shape
@@ -499,11 +500,13 @@ def inundate_probabilistic(
 
         out_rast = os.path.join(base_output_path, output_file_name.replace(".gpkg", ".tif"))
         with rasterio.open(out_rast, "w+", **profile) as write_rst:
-            for _, window in write_rst.block_windows():
+            x = profile['blocksize'] * 2
+            write_win = riowin.Window(0, 0, height=write_rst.height, width=write_rst.width)
+            for window in riowin.subdivide(write_win, x, x):
                 maxx = np.zeros((window.height, window.width), dtype=odtype)
                 tmpm = np.zeros_like(maxx)
                 mask = np.empty((window.height, window.width), dtype='bool')
-                nodata_mask = np.empty((window.height, window.width), dtype='bool')
+                nodata_mask = np.empty_like(mask)
                 for d, p in zip(datasets, percentiles):
                     d.read(1, out=tmpm, window=window)
 
