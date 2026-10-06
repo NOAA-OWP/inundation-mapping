@@ -36,7 +36,7 @@ def get_fim_probability_distributions(
 
     Returns
     -------
-    Tuple[weibull_min, wibull_min, weibull_min]
+    tuple[weibull_min, wibull_min, weibull_min]
         Weibull distributions for channel Manning roughness, overbank Manning roughness, and slope adjustment
 
     """
@@ -80,7 +80,22 @@ def get_fim_probability_distributions(
 
 @use_pandas_3_behavior()
 def generate_streamflow_percentiles(ensemble_streamflow, params_weibull, percentiles):
-    """Vectorize the computation of weibull distribution"""
+    """Vectorize the computation of weibull distribution
+    
+    Parameters
+    ---------
+    ensemble_streamflow: xr.DataArray
+        Ensemble streamflow values
+    params_weibull: pd.DataFrame
+        Distribution parameters.
+    percentiles: Sequence
+        Percentiles to compute such as [90, 50, 10]
+
+    Returns
+    -------
+    pd.DataFrame
+        Computed percentile values
+    """
     feature_ids = ensemble_streamflow.indexes['feature_id']
     perc_df = pd.DataFrame(columns=percentiles, index=feature_ids.astype('string[pyarrow]'), dtype=float)
 
@@ -214,6 +229,23 @@ def compute_manning_subdivision(df_src, eps=1e-5):
 
 @use_pandas_3_behavior()
 def read_crosswalk(hydrofabric_dir, huc, branch):
+    """ Read crosswalk csv
+
+    Parameters
+    ---------
+    hydrofabric_dir: str
+        Directory with the hydrofabric directories
+    huc: str
+        Huc
+    branch: str
+        Branch
+
+    Returns
+    -------
+    pd.DataFrame
+        Crosswalk for particular huc and branch.
+    """
+    
     read_cols = [
         'Stage',
         'Stage_bankfull',
@@ -244,8 +276,11 @@ def get_subdivided_src(crosswalk):
     ----------
     crosswalk: pd.DataFrame
         Crosswalk dataframe
-    hydrotable: pd.DataFrame
-        Hydrotable dataframe
+
+    Returns
+    -------
+    pd.DataFrame:
+        Computed discharge, indexed by HydroID and stage.
     """
     _, final_discharge = compute_manning_subdivision(crosswalk)
 
@@ -272,26 +307,26 @@ def inundate_probabilistic(
     huc: str,
     mosaic_prob_output_name: str,
     posterior_dist: Optional[pd.DataFrame] = None,
-    day: Optional[int] = 6,
-    hour: Optional[int] = 0,
-    overwrite: Optional[bool] = False,
-    num_jobs: Optional[int] = 1,
-    num_threads: Optional[int] = 1,
-    windowed: Optional[bool] = False,
-    output_raster: Optional[bool] = False,
-    quiet: Optional[bool] = True,
+    day: int = 6,
+    hour: int = 0,
+    overwrite: bool = False,
+    num_jobs: int = 1,
+    num_threads: int = 1,
+    windowed: bool = False,
+    output_raster: bool = False,
+    quiet: bool = True,
     log_file: Optional[str] = None,
-    output_vector: Optional[bool] = True,
+    output_vector: bool = True,
 ):
     """
     Method to probabilistically inundate based on provided ensembles
 
     Parameters
     ----------
-    ensembles: xr.Dataset
-        Path to load medium range ensembles
-    parameters: pd.DataFrame
-        Path to load fit parameters to distributions
+    streamflow_percentiles: pd.DataFrame
+        Streamflow percentile values.
+    parameters: list | tuple
+        Percentiles ie [90, 50, 10]
     hydrofabric_dir: str
         Directory with the hydrofabric directories
     outputs_dir: str
@@ -302,25 +337,25 @@ def inundate_probabilistic(
         Name of final mosaiced probabilistic FIM
     posterior_dist: Optional[Union[str, pd.DataFrame]] = None
         Name of posterior df
-    day: Optional[int], default = 6
+    day: int, default = 6
         Days ahead to pick from reference forecast time
-    hour: Optional[int], default = 0,
+    hour: int, default = 0,
         Hours ahead to pick from reference forecast time
-    overwrite: Optional[bool], default = False
+    overwrite: bool, default = False
         Whether to overwrite existing output
-    num_jobs: Optional[int], default = 1
+    num_jobs: int, default = 1
         Number of processes to parallelize over
-    num_threads: Optional[int], default = 1
+    num_threads: int, default = 1
         Number of threads to parallelize over
-    windowed: Optional[bool], default = False
+    windowed: bool, default = False
         Whether to run inundation in windowed mode for memory conservation
-    output_raster: Optional[bool], default = False
+    output_raster: bool, default = False
         Whether to keep the output raster
-    quiet : Optional[bool], default=False
+    quiet : bool, default=False
         Quiet output
     log_file: Optional[str], default = None
         Filepath of log file
-    output_vector: Optional[bool], default = True
+    output_vector: bool, default = True
         Whether to create vector output
 
     """
@@ -517,16 +552,16 @@ def inundate_hucs(
     hucs: list,
     mosaic_prob_output_name: str,
     posterior_dist: Optional[str] = None,
-    day: Optional[int] = 6,
-    hour: Optional[int] = 0,
-    overwrite: Optional[bool] = False,
-    num_jobs: Optional[int] = 1,
-    num_threads: Optional[int] = 1,
-    windowed: Optional[bool] = False,
-    output_raster: Optional[bool] = False,
-    quiet: Optional[bool] = True,
+    day: int = 6,
+    hour: int = 0,
+    overwrite: bool = False,
+    num_jobs: int = 1,
+    num_threads: int = 1,
+    windowed: bool = False,
+    output_raster: bool = False,
+    quiet: bool = True,
     log_file: Optional[str] = None,
-    output_vector: Optional[bool] = True,
+    output_vector: bool = True,
 ):
     """
     Driver for running probabilistic inundation on selected HUCs
