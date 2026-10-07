@@ -103,7 +103,7 @@ def generate_streamflow_percentiles(ensemble_streamflow, params_weibull, percent
 
     # Ensure that streamflows are positive
     ensemble_streamflow = ensemble_streamflow.clip(min=0)
-    
+
     # First, try to apply mean in ensemble dimension to NaNs, otherwise fill with -9999 if all values are NaN
     na_mean = ensemble_streamflow.mean(dim='ensemble').fillna(-9999)
     ensemble_subset = ensemble_streamflow.fillna(na_mean)
