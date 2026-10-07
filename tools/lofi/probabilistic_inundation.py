@@ -488,56 +488,55 @@ def inundate_probabilistic(
 
     # For every percentile inundation map convert values to percentile
     start = time.perf_counter()
-    with rasterio.Env(CPL_DEBUG=True):
-        with ExitStack() as stack:
-            datasets = [stack.enter_context(rasterio.open(file)) for file in inundation_paths]
-            profile = datasets[0].profile
-            odtype = profile['dtype']
-            raster_crs = datasets[0].crs
-            nodata = profile['nodata']
-            profile.update(
-                dtype=np.int8,
-                nodata=127,
-                compress=profile.get('compress', 'DEFLATE'),
-                driver='COG',
-                sparse_ok="YES",
-                resampling='NEAREST',
-                blocksize=512,
-            )
+    with ExitStack() as stack:
+        datasets = [stack.enter_context(rasterio.open(file)) for file in inundation_paths]
+        profile = datasets[0].profile
+        odtype = profile['dtype']
+        raster_crs = datasets[0].crs
+        nodata = profile['nodata']
+        profile.update(
+            dtype=np.int8,
+            nodata=127,
+            compress=profile.get('compress', 'DEFLATE'),
+            driver='COG',
+            sparse_ok="YES",
+            resampling='NEAREST',
+            blocksize=512,
+        )
 
-            out_rast = os.path.join(base_output_path, output_file_name.replace(".gpkg", ".tif"))
-            with rasterio.open(out_rast, "w+", **profile) as write_rst:
-                x = profile['blocksize'] * 2
-                write_win = riowin.Window(0, 0, height=write_rst.height, width=write_rst.width)
-                maxx = np.zeros((x, x), dtype=odtype)
-                tmpm = np.zeros_like(maxx)
-                mask = np.empty((x, x), dtype='bool')
-                nodata_mask = np.empty_like(mask)
-                min_p = min(percentiles)
-                for window in riowin.subdivide(write_win, x, x):
-                    wh = window.height
-                    ww = window.width
-                    maxx_v = maxx[:wh, :ww]
-                    tmpm_v = tmpm[:wh, :ww]
-                    maxx_v.fill(0)
-                    mask_v = mask[:wh, :ww]
-                    nodata_mask_v = nodata_mask[:wh, :ww]
-                    for d, p in zip(datasets, percentiles):
-                        d.read(1, out=tmpm_v, window=window)
+        out_rast = os.path.join(base_output_path, output_file_name.replace(".gpkg", ".tif"))
+        with rasterio.open(out_rast, "w+", **profile) as write_rst:
+            x = profile['blocksize'] * 2
+            write_win = riowin.Window(0, 0, height=write_rst.height, width=write_rst.width)
+            maxx = np.zeros((x, x), dtype=odtype)
+            tmpm = np.zeros_like(maxx)
+            mask = np.empty((x, x), dtype='bool')
+            nodata_mask = np.empty_like(mask)
+            min_p = min(percentiles)
+            for window in riowin.subdivide(write_win, x, x):
+                wh = window.height
+                ww = window.width
+                maxx_v = maxx[:wh, :ww]
+                tmpm_v = tmpm[:wh, :ww]
+                maxx_v.fill(0)
+                mask_v = mask[:wh, :ww]
+                nodata_mask_v = nodata_mask[:wh, :ww]
+                for d, p in zip(datasets, percentiles):
+                    d.read(1, out=tmpm_v, window=window)
 
-                        # Only run on the last percentile (greatest extent possible)
-                        if p == min_p:
-                            np.equal(tmpm_v, nodata, out=nodata_mask_v)
+                    # Only run on the last percentile (greatest extent possible)
+                    if p == min_p:
+                        np.equal(tmpm_v, nodata, out=nodata_mask_v)
 
-                        # equivalent to np.where(tmpm > 0, int(p), 0)
-                        np.greater(tmpm_v, 0, out=mask_v)
-                        tmpm_v.fill(0)
-                        np.copyto(tmpm_v, int(p), where=mask_v)
+                    # equivalent to np.where(tmpm > 0, int(p), 0)
+                    np.greater(tmpm_v, 0, out=mask_v)
+                    tmpm_v.fill(0)
+                    np.copyto(tmpm_v, int(p), where=mask_v)
 
-                        np.maximum(maxx_v, tmpm_v, out=maxx_v)
+                    np.maximum(maxx_v, tmpm_v, out=maxx_v)
 
-                    np.copyto(maxx_v, 127, where=nodata_mask_v)
-                    write_rst.write(maxx_v, window=window, indexes=1)
+                np.copyto(maxx_v, 127, where=nodata_mask_v)
+                write_rst.write(maxx_v, window=window, indexes=1)
     print(f"[HUC: {huc}]: Writing max raster {round(time.perf_counter() - start, 2)}s")
 
     if output_vector is True:
