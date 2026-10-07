@@ -282,7 +282,7 @@ if __name__ == "__main__":
 
     Alaska DEMs are split across two folders, so pass -d with both (space-separated):
     python /foss_fim/data/bridges/make_dem_dif_for_bridges.py \
-     -d data/inputs/dems/3dep_dems/10m_SouthAlaska/20260128/ <second_alaska_dem_folder>/ \
+     -d data/inputs/dems/3dep_dems/10m_SouthAlaska/20260619/ data/inputs/dems/ifsar_dtm/10m_NorthAlaska/20260708/ \
      -l data/inputs/osm/bridges/lidar_data/20260315/lidar_processing/ \
      -i data/inputs/osm/bridges/bridge_lines/20260315/ \
      -o data/inputs/osm/bridges/DEM_Diffs/20260315/alaska/ \
