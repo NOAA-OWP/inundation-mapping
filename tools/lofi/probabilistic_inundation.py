@@ -109,7 +109,6 @@ def generate_streamflow_percentiles(ensemble_streamflow, params_weibull, percent
 
     inter_ids = feature_ids.intersection(params_weibull.index.astype(feature_ids.dtype))
     if len(inter_ids) > 0:
-        print(f"Interpolating {len(inter_ids)} feature_ids...")
         ensemble_subset = ensemble_streamflow.sel(feature_id=inter_ids)
         inter_ids = inter_ids.astype('string[pyarrow]')
 
