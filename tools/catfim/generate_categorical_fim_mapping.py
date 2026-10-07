@@ -439,16 +439,14 @@ def run_fb_inundation(  # renamed from run_inundation
         #
         # The ones we want to keep end at _extent.tif and remove ones that have _extent_*.tif
 
+        logging.info(f'{huc} : {ahps_site} : {magnitude} - Removing interium inundated branch files')
 
-        logging.info(f'{huc} : {ahps_site} : {magnitude} - TEMP DEBUG, NOT removing interium inundated branch files') # TEMP DEBUG
-        # logging.info(f'{huc} : {ahps_site} : {magnitude} - Removing interium inundated branch files') # TEMP DEBUG
+        output_extent_branch_tif = output_extent_tif.replace(".tif", "_*.tif")
+        branch_tifs = glob.glob(output_extent_branch_tif)
 
-        # output_extent_branch_tif = output_extent_tif.replace(".tif", "_*.tif")
-        # branch_tifs = glob.glob(output_extent_branch_tif)
-
-        # for tif_file in branch_tifs:
-        #     if os.path.exists(tif_file):
-        #         os.remove(tif_file)
+        for tif_file in branch_tifs:
+            if os.path.exists(tif_file):
+                os.remove(tif_file)
 
     except Exception as ex:
         # Log errors and their tracebacks
