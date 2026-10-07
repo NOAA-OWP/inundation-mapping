@@ -1,6 +1,14 @@
 ## Temporary image to build the libraries and only save the needed artifacts
 FROM ghcr.io/osgeo/gdal:ubuntu-small-3.12.3 AS builder
+#FROM ubuntu:24.04 AS builder
+
+RUN echo "++++++++++++++++++++++++++++++++++++++++++++++" \
+    echo "Stage 1: Starting build"
+
+ENV DEBIAN_FRONTEND=noninteractive
+
 WORKDIR /opt/builder
+
 ARG depDir=/dependencies
 ARG taudemVersion=98137bb6541a0d0077a9c95becfed4e56d0aa0ac
 ARG taudemVersion2=81f7a07cdd3721617a30ee4e087804fddbcffa88
@@ -9,19 +17,27 @@ ENV taudemDir2=$depDir/taudem_accelerated_flowDirections/taudem/build/bin
 
 ## ============================
 ## Fix APT permission issue
-ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && \
     apt-get install -y --no-install-recommends apt-utils && \
     apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/apt/*
 
 ## ============================
 ## Install dependencies for compilation
+# RUN apt-get update && apt-get install -y --no-install-recommends \
+#     git cmake mpich libmpich-dev libgtest-dev libboost-test-dev libnetcdf-dev \
+#     make gcc g++ \
+#     && apt-get clean \
+#     && rm -rf /var/lib/apt/lists/*
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git cmake mpich libmpich-dev libgtest-dev libboost-test-dev libnetcdf-dev make gcc g++ \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+    git cmake make gcc g++ libgdal-dev mpich libmpich-dev \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
 ## ============================
 ## Clone repositories
+RUN echo "++++++++++++++++++++++++++++++++++++++++++++++" \
+    echo "Stage 1: Git clone and branch checkout and build for tauDEM"
 RUN git clone https://github.com/dtarb/taudem.git
 RUN git clone https://github.com/fernandoa123/cybergis-toolkit.git taudem_accelerated_flowDirections
 
@@ -33,8 +49,18 @@ RUN cd taudem \
     && cd src \
     && make
 
+# RUN cd taudem \
+#     && git checkout $taudemVersion \
+#     && cd src \
+#     && cmake -DCMAKE_BUILD_TYPE=Release .. && \
+#     && make -j$(nproc) && \
+#     && make install
+
+
 ## ============================
 ## Compile taudem repo with accelerated flow directions ##
+RUN echo "++++++++++++++++++++++++++++++++++++++++++++++" \
+    echo "Stage 1: Git clone and branch checkout and build for taudem_accelerated_flowDirections"
 RUN cd taudem_accelerated_flowDirections/taudem \
     && git checkout $taudemVersion2 \
     && mkdir build \
@@ -42,8 +68,23 @@ RUN cd taudem_accelerated_flowDirections/taudem \
     && cmake .. \
     && make
 
+# RUN cd taudem_accelerated_flowDirections/taudem \
+#     && git checkout $taudemVersion2 \
+#     && mkdir build \
+#     && cd build \
+#     && cmake -DCMAKE_BUILD_TYPE=Debug .. && \
+#     && make -j$(nproc) && \
+#     && make install
+
+    # && cmake .. \
+    # && make
+
+
 ## ============================
 ## Move needed binaries to the next stage of the image
+RUN echo "++++++++++++++++++++++++++++++++++++++++++++++" \
+    echo "Stage 1: tauDEM cleanup"
+
 RUN mkdir -p $taudemDir
 RUN mkdir -p $taudemDir2
 RUN cd taudem/bin \
@@ -55,10 +96,19 @@ RUN cd taudem_accelerated_flowDirections/taudem/build/bin \
 ## Fix permissions before copying to final stage
 RUN chown -R root:root $depDir && chmod -R 777 $depDir
 
+RUN echo "++++++++++++++++++++++++++++++++++++++++++++++" \
+    echo "Stage 1: Complete" \
+    echo "++++++++++++++++++++++++++++++++++++++++++++++"
+
 
 ###############################################################################################
 # Base Image that has GDAL, PROJ, etc
+
+RUN echo "++++++++++++++++++++++++++++++++++++++++++++++" \
+    echo "Stage 2: Pull base image Starting build"
+
 FROM ghcr.io/osgeo/gdal:ubuntu-small-3.12.3
+
 ARG dataDir=/data
 ENV projectDir=/foss_fim
 ARG depDir=/dependencies
@@ -69,6 +119,29 @@ ENV toolsDir=$projectDir/tools
 ENV workDir=/fim_temp
 ENV taudemDir=$depDir/taudem/bin
 ENV taudemDir2=$depDir/taudem_accelerated_flowDirections/taudem/build/bin
+
+ENV LC_ALL=C.UTF-8 \
+    LANG=C.UTF-8 \
+    DEBIAN_FRONTEND=noninteractive \
+    TZ=UTC
+
+ENV PATH="${projectDir}:${PATH}"
+
+## ADD TO PYTHON PATHS ##
+ENV PYTHONPATH="${projectDir}:\
+${srcDir}:\
+${srcDir}/utils:\
+${projectDir}/data:\
+${toolsDir}"
+
+# ENV PIP_BREAK_SYSTEM_PACKAGES=1 \
+#     PIPENV_SYSTEM=1 \
+#     PIP_NO_CACHE_DIR=1 \
+#     PYTHONDONTWRITEBYTECODE=1 \ 
+#     PIP_ROOT_USER_ACTION=ignore \
+#     PYTHONUNBUFFERED=1 \
+#     # Explicitly points pipenv to the Pipfile at the system root
+#     PIPENV_PIPFILE=/Pipfile    
 
 ## ADDING FIM GROUP ##
 ARG GroupID=1370800235
@@ -87,10 +160,12 @@ RUN mkdir -p $depDir
 COPY --from=builder $depDir $depDir
 RUN chown -R root:root $depDir && chmod -R 777 $depDir
 
-## adding environment variables for numba and python ##
-ENV LC_ALL=C.UTF-8
-ENV LANG=C.UTF-8
-ENV PYTHONUNBUFFERED=TRUE
+# # Use the astral image to get uv
+# COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+
+RUN echo "++++++++++++++++++++++++++++++++++++++++++++++" \
+    echo "Stage 2: Apt downloads and setup"
 
 ########################
 
@@ -104,50 +179,306 @@ ENV PYTHONUNBUFFERED=TRUE
 
 ## ============================
 ## Install necessary packages
-ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    p7zip-full python3.12 python3-pip python3-dev time parallel \
-    mpich libmpich-dev libgeos-dev \
-    make gcc g++ expect rsync tzdata wget bzip2 curl unzip acl \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
-RUN apt auto-remove
+# RUN apt-get update && apt-get install -y --no-install-recommends \
+#     python3.12 python3.12-dev python3-pip \
+#     p7zip-full time parallel \
+#     build-essential mpich libmpich-dev libgeos-dev \
+#     make gcc g++ expect rsync tzdata wget bzip2 curl unzip acl \
+#     && apt-get clean \
+#     && rm -rf /var/lib/apt/lists/*
+# RUN apt auto-remove
+
+# Note: If you add     && apt-mark hold python3.12 python3.12-dev \ in the apt-get, it will lock to python3.12
+# but we won't do it for now so we can do upgrade tests later.
+
+# Upgrade pip and install pipenv
+# RUN pip install --no-cache-dir --upgrade pip && \
+#     pip install --no-cache-dir pipenv
+
+# Pins Pipenv to a guaranteed 3.12-compatible version release
+# RUN pip install --no-cache-dir "pipenv>=2024.0.0,<2025.0.0"
+# 3. Upgrade pip internally (optional) and install pipenv
+# RUN python3.12 -m pip install --no-cache-dir --upgrade pip && \
+#     python3.12 -m pip install --no-cache-dir pipenv
+
 
 ## Python Environment Bypass (Required for Ubuntu 24.04/Python 3.12) ##
-ENV PIP_BREAK_SYSTEM_PACKAGES=1 \
-    PIP_IGNORE_INSTALLED=1 \
-    PIPENV_SYSTEM=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_ROOT_USER_ACTION=ignore
+# ENV PIP_BREAK_SYSTEM_PACKAGES=1 \
+#     # PIP_IGNORE_INSTALLED=1 \
+#     PIPENV_SYSTEM=1 \
+#     PIP_NO_CACHE_DIR=1 \
+#     # PIPENV_VENV_IN_PROJECT=1 \ # confict with PIPENV_SYSTEM
+#     PIP_ROOT_USER_ACTION=ignore \
 
-ENV TZ=UTC
-ENV MAMBA_ROOT_PREFIX=/opt/micromamba
+
+
+
+# COPY Pipfile Pipfile.lock ./
+# # RUN pipenv install --deploy --system --ignore-pipfile
+# RUN pipenv install --deploy --system
+
+# 3. Build the .venv right here inside /foss_fim during docker build
+# RUN pipenv install --deploy
+
+# CRITICAL: Reinstall Legacy Stack to prevent NumPy 2.x from breaking GDAL 
+# RUN python3 -m pip install --force-reinstall --break-system-packages \
+#     "numpy<2.0.0" \
+#     "scipy==1.13.1"
+
+
+# 1. Install system dependencies and pin python3.12 versions
+# RUN apt-get update && apt-get install -y --no-install-recommends \
+#     python3.12 python3.12-dev python3-pip \
+#     p7zip-full time parallel \
+#     build-essential mpich libmpich-dev libgeos-dev \
+#     make gcc g++ expect rsync tzdata wget bzip2 curl unzip acl \
+#     && apt-mark hold python3.12 python3-pip \
+#     && apt-get autoremove -y \
+#     && apt-get clean \
+#     && rm -rf /var/lib/apt/lists/*
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.12 \
+    python3.12-dev \
+    python3-pip \    
+    p7zip-full time parallel \
+    mpich libmpich-dev libgeos-dev \
+    expect rsync tzdata wget bzip2 curl unzip acl \
+    build-essential \
+    && apt-get autoremove -y \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# python3.12-venv \
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+# python3-pip python3-dev \
+
+# RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+
+#RUN apt-get purge -y
+
+# 4. Set the path so your shell can find the uv binary
+# ENV PATH="/root/.local/bin/:$PATH"
+# ENV UV_COMPILE_BYTECODE=1
+
+
+
+# RUN apt-get update && apt-get install -y --no-install-recommends \
+#     build-essential \
+#     p7zip-full time parallel \
+#     mpich libmpich-dev libgeos-dev \
+#     make gcc g++ expect rsync tzdata \
+#     wget bzip2 curl unzip acl \
+#     python3.12 python3.12-dev python3-pip \    
+#     && apt-mark hold python3.12 python3-pip \
+#     && apt-get autoremove -y \
+#     && apt-get clean \
+#     && rm -rf /var/lib/apt/lists/*
+
+
+
+RUN echo "++++++++++++++++++++++++++++++++++++++++++++++\n  Stage 2: Copy Pipfile and install packages"
+
+# RUN pip install --break-system-packages pipenv
+
+# # Switch to the root directory
+# WORKDIR /
+
+# ENV PIP_BREAK_SYSTEM_PACKAGES=1 \
+#     PIPENV_SYSTEM=1 \
+#     PIP_NO_CACHE_DIR=1 \
+#     PIP_ROOT_USER_ACTION=ignore \
+
+# Force Pipenv to put .venv directly in the root (/.venv)
+# ENV PIPENV_VENV_IN_PROJECT=1 \
+#     PIP_ROOT_USER_ACTION=ignore \
+#     PIPENV_PYTHON=/usr/bin/python3
+
+# ENV WORKON_HOME=/var/lib/pipenv
+# # Prepend the root-level virtual environment to the system PATH
+
+# # ENV PATH="/.venv/bin:$PATH"
+# # ENV PATH="/var/lib/pipenv/root_env/bin:$PATH"
+
+
+
+
+
+# 3. Now this step will succeed perfectly without errors
+# RUN python3.12 -m pip install --no-cache-dir --upgrade pip && \
+#     python3.12 -m pip install --no-cache-dir pipenv
+# RUN python3 -m pip install --no-cache-dir pipenv
+
+# Install pipenv globally
+
+
+# Force Pipenv to use a local virtual environment (.venv)
+# ENV PIPENV_VENV_IN_PROJECT=1
+
+#ENV CPLUS_INCLUDE_PATH=/usr/include/gdal
+# ENV C_INCLUDE_PATH=/usr/include/gdal
+
+# WORKDIR $projectDir
+
+# 4. Final copy and project installation
+# COPY Pipfile Pipfile.lock ./
+# RUN python3 -m pipenv install --deploy --system
+# RUN python3 -m pipenv install --deploy --system --ignore-pipfile
+
+# Install initial dependencies
+# RUN pipenv install --deploy
+ # RUN pipenv install --skip-lock
+
+# RUN export GDAL_VERSION=$(gdal-config --version) && \
+#     pipenv install --system --deploy
+
+# CRITICAL: Reinstall Legacy Stack to prevent NumPy 2.x from breaking GDAL 
+#RUN python3 -m pip install --force-reinstall --break-system-packages \
+# "numpy<2.0.0" \
+#   "scipy==1.13.1"
+
+
+# 2. Run the installer to bake dependencies system-wide into the image
+# Do not need the system-wide arg as it is covered via ENV above.
+# RUN pipenv install --deploy --ignore-pipfile
+# RUN pipenv install --ignore-pipfile
+
+
+# WORKDIR /foss_fim
 
 # Install Pipenv with the break flag 
-RUN python3 -m pip install --no-cache-dir pipenv --break-system-packages
+#RUN python3 -m pip install --no-cache-dir pipenv --break-system-packages
+# RUN python3 -m pip install --no-cache-dir 
 
 # These currently throw errors as they are not yet installed
 # by this point, but continues with the fresh install. Leaving upgrade error
 # in place in case this order of installing changes later.
-RUN python3 -m pip install --upgrade pip setuptools wheel
+# RUN python3 -m pip install --upgrade pip setuptools wheel
+
+
+#+++++++++++++++++++++++++++++++++++++++++++++
+# Mon, Oct 5: 12:00 pm
+
+
+# RUN pip install --break-system-packages pipenv
+
+# WORKDIR /
+# ENV PIPENV_VENV_IN_PROJECT=1 \
+#     PIP_ROOT_USER_ACTION=ignore \
+#     PIPENV_PYTHON=/usr/bin/python3
+
+# ENV WORKON_HOME=/var/lib/pipenv
+
+# ENV PATH="/${projectDir}/.venv/bin:\
+# ${projectDir}:\
+# ${PATH}"
+
+
+# COPY Pipfile Pipfile.lock ./
+# RUN pipenv install --skip-lock
+
+# -- compliled
+# 
+
+#+++++++++++++++++++++++++++++++++++++++++++++
+# Mon, Oct 5: 3:00 pm
+
+# Ensure pip is up to date, then install the packages
+# Inside your Dockerfile
+
+# RUN pip3 install --no-cache-dir --break-system-packages cython pip-tools
+
+# WORKDIR /tmp_build
+
+# COPY requirements.in .
+
+#RUN pip-compile --generate-hashes requirements.in
+
+#RUN pip install --no-cache-dir --break-system-packages -r /tmp_build/requirements.txt
+
+
+#+++++++++++++++++++++++++++++++++++++++++++++
+
+# WORKDIR /tmp_build
+
+# COPY requirements.in .
+
+# # # uv pip compile is a drop-in replacement for pip-compile
+# RUN uv pip compile --generate-hashes requirements.in -o requirements.txt
+
+# # # Sync/install the dependencies instantly
+# RUN uv pip install --system -r requirements.txt
+
+#+++++++++++++++++++++++++++++++++++++++++++++
+
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+# 3. Configure uv to safely use GDAL's system-level Python
+ENV UV_SYSTEM_PYTHON=1
+ENV UV_BREAK_SYSTEM_PACKAGES=1
+ENV UV_COMPILE_BYTECODE=1
+
+ENV CPLUS_INCLUDE_PATH=/usr/include/gdal
+ENV C_INCLUDE_PATH=/usr/include/gdal
+
+# WORKDIR /app
+
+# WORKDIR /fossfim
+
+# 1. Copy ONLY the unpinned input file first
+# COPY requirements.in ./
+
+# 2. Compile AND Install using shared cache mounts
+# RUN --mount=type=cache,target=/root/.cache/uv \
+#     uv pip compile requirements.in -o requirements.txt && \
+#     uv pip install --system -r requirements.txt
+
+COPY requirements.txt ./
+
+# RUN uv pip install --system --no-cache -r requirements_4.txt
+
+
+# 2. Run your uv installation with build isolation disabled
+# This forces GDAL to compile against the NumPy 2.x version specified in your requirements.txt
+RUN uv pip install --system --no-cache --no-build-isolation -r requirements.txt
+	
+# 3. Verify the environment
+RUN uv pip check --system
+
+
+RUN echo "++++++++++++++++++++++++++++++++++++++++++++++" \
+    echo "Stage 2: Set up Micro Mamba"
+
+ENV PDAL_CLI_PATH="/opt/pdal-env/bin/pdal"
+ENV PDAL_ENV_ROOT="/opt/pdal-env"
 
 # Install a newer PDAL runtime than the Ubuntu package currently provides.
+ENV MAMBA_ROOT_PREFIX=/opt/micromamba
 RUN ARCH=$(uname -m) && \
     if [ "$ARCH" = "aarch64" ]; then \
         MAMBA_ARCH="linux-aarch64"; \
     else \
         MAMBA_ARCH="linux-64"; \
     fi && \
-    wget -qO- https://micro.mamba.pm/api/micromamba/${MAMBA_ARCH}/latest | tar -xvj -C /usr/local/bin --strip-components=1 bin/micromamba && \
+    wget --no-verbose -O- https://micro.mamba.pm/api/micromamba/${MAMBA_ARCH}/latest | tar -xvj -C /usr/local/bin --strip-components=1 bin/micromamba && \
     micromamba create -y -p /opt/pdal-env -c conda-forge pdal=2.9.3 gdal proj proj-data && \
     micromamba clean --all --yes
 
-# adding AWS CLI (for bash) ##
-RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
-    unzip awscliv2.zip && \
+# Adding AWS CLI (for bash) ##
+RUN echo "++++++++++++++++++++++++++++++++++++++++++++++" \
+    echo "Stage 2: Install AWS CLI"
+RUN curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
+    unzip -qo awscliv2.zip && \
     ./aws/install && \
     rm awscliv2.zip
 
-# ----------------------------------
+
+RUN echo "++++++++++++++++++++++++++++++++++++++++++++++" \
+    echo "Stage 2: Install Whitebox"
 # Mar 2023 / Sep 2024
 # There are some nuances in the whitebox python downloads in that the first time it loads
 # it goes to the internet and downloads the latest/greatest WBT (whiteboxtools) engine which is
@@ -159,26 +490,16 @@ RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2
 # Whitebox also attempts to always download a folder called testdata regardless of use.
 # We added an empty folder to fake out whitebox_tools.py so it doesn't try to download the folder
 ENV WBT_PATH=/usr/local/lib/python3.12/dist-packages/whitebox/WBT
-RUN wget -P $WBT_PATH https://www.whiteboxgeo.com/WBT_Linux/WhiteboxTools_linux_musl.zip && \
-    unzip -o $WBT_PATH/WhiteboxTools_linux_musl.zip -d $WBT_PATH && \
+RUN wget --no-verbose -P $WBT_PATH https://www.whiteboxgeo.com/WBT_Linux/WhiteboxTools_linux_musl.zip && \
+    unzip -qo $WBT_PATH/WhiteboxTools_linux_musl.zip -d $WBT_PATH && \
     cp $WBT_PATH/WhiteboxTools_linux_amd64/WBT/whitebox_tools $WBT_PATH
 # ----------------------------------
 
-## ADD TO PATHS ##
-ENV PATH="$projectDir:${PATH}"
-ENV PYTHONPATH="${projectDir}:${srcDir}:${srcDir}/utils:${projectDir}/data:${toolsDir}"
+RUN echo "++++++++++++++++++++++++++++++++++++++++++++++" \
+    echo "Stage 2: Finalizing stage"
 
-# ## install python 3 modules ##
-COPY Pipfile Pipfile.lock ./
-RUN pipenv install --deploy --system --ignore-pipfile
-
-# CRITICAL: Reinstall Legacy Stack to prevent NumPy 2.x from breaking GDAL 
-RUN python3 -m pip install --force-reinstall --break-system-packages \
-    "numpy<2.0.0" \
-    "scipy==1.13.1"
-
-ENV PDAL_CLI_PATH="/opt/pdal-env/bin/pdal"
-ENV PDAL_ENV_ROOT="/opt/pdal-env"
-
-ADD ./src/entrypoint.sh /
+ADD /src/entrypoint.sh /
 ENTRYPOINT ["/bin/bash", "/entrypoint.sh"]
+RUN echo "++++++++++++++++++++++++++++++++++++++++++++++" \
+    echo "Stage 2: Complete" \
+    echo "++++++++++++++++++++++++++++++++++++++++++++++"
