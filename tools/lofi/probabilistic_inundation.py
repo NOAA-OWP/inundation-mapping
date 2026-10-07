@@ -113,7 +113,8 @@ def generate_streamflow_percentiles(ensemble_streamflow, params_weibull, percent
         ensemble_subset = ensemble_streamflow.sel(feature_id=inter_ids)
         inter_ids = inter_ids.astype('string[pyarrow]')
 
-        ensemble_subset = ensemble_subset.fillna(ensemble_subset.mean(dim='ensemble'))
+        # First, try to apply mean in ensemble dimension to NaNs, otherwise fill with -9999 if all values are NaN
+        ensemble_subset = ensemble_subset.fillna(ensemble_subset.mean(dim='ensemble')).fillna(-9999)
 
         val = ensemble_subset.sel(ensemble="1").to_numpy()
         max_val = ensemble_subset.max(dim='ensemble').to_numpy()
@@ -124,8 +125,9 @@ def generate_streamflow_percentiles(ensemble_streamflow, params_weibull, percent
         percentile_values = spline(percentiles).T
 
         np.maximum(0, percentile_values, out=percentile_values)
-        perc_df.loc[inter_ids] = percentile_values
-    return perc_df
+        perc_df.loc[inter_ids] = np.squeeze(percentile_values)
+
+    return perc_df[perc_df[90] > 0]
 
 
 @use_pandas_3_behavior()
