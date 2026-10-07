@@ -101,6 +101,13 @@ def generate_streamflow_percentiles(ensemble_streamflow, params_weibull, percent
     feature_ids = ensemble_streamflow.indexes['feature_id']
     perc_df = pd.DataFrame(columns=percentiles, index=feature_ids.astype('string[pyarrow]'), dtype=float)
 
+    # Ensure that streamflows are positive
+    ensemble_streamflow = ensemble_streamflow.clip(min=0)
+    
+    # First, try to apply mean in ensemble dimension to NaNs, otherwise fill with -9999 if all values are NaN
+    na_mean = ensemble_streamflow.mean(dim='ensemble').fillna(-9999)
+    ensemble_subset = ensemble_streamflow.fillna(na_mean)
+
     # For features that have no params, copy first ensemble streamflow
     weibull_nomask = ~perc_df.index.isin(params_weibull.index.astype('string[pyarrow]'))
     perc_df.loc[weibull_nomask] = ensemble_streamflow.sel(
@@ -113,9 +120,6 @@ def generate_streamflow_percentiles(ensemble_streamflow, params_weibull, percent
         ensemble_subset = ensemble_streamflow.sel(feature_id=inter_ids)
         inter_ids = inter_ids.astype('string[pyarrow]')
 
-        # First, try to apply mean in ensemble dimension to NaNs, otherwise fill with -9999 if all values are NaN
-        ensemble_subset = ensemble_subset.fillna(ensemble_subset.mean(dim='ensemble')).fillna(-9999)
-
         val = ensemble_subset.sel(ensemble="1").to_numpy()
         max_val = ensemble_subset.max(dim='ensemble').to_numpy()
         min_val = ensemble_subset.min(dim='ensemble').to_numpy()
@@ -123,11 +127,11 @@ def generate_streamflow_percentiles(ensemble_streamflow, params_weibull, percent
         # k=1 is necessary for linear interpolation
         spline = make_interp_spline([10, 50, 90], [max_val, val, min_val], k=1)
         percentile_values = spline(percentiles).T
+        perc_df.loc[inter_ids] = percentile_values
 
-        np.maximum(0, percentile_values, out=percentile_values)
-        perc_df.loc[inter_ids] = np.squeeze(percentile_values)
-
-    return perc_df[perc_df[90] > 0]
+    # Filter out max percentile that isn't > 0
+    mask = perc_df[max(percentiles)] > 0
+    return perc_df.loc[mask]
 
 
 @use_pandas_3_behavior()
