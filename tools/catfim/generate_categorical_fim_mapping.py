@@ -439,14 +439,16 @@ def run_fb_inundation(  # renamed from run_inundation
         #
         # The ones we want to keep end at _extent.tif and remove ones that have _extent_*.tif
 
-        logging.info(f'{huc} : {ahps_site} : {magnitude} - Removing interium inundated branch files')
 
-        output_extent_branch_tif = output_extent_tif.replace(".tif", "_*.tif")
-        branch_tifs = glob.glob(output_extent_branch_tif)
+        logging.info(f'{huc} : {ahps_site} : {magnitude} - TEMP DEBUG, NOT removing interium inundated branch files') # TEMP DEBUG
+        # logging.info(f'{huc} : {ahps_site} : {magnitude} - Removing interium inundated branch files') # TEMP DEBUG
 
-        for tif_file in branch_tifs:
-            if os.path.exists(tif_file):
-                os.remove(tif_file)
+        # output_extent_branch_tif = output_extent_tif.replace(".tif", "_*.tif")
+        # branch_tifs = glob.glob(output_extent_branch_tif)
+
+        # for tif_file in branch_tifs:
+        #     if os.path.exists(tif_file):
+        #         os.remove(tif_file)
 
     except Exception as ex:
         # Log errors and their tracebacks
@@ -1237,8 +1239,11 @@ def mosaic_sb_inundation(lid, output_mapping_dir, category_key, huc_lid_cat_id):
     path_list = []
 
     # We are looking for the branch files for the category/stage (or any given stage interval)
+    lid_dir_list_before_filter = [x for x in os.listdir(output_mapping_dir) if category_key in x]
 
-    lid_dir_list = [x for x in os.listdir(output_mapping_dir) if category_key in x]
+    # Only keep the branch files that start with the lid (ahps site id)
+    lid_dir_list = [x for x in lid_dir_list_before_filter if x.startswith(lid)]
+
     lid_dir_list.sort()  # To force branch 0 first in list, sort
 
     for f in lid_dir_list:
