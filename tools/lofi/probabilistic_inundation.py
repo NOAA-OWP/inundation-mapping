@@ -101,13 +101,6 @@ def generate_streamflow_percentiles(ensemble_streamflow, params_weibull, percent
     feature_ids = ensemble_streamflow.indexes['feature_id']
     perc_df = pd.DataFrame(columns=percentiles, index=feature_ids.astype('string[pyarrow]'), dtype=float)
 
-    # Ensure that streamflows are positive
-    ensemble_streamflow = ensemble_streamflow.clip(min=0)
-
-    # First, try to apply mean in ensemble dimension to NaNs, otherwise fill with -9999 if all values are NaN
-    na_mean = ensemble_streamflow.mean(dim='ensemble').fillna(-9999)
-    ensemble_subset = ensemble_streamflow.fillna(na_mean)
-
     # For features that have no params, copy first ensemble streamflow
     weibull_nomask = ~perc_df.index.isin(params_weibull.index.astype('string[pyarrow]'))
     perc_df.loc[weibull_nomask] = ensemble_streamflow.sel(
@@ -120,6 +113,9 @@ def generate_streamflow_percentiles(ensemble_streamflow, params_weibull, percent
         ensemble_subset = ensemble_streamflow.sel(feature_id=inter_ids)
         inter_ids = inter_ids.astype('string[pyarrow]')
 
+        # First, try to apply mean in ensemble dimension to NaNs, otherwise fill with -9999 if all values are NaN
+        ensemble_subset = ensemble_subset.fillna(ensemble_subset.mean(dim='ensemble')).fillna(-9999)
+
         val = ensemble_subset.sel(ensemble="1").to_numpy()
         max_val = ensemble_subset.max(dim='ensemble').to_numpy()
         min_val = ensemble_subset.min(dim='ensemble').to_numpy()
@@ -127,11 +123,11 @@ def generate_streamflow_percentiles(ensemble_streamflow, params_weibull, percent
         # k=1 is necessary for linear interpolation
         spline = make_interp_spline([10, 50, 90], [max_val, val, min_val], k=1)
         percentile_values = spline(percentiles).T
-        perc_df.loc[inter_ids] = percentile_values
 
-    # Filter out max percentile that isn't > 0
-    mask = perc_df[max(percentiles)] > 0
-    return perc_df.loc[mask]
+        np.maximum(0, percentile_values, out=percentile_values)
+        perc_df.loc[inter_ids] = np.squeeze(percentile_values)
+
+    return perc_df[perc_df[90] > 0]
 
 
 @use_pandas_3_behavior()
@@ -492,56 +488,47 @@ def inundate_probabilistic(
 
     # For every percentile inundation map convert values to percentile
     start = time.perf_counter()
-    with rasterio.Env(GDAL_NUM_THREADS=2):
-        with ExitStack() as stack:
-            datasets = [stack.enter_context(rasterio.open(file)) for file in inundation_paths]
-            profile = datasets[0].profile
-            odtype = profile['dtype']
-            raster_crs = datasets[0].crs
-            nodata = profile['nodata']
-            profile.update(
-                dtype=np.int8,
-                nodata=127,
-                compress=profile.get('compress', 'DEFLATE'),
-                driver='COG',
-                sparse_ok="YES",
-                resampling='NEAREST',
-                blocksize=512,
-            )
+    with ExitStack() as stack:
+        datasets = [stack.enter_context(rasterio.open(file)) for file in inundation_paths]
+        profile = datasets[0].profile
+        odtype = profile['dtype']
+        raster_crs = datasets[0].crs
+        nodata = profile['nodata']
+        profile.update(
+            dtype=np.int8,
+            nodata=127,
+            compress=profile.get('compress', 'DEFLATE'),
+            driver='COG',
+            sparse_ok="YES",
+            resampling='NEAREST',
+            blocksize=512,
+        )
 
-            out_rast = os.path.join(base_output_path, output_file_name.replace(".gpkg", ".tif"))
-            with rasterio.open(out_rast, "w+", **profile) as write_rst:
-                x = profile['blocksize'] * 2
-                write_win = riowin.Window(0, 0, height=write_rst.height, width=write_rst.width)
-                maxx = np.zeros((x, x), dtype=odtype)
+        out_rast = os.path.join(base_output_path, output_file_name.replace(".gpkg", ".tif"))
+        with rasterio.open(out_rast, "w+", **profile) as write_rst:
+            x = profile['blocksize'] * 2
+            write_win = riowin.Window(0, 0, height=write_rst.height, width=write_rst.width)
+            for window in riowin.subdivide(write_win, x, x):
+                maxx = np.zeros((window.height, window.width), dtype=odtype)
                 tmpm = np.zeros_like(maxx)
-                mask = np.empty((x, x), dtype='bool')
+                mask = np.empty((window.height, window.width), dtype='bool')
                 nodata_mask = np.empty_like(mask)
-                min_p = min(percentiles)
-                for window in riowin.subdivide(write_win, x, x):
-                    wh = window.height
-                    ww = window.width
-                    maxx_v = maxx[:wh, :ww]
-                    tmpm_v = tmpm[:wh, :ww]
-                    maxx_v.fill(0)
-                    mask_v = mask[:wh, :ww]
-                    nodata_mask_v = nodata_mask[:wh, :ww]
-                    for d, p in zip(datasets, percentiles):
-                        d.read(1, out=tmpm_v, window=window)
+                for d, p in zip(datasets, percentiles):
+                    d.read(1, out=tmpm, window=window)
 
-                        # Only run on the last percentile (greatest extent possible)
-                        if p == min_p:
-                            np.equal(tmpm_v, nodata, out=nodata_mask_v)
+                    # Only run on the last percentile (greatest extent possible)
+                    if p == percentiles[-1]:
+                        np.equal(tmpm, nodata, out=nodata_mask)
 
-                        # equivalent to np.where(tmpm > 0, int(p), 0)
-                        np.greater(tmpm_v, 0, out=mask_v)
-                        tmpm_v.fill(0)
-                        np.copyto(tmpm_v, int(p), where=mask_v)
+                    # equivalent to np.where(tmpm > 0, int(p), 0)
+                    np.greater(tmpm, 0, out=mask)
+                    tmpm.fill(0)
+                    np.copyto(tmpm, int(p), where=mask)
 
-                        np.maximum(maxx_v, tmpm_v, out=maxx_v)
+                    np.maximum(maxx, tmpm, out=maxx)
 
-                    np.copyto(maxx_v, 127, where=nodata_mask_v)
-                    write_rst.write(maxx_v, window=window, indexes=1)
+                np.copyto(maxx, 127, where=nodata_mask)
+                write_rst.write(maxx, window=window, indexes=1)
     print(f"[HUC: {huc}]: Writing max raster {round(time.perf_counter() - start, 2)}s")
 
     if output_vector is True:

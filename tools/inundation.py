@@ -16,7 +16,6 @@ import xarray as xr
 from numba import njit, typed, types
 from rasterio.io import DatasetReader
 from rasterio.mask import mask
-from rasterio import windows as riowin
 from shapely.geometry import shape
 
 
@@ -521,11 +520,7 @@ def __make_windows_generator(
         hucCode = None
 
         if windowed is True:
-            rem_win = riowin.Window(0, 0, height=rem.height, width=rem.width)
-            bsh, bsw = rem.block_shapes[0]
-            bsh = round(1024 / bsh) * bsh
-            bsw = round(1024 / bsw) * bsw
-            for window in riowin.subdivide(rem_win, bsh, bsw):
+            for ij, window in rem.block_windows():
                 yield {
                     "rem_array": rem.read(1, window=window),
                     "catchments_array": catchments.read(1, window=window),
