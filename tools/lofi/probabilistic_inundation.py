@@ -488,47 +488,48 @@ def inundate_probabilistic(
 
     # For every percentile inundation map convert values to percentile
     start = time.perf_counter()
-    with ExitStack() as stack:
-        datasets = [stack.enter_context(rasterio.open(file)) for file in inundation_paths]
-        profile = datasets[0].profile
-        odtype = profile['dtype']
-        raster_crs = datasets[0].crs
-        nodata = profile['nodata']
-        profile.update(
-            dtype=np.int8,
-            nodata=127,
-            compress=profile.get('compress', 'DEFLATE'),
-            driver='COG',
-            sparse_ok="YES",
-            resampling='NEAREST',
-            blocksize=512,
-        )
+    with rasterio.Env(CPL_DEBUG=True):
+        with ExitStack() as stack:
+            datasets = [stack.enter_context(rasterio.open(file)) for file in inundation_paths]
+            profile = datasets[0].profile
+            odtype = profile['dtype']
+            raster_crs = datasets[0].crs
+            nodata = profile['nodata']
+            profile.update(
+                dtype=np.int8,
+                nodata=127,
+                compress=profile.get('compress', 'DEFLATE'),
+                driver='COG',
+                sparse_ok="YES",
+                resampling='NEAREST',
+                blocksize=512,
+            )
 
-        out_rast = os.path.join(base_output_path, output_file_name.replace(".gpkg", ".tif"))
-        with rasterio.open(out_rast, "w+", **profile) as write_rst:
-            x = profile['blocksize'] * 2
-            write_win = riowin.Window(0, 0, height=write_rst.height, width=write_rst.width)
-            for window in riowin.subdivide(write_win, x, x):
-                maxx = np.zeros((window.height, window.width), dtype=odtype)
-                tmpm = np.zeros_like(maxx)
-                mask = np.empty((window.height, window.width), dtype='bool')
-                nodata_mask = np.empty_like(mask)
-                for d, p in zip(datasets, percentiles):
-                    d.read(1, out=tmpm, window=window)
+            out_rast = os.path.join(base_output_path, output_file_name.replace(".gpkg", ".tif"))
+            with rasterio.open(out_rast, "w+", **profile) as write_rst:
+                x = profile['blocksize'] * 2
+                write_win = riowin.Window(0, 0, height=write_rst.height, width=write_rst.width)
+                for window in riowin.subdivide(write_win, x, x):
+                    maxx = np.zeros((window.height, window.width), dtype=odtype)
+                    tmpm = np.zeros_like(maxx)
+                    mask = np.empty((window.height, window.width), dtype='bool')
+                    nodata_mask = np.empty_like(mask)
+                    for d, p in zip(datasets, percentiles):
+                        d.read(1, out=tmpm, window=window)
 
-                    # Only run on the last percentile (greatest extent possible)
-                    if p == percentiles[-1]:
-                        np.equal(tmpm, nodata, out=nodata_mask)
+                        # Only run on the last percentile (greatest extent possible)
+                        if p == percentiles[-1]:
+                            np.equal(tmpm, nodata, out=nodata_mask)
 
-                    # equivalent to np.where(tmpm > 0, int(p), 0)
-                    np.greater(tmpm, 0, out=mask)
-                    tmpm.fill(0)
-                    np.copyto(tmpm, int(p), where=mask)
+                        # equivalent to np.where(tmpm > 0, int(p), 0)
+                        np.greater(tmpm, 0, out=mask)
+                        tmpm.fill(0)
+                        np.copyto(tmpm, int(p), where=mask)
 
-                    np.maximum(maxx, tmpm, out=maxx)
+                        np.maximum(maxx, tmpm, out=maxx)
 
-                np.copyto(maxx, 127, where=nodata_mask)
-                write_rst.write(maxx, window=window, indexes=1)
+                    np.copyto(maxx, 127, where=nodata_mask)
+                    write_rst.write(maxx, window=window, indexes=1)
     print(f"[HUC: {huc}]: Writing max raster {round(time.perf_counter() - start, 2)}s")
 
     if output_vector is True:
