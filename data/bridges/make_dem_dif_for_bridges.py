@@ -7,6 +7,7 @@ import sys
 
 # import time
 import traceback
+from collections import defaultdict
 from datetime import datetime, timezone
 
 import geopandas as gpd
@@ -158,7 +159,7 @@ def make_one_diff(
         return 0, [False]
 
 
-def make_dif_rasters(dem_dir, lidar_processing_dir, OSM_bridge_dir, output_dir, number_jobs, cli_args=None):
+def make_dif_rasters(dem_dirs, lidar_processing_dir, OSM_bridge_dir, output_dir, number_jobs, cli_args=None):
     start_time = datetime.now(timezone.utc)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -174,11 +175,26 @@ def make_dif_rasters(dem_dir, lidar_processing_dir, OSM_bridge_dir, output_dir, 
             raise ValueError(f"Argument -i OSM_bridge_dir of {OSM_bridge_dir} does not exist.")
         if not os.path.isdir(lidar_processing_dir):
             raise ValueError(f"Argument -l lidar_processing_dir of {lidar_processing_dir} does not exist.")
+        for dem_dir in dem_dirs:
+            if not os.path.isdir(dem_dir):
+                raise ValueError(f"Argument -d dem_dir of {dem_dir} does not exist.")
 
-        dem_files = list(glob.glob(os.path.join(dem_dir, '*.tif')))
+        dem_files = []
+        for dem_dir in dem_dirs:
+            dem_files.extend(glob.glob(os.path.join(dem_dir, '*.tif')))
         if len(dem_files) == 0:
             raise ValueError("No DEM files were found. Please recheck the DEM folder pathing")
         dem_files.sort()
+
+        huc_to_dem_files = defaultdict(list)
+        for dem_file in dem_files:
+            huc_to_dem_files[os.path.splitext(os.path.basename(dem_file))[0].split('_')[1]].append(dem_file)
+        duplicate_hucs = {huc: files for huc, files in huc_to_dem_files.items() if len(files) > 1}
+        if duplicate_hucs:
+            raise ValueError(
+                f"Same HUC found more than once across -d folders: {duplicate_hucs}. "
+                "Each HUC must have exactly one DEM."
+            )
 
         available_dif_files = list(glob.glob(os.path.join(output_dir, '*.tif')))
         base_names_no_ext = [
@@ -264,8 +280,9 @@ if __name__ == "__main__":
      -o data/inputs/osm/bridges/DEM_Diffs/20260315/conus/ \
      -j 10
 
+    Alaska DEMs are split across two folders, so pass -d with both (space-separated):
     python /foss_fim/data/bridges/make_dem_dif_for_bridges.py \
-     -d data/inputs/dems/3dep_dems/10m_South_Alaska/20260128/ \
+     -d data/inputs/dems/3dep_dems/10m_SouthAlaska/20260128/ <second_alaska_dem_folder>/ \
      -l data/inputs/osm/bridges/lidar_data/20260315/lidar_processing/ \
      -i data/inputs/osm/bridges/bridge_lines/20260315/ \
      -o data/inputs/osm/bridges/DEM_Diffs/20260315/alaska/ \
@@ -284,7 +301,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Make bridge dem difference rasters')
 
     parser.add_argument(
-        '-d', '--dem_dir', help='REQUIRED: folder path where 3DEP dems are loated.', required=True
+        '-d',
+        '--dem_dir',
+        dest='dem_dirs',
+        nargs='+',
+        help='REQUIRED: one or more folder paths where dems are located. '
+        'Pass multiple folders for regions split across several (e.g. Alaska).',
+        required=True,
     )
 
     parser.add_argument(
