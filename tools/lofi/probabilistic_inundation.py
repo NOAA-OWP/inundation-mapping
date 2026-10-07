@@ -509,27 +509,35 @@ def inundate_probabilistic(
             with rasterio.open(out_rast, "w+", **profile) as write_rst:
                 x = profile['blocksize'] * 2
                 write_win = riowin.Window(0, 0, height=write_rst.height, width=write_rst.width)
+                maxx = np.zeros((x, x), dtype=odtype)
+                tmpm = np.zeros_like(maxx)
+                mask = np.empty((x, x), dtype='bool')
+                nodata_mask = np.empty_like(mask)
+                min_p = min(percentiles)
                 for window in riowin.subdivide(write_win, x, x):
-                    maxx = np.zeros((window.height, window.width), dtype=odtype)
-                    tmpm = np.zeros_like(maxx)
-                    mask = np.empty((window.height, window.width), dtype='bool')
-                    nodata_mask = np.empty_like(mask)
+                    wh = window.height
+                    ww = window.width
+                    maxx_v = maxx[:wh, :ww]
+                    tmpm_v = tmpm[:wh, :ww]
+                    maxx_v.fill(0)
+                    mask_v = mask[:wh, :ww]
+                    nodata_mask_v = nodata_mask[:wh, :ww]
                     for d, p in zip(datasets, percentiles):
-                        d.read(1, out=tmpm, window=window)
+                        d.read(1, out=tmpm_v, window=window)
 
                         # Only run on the last percentile (greatest extent possible)
-                        if p == percentiles[-1]:
-                            np.equal(tmpm, nodata, out=nodata_mask)
+                        if p == min_p:
+                            np.equal(tmpm_v, nodata, out=nodata_mask_v)
 
                         # equivalent to np.where(tmpm > 0, int(p), 0)
-                        np.greater(tmpm, 0, out=mask)
-                        tmpm.fill(0)
-                        np.copyto(tmpm, int(p), where=mask)
+                        np.greater(tmpm_v, 0, out=mask_v)
+                        tmpm_v.fill(0)
+                        np.copyto(tmpm_v, int(p), where=mask_v)
 
-                        np.maximum(maxx, tmpm, out=maxx)
+                        np.maximum(maxx_v, tmpm_v, out=maxx_v)
 
-                    np.copyto(maxx, 127, where=nodata_mask)
-                    write_rst.write(maxx, window=window, indexes=1)
+                    np.copyto(maxx_v, 127, where=nodata_mask_v)
+                    write_rst.write(maxx_v, window=window, indexes=1)
     print(f"[HUC: {huc}]: Writing max raster {round(time.perf_counter() - start, 2)}s")
 
     if output_vector is True:
