@@ -38,7 +38,7 @@ output_filenames = {
     "levee_protected_areas": "LeveeProtectedAreas_subset.gpkg",
     "osm_bridges": "osm_bridges_subset.gpkg",
     "osm_roads": "osm_roads_subset.gpkg",
-    "buildings": "buildings_subset.gpkg",
+    "buildings": "buildings_subset.parquet",
 }
 
 
