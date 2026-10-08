@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## x.x.x.x - 2026-10-07 - [PR#1953](https://github.com/NOAA-OWP/inundation-mapping/pull/1953)
+## 4.10.2.1 - 2026-10-08 - [PR#1953](https://github.com/NOAA-OWP/inundation-mapping/pull/1953)
 
 Refactor LoFi code for better performance. 
 The primary mechanisms that accomplish this are:
