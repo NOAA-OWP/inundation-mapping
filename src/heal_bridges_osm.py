@@ -124,7 +124,10 @@ def process_bridges_in_huc(
 
     if os.path.exists(bridge_vector_file):
         # Read the bridge lines file and buffer it by half of the input width
-        osm_gdf = gpd.read_file(bridge_vector_file)
+        if bridge_vector_file.lower().endswith('.parquet'):
+            osm_gdf = gpd.read_parquet(bridge_vector_file)
+        else:
+            osm_gdf = gpd.read_file(bridge_vector_file)
         osm_gdf['centroid_geometry'] = osm_gdf.centroid
     else:
         print(f"-- no OSM file, {bridge_vector_file}")
@@ -245,7 +248,10 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        '-s', '--bridge_vector_file', help='REQUIRED: A gpkg that contains the bridges vectors', required=True
+        '-s',
+        '--bridge_vector_file',
+        help='REQUIRED: A GeoParquet (or GeoPackage) file that contains the bridges vectors',
+        required=True,
     )
 
     parser.add_argument(

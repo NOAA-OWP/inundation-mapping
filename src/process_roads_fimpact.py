@@ -15,7 +15,7 @@ def process_roads_fimpact(
 
     Parameters:
     - source_hand_raster (str): REQUIRED. Path to the source HAND raster file
-    - osm_road_vector (str): REQUIRED. Path to a GeoPackage (GPKG) file containing the road segments.
+    - osm_road_vector (str): REQUIRED. Path to a GeoParquet (or GeoPackage) file containing the road segments.
     - catchments (str): REQUIRED. Path to HAND catchment Geoparquet file
     - output_path (str): REQUIRED. Path where the output CSV file will be saved.
 
@@ -29,7 +29,10 @@ def process_roads_fimpact(
         hand_grid_array = hand_grid.read(1)
 
     # read roads data
-    roads_gdf = gpd.read_file(osm_road_vector)
+    if osm_road_vector.lower().endswith('.parquet'):
+        roads_gdf = gpd.read_parquet(osm_road_vector)
+    else:
+        roads_gdf = gpd.read_file(osm_road_vector)
 
     # remove this extra id
     if 'catchment_id' in roads_gdf.columns:
