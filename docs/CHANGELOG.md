@@ -1,6 +1,25 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## x.x.x.x - 2026-10-07 - [PR#1953](https://github.com/NOAA-OWP/inundation-mapping/pull/1953)
+
+Refactor LoFi code for better performance. 
+The primary mechanisms that accomplish this are:
+- invert the main processing loop to optimize file i/o
+- vectorize the percentile computations.
+
+LoFi API changes:
+- `inundate_probabilistic` no longer computes streamflow percentiles internally. The user should call the `generate_streamflow_percentiles` function to compute the percentiles and use the result when calling `inundate_probabilistic`. This allows the resources needed to compute the percentiles to be closed before the main processing loop for more effective memory use.
+
+### Changes
+- `tools/lofi/probabilistic_inundation.py`: Invert main processing loop and vectorize `generate_streamflow_percentiles`. Separate percentile computation to better management of the ensemble resources.
+- `tools/lofi/probabilistic_version.py`: Update version of LoFI.
+- `tools/inundation.py`: Use ExitStack to manage rasterio resources.
+- `tools/inundate_gms.py`: Code cleanup.
+- `tools/mosaic_inundation.py`: Code cleanup.
+- `src/utils/shared_functions.py`: Added `is_local_path`.
+<br/>
+
 ## 4.10.2.0 - 2026-09-11 - [PR#1900](https://github.com/NOAA-OWP/inundation-mapping/pull/1900)
 
 This PR closes issue #1864, by applying these improvements:
