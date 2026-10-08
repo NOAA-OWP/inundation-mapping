@@ -108,7 +108,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
     p7zip-full python3.12 python3-pip python3-dev time parallel \
     mpich libmpich-dev libgeos-dev \
-    make gcc g++ expect rsync tzdata wget bzip2 curl unzip acl \
+    make gcc g++ expect rsync tzdata wget bzip2 curl unzip acl osmium-tool \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 RUN apt auto-remove
 
