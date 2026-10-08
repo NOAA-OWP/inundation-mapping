@@ -25,6 +25,7 @@ import geopandas as gp
 import numpy as np
 import pandas as pd
 from fsspec.core import url_to_fs
+from fsspec.implementations.local import LocalFileSystem
 from tqdm import tqdm
 
 
@@ -931,6 +932,24 @@ def s3_or_local_glob(path: str) -> list:
     return fs.glob(pth)
 
 
+def is_local_path(path: str) -> bool:
+    """
+    Checks if path is a local path.
+
+    Parameters
+    ----------
+    path: str
+        Path to check
+
+    Returns
+    -------
+    bool
+        True if path is a local path
+    """
+    fs, _ = url_to_fs(path)
+    return isinstance(fs, LocalFileSystem)
+
+
 def read_huc_file_list_or_array_of_hucs(hucs):
     """
     This function can be used for things other than just HUCS, but is being
@@ -1071,13 +1090,11 @@ class FIM_Helpers:
         if file_name is not None:
             root, extension = os.path.splitext(file_name)
 
-            if isinstance(identifier, list):
-                out_file_name = root
-                for i in identifier:
-                    out_file_name += "_{}".format(i)
-                out_file_name += extension
+            if isinstance(identifier, (list, tuple)):
+                _id = "_".join(identifier)
             else:
-                out_file_name = root + "_{}".format(identifier) + extension
+                _id = identifier
+            out_file_name = f"{root}_{_id}{extension}"
         else:
             out_file_name = None
 

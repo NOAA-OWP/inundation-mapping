@@ -12,9 +12,10 @@ from inundation import NoForecastFound, hydroTableHasOnlyLakes, inundate
 from tqdm import tqdm
 
 from utils.shared_functions import FIM_Helpers as fh
-from utils.shared_functions import s3_or_local_isfile, s3_or_local_path_exists
+from utils.shared_functions import s3_or_local_isfile, s3_or_local_path_exists, use_pandas_3_behavior
 
 
+@use_pandas_3_behavior()
 def Inundate_gms(
     hydrofabric_dir: str,
     forecast: Union[str, pd.DataFrame],
@@ -68,17 +69,8 @@ def Inundate_gms(
         Output filenames from gms inundation routine
 
     """
-    # input handling
-    if hucs is not None:
-        try:
-            _ = (i for i in hucs)
-        except TypeError:
-            raise ValueError("hucs argument must be an iterable")
-
     if isinstance(hucs, str):
         hucs = [hucs]
-
-    num_workers = int(num_workers)
 
     # log file
     if log_file is not None:
@@ -91,11 +83,10 @@ def Inundate_gms(
 
     # load fim inputs
     hucs_branches = pd.read_csv(
-        os.path.join(hydrofabric_dir, "fim_inputs.csv"), header=None, dtype={0: str, 1: str}
+        os.path.join(hydrofabric_dir, "fim_inputs.csv"), header=None, dtype={0: 'string', 1: 'string'}
     )
 
     if hucs is not None:
-        hucs = set(hucs)
         huc_indices = hucs_branches.loc[:, 0].isin(hucs)
         hucs_branches = hucs_branches.loc[huc_indices, :]
 
@@ -130,12 +121,13 @@ def Inundate_gms(
     branch_ids = [None] * number_of_branches
 
     executor_generator = {executor.submit(inundate, **inp): ids for inp, ids in inundate_input_generator}
-    idx = 0
-    for future in tqdm(
-        as_completed(executor_generator),
-        total=len(executor_generator),
-        desc=f"Inundating branches with {num_workers} workers",
-        disable=(not verbose),
+    for idx, future in enumerate(
+        tqdm(
+            as_completed(executor_generator),
+            total=len(executor_generator),
+            desc=f"Inundating branches with {num_workers} workers",
+            disable=(not verbose),
+        )
     ):
         hucCode, branch_id = executor_generator[future]
 
@@ -143,43 +135,26 @@ def Inundate_gms(
             future.result()
 
         except NoForecastFound as exc:
-            if log_file is not None:
-                print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=open(log_file, "a"))
-            elif verbose:
+            if verbose:
                 print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
 
         except hydroTableHasOnlyLakes as exc:
-            if log_file is not None:
-                print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=open(log_file, "a"))
-            elif verbose:
+            if verbose:
                 print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
 
         except Exception as exc:
             traceback.print_exc(file=sys.stdout)
-            if log_file is not None:
-                print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=open(log_file, "a"))
-            else:
-                print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
+            print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
         else:
             hucCodes[idx] = hucCode
             branch_ids[idx] = branch_id
 
             try:
                 inundation_raster_fileNames[idx] = future.result()[0][0]
-            except TypeError:
-                pass
-
-            try:
                 depths_raster_fileNames[idx] = future.result()[1][0]
-            except TypeError:
-                pass
-
-            try:
                 inundation_polygon_fileNames[idx] = future.result()[2][0]
             except TypeError:
                 pass
-
-            idx += 1
 
     # power down pool
     executor.shutdown(wait=True)
@@ -201,6 +176,7 @@ def Inundate_gms(
     return output_fileNames_df
 
 
+@use_pandas_3_behavior()
 def __inundate_gms_generator(
     hucs_branches: pd.DataFrame,
     hydrofabric_dir: str,
@@ -242,11 +218,13 @@ def __inundate_gms_generator(
         Data inputs for inundate gms and the respective branch ids
 
     """
-    # Iterate over branches
-    for idx, row in hucs_branches.iterrows():
-        huc = str(row[0])
-        branch_id = str(row[1])
+    src_indexes = ["HUC", "feature_id", "HydroID"]
+    if isinstance(hydro_table_df, pd.DataFrame):
+        hydro_table_df = hydro_table_df.reset_index()
+        hydro_table_df = hydro_table_df.set_index('branch_id').sort_index()
 
+    # Iterate over branches
+    for huc, branch_id in hucs_branches.itertuples(index=False, name=None):
         huc_dir = os.path.join(hydrofabric_dir, huc)
         branch_dir = os.path.join(huc_dir, "branches", branch_id)
 
@@ -256,15 +234,10 @@ def __inundate_gms_generator(
         catchments_file_name = f"gw_catchments_reaches_filtered_addedAttributes_{branch_id}.tif"
         catchments_branch = os.path.join(branch_dir, catchments_file_name)
 
-        src_indexes = ["HUC", "feature_id", "HydroID"]
         if isinstance(hydro_table_df, pd.DataFrame):
-            if sum(df_idx not in hydro_table_df.index.names for df_idx in src_indexes) > 0:
-                hydro_table_all = hydro_table_df.set_index(src_indexes)
-            else:
-                hydro_table_all = hydro_table_df
-
-            hydro_table_branch = hydro_table_all.loc[hydro_table_all["branch_id"] == int(branch_id)]
-
+            hydro_table_branch = hydro_table_df.loc[int(branch_id)].reset_index()
+            hydro_table_branch = hydro_table_branch.set_index(src_indexes)
+            hydro_table_branch = hydro_table_branch.sort_values(src_indexes + ['stage'])
         elif isinstance(hydro_table_df, str):
             hydro_table_branch = hydro_table_df.format(branch_id)
         else:
