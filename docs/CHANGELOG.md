@@ -1,6 +1,14 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## 4.10.___ - 2026-_____ - [PR#1957](https://github.com/NOAA-OWP/inundation-mapping/pull/1957)
+
+For certain sites in stage-based CatFIM, inundation labeled for one site was also being mapped at another nearby site. For example, site major stage inundation for site RDYP1 was also being mapped at the location of site COKP1 (but it was still labeled as RDYP1 major stage). This issue has been repaired by including a filter in that section of processing that filters out any .tif files that are not for the site being processed.
+
+### Changes
+- `/inundation-mapping/tools/catfim/generate_categorical_fim_mapping.py`: Added list filtering to `mosaic_sb_inundation()`.
+<br />
+
 ## 4.10.2.0 - 2026-09-11 - [PR#1900](https://github.com/NOAA-OWP/inundation-mapping/pull/1900)
 
 This PR closes issue #1864, by applying these improvements:
