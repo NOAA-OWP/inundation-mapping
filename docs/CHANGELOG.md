@@ -1,6 +1,76 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## 4.x.x.x - 2026-10-13 - [PR#1949](https://github.com/NOAA-OWP/inundation-mapping/pull/1949)
+
+## Summary
+
+`data/roads/pull_osm_roads.py` and `data/bridges/pull_osm_bridges.py` query the Overpass API per-HUC. Overpass has been unreliable at CONUS scale and periodically blocks AWS IP ranges as an anti-abuse policy, which makes both scripts unreliable from our AWS-hosted environments.
+
+This PR replaces them with a new pipeline that downloads daily-updated per-state `.osm.pbf` extracts from [Geofabrik](https://download.geofabrik.de/) instead, filters them locally with [`osmium-tool`](https://osmcode.org/osmium-tool/) (a CLI for extracting/converting OpenStreetMap data by tag, entirely offline — no API calls), and produces the same per-HUC outputs (as GeoParquet instead of GeoPackage).
+
+The old scripts are **not deleted** — they're moved into a `legacy/` subfolder in their respective domain directories (keeping their original filenames), so they stay available for reference without risk of accidental use.
+
+The road tag set also gains `residential` (named only), broadening it beyond the previous `motorway, trunk, primary, secondary, tertiary` set. 
+
+## Pipeline
+
+The pipeline runs in two stages: first, roads and bridges are downloaded and filtered into per-state GeoParquet files; then separate, dedicated scripts consume those state-level parquets and convert them into per-HUC outputs.
+
+`data/osm/` holds the two new files that are shared infrastructure used by both domains (bridge and roads). `pull_osm.py` (per-state download + osmium tag-filter + GeoParquet conversion) and `geofabrik_clip_utils.py` (the bbox/clip helper functions the two per-HUC scripts below both need). Everything downstream of `pull_osm.py` is domain-specific and lives in `data/roads/` or `data/bridges/`.
+
+### Roads
+
+```
+data/osm/pull_osm.py                        # per-state download
+  -> data/roads/make_osm_roads_per_huc.py    # per-HUC: clip + split by NWM catchment
+```
+
+### Bridges
+
+```
+data/osm/pull_osm.py                        # per-state download
+  -> data/bridges/make_osm_bridges_per_huc.py    # clip + dissolve touching lines
+  -> data/bridges/make_rasters_using_lidar.py    # download lidar for bridges, generate elevation tif, flag lidar coverage -> modified bridge file
+  -> data/bridges/make_dem_dif_for_bridges.py    # diff all of the HUC's bridge elevation tifs against its production DEM -> one DEM correction tif per HUC (+ VRT)
+```
+
+`make_rasters_using_lidar.py` and `make_dem_dif_for_bridges.py` are existing scripts (unchanged in purpose) that are part of the bridges pipeline — they're included here to show the full pipeline end-to-end. `make_rasters_using_lidar.py` has two outputs: for each bridge, it downloads lidar point clouds and where coverage exists builds a local lidar elevation tif ( this is the input the next script, `make_dem_dif_for_bridges.py`, diffs against the production DEM). It then writes the modified bridge file (`huc_{HUC8}_osm_bridges_modified.parquet`), which flags whether each bridge ended up with usable lidar coverage (`has_lidar_tif`).
+
+## `max_tasks_per_child` addition (`src/utils/shared_functions.py`)
+
+`pull_osm.py` processes all 53 states in parallel using a small pool of worker processes, each one handling states one after another. Partway through — repeatably around the 5th to 13th state — one of those workers would gradually run out of memory and get killed by the OS, crashing the whole run (confirmed via the system logs: a worker's memory use climbed to 80-94GB before it was killed).
+
+The cause: the line that reads each state's downloaded road/bridge data (`gpd.read_file()`) loads the whole file into memory at once. However, the memory it used wasn't being released once we were done with it — some of it quietly stayed behind in the worker process from one state to the next, building up until the worker ran out of room. We also tried explicitly deleting our variable holding that data (`del gdf`) right after each state, in case our own code was holding onto it by mistake — no effect, which told us it wasn't our Python code holding a reference at all; the memory was being kept by the underlying library itself, on its own side, somewhere `del` can't reach. We confirmed it wasn't simple memory fragmentation either — forcing the system to hand back any memory it could release (`malloc_trim`, the standard fix for that) made no difference — the only way to actually get the memory back was to kill that worker and start a fresh one.
+
+So `run_with_mp` (our shared parallel-processing helper) now supports an optional `max_tasks_per_child=N`: it retires and replaces a worker process after it finishes `N` tasks, guaranteeing the OS reclaims whatever memory that worker was holding onto, regardless of why it wasn't being freed on its own. This only changes behavior where it's turned on. `pull_osm.py` opts in with `N=1` (replacing its worker after every state); so does `make_rasters_using_lidar.py`, hardened elsewhere in this PR, which hit the same pattern and also opts in with `N=1` (replacing its worker after every HUC). Every other existing use of `run_with_mp` is unaffected.
+
+**When to use it**: if a parallel job ever crashes with an unexplained memory error or worker crash, try `N=1` and rerun — if the crash goes away, that confirms a worker is silently accumulating memory across tasks rather than a bug in the task itself. Worth keeping as a permanent fix once confirmed, as long as each task takes at least a few seconds (restarting a worker isn't free, so it's only worth it if tasks aren't near-instant); use `2-5` instead of `1` to spread that restart cost across a few tasks at a time. Skip it for jobs made of many small, fast tasks (restart cost would dominate).
+
+### Additions
+- `data/osm/pull_osm.py` — per-state download + osmium tag-filter + GeoParquet conversion for roads and bridges.
+- `data/osm/geofabrik_clip_utils.py` — shared per-state-parquet-to-HUC clipping helpers.
+- `data/roads/make_osm_roads_per_huc.py` — per-HUC road GeoParquet, replaces the per-HUC portion of `legacy/pull_osm_roads.py`.
+- `data/bridges/make_osm_bridges_per_huc.py` — per-HUC bridge GeoParquet + dissolve-touching-lines, replaces the per-HUC portion of `legacy/pull_osm_bridges.py`.
+
+### Changes
+- `data/bridges/make_rasters_using_lidar.py` — adjusted to read `bridges_{HUC8}.parquet` (GeoParquet) input; its own output also switched to GeoParquet; removed a crash-prone unused debug write, added a run-level master log, switched to `run_with_mp` (`max_tasks_per_child=1`) for per-HUC fault tolerance, and added resume support (skip completed HUCs, retry partial ones).
+- `data/bridges/make_dem_dif_for_bridges.py` — adjusted to read `bridges_{HUC8}.parquet` (GeoParquet) input. Also, `-d`/`--dem_dir` now accepts multiple folder paths (needed for Alaska, whose DEM tifs are split across two folders), with a duplicate-HUC-across-folders check.
+- `config/params_template.env` — added a `process_roads_fimpact` toggle (default `"True"`), mirroring the existing `process_buildings_fimpact` toggle.
+- `src/delineate_hydros_and_produce_HAND.sh` —adjusted to read the new GeoParquet format for bridge and roads. 
+- `data/roads/pull_osm_roads.py` -> `data/roads/legacy/pull_osm_roads.py` — deprecated, hard-stops on run with a redirect message.
+- `data/bridges/pull_osm_bridges.py` -> `data/bridges/legacy/pull_osm_bridges.py` — deprecated, hard-stops on run with a redirect message.
+- `Dockerfile.dev`, `Dockerfile.owp` — added `osmium-tool` (apt package required by `pull_osm.py`).
+- `src/utils/shared_functions.py` — added an optional `max_tasks_per_child` parameter to `run_with_mp` (see above); dropped the now-unused `'roads'` key from `get_huc_vars()`.
+- `data/wbd/clip_vectors_to_wbd.py` — adjusted to read the new GeoParquet format for bridge and roads; roads now transferred from the per-HUC directory (`osm_roads_per_huc_dir`) instead of clipped from a regional file.
+- `data/wbd/generate_pre_clip_fim_huc8.py` — adjusted for new format of roads data
+- `src/delineate_hydros_and_produce_HAND.sh` — adjusted to read the new GeoParquet format for bridge and roads
+- `tools/fimpacts_inundation.py` — adjusted to read the new GeoParquet format for roads
+- `src/heal_bridges_osm.py` — adjusted to read the new GeoParquet format.
+- `src/process_roads_fimpact.py` — adjusted to read the new GeoParquet format.
+- `src/bash_variables.env` — updated bridge data version and preclip version; added `osm_roads_per_huc_dir`; removed the now-unused `osm_roads`, `osm_roads_alaska`, `osm_roads_guam`, `osm_roads_americansamoa` vars.
+<br/>
+
 ## 4.10.2.0 - 2026-09-11 - [PR#1900](https://github.com/NOAA-OWP/inundation-mapping/pull/1900)
 
 This PR closes issue #1864, by applying these improvements:
