@@ -38,6 +38,9 @@ srcDir = os.getenv('srcDir')
 load_dotenv(f'{srcDir}/bash_variables.env')
 
 
+#TODO field "huc8" of output of fimpact tool misses leading zeros. 
+
+
 def report_road_download_status(huc_numbers, output_dir):
     files = list(Path(output_dir).glob("roads_*.gpkg"))
     pattern = re.compile(r"roads_(\d{8})\.gpkg")
@@ -124,10 +127,19 @@ def pull_roads(HUC_no, huc_geom, file_logger, screen_queue, task_id):
 
     # Exclude bridge segments to prevent unrealistic flood depth calculations
     # Bridge segments are pulled separately via pull_osm_bridges.py and handled differently
+    #
+    # Residential roads are included via a second query statement, but limited to named
+    # streets only. Unnamed residential roads (cul-de-sacs, dead-ends, private drives) are
+    # too numerous and rarely relevant at the HUC scale; named ones are the actual
+    # through-streets worth including in FIMpact. "unclassified" is also added: despite the
+    # name it is NOT unknown — in OSM it sits one step above residential and covers minor
+    # public connector roads between settlements too small to be tertiary. Overpass
+    # deduplicates the union automatically so no road appears twice.
     query_template = """
     [out:json];
     (
-    way["highway"~"^motorway$|^trunk$|^primary$|^secondary$|^tertiary$"][!"bridge"]{bbox};
+    way["highway"~"^motorway$|^trunk$|^primary$|^secondary$|^tertiary$|^unclassified$"][!"bridge"]{bbox};
+    way["highway"="residential"]["name"][!"bridge"]{bbox};
     );
     out body;
     >;
@@ -143,7 +155,11 @@ def pull_roads(HUC_no, huc_geom, file_logger, screen_queue, task_id):
         try:
             result = api.query(query_template.format(bbox=bbox_query))
             break  # success
-        except (overpy.exception.OverpassTooManyRequests, overpy.exception.OverpassGatewayTimeout) as e:
+        except (
+            overpy.exception.OverpassTooManyRequests,
+            overpy.exception.OverpassGatewayTimeout,
+            overpy.exception.OverpassUnknownHTTPStatusCode,
+        ) as e:
             wait_time = 5 * attempt + random.uniform(0, 2)
             screen_queue.put(f"[{task_id}] Too many requests, retrying in {wait_time}s (attempt {attempt})")
             file_logger.warning(
