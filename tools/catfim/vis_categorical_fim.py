@@ -742,9 +742,13 @@ def generate_dem_path(huc, root_dem_path):
     dem_path = generate_dem_path(huc, root_dem_path='/data/inputs/3dep_dems/')
 
     '''
+    # TODO: This section is out of date -- it needs to be updated for correct data location
+    # plus accommodate the new Alaska HUCs as well as Guam and American Samoa. It also needs to be updated
+    # so that the date is an input parameter (or included in root_dem_path).
+
     if huc[0:2] == '19':
         dem_name = f'HUC8_{huc}_dem.tif'
-        dem_path = os.path.join(root_dem_path, '10m_South_Alaska', '23_11_07', dem_name)
+        dem_path = os.path.join(root_dem_path, '10m_SouthAlaska', '23_11_07', dem_name)
     else:
         huc6 = huc[0:6]
         dem_name = f'HUC6_{huc6}_dem.tif'
