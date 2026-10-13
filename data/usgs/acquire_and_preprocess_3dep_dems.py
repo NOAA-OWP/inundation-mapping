@@ -2,13 +2,10 @@
 
 import argparse
 import glob
-import logging
 import os
 import subprocess
 import sys
 import traceback
-
-# from concurrent.futures import ProcessPoolExecutor, as_completed, wait
 from datetime import datetime, timezone
 
 import geopandas as gpd
@@ -16,7 +13,6 @@ import pandas as pd
 
 import src.utils.shared_functions as sf
 import src.utils.shared_validators as val
-from data.create_vrt_file import create_vrt_file
 from src.utils.io import write_geodataframe
 from src.utils.polygonize_raster import polygonize_raster
 from src.utils.shared_functions import FIM_Helpers as fh

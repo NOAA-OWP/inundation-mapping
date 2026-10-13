@@ -3,102 +3,17 @@
 import argparse
 import logging
 import os
-import subprocess
 from datetime import datetime, timezone
 
-import geopandas as gpd
-import pandas as pd
 from osgeo import gdal
 
 import src.utils.shared_functions as sf
-from src.utils.polygonize_raster import polygonize
+from src.utils.polygonize_raster import polygonize_extent
 from src.utils.shared_functions import FIM_Helpers as fh
 
 
-def __polygonize(dem_files, dem_domain_file, file_logger):
-    """
-    Create a polygon of 3DEP domain from individual HUC DEMS which are then dissolved into a single polygon.
-    """
-    msg = f" - Polygonizing -- {dem_domain_file} - Started (be patient, it can take a while)"
-    sf.l_print(msg, file_logger, "info")
-
-    start_time = datetime.now(timezone.utc)
-    sf.l_print(f"Polygonation start time: {start_time.strftime('%m/%d/%Y %H:%M:%S')}", file_logger, "info")
-
-    if len(dem_files) == 0:
-        raise Exception("There are no DEMs to polygonize")
-
-    dem_files = sorted(list(set(dem_files)))
-
-    gdfs = []
-
-    for n, dem_file in enumerate(dem_files):
-        sf.l_print(f"Polygonizing: {dem_file}", file_logger, "info")
-        edge_tif = f'{os.path.splitext(dem_file)[0]}_edge.tif'
-        edge_parquet = f'{os.path.splitext(edge_tif)[0]}.parquet'
-
-        if not os.path.exists(edge_tif):
-            subprocess.run(
-                [
-                    'gdal_calc.py',
-                    '-A',
-                    dem_file,
-                    f'--outfile={edge_tif}',
-                    '--calc=where(A > -900, 1, 0)',
-                    '--co',
-                    'BIGTIFF=YES',
-                    '--co',
-                    'NUM_THREADS=ALL_CPUS',
-                    '--co',
-                    'TILED=YES',
-                    '--co',
-                    'COMPRESS=LZW',
-                    '--co',
-                    'SPARSE_OK=TRUE',
-                    '--type=Byte',
-                    '--quiet',
-                ]
-            )
-
-        polygonize(edge_tif, edge_parquet, connectivity=8, quiet=True)
-
-        gdf = gpd.read_parquet(edge_parquet)
-        gdfs.append(gdf)
-
-        if os.path.exists(edge_tif):
-            os.remove(edge_tif)
-        if os.path.exists(edge_parquet):
-            os.remove(edge_parquet)
-
-    if gdfs:
-        dem_parquets = gpd.GeoDataFrame(pd.concat(gdfs, ignore_index=True), crs=gdfs[0].crs)
-    else:
-        dem_parquets = gpd.GeoDataFrame()
-
-    dem_parquets['DN'] = 1
-    dem_dissolved = dem_parquets.dissolve(by='DN')
-
-    os.makedirs(os.path.dirname(os.path.abspath(dem_domain_file)), exist_ok=True)
-    dem_dissolved.to_parquet(dem_domain_file)
-
-    if not os.path.exists(dem_domain_file):
-        sf.l_print(f" - Polygonizing -- {dem_domain_file} - Failed", file_logger, "error")
-    else:
-        sf.l_print(f" - Polygonizing -- {dem_domain_file} - Complete", file_logger, "info")
-
-    end_time = datetime.now(timezone.utc)
-    sf.l_print(f"Polygonization end time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}", file_logger, "info")
-    sf.l_print(fh.print_date_time_duration(start_time, end_time, print_dur_msg=False), file_logger, "info")
-
-
-def create_DEM_domain_and_VRT_files(
-    src_directories,
-    vrt_output_dir=None,
-    vrt_basename="hand_seamless",
-    region=None,
-    epsg=None,
-    date=None,
-    run_polygonize=False,
+def create_vrt_file(
+    src_directories, vrt_basename, vrt_output_dir=None, vrt_suffix=None, run_polygonize=False
 ):
     '''
     Overview
@@ -126,18 +41,15 @@ def create_DEM_domain_and_VRT_files(
     os.makedirs(vrt_out_dir, exist_ok=True)
 
     # -------------------
-    # Apply Suffix Formatting Logic to the Basename
-    suffix_elements = [str(x) for x in [region, epsg, date] if x is not None]
-    suffix_str = f"_{'_'.join(suffix_elements)}" if suffix_elements else ""
-
-    # Clean basename (stripping extension if user accidentally passed "name.vrt")
+    # Clean basename and resolve suffix string
     base_name_clean, _ = os.path.splitext(vrt_basename)
+    suffix_str = f'_{vrt_suffix}' if vrt_suffix else ""
 
     vrt_file_name = f"{base_name_clean}{suffix_str}.vrt"
     target_vrt_file_path = os.path.join(vrt_out_dir, vrt_file_name)
 
     # -------------------
-    # setup logs
+    # Setup logs
     start_time = datetime.now(timezone.utc)
     fh.print_start_header('Creating vrt file', start_time)
 
@@ -145,7 +57,7 @@ def create_DEM_domain_and_VRT_files(
     logging.info(f"Saving VRT to {target_vrt_file_path}")
 
     # -------------------
-    # processing
+    # Processing
     all_tif_files = []
     for src_dir in src_directories:
         logging.info(f"Searching for .tif files in: {src_dir}")
@@ -175,7 +87,7 @@ def create_DEM_domain_and_VRT_files(
         logging.info(f"Polygonize flag detected. Saving parquet domain to {dem_domain_output_path}")
 
         file_logger = logging.getLogger()
-        __polygonize(all_tif_files, dem_domain_output_path, file_logger)
+        polygonize_extent(all_tif_files, dem_domain_output_path, file_logger, sf=sf, fh=fh)
     else:
         logging.info("Skipping domain parquet creation (use -p / --polygonize to enable).")
 
@@ -238,7 +150,7 @@ def __setup_logger(output_folder_path):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        description='Create a VRT and optional Domain Parquet from source datasets.'
+        description='Create a VRT and optional DEM_Domain GeoParquet from source datasets.'
     )
 
     parser.add_argument(
@@ -248,7 +160,6 @@ if __name__ == '__main__':
         help='Space-separated list of directories where the .tif files exist.',
         required=True,
     )
-
     parser.add_argument(
         '-n',
         '--vrt_output_dir',
@@ -256,48 +167,23 @@ if __name__ == '__main__':
         required=False,
         default=None,
     )
-
+    parser.add_argument('-b', '--vrt_basename', help='The base name for the VRT file', required=True)
     parser.add_argument(
-        '-b',
-        '--vrt_basename',
-        help='The starting base name for the VRT file (default: "hand_seamless")',
-        required=False,
-        default="hand_seamless",
-    )
-
-    parser.add_argument(
-        '-r',
-        '--region',
-        help='Optional region name string to append to filenames (e.g., Alaska)',
+        '-x',
+        '--vrt_suffix',
+        help='Optional suffix for the VRT and DEM domain files (example: "Alaska_3338_20260708")',
         required=False,
         default=None,
     )
-
-    parser.add_argument(
-        '-e',
-        '--epsg',
-        help='Optional EPSG projection identifier to append to filenames (e.g., 3338)',
-        required=False,
-        default=None,
-    )
-
-    parser.add_argument(
-        '-d',
-        '--date',
-        help='Optional date string token to append to filenames (e.g., 20260708)',
-        required=False,
-        default=None,
-    )
-
     parser.add_argument(
         '-p',
         '--polygonize',
         dest='run_polygonize',
         action='store_true',
-        help='If specified, also generate the DEM_Domain.parquet file.',
+        help='If specified, also generate the DEM_Domain GeoParquet file.',
         required=False,
     )
 
     args = vars(parser.parse_args())
 
-    create_DEM_domain_and_VRT_files(**args)
+    create_vrt_file(**args)
