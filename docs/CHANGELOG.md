@@ -32,6 +32,23 @@ Additionally, some reorganization of input data occurred. The primary change was
         - `viz_categorical_fim.py`: Out of date -- note added. 
     - `run_test_case.py`: Added lakes mask for new subregion
 
+## 4.10.2.1 - 2026-10-08 - [PR#1953](https://github.com/NOAA-OWP/inundation-mapping/pull/1953)
+
+Refactor LoFi code for better performance. 
+The primary mechanisms that accomplish this are:
+- invert the main processing loop to optimize file i/o
+- vectorize the percentile computations.
+
+LoFi API changes:
+- `inundate_probabilistic` no longer computes streamflow percentiles internally. The user should call the `generate_streamflow_percentiles` function to compute the percentiles and use the result when calling `inundate_probabilistic`. This allows the resources needed to compute the percentiles to be closed before the main processing loop for more effective memory use.
+
+### Changes
+- `tools/lofi/probabilistic_inundation.py`: Invert main processing loop and vectorize `generate_streamflow_percentiles`. Separate percentile computation to better management of the ensemble resources.
+- `tools/lofi/probabilistic_version.py`: Update version of LoFI.
+- `tools/inundation.py`: Use ExitStack to manage rasterio resources.
+- `tools/inundate_gms.py`: Code cleanup.
+- `tools/mosaic_inundation.py`: Code cleanup.
+- `src/utils/shared_functions.py`: Added `is_local_path`.
 <br/>
 
 ## 4.10.2.0 - 2026-09-11 - [PR#1900](https://github.com/NOAA-OWP/inundation-mapping/pull/1900)
