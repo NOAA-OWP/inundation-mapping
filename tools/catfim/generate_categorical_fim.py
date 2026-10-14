@@ -1246,10 +1246,11 @@ def __validate_inputs(received_locals_dict):
             " Re-run without the -mod command or run flow-based CatFIM to utilize this feature."
         )
 
-    if model not in ['hand', 'hr', 'hrp', 'handhr', 'handhrp']:
+    if model not in ['hand', 'hr', 'handp', 'hrp', 'handhr', 'handhrp']:
         raise Exception(
             f"Invalid model type provided: {model}"
-            " Expected one of the following: 'hand', 'hrp', 'hr', 'handhrp', 'handhr'"
+            " Expected one of the following: 'hand', 'hr', 'handp'," \
+            " 'hrp', 'handhrp', 'handhr'"
             " Re-run with a valid -mod command."
         )
 
@@ -1567,9 +1568,9 @@ if __name__ == '__main__':
     parser.add_argument(
         '-j',
         '--number-jobs',
-        help='OPTIONAL: Number HUCs to process simultaneously. Defaults to 20.',
+        help='OPTIONAL: Number HUCs to process simultaneously. Defaults to 8.',
         required=False,
-        default=20,
+        default=8,
         type=int,
     )
 
@@ -1678,7 +1679,7 @@ if __name__ == '__main__':
         '--flows2fim-software-path',
         help='OPTIONAL: Path to the flows2fim software.',
         required=False,
-        default="/projects/catfim_hecras_fb/flows2fim_030/flows2fim",
+        default="/flows2fim_software/software/latest/linux-amd64/flows2fim",
         # TODO: eventually should pull this from the env file once this has a permanent home
     )
 

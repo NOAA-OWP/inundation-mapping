@@ -9,6 +9,7 @@ import subprocess
 import traceback
 from datetime import date, datetime, timezone
 
+from dotenv import load_dotenv
 import pandas as pd
 
 import data.aws.s3_shared_functions as s3_sf
@@ -187,10 +188,9 @@ def __create_runtime_args_file(
     ripple_filename,
     lst_models,
     BUCKET_NAME,
-    flows2fim_path,
+    flows2fim_software_path,
     ripple_model_status_path,
     aws_creds_file,
-    # hv_params_file,
 ):
     '''
     Create a runtime args environment file to document input parameters (saved as output_folder/runtime_args.env).
@@ -209,14 +209,12 @@ def __create_runtime_args_file(
         The list of models.
     BUCKET_NAME : str
         The name of the S3 bucket.
-    flows2fim_path : str
-        The path to the flows2fim file.
+    flows2fim_software_path : str
+        The path to the flows2fim software.
     ripple_model_status_path : str
         The path to the ripple model status file.
     aws_creds_file : str
         The path to the AWS credentials file.
-    hv_params_file : str
-        The path to the HV parameters file.
     '''
     args_file_name = "runtime_args.env"
     args_file_path = os.path.join(output_folder, args_file_name)
@@ -232,16 +230,31 @@ def __create_runtime_args_file(
         file.write(f"RIPPLE_FILENAME=\"{ripple_filename}\"\n")
         file.write(f"LST_MODELS={lst_models}\n")
         file.write(f"BUCKET_NAME={BUCKET_NAME}\n")
-        file.write(f"FLOWS2FIM_PATH=\"{flows2fim_path}\"\n")
+        file.write(f"FLOWS2FIM_PATH=\"{flows2fim_software_path}\"\n")
         file.write(f"RIPPLE_MODEL_STATUS_PATH=\"{ripple_model_status_path}\"\n")
         file.write(f"AWS_CREDS_FILE=\"{aws_creds_file}\"\n")
-        # file.write(f"HV_PARAMS_FILE=\"{hv_params_file}\"\n")
     return
 
 
 def download_ripple_file_from_s3(ripple_filename, collection_id, collection_temp_folder, filename):
     '''
     Download the necessary ripple files from S3.
+
+    Arguments
+    ---------
+    ripple_filename : str
+        The name of the ripple file.
+    collection_id : str
+        The identifier for the specific model collection.
+    collection_temp_folder : str
+        The path to the temporary folder for the collection.
+    filename : str
+        The name of the file to download (e.g., "ripple.gpkg" or "start_reaches.csv").
+
+    Returns
+    -------
+    target_file_path : str
+        The local path to the downloaded file.
     '''
 
     s3_file_key = f'/fim/ripple/{ripple_filename}/collections/{collection_id}/{filename}'
@@ -256,7 +269,7 @@ def download_ripple_file_from_s3(ripple_filename, collection_id, collection_temp
 
 
 def run_controls(
-    magnitude, collection_id, flows_filename, flows2fim_path, intermediates_folder, db_path, starts_csv
+    magnitude, collection_id, flows_filename, flows2fim_software_path, intermediates_folder, db_path, starts_csv
 ):
     '''
     Runs flows2fim controls for a given model and magnitude, using the specified flows file.
@@ -270,8 +283,8 @@ def run_controls(
         The identifier for the specific model collection.
     flows_filename : str
         The filename of the flows CSV to use for this magnitude.
-    flows2fim_path : str
-        The path to the flows2fim executable.
+    flows2fim_software_path : str
+        The path to the flows2fim software.
     intermediates_folder : str
         The path to the folder where intermediate files will be saved.
     db_path : str
@@ -305,7 +318,7 @@ def run_controls(
         # Use subprocess to run flows2fim controls
         result = subprocess.run(
             [
-                flows2fim_path,
+                flows2fim_software_path,
                 "controls",
                 "-db",
                 db_path,
@@ -358,7 +371,7 @@ def run_controls_for_all_models_and_magnitudes(
     flows_csv_dict,
     collections_path,
     ripple_filename,
-    flows2fim_path,
+    flows2fim_software_path,
     intermediates_folder,
     identifiers_csv_path,
     ripple_model_status_path,
@@ -378,8 +391,8 @@ def run_controls_for_all_models_and_magnitudes(
         Path to the Ripple model collections on S3.
     ripple_filename : str
         The path to the Ripple model collections.
-    flows2fim_path : str
-        The path to the flows2fim executable.
+    flows2fim_software_path : str
+        The path to the flows2fim software.
     intermediates_folder : str
         The path to the folder where intermediate files will be saved.
     identifiers_csv_path : str
@@ -423,10 +436,9 @@ def run_controls_for_all_models_and_magnitudes(
 
     # Filter the collection list using ripple_model_status_path
 
-    # NOTE: I'm unsure if there are situations where a model is valid for one feature ID and invalid for another.
-    # If that case occurs, that model collection id should still end up in the valid collections list so we can
-    # download the data for it. And then this file will be used to filter again during CatFIM processing to ensure
-    # that the correct model is being used for each feature ID.
+    # NOTE: If there are situations where a model is valid for one feature ID and invalid for another, that model collection id
+    # should still end up in the valid collections list so we can download the data for it. And then this file will be used to
+    # filter again during CatFIM processing to ensure that the correct model is being used for each feature ID.
 
     # Read in CSV and get a list of valid collections (where is_valid == True)
     ripple_model_status_table = pd.read_csv(ripple_model_status_path)
@@ -491,7 +503,7 @@ def run_controls_for_all_models_and_magnitudes(
                 magnitude,
                 collection_id,
                 flows_filename,
-                flows2fim_path,
+                flows2fim_software_path,
                 intermediates_folder,
                 db_path,
                 starts_csv,
@@ -507,8 +519,9 @@ def run_controls_for_all_models_and_magnitudes(
             controls_df = pd.read_csv(controls_output_csv)
             controls_df['magnitude'] = magnitude
             controls_df['model_collection'] = collection_id
-            controls_df['collection_parent_folder'] = ripple_filename
+            # controls_df['collection_parent_folder'] = ripple_filename
             # catfim_hecras_fb TODO: Do we need this ripple_filename column? It should be the same for every row...
+            # TODO: Clean up after I've tested that the CatFIM code runs fine without it
 
             # Join the identifiers_df to the controls_df to add the nws_lid column (joining on reach_id for controls_df and nwm_feature_id for identifiers df)
             controls_df = pd.merge(
@@ -540,8 +553,6 @@ def run_controls_for_all_models_and_magnitudes(
         'Compiled all controls files, deleting temp folder with magnitude/collection-specific controls files'
     )
     shutil.rmtree(intermediates_folder)
-
-    # catfim_hecras_fb TODO: fix the feature ID column? (instead of in CatFIM code)
 
     # Save the combined DataFrame to a new CSV file
     compiled_controls_path = os.path.join(output_folder, 'combined_controls_output.csv')
@@ -586,7 +597,6 @@ def parse_subprocess_outputs(result, common_warning_list, collection_id, magnitu
             logging.info(
                 f'{collection_id} : {magnitude} - [flow2fim controls] {common_warning} (Returned for {len(reach_id_list)} Reach IDs)'
             )
-            # logging.info(f'{collection_id} : {magnitude} - [flow2fim controls] Reach IDs: {reach_id_list}')  # Too many feature IDs to print (could toggle for debugging)
 
     # Get warnings that aren't in the common warnings list
     uncommon_warning_list = [s for s in stderr_list if not any(k in s for k in common_warning_list)]
@@ -599,29 +609,65 @@ def parse_subprocess_outputs(result, common_warning_list, collection_id, magnitu
 
 # Main function
 def catfim_hecras_preprocessing(
-    threshold_file, nwm_meta_file, ripple_filename, output_folder_location, lst_models
+    output_folder_location, threshold_file, nwm_meta_file, ripple_filename, flows2fim_software_path, ripple_model_status_path, lst_models
 ):
     '''
     Main function for script.
 
     Arguments
     ----------
+    output_folder_location : str
+        The location where the output folder will be created.
     threshold_file : str
         Filepath to the thresholds pickle file.
     nwm_meta_file : str
         Filepath to the NWM metadata pickle file.
     ripple_filename : str
-        The path to the Ripple model collections.
-    output_folder_location : str
-        The location where the output folder will be created.
+        The folder name of the Ripple model collections parent folder.
+    flows2fim_software_path : str
+        The path to the flows2fim software.
+    ripple_model_status_path : str
+        The path to the ripple model status file.
     lst_models : str
         Space-delimited list of models to preprocess HEC-RAS for. Defaults to all models in the given ripple folder. If 'all', all available models will be processed.
 
     '''
+
+    load_dotenv('/foss_fim/src/bash_variables.env')
+
+    # Get paths from variables.env if not provided as arguments
+    if ripple_filename == "":
+        ripple_filename = os.getenv("ripple_s3_models_location")
+
+    if ripple_model_status_path == "":
+        ripple_model_status_path = os.getenv("ripple_whitelist_file")
+
+        if os.path.isfile(ripple_model_status_path) is False:
+            raise FileNotFoundError(
+                f"Unable to find the ripple model status file at default path {ripple_model_status_path}. Please provide a valid ripple model status file path."
+            )
+
+    # Get input threshold and metadata files
+    default_threshold_file = os.getenv("nwm_threshold_file")
+    if threshold_file == "":
+        # check the path even though it came from bash_variables.
+        if os.path.isfile(default_threshold_file) is False:
+            raise FileNotFoundError(
+                f"Unable to find the threshold file at default path {default_threshold_file}. Please provide a valid threshold file path."
+            )
+        threshold_file = default_threshold_file
+
+    default_nwm_meta_file = os.getenv("nwm_meta_file")
+    if nwm_meta_file == "":
+        # check the path even though it came from bash_variables.
+        if os.path.isfile(default_nwm_meta_file) is False:
+            raise FileNotFoundError(
+                f"Unable to find the NWM metadata file at default path {default_nwm_meta_file}. Please provide a valid NWM metadata file path."
+            )
+        nwm_meta_file = default_nwm_meta_file
+
     # Get input variables
     magnitude_types = csf.MAGNITUDES_TYPES
-    flows2fim_path = "/projects/catfim_hecras_fb/flows2fim_030/flows2fim"  # csf.FLOWS2FIM_PATH catfim_hecras_fb TODO: finalize file location and Add to shared vars
-    ripple_model_status_path = '/projects/catfim_hecras_fb/ripple_feature_ids_whitelist_final_20260729_1420_no_path.csv'  # catfim_hecras_fb TODO: Finalize file location and update input path (maybe from an env file?) ... maybe eventually we will download this from S3 too
 
     # S3 Setup: Make the S3 client, get the bucket name, and validate S3 input paths
     aws_creds_file = '/data/config/aws_credentials.env'
@@ -642,7 +688,7 @@ def catfim_hecras_preprocessing(
         nwm_meta_file,
         intermediates_folder,
         output_folder,
-        flows2fim_path,
+        flows2fim_software_path,
         ripple_model_status_path,
     ]
     for path in input_path_list:
@@ -680,7 +726,7 @@ def catfim_hecras_preprocessing(
             flows_csv_dict,
             collections_path,
             ripple_filename,
-            flows2fim_path,
+            flows2fim_software_path,
             intermediates_folder,
             identifiers_csv_path,
             ripple_model_status_path,
@@ -696,10 +742,9 @@ def catfim_hecras_preprocessing(
             ripple_filename,
             lst_models,
             BUCKET_NAME,
-            flows2fim_path,
+            flows2fim_software_path,
             ripple_model_status_path,
             aws_creds_file,
-            # hv_params_file,
         )
 
         # -----
@@ -722,15 +767,17 @@ def catfim_hecras_preprocessing(
 
 if __name__ == '__main__':
     '''
-    Command line parser for running the CatFIM HEC-RAS preprocessing script.
+    Commandline parser for running the CatFIM HEC-RAS preprocessing script.
 
     Example:
 
     python /projects/catfim_hecras_fb/catfim_hecras_preprocessing.py
+    -o '/projects/catfim_hecras_fb/test_outputs/'
     -tf '/data/inputs/wrds/thresholds_20260413.pkl'
     -mf '/data/inputs/wrds/nwm_metadata_20260413.pkl'
     -r '/ripple/ripple_100_20251004'
-    -of '/projects/catfim_hecras_fb/test_outputs/'
+    -f '/flows2fim_software/software/latest/linux-amd64/flows2fim'
+    -w '/data/inputs/ripple/ripple_feature_ids_whitelist_final_20260729_1420.csv'
     -l 'ble_12100202_MiddleGuadalupe ble_12030106_EastForkTrinity'
 
     '''
@@ -738,42 +785,63 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run Categorical FIM HEC-RAS Pre-Processing')
 
     parser.add_argument(
+        '-o',
+        '--output-folder-location',
+        help='REQUIRED: Target location to create the catfim_hecras_preprocessing folder to store'
+        ' final outputs. A temp folder will also be created in the catfim_hecras_preprocessing dir.'
+        ' e.g.: /projects/catfim_hecras_fb/test_outputs/final_outputs',
+        required=True,
+    )
+
+    parser.add_argument(
         '-tf',
         '--threshold-file',
-        help='REQUIRED: Filepath to the threshold pkl file.'
+        help='OPTIONAL: Filepath to the threshold pkl file. If not provided, will use the default from the env file.'
         ' e.g.: /data/inputs/wrds/thresholds_20260413.pkl',
-        required=True,
+        required=False,
+        default="",
     )
 
     parser.add_argument(
         '-mf',
         '--nwm-meta-file',
-        help='REQUIRED: Filepath to nwm metadata pickle file.'
+        help='OPTIONAL: Filepath to nwm metadata pickle file. If not provided, will use the default from the env file.'
         ' e.g.: /data/inputs/wrds/nwm_metadata_20260413.pkl',
-        required=True,
+        required=False,
+        default="",
     )
 
-    parser.add_argument(
+    parser.add_argument( 
         '-r',
-        '--ripple-filename',  # catfim_hecras_fb TODO: or should we get this val from the whitelist CSV?
-        help='REQUIRED: Folder from which to get Ripple model inputs, ie ripple_100_20251004',
-        required=True,
+        '--ripple-filename',
+        help='OPTIONAL: Folder from which to get Ripple model inputs, e.g.: ripple_100_20251004',
+        required=False,
+        default="",
     )
 
     parser.add_argument(
-        '-of',
-        '--output-folder-location',
-        help='REQUIRED: Target location to create the catfim_hecras_preprocessing folder to store'
-        ' final outputs. A temp folder will also be created in the catfim_hecras_preprocessing dir.'
-        ' ie /projects/catfim_hecras_fb/test_outputs/final_outputs',
-        required=True,
+        '-f',
+        '--flows2fim-software-path',
+        help='OPTIONAL: Path to the flows2fim software.',
+        required=False,
+        default="/flows2fim_software/software/latest/linux-amd64/flows2fim",
+        # TODO: Eventually should pull the default value from the env file once this has a permanent home
+        # (and remove as input once flows2fim lives in the docker images)
+    )
+
+    parser.add_argument(
+        '-w',
+        '--ripple-model-status-path',
+        help='OPTIONAL: Path to the ripple model status file.',
+        required=False,
+        default="",
     )
 
     parser.add_argument(
         '-l',
         '--lst-models',
         help='OPTIONAL: Space-delimited list of models to preprocess HEC-RAS for. Defaults to all'
-        ' models in the given ripple folder. ie ble_12100202_MiddleGuadalupe',
+        ' models in the given ripple folder. e.g.: ble_12100202_MiddleGuadalupe',
         required=False,
         default='all',
     )
