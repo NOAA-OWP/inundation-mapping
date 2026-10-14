@@ -8,6 +8,7 @@ For certain sites in stage-based CatFIM, inundation labeled for one site was als
 ### Changes
 - `/inundation-mapping/tools/catfim/generate_categorical_fim_mapping.py`: Added list filtering to `mosaic_sb_inundation()`.
 <br />
+
 ## 4.10.2.1 - 2026-10-08 - [PR#1953](https://github.com/NOAA-OWP/inundation-mapping/pull/1953)
 
 Refactor LoFi code for better performance. 
