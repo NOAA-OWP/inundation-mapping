@@ -64,11 +64,11 @@ Stage-based example (with specified meta file and threshold file):
 - `-tf`, `--threshold-file`: OPTIONAL: If you have a pre-existing threshold file, you can path to it here. Providing this manual input will prevent the WRDS API from being queried for thresholds.
 - `-gtf`, `--get-new-threshold-data`: OPTIONAL: Whether or not to download new metadata from WRDS. Only works on OWP servers, not AWS.
 - `-mod`, `--model`: OPTIONAL: Define which model(s) to run between HAND and HEC-RAS. Currently only for flow-based CatFIM.
-  - hand : run HAND only (default)
-  - hrp : run HEC-RAS only - with model preference (use one HEC-RAS model per site)
-  - hr : run HEC-RAS only - without model preference (use ALL available HEC-RAS models, not recommended for large runs)
-  - handhrp : run HAND and HEC-RAS - with model preference (use one HEC-RAS model per site, prioritize HEC-RAS over HAND
-  - handhr : run HAND and HEC RAS - without model preference (use ALL available HEC-RAS models, keep HEC-RAS and HAND sites, not recommended for large runs)
+  - `hand` : run HAND only (default)
+  - `hrp` : run HEC-RAS only - with model preference (use one HEC-RAS model per site)
+  - `hr` : run HEC-RAS only - without model preference (use ALL available HEC-RAS models, not recommended for large runs)
+  - `handhrp` : run HAND and HEC-RAS - with model preference (use one HEC-RAS model per site, prioritize HEC-RAS over HAND
+  - `handhr` : run HAND and HEC RAS - without model preference (use ALL available HEC-RAS models, keep HEC-RAS and HAND sites, not recommended for large runs)
 - `-hf`, `--preprocessed-hecras-folder`: OPTIONAL: Path to the HEC-RAS files directory (generated via catfim_hecras_preprocessing.py). e.g.: /data/catfim/hecras/catfim_hecras_preprocessing_20260910 . Default value comes from bash_variables. Must contain the following files: sites_with_hecras_models.csv and combined_controls_output.csv
 - `-fp`, `--flows2fim-software-path`: OPTIONAL: Path to the flows2fim software.
 - `-sp`, `--skip-processing`: OPTIONAL: If this flag is set, it will set up all of the initial 'pre-processing' steps, but will  not continue with the processing of the hucs or post processing. This allows this tool to be used as either a full fun, or just do post processing and let other tools like AWS do process hucs and post processing.
