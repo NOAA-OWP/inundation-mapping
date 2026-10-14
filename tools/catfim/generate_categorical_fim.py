@@ -1249,7 +1249,7 @@ def __validate_inputs(received_locals_dict):
     if model not in ['hand', 'hr', 'handp', 'hrp', 'handhr', 'handhrp']:
         raise Exception(
             f"Invalid model type provided: {model}"
-            " Expected one of the following: 'hand', 'hr', 'handp'," \
+            " Expected one of the following: 'hand', 'hr', 'handp',"
             " 'hrp', 'handhrp', 'handhr'"
             " Re-run with a valid -mod command."
         )

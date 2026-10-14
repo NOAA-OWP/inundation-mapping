@@ -9,8 +9,8 @@ import subprocess
 import traceback
 from datetime import date, datetime, timezone
 
-from dotenv import load_dotenv
 import pandas as pd
+from dotenv import load_dotenv
 
 import data.aws.s3_shared_functions as s3_sf
 import src.utils.shared_functions as sf
@@ -269,7 +269,13 @@ def download_ripple_file_from_s3(ripple_filename, collection_id, collection_temp
 
 
 def run_controls(
-    magnitude, collection_id, flows_filename, flows2fim_software_path, intermediates_folder, db_path, starts_csv
+    magnitude,
+    collection_id,
+    flows_filename,
+    flows2fim_software_path,
+    intermediates_folder,
+    db_path,
+    starts_csv,
 ):
     '''
     Runs flows2fim controls for a given model and magnitude, using the specified flows file.
@@ -609,7 +615,13 @@ def parse_subprocess_outputs(result, common_warning_list, collection_id, magnitu
 
 # Main function
 def catfim_hecras_preprocessing(
-    output_folder_location, threshold_file, nwm_meta_file, ripple_filename, flows2fim_software_path, ripple_model_status_path, lst_models
+    output_folder_location,
+    threshold_file,
+    nwm_meta_file,
+    ripple_filename,
+    flows2fim_software_path,
+    ripple_model_status_path,
+    lst_models,
 ):
     '''
     Main function for script.
@@ -811,7 +823,7 @@ if __name__ == '__main__':
         default="",
     )
 
-    parser.add_argument( 
+    parser.add_argument(
         '-r',
         '--ripple-filename',
         help='OPTIONAL: Folder from which to get Ripple model inputs, e.g.: ripple_100_20251004',
