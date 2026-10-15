@@ -1,11 +1,10 @@
+#!/usr/bin/env python3
+
 import argparse
 import glob
-import logging
 import os
 import shlex
 import sys
-
-# import time
 import traceback
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -14,11 +13,7 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio
-
-# import rioxarray
-import xarray as xr
 from rasterio.features import rasterize
-from rasterio.merge import merge
 from shapely.geometry import Point
 
 from data.create_vrt_file import create_vrt_file

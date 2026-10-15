@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """
 Geofabrik-based replacement for the per-HUC portion of legacy/pull_osm_roads.py (Overpass API,
 now deprecated). For each HUC8: reads state road parquets that spatially overlap the HUC,

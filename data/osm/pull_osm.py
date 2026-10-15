@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """
 Download per-state OSM road and bridge data from Geofabrik and convert to
 per-state GeoParquet files, using osmium-tool for tag-based extraction.
