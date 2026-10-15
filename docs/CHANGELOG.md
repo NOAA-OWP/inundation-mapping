@@ -1,6 +1,23 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## 4.x.x.x - 2026-10-xx - [PR#1959](https://github.com/NOAA-OWP/inundation-mapping/pull/1959)
+Various Pip packages changes include:
+- `Added`: cryptography, notebook, scikit-learn, xgboost 
+- `Updated`: (Pipfile only, not counting pipfile.lock changes): jupyterlab, py7zr, urllib3
+- `Updated GVAL`:  Moved from 0.2.12 to 0.2.13.  Unable to go to the latest of 0.14.0 due to dependency issues.
+- A good handful of dependencies have been upgraded in Pipfile.lock related to the changes above.
+
+This will also satisfy all latest DepBot warnings for: jupyter-server, mistune, idna, aiohttp, pyarrow, tornado, bleach.
+
+Note: `Dockerfile.owp` has not been changed at this time as the changes here are not needed in owp servers for its tools.
+
+### Changes
+- `Dockerfile.dev`: Added the apt package `osmium-tools` for Ali. Added some code to help with adding or updating packages inside the container for pipenv. New procedure doc coming soon.
+- `Pipfile` / `Pipfile.lock`: As described above.
+- `src/entrypoint.sh`:  A little cleanup
+<br/>
+
 ## 4.10.2.1 - 2026-10-08 - [PR#1953](https://github.com/NOAA-OWP/inundation-mapping/pull/1953)
 
 Refactor LoFi code for better performance. 
