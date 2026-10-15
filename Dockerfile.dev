@@ -71,6 +71,8 @@ ENV taudemDir=$depDir/taudem/bin
 ENV taudemDir2=$depDir/taudem_accelerated_flowDirections/taudem/build/bin
 
 ## ADDING FIM GROUP ##
+# TODO: In theory, we do not need this but for some reason, without it
+# the image will not actual start up
 ARG GroupID=1370800235
 ARG GroupName=fim
 RUN groupadd --gid $GroupID $GroupName
@@ -108,7 +110,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
     p7zip-full python3.12 python3-pip python3-dev time parallel \
     mpich libmpich-dev libgeos-dev \
-    make gcc g++ expect rsync tzdata wget bzip2 curl unzip acl \
+    make gcc g++ expect rsync tzdata wget bzip2 curl unzip acl osmium-tool \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 RUN apt auto-remove
 
@@ -124,6 +126,8 @@ ENV MAMBA_ROOT_PREFIX=/opt/micromamba
 
 # Install Pipenv with the break flag 
 RUN python3 -m pip install --no-cache-dir pipenv --break-system-packages
+
+ENV PIPENV_VENV_IN_PROJECT=1
 
 # These currently throw errors as they are not yet installed
 # by this point, but continues with the fresh install. Leaving upgrade error
