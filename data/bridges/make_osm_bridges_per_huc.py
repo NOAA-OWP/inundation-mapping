@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """
 Geofabrik-based replacement for the per-HUC portion of legacy/pull_osm_bridges.py (Overpass API,
 now deprecated). For each HUC8: reads state bridge parquets that spatially overlap the
@@ -65,8 +67,7 @@ load_dotenv(f'{srcDir}/bash_variables.env')
 
 def find_touching_groups(gdf: gpd.GeoDataFrame) -> list:
     """
-    Return connected components of touching geometries as a list of index sets,
-    matching find_touching_groups() in legacy/pull_osm_bridges.py.
+    Return connected components of touching geometries as a list of index sets.
     """
     # Create a graph
     graph = Graph()
@@ -74,18 +75,16 @@ def find_touching_groups(gdf: gpd.GeoDataFrame) -> list:
     # Add nodes for each geometry
     graph.add_nodes_from(gdf.index)
 
-    # Create spatial index for efficient querying
-    spatial_index = gdf.sindex
+    # Bulk spatial-index query: for every geometry in gdf, find every other geometry
+    # it intersects, in one vectorized call.
+    left_pos, right_pos = gdf.sindex.query(gdf.geometry, predicate="intersects")
 
-    # For each geometry, find touching geometries and add edges to the graph
-    for idx, geometry in gdf.iterrows():
-        possible_matches_index = list(spatial_index.intersection(geometry['geometry'].bounds))
-        possible_matches = gdf.iloc[possible_matches_index]
-        precise_matches = possible_matches[possible_matches.intersects(geometry['geometry'])]
-
-        for match_idx in precise_matches.index:
-            if match_idx != idx:
-                graph.add_edge(idx, match_idx)
+    # sindex.query() returns positional indices; map them back to gdf's own index
+    # labels (not necessarily a 0..N-1 range) and drop self-matches (every geometry
+    # trivially intersects itself).
+    index_labels = gdf.index.to_numpy()
+    not_self = left_pos != right_pos
+    graph.add_edges_from(zip(index_labels[left_pos[not_self]], index_labels[right_pos[not_self]]))
 
     # Find connected components
     groups = list(connected_components(graph))
