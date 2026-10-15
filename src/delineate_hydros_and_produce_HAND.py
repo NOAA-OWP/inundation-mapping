@@ -268,15 +268,18 @@ def gdal_rem_zero_mask_in_memory(
     band_a = ds_rem.GetRasterBand(1)
     rem_arr = band_a.ReadAsArray().astype(np.float32)
     rem_ndv = band_a.GetNoDataValue()
-    if rem_ndv is None:
-        rem_ndv = nodata_val
+
+    # FIX: If NoData is missing, unassigned, or set to 0.0, override with -999999.0
+    if rem_ndv is None or rem_ndv == 0.0 or np.isnan(rem_ndv):
+        rem_ndv = -999999.0
 
     reach_arr = ds_gw_catchments_reaches.GetRasterBand(1).ReadAsArray()
 
     # Active catchment mask (B > 0)
     valid_reach = reach_arr > 0
-    # Valid REM mask (not NoData and not NaN)
-    valid_rem = (rem_arr != rem_ndv) & ~np.isnan(rem_arr)
+
+    # FIX: Valid REM mask explicitly preserves 0.0 stream cells
+    valid_rem = (rem_arr != rem_ndv) & (rem_arr > -999900.0) & ~np.isnan(rem_arr)
 
     # Active processing mask: Must be inside active catchment AND have valid REM data
     active_mask = valid_reach & valid_rem
@@ -284,7 +287,7 @@ def gdal_rem_zero_mask_in_memory(
     # Initialize output array entirely to nodata_val
     out_arr = np.full_like(rem_arr, float(nodata_val), dtype=np.float32)
 
-    # Inside the active mask, clamp negative values to 0.0 (A * (A >= 0))
+    # Inside the active mask, clamp negative bathymetry values to 0.0
     out_arr[active_mask] = np.maximum(rem_arr[active_mask], 0.0)
 
     # Build GDAL Memory Dataset matching input DEM profile
@@ -764,19 +767,14 @@ def delineate_and_produce_hand(
     # --- STEP 14: CREATE REM IN MEMORY ---
     log_step(f"--> [Step 14] D8 REM (In-Memory) {huc_number} {current_branch_id}")
 
-    # Re-open modified pixel catchments dataset after Step 13 backpool mitigation
-    ds_gw_catchments_pixels = None
     ds_gw_catchments_pixels = gdal.Open(
         str(tempCurrentBranchDataDir / f"gw_catchments_pixels_{current_branch_id}.tif")
     )
-
-    # Step 2 stream pixels dataset MUST be passed as thalweg_ds
     ds_streams = gdal.Open(str(tempCurrentBranchDataDir / f"demDerived_streamPixels_{current_branch_id}.tif"))
 
-    # Extract dynamic NoData directly from input DEM dataset
     dem_ndv = ds_dem_cond.GetRasterBand(1).GetNoDataValue()
-    if dem_ndv is None:
-        dem_ndv = ndv
+    if dem_ndv is None or dem_ndv == 0.0:
+        dem_ndv = -999999.0
 
     ds_rem = create_rem_in_memory(
         dem_ds=ds_dem_cond,
@@ -784,6 +782,10 @@ def delineate_and_produce_hand(
         thalweg_ds=ds_streams,
         nodata_val=dem_ndv,
     )
+
+    # FIX: Ensure output in-memory GDAL band has explicit NoData set
+    if isinstance(ds_rem, gdal.Dataset):
+        ds_rem.GetRasterBand(1).SetNoDataValue(float(dem_ndv))
 
     rem_tif_path = tempCurrentBranchDataDir / f"rem_{current_branch_id}.tif"
     persist_dataset(ds_rem, rem_tif_path, srs_wkt, force=True, nodata_val=dem_ndv)
