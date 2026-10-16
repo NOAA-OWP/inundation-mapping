@@ -17,6 +17,13 @@ Note: `Dockerfile.owp` has not been changed at this time as the changes here are
 - `Pipfile` / `Pipfile.lock`: As described above.
 - `src/entrypoint.sh`:  A little cleanup
 <br/>
+## 4.10.2.2 - 2026-10-16 - [PR#1957](https://github.com/NOAA-OWP/inundation-mapping/pull/1957)
+
+For certain sites in stage-based CatFIM, inundation labeled for one site was also being mapped at another nearby site. For example, site major stage inundation for site RDYP1 was also being mapped at the location of site COKP1 (but it was still labeled as RDYP1 major stage). This issue has been repaired by including a filter in that section of processing that filters out any .tif files that are not for the site being processed.
+
+### Changes
+- `/inundation-mapping/tools/catfim/generate_categorical_fim_mapping.py`: Added list filtering to `mosaic_sb_inundation()`.
+<br />
 
 ## 4.10.2.1 - 2026-10-08 - [PR#1953](https://github.com/NOAA-OWP/inundation-mapping/pull/1953)
 
