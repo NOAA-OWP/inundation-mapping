@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "8558d7434246349d21ef55d088f52572a035d35bb00afa58d8399261f41061b0"
+            "sha256": "a28fbddafeb1f22fc95f15dd38c54c176e4220acb7ca31e8cda0f99752e9fc7a"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -3854,12 +3854,12 @@
         },
         "py7zr": {
             "hashes": [
-                "sha256:2aee212c5516ddcbeb76874dc3ece38b4566fc003f51600032c723cfea89ac56",
-                "sha256:6482470a2bde69a955cc6ecd48ef31d5b166dd7fb3e6056b99e4cb2ff0518c12"
+                "sha256:7674697559bd06b697bf6e8249985cee6dc704a4b07b8e11f24d0b1695707c3e",
+                "sha256:f6f868a457a6bd485b78d26e619045718bcd0b7720a6bf97d5fe86a1523423e8"
             ],
             "index": "pypi",
             "markers": "python_version >= '3.10'",
-            "version": "==1.1.2"
+            "version": "==1.1.4"
         },
         "pyarrow": {
             "hashes": [
