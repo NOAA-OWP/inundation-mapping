@@ -24,6 +24,9 @@ def create_vrt_file(
     if not src_directories:
         raise ValueError('At least one source directory must be specified.')
 
+    if isinstance(src_directories, str):
+        src_directories = [src_directories]
+
     src_directories = [os.path.abspath(d) for d in src_directories]
     for src_dir in src_directories:
         if not os.path.exists(src_dir):
