@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## 4.x.x.x - 2026-10-xx - [PR#1959](https://github.com/NOAA-OWP/inundation-mapping/pull/1959)
+## 4.10.3.0 - 2026-10-16 - [PR#1959](https://github.com/NOAA-OWP/inundation-mapping/pull/1959)
 Various Pip packages changes include:
 - `Added`: cryptography, notebook, scikit-learn, xgboost 
 - `Updated`: (Pipfile only, not counting pipfile.lock changes): jupyterlab, py7zr, urllib3
@@ -17,6 +17,7 @@ Note: `Dockerfile.owp` has not been changed at this time as the changes here are
 - `Pipfile` / `Pipfile.lock`: As described above.
 - `src/entrypoint.sh`:  A little cleanup
 <br/>
+
 ## 4.10.2.2 - 2026-10-16 - [PR#1957](https://github.com/NOAA-OWP/inundation-mapping/pull/1957)
 
 For certain sites in stage-based CatFIM, inundation labeled for one site was also being mapped at another nearby site. For example, site major stage inundation for site RDYP1 was also being mapped at the location of site COKP1 (but it was still labeled as RDYP1 major stage). This issue has been repaired by including a filter in that section of processing that filters out any .tif files that are not for the site being processed.
