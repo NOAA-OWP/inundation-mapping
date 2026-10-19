@@ -99,12 +99,30 @@ def download_all_metadata(metadata_filepath, metadata_url, search):
         metadata_url,
         select_by='nws_lid',
         selector=['all'],
-        must_include='nws_data.rfc_forecast_point',
+        must_include='nws_data.rfc_forecast_point', # TODO: Remove forecast point requirement here?
         upstream_trace_distance=nwm_us_search,
         downstream_trace_distance=nwm_ds_search,
     )
     if err_msg != '':
         messages.append(err_msg)
+
+    messages.append(f'Downloaded metadata for {len(forecast_point_meta_list)} forecast sites')
+
+    # TEMP DEBUG: Getting count of sites after removing forecast requirements =====
+    # Get all points, regardless of forecast status (TEMP DEBUG)
+    all_points_meta_list, ___, err_msg = get_metadata( # TEMP DEBUG
+        metadata_url,
+        select_by='nws_lid',
+        selector=['all'],
+        must_include=None, #'nws_data.rfc_forecast_point', # Removed forecast point requirement here?
+        upstream_trace_distance=nwm_us_search,
+        downstream_trace_distance=nwm_ds_search,
+    )
+    if err_msg != '':
+        messages.append(err_msg)
+
+    messages.append(f'Downloaded metadata for {len(all_points_meta_list)} sites after removing forecast filter') # TEMP DEBUG
+    # END DEBUG SECTION =====
 
     # Get all sites for OCONUS regions (HI, PR, and AK)
     oconus_meta_list, ___, err_msg = get_metadata(
@@ -117,6 +135,8 @@ def download_all_metadata(metadata_filepath, metadata_url, search):
     )
     if err_msg != '':
         messages.append(err_msg)
+
+    messages.append(f'Downloaded metadata for {len(oconus_meta_list)} OCONUS sites')
 
     # Append the lists
     unfiltered_meta_list = forecast_point_meta_list + oconus_meta_list

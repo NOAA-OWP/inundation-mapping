@@ -59,7 +59,7 @@ def __get_all_active_usgs_sites():
     # Define arguments to retrieve metadata and then get metadata from WRDS
     select_by = 'usgs_site_code'
     selector = ['all']
-    must_include = 'usgs_data.active'
+    must_include = 'usgs_data.active' # TODO: Confirm that this filter is working as we want it to
     metadata_list, ___, err_msg = tsf.get_metadata(
         metadata_url,
         select_by,

@@ -90,7 +90,7 @@ def generate_nws_lid(workspace, env_file, keep_blank_nwm):
 
     select_by = 'nws_lid'
     selector = ['all']
-    must_include = 'nws_data.rfc_forecast_point'
+    must_include = 'nws_data.rfc_forecast_point' # TODO: Remove forecast point requirement here?
     downstream_trace_distance = 'all'
     fcst_list, __, err_msg = get_metadata(
         metadata_url=metadata_url,
