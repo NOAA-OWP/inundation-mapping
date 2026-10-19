@@ -1,0 +1,63 @@
+# ==========================================
+# Stage 1: Build Stage
+# ==========================================
+FROM ghcr.io/osgeo/gdal:ubuntu-small-3.13.2 AS builder
+
+# Prevent interactive prompts during apt installations
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install dependencies needed for compiling TauDEM 5.5.0
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    cmake \
+    openmpi-bin \
+    git \
+    libopenmpi-dev \
+    libgdal-dev \
+    libproj-dev \
+    libtiff-dev \
+    libgeotiff-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# libopenmpi-dev \
+#                         gdal-bin libgdal-dev libproj-dev libtiff-dev libgeotiff-dev
+
+# Clone the repository and build TauDEM
+# (Since TauDEM 5.4.0+, the NetCDF dependency is dropped, relying entirely on GDAL)
+#WORKDIR /tmp
+# RUN git clone https://github.com/dtarb/TauDEM.git /tmp/taudem \
+#     && cd /tmp/taudem \
+#     && git checkout v5.5.0 \
+#     && mkdir -p build \
+#     && cd build \
+#     && cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+#              -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=OFF \
+#              -DMPI_C_COMPILE_OPTIONS="" \
+#              -DMPI_CXX_COMPILE_OPTIONS="" .. \
+#     && make -j$(nproc) flowdircond streamnet gagewatershed catchhydrogeo d8flowdir pitremove
+
+    # && make install
+
+WORKDIR /taudem_builder
+
+# RUN git clone --branch v5.5.0 --depth 1 https://github.com/dtarb/TauDEM.git taudem
+# Note: --depth 1 means a simple clone and not all of the history, just the recent commit
+RUN git clone --branch v5.5.0 --depth 1 https://github.com/dtarb/TauDEM.git \
+    && cd TauDEM
+
+# Build for Debug Mode
+# mkdir -p build/debug
+# cd build/debug
+# cmake ../.. -C ../../config.cmake -DCMAKE_BUILD_TYPE=Debug [compiler options...]
+# make -j$(nproc)
+
+# Build for Release Mode
+RUN cmake -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_C_COMPILER=/usr/bin/gcc \
+    -DCMAKE_CXX_COMPILER=/usr/bin/g++ \
+    -DMPI_C_COMPILER=/usr/bin/mpicc \
+    -DMPI_CXX_COMPILER=/usr/bin/mpicxx \
+    --build /taudem_builder/bin \
+    --target flowdircond streamnet gagewatershed catchhydrogeo d8flowdir pitremove
+
+CMD ["/bin/bash"]

@@ -1,8 +1,16 @@
 #!/bin/bash
+set -e
 
-# Why is this in the src dir and not root?
+# Enforce default permissions for all files/folders created from this point forward.
+# umask 0002 means: 
+#   - New Folders get 775 (rwxrwxr-x)
+#   - New Files get 664 (rw-rw-r--)
+umask 0002
 
-umask 002
-echo "Group ID: $GID | Group Name: $GN"
-newgrp $GN
+# Dynamically ensure runtime MPI bypass blocks are always globally active
+export OMPI_ALLOW_RUN_AS_ROOT=1
+export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+
+# Hand over process execution to whatever command was passed to the container (e.g. bash, python, jupyter)
+echo "Running foss_fim docker container"
 exec "$@"

@@ -1,0 +1,109 @@
+# Start directly from the official pre-built GDAL 3.13.3 environment
+FROM ghcr.io/osgeo/gdal:ubuntu-small-3.13.3
+
+USER root
+
+# 1. Global System Locales, Timezone, and Non-interactive Configurations
+ENV LC_ALL=C.UTF-8 \
+    LANG=C.UTF-8 \
+    DEBIAN_FRONTEND=noninteractive \
+    TZ=UTC
+
+
+# 2. Setup Build Arguments and Sequential Environment Paths
+ARG dataDir=/data
+ENV projectDir=/foss_fim
+ENV inputsDir=$dataDir/inputs
+ENV outputsDir=/outputs
+ENV srcDir=$projectDir/src
+ENV toolsDir=$projectDir/tools
+ENV workDir=/fim_temp
+
+
+# 1. Install standard build tools, MPI libraries, and necessary system headers
+# Includes hdf5/netcdf libraries for netcdf4, spatialindex for rtree, and gfortran for scipy expansions
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    cmake \
+    git \
+    gfortran \
+    mpich \
+    libmpich-dev \
+    libproj-dev \
+    libhdf5-dev \
+    libnetcdf-dev \
+    libspatialindex-dev \
+    ca-certificates \
+    python3-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# 2. Install 'uv' directly via its official binary installer
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+# 3. Clone and compile TauDEM 5.5 from source
+WORKDIR /opt/taudem_build
+RUN git clone --branch v5.5.0 https://github.com . \
+    && cd src \
+    && mkdir build && cd build \
+    && cmake .. -DCMAKE_INSTALL_PREFIX=/usr/local/taudem \
+    && make -j$(nproc) \
+    && make install
+
+# Clean up TauDEM source files to keep the image slim
+WORKDIR /
+RUN rm -rf /opt/taudem_build
+
+# Register TauDEM and your dynamic project directory to the global system lookup paths
+ENV PATH="${projectDir}:${PATH}"
+ENV PATH="/usr/local/taudem:${PATH}"
+
+
+# 4. Copy and Install your Python Packages using uv
+COPY requirements-7-a.txt /tmp/requirements.txt
+
+# CRITICAL COMPATIBILITY FIX:
+# We tell pyogrio where GDAL lives, then force source compilation for 
+# the core GIS packages so they match your native system GDAL 3.13/PROJ.
+# The packages will be specifically compiled for GDAL 3.13
+# Force source compilation for core geospatial packages to guarantee 
+# perfect binding compatibility with native system libraries.
+RUN export GDAL_HOME=/usr && \
+    uv pip install --system \
+    --no-binary pyproj \
+    --no-binary fiona \
+    --no-binary rasterio \
+    --no-binary pyogrio \
+    --no-binary netcdf4 \
+    -r /tmp/requirements.txt \
+    && rm /tmp/requirements.txt
+
+
+# 7 Configure paths and environmental permissions for Root execution
+ENV USER=root
+ENV HOME=/root
+
+
+
+## ADD TO PYTHON PATHS ##
+# Force Python to prefer the official, pre-optimized OSGeo GDAL package 
+# AND cleanly resolve imports across all your internal custom package sub-folders
+ENV PYTHONPATH="/usr/lib/python3/dist-packages:\
+${projectDir}:\
+${srcDir}:\
+${srcDir}/utils:\
+${projectDir}/data:\
+${toolsDir}:${PYTHONPATH}"
+
+# 8. Set up the entrypoint wrapper script
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# Lands the interactive terminal directly into your main project folder
+# Establish landing directory for your dynamic mount
+WORKDIR ${projectDir}
+
+# Expose port 8888 in case you want to launch Jupyter or JupyterLab from inside the container
+EXPOSE 8888
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["/bin/bash"]
