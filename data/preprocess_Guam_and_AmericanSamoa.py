@@ -3,49 +3,57 @@
 import argparse
 import os
 import sys
-from datetime import datetime, timezone
 
 import geopandas as gpd
 import py7zr
 import rasterio as rio
 from osgeo import gdal
 
-import src.utils.shared_functions as sf
 from data.create_vrt_file import create_vrt_file
 from data.derive_headwaters import findHeadWaterPoints
 from data.nfhl.download_fema_nfhl import download_nfhl_wrapper
-from data.usgs.acquire_and_preprocess_3dep_dems import __polygonize
 from src.utils.io import write_geodataframe
 
 
-def preprocess_nhdplus(region: str, inputs_dir: str):
+def preprocess_nhdplus(
+    region: str, date: str, inputs_dir: str, vrt_basename: str, vrt_output_dir: str, vrt_suffix: str
+):
     """
-    Preprocess NHDPlus data for a specific region.
+    Preprocess NHDPlus data for a Guam and American Samoa (AmericanSamoa) regions.
 
-    Parameters:
+    Parameters
+    ----------
         region : str
             The region to preprocess. Options are: 'AmericanSamoa', 'Guam'
+        date : str
+            The date to be attached to the data.
         inputs_dir : str
             The directory containing input data files.
+        vrt_basename : str
+            The basename of the VRT output file
+        vrt_output_dir : str
+            The folder to save the VRT output file
+        vrt_suffix : str
+            The suffix to add to the VRT basename and DEM_Domain files
 
     # Datasets downloaded from https://www.epa.gov/waterdata/
     """
 
+    nhdplus_root_raw = f'{inputs_dir}/nhdplus/'
     if region == 'Guam':
         region_code = '22GU'
         region_number = '22a'
         huc = '22010000'
         target_crs_number = '6637'
-        nhdplus_root_raw = f'{inputs_dir}/nhdplus/'
-        dem_file = f'{nhdplus_root_raw}/NHDPlusPI/NHDPlus{region_code}/NEDSnapshot/Ned{region_number}/elev_cm'
-        nhd_path = f'{nhdplus_root_raw}/NHDPlusPI/NHDPlus{region_code}/NHDSnapshot/Hydrography'
+        nhdplus_path = f'{nhdplus_root_raw}/NHDPlusPI/NHDPlus{region_code}'
+        dem_file = f'{nhdplus_path}/NEDSnapshot/Ned{region_number}/elev_cm'
+        nhd_path = f'{nhdplus_path}/NHDSnapshot/Hydrography'
 
     elif region == 'AmericanSamoa':
         region_code = '22AS'
         region_number = '22c'
         huc = '22030001'
         target_crs_number = '32702'
-        nhdplus_root_raw = f'{inputs_dir}/nhdplus/'
         nhdplus_path = f'{nhdplus_root_raw}/NHDPlusPI/NHDPlus{region_code}'
         dem_file = f'{nhdplus_path}/NEDSnapshot/ned{region_number}/elev_cm'
         nhd_path = f'{nhdplus_path}/NHDSnapshot/hydrography'
@@ -57,12 +65,16 @@ def preprocess_nhdplus(region: str, inputs_dir: str):
         region_code,
         region_number,
         huc,
+        date,
         target_crs_number,
         inputs_dir,
         nhdplus_root_raw,
         nhdplus_path,
         dem_file,
         nhd_path,
+        vrt_basename,
+        vrt_output_dir,
+        vrt_suffix,
     )
 
 
@@ -71,12 +83,16 @@ def preprocess_region(
     region_code,
     region_number,
     huc,
+    date,
     target_crs_number,
     inputs_dir,
     nhdplus_root_raw,
     nhdplus_path,
     dem_file,
     nhd_path,
+    vrt_basename,
+    vrt_output_dir,
+    vrt_suffix,
 ):
     """
     Preprocess NHDPlus data for a specific region.
@@ -86,8 +102,12 @@ def preprocess_region(
             The region to preprocess. Options are: 'AmericanSamoa', 'Guam'
         region_code : str
             The region code.
+        region_number : str
+            The region number (not CRS).
         huc : str
             The HUC identifier.
+        date : str
+            The date to be attached to the data
         target_crs_number : str
             The target CRS number.
         inputs_dir : str
@@ -100,11 +120,17 @@ def preprocess_region(
             The path to the DEM file.
         nhd_path : str
             The path to the NHD data.
+        vrt_basename : str
+            Basename of the VRT file to be written.
+        vrt_output_dir : str
+            Folder to save the VRT.
+        vrt_suffix : str
+            Suffix to add to VRT and DEM_domain (if specified)
 
     """
     target_name = f"{region}_{target_crs_number}"
     target_folder = f'{inputs_dir}/nhdplus/{target_name}'
-    target_dem_folder = f'{inputs_dir}/dems/3dep_dems/10m_{region}'
+    target_dem_folder = f'{inputs_dir}/dems/3dep_dems/10m_{region}/{date}'
     output_nodata = -999999
 
     os.makedirs(target_dem_folder, exist_ok=True)
@@ -191,14 +217,7 @@ def preprocess_region(
         with rio.open(os.path.join(target_dem_folder, f'HUC8_{huc}_dem.tif'), 'w', **meta) as dst:
             dst.write(elevation_data, 1)
 
-    create_vrt_file(target_dem_folder, 'hand_seamless_3dep_dems.vrt')
-
-    # Create DEM_Domain.parquet
-    file_dt_string = datetime.now(timezone.utc).strftime("%Y_%m_%d-%H_%M_%S")
-    log_file_path = os.path.join(target_dem_folder, f"preprocess_nhdplus_{region}-{file_dt_string}.log")
-    file_logger = sf.setup_mp_file_logger(log_file_path, f"preprocess_nhdplus_{region}")
-
-    __polygonize(target_dem_folder, file_logger)
+    create_vrt_file(target_dem_folder, vrt_basename, vrt_output_dir, vrt_suffix, run_polygonize=True)
 
     # Extract and reproject NHDPlus streams
     nhd_flowline = os.path.join(nhd_path, 'NHDFlowline.shp')
@@ -278,6 +297,17 @@ def preprocess_region(
 
 
 if __name__ == "__main__":
+    """
+    USAGE
+
+    python3 /foss_fim/data/preprocess_Guam_and_AmericanSamoa.py \
+        --region Guam \
+        --inputs_dir /data/inputs \
+        --vrt_basename hand_seamless_dems_10m \
+        --vrt_output_dir /data/inputs/dems/vrt \
+        --vrt_suffix Guam_6637_20260619 \
+        --date 20260619
+    """
     parser = argparse.ArgumentParser(description="Preprocess NHDPlus data for a specified region.")
     parser.add_argument(
         "-r",
@@ -288,6 +318,26 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "-i", "--inputs_dir", type=str, required=True, help="The directory containing input data files."
+    )
+    parser.add_argument(
+        "-d", "--date", type=str, required=True, help="The run date to be added to the directory path."
+    )
+    parser.add_argument(
+        "-b", "--vrt_basename", type=str, required=True, help="The basename of the VRT output file."
+    )
+    parser.add_argument(
+        "-o",
+        "--vrt_output_dir",
+        type=str,
+        required=False,
+        help="Optional: the directory to write the VRT output file. If unspecified, the VRT will be written to the first inputs_dir.",
+    )
+    parser.add_argument(
+        "-s",
+        "--vrt_suffix",
+        type=str,
+        required=False,
+        help="Optional: the suffix to append to the VRT basename.",
     )
 
     args = parser.parse_args()

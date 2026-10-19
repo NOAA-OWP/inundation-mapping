@@ -4,12 +4,23 @@ import argparse
 import logging
 import os
 from datetime import datetime, timezone
+from pathlib import Path
 
 from osgeo import gdal
 
 import src.utils.shared_functions as sf
 from src.utils.polygonize_raster import polygonize_extent
 from src.utils.shared_functions import FIM_Helpers as fh
+
+
+def valid_dir(path_str):
+    """Validates that a string path exists and is a directory."""
+    path = Path(path_str)
+    if not path.exists():
+        raise argparse.ArgumentTypeError(f"The path '{path_str}' does not exist.")
+    if not path.is_dir():
+        raise argparse.ArgumentTypeError(f"The path '{path_str}' is a file, not a directory.")
+    return str(path)  # Returns a Path object; change to str(path) if you strictly need strings
 
 
 def create_vrt_file(
@@ -19,6 +30,20 @@ def create_vrt_file(
     Overview
     ----------
     Takes all .tif files in one or more given directories, generates a single relative VRT, and optionally a DEM_Domain parquet.
+
+
+    Parameters
+    ----------
+        src_directories : str or list
+            The directory/directories from which to build the VRT
+        vrt_basename : str
+            The basename of the VRT output file (e.g., "hand_seamless_dems_10m")
+        vrt_output_dir : str
+            The folder to save the VRT output file (default is the first entry in src_directories)
+        vrt_suffix : str
+            The suffix to add to the VRT basename and DEM_Domain files (e.g., "CONUS_5070_20260708")
+        run_polygonize : bool
+            If True, create a polygon of the VRT extent
     '''
 
     if not src_directories:
@@ -163,6 +188,7 @@ if __name__ == '__main__':
         help='Space-separated list of directories where the .tif files exist.',
         required=True,
     )
+    parser.add_argument('-b', '--vrt_basename', help='The base name for the VRT file', required=True)
     parser.add_argument(
         '-n',
         '--vrt_output_dir',
@@ -170,7 +196,6 @@ if __name__ == '__main__':
         required=False,
         default=None,
     )
-    parser.add_argument('-b', '--vrt_basename', help='The base name for the VRT file', required=True)
     parser.add_argument(
         '-x',
         '--vrt_suffix',
@@ -183,7 +208,7 @@ if __name__ == '__main__':
         '--polygonize',
         dest='run_polygonize',
         action='store_true',
-        help='If specified, also generate the DEM_Domain GeoParquet file.',
+        help='If True, also generate the DEM_Domain GeoParquet file.',
         required=False,
     )
 
