@@ -71,6 +71,8 @@ ENV taudemDir=$depDir/taudem/bin
 ENV taudemDir2=$depDir/taudem_accelerated_flowDirections/taudem/build/bin
 
 ## ADDING FIM GROUP ##
+# TODO: In theory, we do not need this but for some reason, without it
+# the image will not actual start up
 ARG GroupID=1370800235
 ARG GroupName=fim
 RUN groupadd --gid $GroupID $GroupName
@@ -124,6 +126,8 @@ ENV MAMBA_ROOT_PREFIX=/opt/micromamba
 
 # Install Pipenv with the break flag 
 RUN python3 -m pip install --no-cache-dir pipenv --break-system-packages
+
+ENV PIPENV_VENV_IN_PROJECT=1
 
 # These currently throw errors as they are not yet installed
 # by this point, but continues with the fresh install. Leaving upgrade error

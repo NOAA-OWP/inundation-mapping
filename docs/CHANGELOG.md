@@ -69,6 +69,48 @@ So `run_with_mp` (our shared parallel-processing helper) now supports an optiona
 - `src/heal_bridges_osm.py` — adjusted to read the new GeoParquet format.
 - `src/process_roads_fimpact.py` — adjusted to read the new GeoParquet format.
 - `src/bash_variables.env` — updated bridge data version and preclip version; added `osm_roads_per_huc_dir`; removed the now-unused `osm_roads`, `osm_roads_alaska`, `osm_roads_guam`, `osm_roads_americansamoa` vars.
+## 4.10.3.0 - 2026-10-16 - [PR#1959](https://github.com/NOAA-OWP/inundation-mapping/pull/1959)
+Various Pip packages changes include:
+- `Added`: cryptography, notebook, scikit-learn, xgboost 
+- `Updated`: (Pipfile only, not counting pipfile.lock changes): jupyterlab, py7zr, urllib3
+- `Updated GVAL`:  Moved from 0.2.12 to 0.2.13.  Unable to go to the latest of 0.14.0 due to dependency issues.
+- A good handful of dependencies have been upgraded in Pipfile.lock related to the changes above.
+
+This will also satisfy all latest DepBot warnings for: jupyter-server, mistune, idna, aiohttp, pyarrow, tornado, bleach.
+
+Note: `Dockerfile.owp` has not been changed at this time as the changes here are not needed in owp servers for its tools.
+
+### Changes
+- `Dockerfile.dev`: Added the apt package `osmium-tools` for Ali. Added some code to help with adding or updating packages inside the container for pipenv. New procedure doc coming soon.
+- `Pipfile` / `Pipfile.lock`: As described above.
+- `src/entrypoint.sh`:  A little cleanup
+<br/>
+
+## 4.10.2.2 - 2026-10-16 - [PR#1957](https://github.com/NOAA-OWP/inundation-mapping/pull/1957)
+
+For certain sites in stage-based CatFIM, inundation labeled for one site was also being mapped at another nearby site. For example, site major stage inundation for site RDYP1 was also being mapped at the location of site COKP1 (but it was still labeled as RDYP1 major stage). This issue has been repaired by including a filter in that section of processing that filters out any .tif files that are not for the site being processed.
+
+### Changes
+- `/inundation-mapping/tools/catfim/generate_categorical_fim_mapping.py`: Added list filtering to `mosaic_sb_inundation()`.
+<br />
+
+## 4.10.2.1 - 2026-10-08 - [PR#1953](https://github.com/NOAA-OWP/inundation-mapping/pull/1953)
+
+Refactor LoFi code for better performance. 
+The primary mechanisms that accomplish this are:
+- invert the main processing loop to optimize file i/o
+- vectorize the percentile computations.
+
+LoFi API changes:
+- `inundate_probabilistic` no longer computes streamflow percentiles internally. The user should call the `generate_streamflow_percentiles` function to compute the percentiles and use the result when calling `inundate_probabilistic`. This allows the resources needed to compute the percentiles to be closed before the main processing loop for more effective memory use.
+
+### Changes
+- `tools/lofi/probabilistic_inundation.py`: Invert main processing loop and vectorize `generate_streamflow_percentiles`. Separate percentile computation to better management of the ensemble resources.
+- `tools/lofi/probabilistic_version.py`: Update version of LoFI.
+- `tools/inundation.py`: Use ExitStack to manage rasterio resources.
+- `tools/inundate_gms.py`: Code cleanup.
+- `tools/mosaic_inundation.py`: Code cleanup.
+- `src/utils/shared_functions.py`: Added `is_local_path`.
 <br/>
 
 ## 4.10.2.0 - 2026-09-11 - [PR#1900](https://github.com/NOAA-OWP/inundation-mapping/pull/1900)
