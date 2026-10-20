@@ -1,10 +1,4 @@
-# Items put in here with versions force all other packages to match these.
-# Careful on interdepencies of ones in here. ie) numpy is here as gdal 3.12.3 must have a specific
-# lower numpy version. Use this arguments very sparingly.
-
-# Hard cap to prevent NumPy 2.x ABI compatibility with GDAL crashes
-# numpy<2.0
-
-# Pin GDAL to match the pre-compiled version inside the gdal:ubuntu-small docker image
+# Enforces all packages honor these versions of gdal and numpy
 gdal==3.12.3
-numpy>=2.0,<3.0
+#numpy==2.1.2
+numpy>=2.0.0

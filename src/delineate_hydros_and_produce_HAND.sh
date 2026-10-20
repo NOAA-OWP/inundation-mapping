@@ -93,7 +93,7 @@ python3 "${srcDir}/run_taudem_subprocess.py" flowdircond "${args[@]}"
 echo -e $startDiv"D8 Slopes from DEM ${hucNumber} ${current_branch_id}"
 args=(
     -n "${ncores_fd}"
-    -t "${taudemDir2}"
+    -t "${taudemDir}"
     -fel "${tempCurrentBranchDataDir}/dem_lateral_thalweg_adj_${current_branch_id}.tif"
     -sd8 "${tempCurrentBranchDataDir}/slopes_d8_dem_meters_${current_branch_id}.tif"
 )

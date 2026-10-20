@@ -133,7 +133,7 @@ rd_depression_filling "${args[@]}"
 echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber ${current_branch_id}"
 args=(
     -n "${ncores_fd}"
-    -t "${taudemDir2}"
+    -t "${taudemDir}"
     -fel "${tempCurrentBranchDataDir}/dem_burned_filled_${current_branch_id}.tif"
     -p "${tempCurrentBranchDataDir}/flowdir_d8_burned_filled_${current_branch_id}.tif"
 )

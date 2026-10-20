@@ -300,10 +300,11 @@ args=(
 rd_depression_filling "${args[@]}"
 
 ## D8 FLOW DIR - BRANCH 0 (include all NWM streams) ##
+echo "taudem dir is ${taudemDir}"
 echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber ${branch_zero_id}"
 args=(
     -n "$ncores_fd"
-    -t "${taudemDir2}"
+    -t "${taudemDir}"
     -fel "${tempCurrentBranchDataDir}/dem_burned_filled_${branch_zero_id}.tif"
     -p "${tempCurrentBranchDataDir}/flowdir_d8_burned_filled_${branch_zero_id}.tif"
 )

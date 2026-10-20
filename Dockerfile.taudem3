@@ -1,7 +1,7 @@
 # ==========================================
 # Stage 1: Build Environment (Using OSGeo GDAL 3.12)
 # ==========================================
-FROM ghcr.io/osgeo/gdal:ubuntu-small-3.12.3 AS builder
+FROM ghcr.io/osgeo/gdal:ubuntu-small-3.12.3 AS taudem_builder
 RUN echo "++++++++++++++++++++++++++++++++++++++++++++++\n Stage 1: Starting TauDEM build: $(date)"
 
 ENV DEBIAN_FRONTEND=noninteractive

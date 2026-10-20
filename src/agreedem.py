@@ -12,8 +12,9 @@ from utils.fim_enums import FIM_exit_codes
 
 # Set wbt envs
 wbt = whitebox.WhiteboxTools()
-wbt.set_whitebox_dir(os.environ.get("WBT_PATH"))  # need to set path prior to setting verbose mode
-wbt.set_verbose_mode(False)
+# wbt.set_whitebox_dir(os.environ.get("WBT_PATH"))  # need to set path prior to setting verbose mode
+# wbt.set_verbose_mode(False)
+wbt.verbose = False
 
 
 def agreedem(

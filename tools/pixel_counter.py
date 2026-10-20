@@ -20,6 +20,10 @@ from pixel_counter_functions import (
     get_nlcd_counts_inside_flood,
 )
 
+# Force the entire suite to throw standard catchable Python errors
+gdal.UseExceptions()
+ogr.UseExceptions()
+
 
 # With UseExceptions(), an error will raise an exception
 # TODO: Jul 1, 2025: look into this. We want it enabled but when runnign test_case_by_hydroid.py with this

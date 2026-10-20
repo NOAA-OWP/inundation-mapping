@@ -28,6 +28,8 @@ def run_d8flowdir(ncores, taudem_dir, fel_path, p_path=None, sd8_path=None):
         if sd8_path:
             cmd.extend(["-sd8", sd8_path])
 
+        print(cmd)
+
         # We merge stderr into stdout (stderr=subprocess.STDOUT) to process both in one loop.
         # bufsize=1 and universal_newlines=True (text=True) ensure line-buffered text output.
         process = subprocess.Popen(
