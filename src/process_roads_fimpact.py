@@ -6,21 +6,10 @@ from pathlib import Path
 import geopandas as gpd
 import numpy as np
 import pandas as pd
-import rasterio as rio
+import rasterio
 from rasterstats import zonal_stats
 
 from utils.io import write_geodataframe
-from utils.spatial import sjoin
-
-
-def min_hand_excluding_zero(values):
-    """Convert to unmasked array and drop 0 and masked/nodata.
-
-    return np.nan if on NoData Hand to be able to filter them later.
-    """
-    data = np.ma.filled(values.astype(float), np.nan)  # Convert masked to nan
-    valid = data[(data != 0) & (~np.isnan(data))]
-    return float(np.min(valid)) if valid.size > 0 else np.nan
 
 
 def flow_lookup_in_memory(stages: tuple, hydro_id: int, hydrotable_df: pd.DataFrame) -> tuple:
@@ -77,21 +66,27 @@ def process_roads_fimpact_in_memory(
     roads_gdf_splitted["branch"] = branch_id
 
     # Execute raster zonal statistics in RAM
-    with rio.open(rem_raster_path) as rem_src:
+    with rasterio.open(rem_raster_path) as rem_src:
         transform = rem_src.transform
-        nodata_val = rem_src.nodata
+        nodata = rem_src.nodata
+        rem_array = rem_src.read(1)
 
-        stats = zonal_stats(
-            roads_gdf_splitted["geometry"],
-            rem_raster_path,
-            affine=transform,
-            nodata=nodata_val,
-            all_touched=True,
-            stats=[],
-            add_stats={"min_ex0": min_hand_excluding_zero},
-        )
+        # HAND uses 0 to mark channel cells, which we need to exclude from the min threshold.
+        # Remap 0 -> nodata once here so the built-in `min` stat below can exclude it natively.
+        rem_array = np.where(rem_array == 0, nodata, rem_array)
 
-    roads_gdf_splitted.loc[:, "threshold_hand"] = [x.get("min_ex0") for x in stats]
+        with rasterio.Env():
+            stats = zonal_stats(
+                roads_gdf_splitted["geometry"],
+                rem_array,
+                affine=transform,
+                nodata=nodata,
+                all_touched=True,
+                stats=["min"],
+            )
+
+        roads_gdf_splitted.loc[:, "threshold_hand"] = [x.get("min") for x in stats]
+
     roads_gdf_splitted = roads_gdf_splitted.dropna(subset=["threshold_hand"]).copy()
 
     if roads_gdf_splitted.empty:
@@ -146,8 +141,8 @@ def process_roads_fimpact(
     rem_raster_path: str,
     roads_gpkg: str,
     catchments_gpkg: str,
-    hydrotable_csv: str,
-    output_gpkg: str,
+    hydrotable_csv: str = None,
+    output_gpkg: str = None,
     buffer_m: float = 1.5,
 ):
     """File I/O wrapper supporting both Parquet and GPKG catchment inputs."""
@@ -163,7 +158,9 @@ def process_roads_fimpact(
     else:
         catchments_gdf = gpd.GeoDataFrame()
 
-    hydrotable_df = pd.read_csv(hydrotable_csv) if Path(hydrotable_csv).is_file() else pd.DataFrame()
+    hydrotable_df = (
+        pd.read_csv(hydrotable_csv) if hydrotable_csv and Path(hydrotable_csv).is_file() else pd.DataFrame()
+    )
 
     process_roads_fimpact_in_memory(
         rem_raster_path=rem_raster_path,
@@ -177,16 +174,16 @@ def process_roads_fimpact(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process Road Flood Impact Analysis")
-    parser.add_argument("-g", "--rem-raster", required=True, help="REM raster path")
-    parser.add_argument("-r", "--roads-gpkg", required=True, help="Roads GPKG path")
-    parser.add_argument("-p", "--catchments-gpkg", required=True, help="Catchments GPKG or Parquet path")
-    parser.add_argument("-t", "--hydrotable-csv", required=True, help="HydroTable CSV path")
-    parser.add_argument("-o", "--output-gpkg", required=True, help="Output impact path (GPKG or CSV)")
-    parser.add_argument("-b", "--buffer-m", default=1.5, type=float, help="Buffer meters")
+    parser.add_argument("-g", "--rem_raster_path", required=True, help="REM raster path")
+    parser.add_argument("-r", "--roads_gpkg", required=True, help="Roads GPKG path")
+    parser.add_argument("-c", "--catchments_gpkg", required=True, help="Catchments GPKG or Parquet path")
+    parser.add_argument("-t", "--hydrotable_csv", required=False, default=None, help="HydroTable CSV path")
+    parser.add_argument("-o", "--output_gpkg", required=True, help="Output impact path (GPKG or CSV)")
+    parser.add_argument("-b", "--buffer_m", default=1.5, type=float, help="Buffer meters")
 
     args = vars(parser.parse_args())
     process_roads_fimpact(
-        rem_raster_path=args["rem_raster"],
+        rem_raster_path=args["rem_raster_path"],
         roads_gpkg=args["roads_gpkg"],
         catchments_gpkg=args["catchments_gpkg"],
         hydrotable_csv=args["hydrotable_csv"],

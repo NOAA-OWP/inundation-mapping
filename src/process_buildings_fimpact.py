@@ -11,16 +11,6 @@ import rasterio
 from rasterstats import zonal_stats
 
 
-def min_hand_excluding_zero(values):
-    """Convert to unmasked array and drop 0 and masked/nodata.
-
-    return np.nan if on NoData Hand to be able to filter them later.
-    """
-    data = np.ma.filled(values.astype(float), np.nan)  # Convert masked to nan
-    valid = data[(data != 0) & (~np.isnan(data))]
-    return float(np.min(valid)) if valid.size > 0 else np.nan
-
-
 def process_buildings_fimpact_in_memory(
     hand_grid_raster: str,
     buildings_gdf: gpd.GeoDataFrame,
@@ -34,17 +24,34 @@ def process_buildings_fimpact_in_memory(
     # Get branch_id from output path or default context
     branch_id = Path(output_path).parent.name if output_path else "0"
 
-    # Read hand grid
-    with rasterio.open(hand_grid_raster, "r") as hand_grid:
-        hand_grid_profile = hand_grid.profile
-        hand_grid_array = hand_grid.read(1)
-
     bldgs_gdf = buildings_gdf.copy()
     catchments_df = catchments_gdf[["HydroID", "feature_id", "geometry"]].copy()
 
     # Standardize ID types
     catchments_df["feature_id"] = catchments_df["feature_id"].astype(int).astype(str)
     catchments_df["HydroID"] = catchments_df["HydroID"].astype(int).astype(str)
+
+    original_count = len(bldgs_gdf)
+
+    # Read hand grid
+    with rasterio.open(hand_grid_raster, "r") as hand_grid:
+        hand_grid_profile = hand_grid.profile
+        hand_grid_array = hand_grid.read(1)
+
+        # Cheap prefilter: drop buildings whose HAND value is outside the max stage (> 25m)
+        pts = bldgs_gdf.geometry.representative_point()
+        hand_at_point = np.array([v[0] for v in hand_grid.sample(zip(pts.x, pts.y))])
+
+    # HAND uses 0 to mark channel cells, which we need to exclude from the min threshold.
+    # Remap 0 -> nodata once here so the built-in `min` stat below can exclude it natively.
+    nodata = hand_grid_profile["nodata"]
+    hand_grid_array = np.where(hand_grid_array == 0, nodata, hand_grid_array)
+
+    hand_at_point = np.where(hand_at_point == nodata, np.nan, hand_at_point)
+    bldgs_gdf = bldgs_gdf[~(hand_at_point > 25)]
+
+    removed_pct = (original_count - len(bldgs_gdf)) / original_count * 100 if original_count > 0 else 0
+    print(f"{branch_id}: HAND prefilter removed {removed_pct:.1f}% of {original_count} buildings")
 
     # Split buildings by HAND catchment boundaries so each piece has the correct HydroID
     bldgs_gdf = gpd.overlay(bldgs_gdf, catchments_df, how="intersection")
@@ -53,18 +60,18 @@ def process_buildings_fimpact_in_memory(
     if not bldgs_gdf.empty:
         bldgs_gdf["branch"] = str(branch_id)
 
-        # Call zonal_stats with the custom stat
-        stats = zonal_stats(
-            bldgs_gdf["geometry"],
-            hand_grid_array,
-            affine=hand_grid_profile["transform"],
-            nodata=hand_grid_profile["nodata"],
-            all_touched=True,
-            stats=[],  # No built-in stats needed
-            add_stats={"min_ex0": min_hand_excluding_zero},
-        )
+        # Call zonal_stats with the built-in min stat
+        with rasterio.Env():
+            stats = zonal_stats(
+                bldgs_gdf["geometry"],
+                hand_grid_array,
+                affine=hand_grid_profile["transform"],
+                nodata=nodata,
+                all_touched=True,
+                stats=["min"],
+            )
 
-        bldgs_gdf.loc[:, "threshold_hand"] = [x.get("min_ex0") for x in stats]
+        bldgs_gdf.loc[:, "threshold_hand"] = [x.get("min") for x in stats]
 
         # Remove NaN threshold hands (e.g., leveed areas)
         bldgs_gdf = bldgs_gdf.dropna(subset=["threshold_hand"])
@@ -103,9 +110,13 @@ def process_buildings_fimpact(
     hand_grid_raster: str, buildings_polygons: str, catchments_path: str, output_path: str
 ) -> None:
     """CLI / File-based wrapper supporting Parquet and GPKG catchment inputs."""
-    buildings_gdf = (
-        gpd.read_file(buildings_polygons) if os.path.exists(buildings_polygons) else gpd.GeoDataFrame()
-    )
+    if os.path.exists(buildings_polygons):
+        if str(buildings_polygons).endswith(".parquet"):
+            buildings_gdf = gpd.read_parquet(buildings_polygons)
+        else:
+            buildings_gdf = gpd.read_file(buildings_polygons)
+    else:
+        buildings_gdf = gpd.GeoDataFrame()
 
     if os.path.exists(catchments_path):
         if str(catchments_path).endswith(".parquet"):
@@ -133,14 +144,14 @@ if __name__ == "__main__":
     parser.add_argument(
         "-r",
         "--buildings_polygons",
-        help="REQUIRED: Path to a GPKG file containing the buildings polygons ",
+        help="REQUIRED: Path to a GeoParquet or GPKG file containing the buildings polygons",
         required=True,
     )
 
     parser.add_argument(
         "-c",
         "--catchments_path",
-        help="REQUIRED: Path and file name of the HAND catchments geopackage or parquet",
+        help="REQUIRED: Path and file name of the HAND catchments GeoParquet or GeoPackage",
         required=True,
     )
 
