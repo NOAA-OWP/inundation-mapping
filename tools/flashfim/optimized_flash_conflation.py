@@ -111,10 +111,15 @@ if __name__ == "__main__":
             "File does not exist. The lookup_table must be a pandas DataFrame or the path to a CSV file that can be opened as a pandas DataFrame."
         )
 
+    if args.domain == "CONUS":
+        cols = ["feature_id", "row_idx", "col_idx"]
+    else:
+        cols = ["feature_id", "row_idx", "col_idx", "area_scale"]
+
     # Read in lookup table
     lookup_table = pd.read_csv(
         args.lookup_table,
-        usecols=["feature_id", "row_idx", "col_idx", "area_scale"],
+        usecols=cols,
         dtype={'feature_id': 'Int64', 'row_idx': 'Int64', 'col_idx': 'Int64'}
         index_col="feature_id"
     ).dropna(subset=["row_idx", "col_idx"])
