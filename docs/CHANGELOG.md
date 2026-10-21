@@ -56,11 +56,9 @@ So `run_with_mp` (our shared parallel-processing helper) now supports an optiona
 ### Changes
 - `data/bridges/make_rasters_using_lidar.py` — adjusted to read `bridges_{HUC8}.parquet` (GeoParquet) input; its own output also switched to GeoParquet; removed a crash-prone unused debug write, added a run-level master log, switched to `run_with_mp` (`max_tasks_per_child=1`) for per-HUC fault tolerance, and added resume support (skip completed HUCs, retry partial ones).
 - `data/bridges/make_dem_dif_for_bridges.py` — adjusted to read `bridges_{HUC8}.parquet` (GeoParquet) input. Also, `-d`/`--dem_dir` now accepts multiple folder paths (needed for Alaska, whose DEM tifs are split across two folders), with a duplicate-HUC-across-folders check.
-- `config/params_template.env` — added a `process_roads_fimpact` toggle (default `"True"`), mirroring the existing `process_buildings_fimpact` toggle.
-- `src/delineate_hydros_and_produce_HAND.sh` —adjusted to read the new GeoParquet format for bridge and roads. 
+- `config/params_template.env` — added a `process_roads_fimpact` toggle (default `"True"`), mirroring the existing `process_buildings_fimpact` toggle. 
 - `data/roads/pull_osm_roads.py` -> `data/roads/legacy/pull_osm_roads.py` — deprecated, hard-stops on run with a redirect message.
 - `data/bridges/pull_osm_bridges.py` -> `data/bridges/legacy/pull_osm_bridges.py` — deprecated, hard-stops on run with a redirect message.
-- `Dockerfile.dev`, `Dockerfile.owp` — added `osmium-tool` (apt package required by `pull_osm.py`).
 - `src/utils/shared_functions.py` — added an optional `max_tasks_per_child` parameter to `run_with_mp` (see above); dropped the now-unused `'roads'` key from `get_huc_vars()`.
 - `data/wbd/clip_vectors_to_wbd.py` — adjusted to read the new GeoParquet format for bridge and roads; roads now transferred from the per-HUC directory (`osm_roads_per_huc_dir`) instead of clipped from a regional file.
 - `data/wbd/generate_pre_clip_fim_huc8.py` — adjusted for new format of roads data
@@ -69,6 +67,8 @@ So `run_with_mp` (our shared parallel-processing helper) now supports an optiona
 - `src/heal_bridges_osm.py` — adjusted to read the new GeoParquet format.
 - `src/process_roads_fimpact.py` — adjusted to read the new GeoParquet format.
 - `src/bash_variables.env` — updated bridge data version and preclip version; added `osm_roads_per_huc_dir`; removed the now-unused `osm_roads`, `osm_roads_alaska`, `osm_roads_guam`, `osm_roads_americansamoa` vars.
+<br/>
+
 ## 4.10.3.0 - 2026-10-16 - [PR#1959](https://github.com/NOAA-OWP/inundation-mapping/pull/1959)
 Various Pip packages changes include:
 - `Added`: cryptography, notebook, scikit-learn, xgboost 
