@@ -21,7 +21,9 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio as rio
+import rioxarray as rxr
 import shapely
+import xarray as xr
 from convert_to_int16 import convert_raster_file_to_int16_in_memory
 from evaluate_crosswalk import evaluate_crosswalk_in_memory
 from osgeo import gdal
@@ -171,17 +173,36 @@ GDAL_TO_NUMPY_DTYPES = {
 
 
 def persist_dataset(
-    src_ds: gdal.Dataset,
+    src_ds,
     dst_path: str,
     srs_wkt: str = None,
     force: bool = True,
     nodata_val: float = None,
     dtype: int = None,
 ):
-    """Flushes in-memory rasters to disk using multi-threaded CPU compression."""
+    """Flushes rasters to disk, supporting both GDAL Datasets and rioxarray DataArrays."""
     if not force and os.path.exists(dst_path):
         return
 
+    # Handle rioxarray / Xarray DataArray
+    if isinstance(src_ds, xr.DataArray):
+        out_da = src_ds
+        if nodata_val is not None:
+            out_da.rio.write_nodata(float(nodata_val), inplace=True)
+
+        out_da.rio.to_raster(
+            str(dst_path),
+            driver="GTiff",
+            compress="LZW",
+            tiled=True,
+            blockxsize=512,
+            blockysize=512,
+            num_threads="all_cpus",
+            BIGTIFF="IF_NEEDED",
+        )
+        return
+
+    # Legacy osgeo.gdal Dataset handling
     band = src_ds.GetRasterBand(1)
     if nodata_val is not None:
         band.SetNoDataValue(float(nodata_val))
@@ -258,76 +279,82 @@ def gdal_multiply_in_memory(ds_a: gdal.Dataset, ds_b: gdal.Dataset, nodata_val: 
     return out_ds
 
 
-def gdal_rem_zero_mask_in_memory(
-    ds_rem: gdal.Dataset, ds_gw_catchments_reaches: gdal.Dataset, nodata_val: float = -9999.0
-) -> gdal.Dataset:
+def rem_zero_mask_rioxarray(
+    rem_input, gw_catchments_reaches_input, nodata_val: float = -9999.0
+) -> xr.DataArray:
     """
-    Replicates dev gdal_calc.py --calc='(A*(A>=0)*(B>0))' --NoDataValue="${ndv}" exactly.
-    Uses dynamic nodata_val passed from env configuration.
+    Replicates dev gdal_calc.py --calc='(A*(A>=0)*(B>0))' --NoDataValue="${ndv}".
+    Accepts file paths (str/Path) or existing rioxarray DataArrays.
     """
-    band_a = ds_rem.GetRasterBand(1)
-    rem_arr = band_a.ReadAsArray().astype(np.float32)
-    rem_ndv = band_a.GetNoDataValue()
+    # Open rasters with masked=True so NoData pixels become np.nan automatically
+    da_rem = (
+        rxr.open_rasterio(rem_input, masked=True).squeeze(drop=True)
+        if isinstance(rem_input, (str, Path))
+        else rem_input
+    )
+    da_reach = (
+        rxr.open_rasterio(gw_catchments_reaches_input).squeeze(drop=True)
+        if isinstance(gw_catchments_reaches_input, (str, Path))
+        else gw_catchments_reaches_input
+    )
 
-    # FIX: If NoData is missing, unassigned, or set to 0.0, override with -999999.0
-    if rem_ndv is None or rem_ndv == 0.0 or np.isnan(rem_ndv):
-        rem_ndv = -999999.0
+    # Mask logic: Inside active catchments (B > 0) & valid REM data
+    valid_reach = da_reach > 0
+    valid_rem = da_rem.notnull() & (da_rem > -999900.0)
 
-    reach_arr = ds_gw_catchments_reaches.GetRasterBand(1).ReadAsArray()
-
-    # Active catchment mask (B > 0)
-    valid_reach = reach_arr > 0
-
-    # FIX: Valid REM mask explicitly preserves 0.0 stream cells
-    valid_rem = (rem_arr != rem_ndv) & (rem_arr > -999900.0) & ~np.isnan(rem_arr)
-
-    # Active processing mask: Must be inside active catchment AND have valid REM data
     active_mask = valid_reach & valid_rem
 
-    # Initialize output array entirely to nodata_val
-    out_arr = np.full_like(rem_arr, float(nodata_val), dtype=np.float32)
+    # Clamp negative values to 0.0 inside active mask, fill background with NoData
+    out_da = xr.where(active_mask, np.maximum(da_rem, 0.0), nodata_val)
 
-    # Inside the active mask, clamp negative bathymetry values to 0.0
-    out_arr[active_mask] = np.maximum(rem_arr[active_mask], 0.0)
+    # Preserve and register spatial metadata
+    out_da = out_da.astype(np.float32)
+    out_da.rio.write_crs(da_rem.rio.crs, inplace=True)
+    out_da.rio.write_transform(da_rem.rio.transform(), inplace=True)
+    out_da.rio.write_nodata(float(nodata_val), inplace=True)
 
-    # Build GDAL Memory Dataset matching input DEM profile
-    driver = gdal.GetDriverByName("MEM")
-    cols, rows = ds_rem.RasterXSize, ds_rem.RasterYSize
-    out_ds = driver.Create("", cols, rows, 1, gdal.GDT_Float32)
-    out_ds.SetGeoTransform(ds_rem.GetGeoTransform())
-    out_ds.SetProjection(ds_rem.GetProjectionRef())
-
-    band = out_ds.GetRasterBand(1)
-    band.SetNoDataValue(float(nodata_val))
-    band.WriteArray(out_arr)
-    out_ds.FlushCache()
-
-    return out_ds
+    return out_da
 
 
-def gdal_heal_hand_in_memory(
-    rem_ds: gdal.Dataset, dem_ds: gdal.Dataset, thalweg_cond_ds: gdal.Dataset, nodata_val: float
-) -> gdal.Dataset:
-    arr_r = rem_ds.GetRasterBand(1).ReadAsArray().astype(np.float32, copy=False)
-    arr_d = dem_ds.GetRasterBand(1).ReadAsArray().astype(np.float32, copy=False)
-    arr_t = thalweg_cond_ds.GetRasterBand(1).ReadAsArray().astype(np.float32, copy=False)
+def _to_dataarray(val, masked: bool = True) -> xr.DataArray:
+    """Helper to convert paths, GDAL datasets, or Xarray Datasets into a 2D DataArray."""
+    if isinstance(val, gdal.Dataset):
+        val = val.GetDescription()
 
-    ndv_float = float(nodata_val)
-    valid = arr_r != ndv_float
-    calc_res = np.copy(arr_r)
-    calc_res[valid] = arr_r[valid] + (arr_d[valid] - arr_t[valid])
+    if isinstance(val, (str, Path)):
+        da = rxr.open_rasterio(val, masked=masked).squeeze(drop=True)
+    else:
+        da = val
 
-    driver = gdal.GetDriverByName("MEM")
-    out_ds = driver.Create("", rem_ds.RasterXSize, rem_ds.RasterYSize, 1, gdal.GDT_Float32)
-    out_ds.SetGeoTransform(rem_ds.GetGeoTransform())
-    out_ds.SetProjection(rem_ds.GetProjectionRef())
+    # If open_rasterio produced a Dataset container, extract its DataArray
+    if isinstance(da, xr.Dataset):
+        da = da.to_dataarray().squeeze(drop=True)
 
-    band = out_ds.GetRasterBand(1)
-    band.SetNoDataValue(ndv_float)
-    band.WriteArray(calc_res)
-    out_ds.FlushCache()
+    return da
 
-    return out_ds
+
+def heal_hand_rioxarray(
+    rem_input, dem_input, thalweg_cond_input, nodata_val: float = -9999.0
+) -> xr.DataArray:
+    """
+    Replicates gdal_heal_hand_in_memory: calc_res = arr_r + (arr_d - arr_t).
+    Safely accepts file paths, GDAL Datasets, Xarray Datasets, or DataArrays.
+    """
+    da_rem = _to_dataarray(rem_input, masked=True)
+    da_dem = _to_dataarray(dem_input, masked=True)
+    da_thalweg = _to_dataarray(thalweg_cond_input, masked=True)
+
+    # Vectorized computation where REM is valid
+    valid = da_rem.notnull() & (da_rem != float(nodata_val))
+    calc_res = xr.where(valid, da_rem + (da_dem - da_thalweg), nodata_val)
+
+    # Preserve spatial metadata
+    calc_res = calc_res.astype(np.float32)
+    calc_res.rio.write_crs(da_rem.rio.crs, inplace=True)
+    calc_res.rio.write_transform(da_rem.rio.transform(), inplace=True)
+    calc_res.rio.write_nodata(float(nodata_val), inplace=True)
+
+    return calc_res
 
 
 def delineate_and_produce_hand(
@@ -794,16 +821,23 @@ def delineate_and_produce_hand(
     log_step(
         f"--> [Step 15] Bring negative values in REM to zero and mask (In-Memory) {huc_number} {current_branch_id}"
     )
-    ds_gw_reach = gdal.Open(str(tempCurrentBranchDataDir / f"gw_catchments_reaches_{current_branch_id}.tif"))
+    ds_gw_reach = tempCurrentBranchDataDir / f"gw_catchments_reaches_{current_branch_id}.tif"
 
     # Matches dev gdal_calc.py with Float32 output and NoData = ndv (-9999.0)
-    ds_rem_zero = gdal_rem_zero_mask_in_memory(ds_rem, ds_gw_reach, nodata_val=ndv)
-    persist_dataset(
-        ds_rem_zero,
+    # ds_rem_zero = gdal_rem_zero_mask_in_memory(ds_rem, ds_gw_reach, nodata_val=ndv)
+    # persist_dataset(
+    #     ds_rem_zero,
+    #     tempCurrentBranchDataDir / f"rem_zeroed_masked_{current_branch_id}.tif",
+    #     srs_wkt,
+    #     force=True,
+    #     nodata_val=ndv,
+    # )
+    ds_rem_zero = rem_zero_mask_rioxarray(rem_tif_path, ds_gw_reach, nodata_val=ndv)
+    ds_rem_zero.rio.to_raster(
         tempCurrentBranchDataDir / f"rem_zeroed_masked_{current_branch_id}.tif",
-        srs_wkt,
-        force=True,
-        nodata_val=ndv,
+        compress="LZW",
+        tiled=True,
+        num_threads="all_cpus",
     )
 
     ds_rem = None
@@ -969,7 +1003,8 @@ def delineate_and_produce_hand(
             f"--> [Step 23] Healed HAND to Remove Hydro-conditioning Artifacts {huc_number} {current_branch_id}"
         )
         ds_dem_orig = gdal.Open(str(tempCurrentBranchDataDir / f"dem_meters_{current_branch_id}.tif"))
-        ds_rem_zero = gdal_heal_hand_in_memory(ds_rem_zero, ds_dem_orig, ds_dem_cond, nodata_val=ndv)
+        # ds_rem_zero = gdal_heal_hand_in_memory(ds_rem_zero, ds_dem_orig, ds_dem_cond, nodata_val=ndv)
+        heal_hand_rioxarray(ds_rem_zero, ds_dem_orig, ds_dem_cond, nodata_val=ndv)
         persist_dataset(
             ds_rem_zero, tempCurrentBranchDataDir / f"rem_zeroed_masked_{current_branch_id}.tif", srs_wkt
         )
@@ -1075,44 +1110,17 @@ def delineate_and_produce_hand(
     with open(out_src_json_path, "w", encoding="utf-8") as f:
         json.dump(src_json_dict, f, sort_keys=True, indent=2)
 
-    # # --- 23.5 RE-BURN CATCHMENTS AGAINST ZEROED MASKED REM TEMPLATE ---
-    # log_step(
-    #     f"--> [Step 23.5] Re-burning catchment raster against zeroed masked REM template for {current_branch_id}"
-    # )
-
-    # zeroed_masked_rem_path = tempCurrentBranchDataDir / f"rem_zeroed_masked_{current_branch_id}.tif"
-
-    # if zeroed_masked_rem_path.exists():
-    #     # Align cross_catch_gdf strictly by driving reach order before re-burning
-    #     cross_hydro_order = {hid: idx for idx, hid in enumerate(cross_flows_gdf['HydroID'])}
-    #     cross_catch_gdf['_sort_key'] = cross_catch_gdf['HydroID'].map(cross_hydro_order)
-    #     cross_catch_gdf = (
-    #         cross_catch_gdf.sort_values('_sort_key').drop(columns=['_sort_key']).reset_index(drop=True)
-    #     )
-    #     cross_catch_gdf["HydroID_Index"] = np.arange(1, len(cross_catch_gdf) + 1, dtype=np.int16)
-
-    #     rasterize_vector(
-    #         vector_path_or_gdf=cross_catch_gdf,
-    #         template_raster_path=str(zeroed_masked_rem_path),
-    #         output_raster_path=str(
-    #             tempCurrentBranchDataDir
-    #             / f"gw_catchments_reaches_filtered_addedAttributes_{current_branch_id}.tif"
-    #         ),
-    #         attribute="HydroID_Index",
-    #         init_value=0,
-    #         dtype=np.int16,
-    #     )
-
     # --- 26. HEAL HAND (BRANCH ZERO) ---
     if is_healed_hand and current_branch_id == branch_zero_id:
         log_step(
             f"--> [Step 26] Healed HAND to Remove Hydro-conditioning Artifacts {huc_number} {current_branch_id}"
         )
-        ds_dem_orig = gdal.Open(str(tempCurrentBranchDataDir / f"dem_meters_{current_branch_id}.tif"))
-        ds_dem_cond = gdal.Open(str(tempCurrentBranchDataDir / f"dem_thalwegCond_{current_branch_id}.tif"))
-        ds_rem_zero = gdal.Open(str(tempCurrentBranchDataDir / f"rem_zeroed_masked_{current_branch_id}.tif"))
+        ds_dem_orig = tempCurrentBranchDataDir / f"dem_meters_{current_branch_id}.tif"
+        ds_dem_cond = tempCurrentBranchDataDir / f"dem_thalwegCond_{current_branch_id}.tif"
+        ds_rem_zero = tempCurrentBranchDataDir / f"rem_zeroed_masked_{current_branch_id}.tif"
 
-        ds_rem_zero_healed = gdal_heal_hand_in_memory(ds_rem_zero, ds_dem_orig, ds_dem_cond, nodata_val=ndv)
+        # ds_rem_zero_healed = gdal_heal_hand_in_memory(ds_rem_zero, ds_dem_orig, ds_dem_cond, nodata_val=ndv)
+        ds_rem_zero_healed = heal_hand_rioxarray(ds_rem_zero, ds_dem_orig, ds_dem_cond, nodata_val=ndv)
         persist_dataset(
             ds_rem_zero_healed,
             tempCurrentBranchDataDir / f"rem_zeroed_masked_{current_branch_id}.tif",
