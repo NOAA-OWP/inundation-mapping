@@ -1,5 +1,19 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
+## 4.10.3.1 - 2026-10-21 - [PR#1939](https://github.com/NOAA-OWP/inundation-mapping/pull/1939)
+
+Refactor to meet HydroVIS needs. We are trying to have all projects that feed into HydroVIS meet the following criteria:
+
+- All scripts have a modular entry point (i.e. a function that can be imported and called to perform the core logic)
+- No inputs to said modular entry point are paths to files that must be read. Any such case should be replaced with a pandas.DataFrame passed directly. If unavoidable, and as needed for intermediate processing, then all reads should be filesystem agnostic (ideally using fsspec).
+- The modular entry point does not write output files, but rather returns a pandas.DataFrame or other in-memory Pythonic objects.
+
+### Changes
+- File reads/writes now handled only on CLI entry point (i.e. `if __name__ == "__main__"`)
+- The `optimized_flash_flow_conflation` module entry point updated to:
+  - Accept a pandas.DataFrame rather than the path to a file.
+  - Return a pandas.DataFrame rather than writing a file and return nothing directly
+<br/>
 
 ## 4.10.3.0 - 2026-10-16 - [PR#1959](https://github.com/NOAA-OWP/inundation-mapping/pull/1959)
 Various Pip packages changes include:

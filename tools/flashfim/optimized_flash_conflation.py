@@ -14,12 +14,12 @@ from rasterio.session import AWSSession
 def optimized_flash_flow_conflation(model, lookup_table, domain, timestep):
     """
     Function for conflating the FLASH output flow values to the Hydrofabric feature_ids to obtain a flash flows DataFrame
-    for a given model (CREST, SAC-SMA, and Hydrophobic) that can be used to generate HAND FIM. This Function requires 
+    for a given model (CREST, SAC-SMA, and Hydrophobic) that can be used to generate HAND FIM. This Function requires
     a lookup table DataFrame of the index of pixels related to each feature_id and a timestep.
 
     Args:
         model (str): The model for which to produce a flows DataFrame
-        lookup_table (pd.DataFrame): lookup_table (pandas.DataFrame): A pandas DataFrame with feature_id as index and 
+        lookup_table (pd.DataFrame): lookup_table (pandas.DataFrame): A pandas DataFrame with feature_id as index and
                         the following columns: row_idx, col_idx, and area_scale. Available as CSV in the FIM S3 bucket
                         ~/inputs/flash_fim/flash_lookup_table_final.csv
         domain (str): Domain of FLASH model, i.e. "CONUS", "CARIB", "HAWAII", or "GUAM
@@ -67,6 +67,7 @@ def optimized_flash_flow_conflation(model, lookup_table, domain, timestep):
         lookup_table["discharge"] = lookup_table["discharge"] * lookup_table["area_scale"]
 
     return lookup_table[["discharge"]]
+
 
 if __name__ == "__main__":
     # Example Usage:
@@ -120,8 +121,8 @@ if __name__ == "__main__":
     lookup_table = pd.read_csv(
         args.lookup_table,
         usecols=cols,
-        dtype={'feature_id': 'Int64', 'row_idx': 'Int64', 'col_idx': 'Int64'}
-        index_col="feature_id"
+        dtype={'feature_id': 'Int64', 'row_idx': 'Int64', 'col_idx': 'Int64'},
+        index_col="feature_id",
     ).dropna(subset=["row_idx", "col_idx"])
 
     # Check for output directory
