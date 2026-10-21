@@ -13,6 +13,11 @@ IFC_MAGNITUDE_LIST = ["2yr", "5yr", "10yr", "25yr", "50yr", "100yr", "200yr", "5
 AHPS_MAGNITUDE_LIST = ["action", "minor", "moderate", "major"]
 RAS2FIM_MAGNITUDE_LIST = ["2yr", "5yr", "10yr", "25yr", "50yr", "100yr"]
 
+# Unit conversions
+METERS_TO_FEET = 3.28084
+CMS_TO_CFS = 35.3147
+MM_TO_METERS = 1000
+
 MAGNITUDE_DICT = {
     "ble": BLE_MAGNITUDE_LIST,
     "ifc": IFC_MAGNITUDE_LIST,
