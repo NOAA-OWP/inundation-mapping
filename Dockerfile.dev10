@@ -136,6 +136,13 @@ ENV PYTHONUNBUFFERED=1 \
 # Set other env variables
 ENV PATH="${projectDir}:${DEP_DIR}:${PATH}"
 
+# This helps with permissions when writing to drives.
+ARG GroupID=1370800235
+ARG GroupName=fim
+RUN groupadd --gid $GroupID $GroupName
+ENV GID=$GroupID
+ENV GN=$GroupName
+
 ## ============================
 # Copy TauDEM binaries into image
 ARG TAUDEM_BIN_SRC_DIR=/TauDEM_builder/bin
@@ -239,7 +246,31 @@ ENV PYTHONPATH="${projectDir}:${srcDir}:${srcDir}/utils:${projectDir}/data:${too
 # # Establish landing directory for your dynamic mount
 # WORKDIR ${projectDir}
 
-# # Expose port 8899 in case you want to launch Jupyter or JupyterLab from inside the container
+# ----------------------------------
+# +++ Whitebox
+# Mar 2023 / Sep 2024
+# There are some nuances in the whitebox python downloads in that the first time it loads
+# it goes to the internet and downloads the latest/greatest WBT (whiteboxtools) engine which is
+# required for the whitebox python library to work. We don't want to have FIM attempting a download
+# each time a container is opened and the whitebox engine is called.
+# Instead we will setup the WBT engine at time of docker build (same as Taudem and AWS).
+# Whitebox code detects that the engine it there and makes no attempt to update it.
+# We download and unzip it to the same file folder that pip deployed the whitebox library.
+# Whitebox also attempts to always download a folder called testdata regardless of use.
+# We added an empty folder to fake out whitebox_tools.py so it doesn't try to download the folder
+#ENV WBT_PATH=/usr/local/lib/python3.12/dist-packages/whitebox/WBT
+# ENV WBT_EXE_PATH=/usr/local/lib/python3.12/dist-packages/whitebox/whitebox_tools
+# RUN wget -P $WBT_PATH https://www.whiteboxgeo.com/WBT_Linux/WhiteboxTools_linux_musl.zip && \
+#     unzip -o $WBT_PATH/WhiteboxTools_linux_musl.zip -d $WBT_PATH && \
+#     cp $WBT_PATH/WhiteboxTools_linux_amd64/WBT/whitebox_tools $WBT_PATH
+# FORCE DOWNLOAD ONCE: This detects your /usr/local/... path and bakes it into the image layer
+# RUN python -c "import whitebox; whitebox.download_wbt(reset=True)"
+# ENV WBT_PATH=/usr/local/lib/python3.12/dist-packages/whitebox/WBT/whitebox_tools
+ENV WBT_EXE_PATH=/usr/local/lib/python3.12/dist-packages/whitebox/WBT/whitebox_tools
+# FORCE DOWNLOAD ONCE: This detects your /usr/local/... path and bakes it into the image layer
+RUN python -c "import whitebox; whitebox.download_wbt(reset=True)"
+
+# Expose port 8899 in case you want to launch Jupyter or JupyterLab from inside the container
 EXPOSE 8899
 
 COPY ./src/entrypoint.sh /

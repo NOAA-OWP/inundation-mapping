@@ -13,4 +13,8 @@ export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
 
 # Hand over process execution to whatever command was passed to the container (e.g. bash, python, jupyter)
 echo "Running foss_fim docker container"
+
+# Sets up files to be in valid group.
+newgrp $GN
+
 exec "$@"

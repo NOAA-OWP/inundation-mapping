@@ -300,13 +300,16 @@ args=(
 rd_depression_filling "${args[@]}"
 
 ## D8 FLOW DIR - BRANCH 0 (include all NWM streams) ##
-echo "taudem dir is ${taudemDir}"
+# Note: Oct 2026: Now with TauDEM 5.5, you have to give it a sd8 and a p file even if you
+# do not want it a this point.
+# We will just remove the sf8 temp file later.
 echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber ${branch_zero_id}"
 args=(
     -n "$ncores_fd"
     -t "${taudemDir}"
     -fel "${tempCurrentBranchDataDir}/dem_burned_filled_${branch_zero_id}.tif"
     -p "${tempCurrentBranchDataDir}/flowdir_d8_burned_filled_${branch_zero_id}.tif"
+    -sd8 "${tempCurrentBranchDataDir}/flowdir_d8_burned_filled_temp_slope_${branch_zero_id}.tif"    
 )
 python3 "${srcDir}/run_taudem_subprocess.py" d8flowdir "${args[@]}"
 
