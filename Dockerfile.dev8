@@ -1,0 +1,255 @@
+# RUN echo "++++++++++++++++++++++++++++++++++++++++++++++" \
+#     echo "Stage 2: Starting Stage 2 build (final): $(date)"
+
+# Docker will check your local machine for this image first
+# TEMP test, using the local taudem image I created earlier
+FROM taudem_build_image_3:latest AS taudem_builder
+
+FROM ghcr.io/osgeo/gdal:ubuntu-small-3.13.2
+
+# 1. Global System Locales, Timezone, and Non-interactive Configurations
+ENV LC_ALL=C.UTF-8 \
+    LANG=C.UTF-8 \
+    DEBIAN_FRONTEND=noninteractive \
+    TZ=UTC
+    
+# # Only install runtime MPICH for parallel execution
+# RUN apt-get update && apt-get install -y --no-install-recommends \
+#     mpich \
+#     && rm -rf /var/lib/apt/lists/*
+
+# # Copy compiled TauDEM executables from the builder stage
+# COPY --from=builder /usr/local/bin /usr/local/bin
+
+# # Set the system path
+# ENV PATH="/usr/local/bin:${PATH}"
+# WORKDIR /data
+
+# CMD ["pitremove"]
+
+# 2. Setup Build Arguments and Sequential Environment Paths
+ARG DATA_DIR=/data
+ARG DEP_DIR=/dependencies
+ARG TAUDEM_BIN_SRC_DIR=/TauDEM_builder/bin
+ARG TAUDEM_BIN_TRG_DIR=$DEP_DIR/TauDEM/bin
+
+ENV projectDir=/foss_fim
+ENV inputsDir=$DATA_DIR/inputs \
+    outputsDir=/outputs \
+    srcDir=$projectDir/src \
+    toolsDir=$projectDir/tools \
+    workDir=/fim_temp
+
+COPY --from=taudem_builder $TAUDEM_BIN_SRC_DIR $TAUDEM_BIN_TRG_DIR
+# RUN chown -R root:root $depDir && chmod -R 777 $depDir
+
+## ============================
+# Grab the official 'uv' binary using a multi-stage copy
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+# ==============================================================================
+RUN echo "++++++++++++++++++++++++++++++++++++++++++++++" \
+    && echo "Stage 2: Apt downloads and setup: $(date)"
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # --- Permanent Runtime Utilities ---
+    curl \
+    time \
+    parallel \
+    p7zip-full \
+    unzip \
+    git \
+    rsync \
+    tzdata \
+    wget \
+    osmium-tool \
+    ca-certificates \
+    # --- Temporary Python/Geospatial Build Tools needed in this script ---
+    build-essential \
+    python3-dev \
+    libgdal-dev \
+    libproj-dev \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Point Python C-extensions to the container's native GDAL and PROJ installations
+# Configure vital environment variables so system tools can find GDAL/PROJ
+ENV GDAL_CONFIG=/usr/bin/gdal-config \
+    PROJ_DIR=/usr/share/proj \
+    PROJ_LIB=/usr/local/share/proj \
+    PYPROJ_GLOBAL_CONTEXT=ON
+
+
+# UV Optimizations for global system Python and faster container startup
+ENV UV_SYSTEM_PYTHON=1 \
+    UV_COMPILE_BYTECODE=1 \
+    UV_PYTHON=/usr/bin/python3 \
+    UV_BREAK_SYSTEM_PACKAGES=1
+
+# Create the constraints file inline inside the container
+# Helps with ensureing packges updates stay inline with gdal 3.12.3
+RUN echo "gdal==3.13.2" > constraints.txt
+ENV UV_CONSTRAINT="constraints.txt"
+
+
+# Tell the compiler where the GDAL headers are located
+# TBD: Pyogrio might want these.  
+# ENV CPLUS_INCLUDE_PATH=/usr/include/gdal
+# ENV C_INCLUDE_PATH=/usr/include/gdal
+
+# Set system environment variables to prevent Python issues inside Docker
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+# Set other env variables
+ENV PATH="${projectDir}:${DEP_DIR}:${PATH}"
+
+
+# RUN echo "++++++++++++++++++++++++++++++++++++++++++++++" \
+#     && echo "Stage 2: Install micromamba: $(date)"
+
+# ENV MAMBA_ROOT_PREFIX=/opt/micromamba
+# # Install a newer PDAL runtime than the Ubuntu package currently provides.
+# RUN ARCH=$(uname -m) && \
+#     if [ "$ARCH" = "aarch64" ]; then \
+#         MAMBA_ARCH="linux-aarch64"; \
+#     else \
+#         MAMBA_ARCH="linux-64"; \
+#     fi && \
+#     wget -qO- https://micro.mamba.pm/api/micromamba/${MAMBA_ARCH}/latest | tar -xvj -C /usr/local/bin --strip-components=1 bin/micromamba && \
+#     micromamba create -y -p /opt/pdal-env -c conda-forge pdal=2.9.3 gdal proj proj-data && \
+#     micromamba clean --all --yes
+
+# ENV PDAL_CLI_PATH="/opt/pdal-env/bin/pdal"
+# ENV PDAL_ENV_ROOT="/opt/pdal-env"
+
+# RUN echo "++++++++++++++++++++++++++++++++++++++++++++++" \
+#     && echo "Stage 2: Install AWS CLI: $(date)"
+# # adding AWS CLI (for bash) ##
+# RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
+#     unzip awscliv2.zip && \
+#     ./aws/install && \
+#     rm awscliv2.zip
+
+
+RUN echo "++++++++++++++++++++++++++++++++++++++++++++++" \
+    && echo "Stage 2: Install /rebuild Whitebox: $(date)"
+
+# TODO: Might not be needed anymore
+
+# ----------------------------------
+# Mar 2023 / Sep 2024
+# There are some nuances in the whitebox python downloads in that the first time it loads
+# it goes to the internet and downloads the latest/greatest WBT (whiteboxtools) engine which is
+# required for the whitebox python library to work. We don't want to have FIM attempting a download
+# each time a container is opened and the whitebox engine is called.
+# Instead we will setup the WBT engine at time of docker build (same as Taudem and AWS).
+# Whitebox code detects that the engine it there and makes no attempt to update it.
+# We download and unzip it to the same file folder that pip deployed the whitebox library.
+# Whitebox also attempts to always download a folder called testdata regardless of use.
+# We added an empty folder to fake out whitebox_tools.py so it doesn't try to download the folder
+# ENV WBT_PATH=/usr/local/lib/python3.12/dist-packages/whitebox/WBT
+# RUN wget -P $WBT_PATH https://www.whiteboxgeo.com/WBT_Linux/WhiteboxTools_linux_musl.zip && \
+#     unzip -o $WBT_PATH/WhiteboxTools_linux_musl.zip -d $WBT_PATH && \
+#     cp $WBT_PATH/WhiteboxTools_linux_amd64/WBT/whitebox_tools $WBT_PATH
+
+
+RUN echo "++++++++++++++++++++++++++++++++++++++++++++++" \
+    && echo "Stage 2: Copy Pipfile and install packages: $(date)"
+
+
+# +++++++++++++++++++++++++++++++++
+# NOTES ABOUT UV PIP
+# If you are wanting to start from scratch and "reset" and packages and dependencies,
+# you can rebuild the requirements.ini using uv pip compile. It will automatically
+# figure out the dependencies including honoring the key constraint of gdal=3.13.2
+# Once you have a new requirements.txt, you can export it back out to /foss_fim/
+# and what for any package or package dependency updates. By not using 
+# uv pip compile specifically, you can use uv pip install commands to more carefully
+# manage package versions. Our product has a very, very large number of packages and
+# controlled version is critical. You do not want a key package to upgrade, change some
+# functions and you not know about it. And remember, fim-pipeline only uses appx 50 - 60% (ish)
+# of all tools, so fim-pipeline is not a good enough test.
+
+# ++++++++++++++++
+# Uncomment only if you are "rebuilding" all packages from scratch. see notes above
+COPY ./requirements-min.ini requirements-min.ini
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip compile requirements-min.ini -o requirements_v8_rebuild_20261019.txt
+
+# +++++++++++++++++++++++++++++++++
+
+# Copy and Install your Python Packages using uv
+
+# COPY ./requirements-from-raw-pipfile-8-upgraded.txt requirements.txt
+
+# RUN uv pip install --system -r requirements.txt
+
+# This ONLY purges the compilers and raw Python headers.
+# WE KEEP libgdal-dev and libproj-dev here so runtime bindings don't snap!
+RUN apt-get purge -y --auto-remove build-essential python3-dev gcc g++
+
+
+# CRITICAL COMPATIBILITY FIX:
+# We tell pyogrio where GDAL lives, then force source compilation for 
+# the core GIS packages so they match your native system GDAL 3.12/PROJ.
+# The packages will be specifically compiled for GDAL 3.12
+# Force source compilation for core geospatial packages to guarantee 
+# perfect binding compatibility with native system libraries.
+
+# 4. Install uv and compile the stack directly to the system python using local EBS caching
+# RUN --mount=type=cache,target=/root/.cache/uv \
+#     uv pip install \
+#     --no-binary fiona \
+#     --no-binary rasterio \
+#     --no-binary pyogrio \
+#     -r requirements.txt 
+
+
+# Upgrade packages the same time. CAUTION: It is very abnormal to do this as it will change a bunch of packages
+# and possible function interfaces that you do not want changed. Not all will be in the pipeline chain. 
+# Strongly recommend updating key packages one at a time.
+# Note: However, this syntax can upgrade everything but will honor gdal 3.13.2 then you can run uv pip compile and pip to /foss_fim/requirements.txt
+# to see what you now have. Then you an compare it via vscode tools to see what changed.
+# RUN --mount=type=cache,target=/root/.cache/uv \
+#     uv pip install --upgrade \
+#     --no-binary fiona \
+#     --no-binary rasterio \
+#     --no-binary pyogrio \
+#     -r requirements.txt 
+
+## ******
+
+## ADD GDAL Optimizations
+
+
+
+# This ONLY purges the temporary build tools (Your utilities will remain intact!)
+# RUN apt-get purge -y --auto-remove build-essential python3-dev libgdal-dev libproj-dev
+
+# # 7 Configure paths and environmental permissions for Root execution
+# ENV USER=root
+# ENV HOME=/root
+
+# ## ADD TO PYTHON PATHS ##
+ENV PYTHONPATH="/usr/lib/python3/dist-packages"
+ENV PYTHONPATH="${PYTHONPATH}:${projectDir}:${srcDir}:${srcDir}/utils:${projectDir}/data:${toolsDir}"
+
+# # Lands the interactive terminal directly into your main project folder
+# # Establish landing directory for your dynamic mount
+# WORKDIR ${projectDir}
+
+# # Expose port 8899 in case you want to launch Jupyter or JupyterLab from inside the container
+EXPOSE 8899
+
+COPY ./src/entrypoint.sh /
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/bin/bash", "/entrypoint.sh"]
+
+CMD ["/bin/bash"]
+
+RUN echo "++++++++++++++++++++++++++++++++++++++++++++++" \
+    && echo "Stage 2: Complete: $(date)" \
+    && echo "++++++++++++++++++++++++++++++++++++++++++++++"

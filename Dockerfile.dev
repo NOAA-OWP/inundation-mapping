@@ -1,6 +1,12 @@
 ## Temporary image to build the libraries and only save the needed artifacts
-FROM ghcr.io/osgeo/gdal:ubuntu-small-3.12.3 AS builder
+FROM ghcr.io/osgeo/gdal:ubuntu-small-3.12.3 AS taudem_builder
+
+RUN echo "++++++++++++++++++++++++++++++++++++++++++++++\n Stage 1: Starting build: $(date)"
+
+ENV DEBIAN_FRONTEND=noninteractive
+
 WORKDIR /opt/builder
+
 ARG depDir=/dependencies
 ARG taudemVersion=98137bb6541a0d0077a9c95becfed4e56d0aa0ac
 ARG taudemVersion2=81f7a07cdd3721617a30ee4e087804fddbcffa88
@@ -9,19 +15,27 @@ ENV taudemDir2=$depDir/taudem_accelerated_flowDirections/taudem/build/bin
 
 ## ============================
 ## Fix APT permission issue
-ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && \
     apt-get install -y --no-install-recommends apt-utils && \
     apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/apt/*
 
 ## ============================
 ## Install dependencies for compilation
+# RUN apt-get update && apt-get install -y --no-install-recommends \
+#     git cmake mpich libmpich-dev libgtest-dev libboost-test-dev libnetcdf-dev \
+#     make gcc g++ \
+#     && apt-get clean \
+#     && rm -rf /var/lib/apt/lists/*
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git cmake mpich libmpich-dev libgtest-dev libboost-test-dev libnetcdf-dev make gcc g++ \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+    git cmake make gcc g++ libgdal-dev mpich libmpich-dev \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
 ## ============================
 ## Clone repositories
+RUN echo "++++++++++++++++++++++++++++++++++++++++++++++" \
+    echo "Stage 1: Git clone and branch checkout and build for tauDEM"
 RUN git clone https://github.com/dtarb/taudem.git
 RUN git clone https://github.com/fernandoa123/cybergis-toolkit.git taudem_accelerated_flowDirections
 
@@ -33,8 +47,18 @@ RUN cd taudem \
     && cd src \
     && make
 
+# RUN cd taudem \
+#     && git checkout $taudemVersion \
+#     && cd src \
+#     && cmake -DCMAKE_BUILD_TYPE=Release .. && \
+#     && make -j$(nproc) && \
+#     && make install
+
+
 ## ============================
 ## Compile taudem repo with accelerated flow directions ##
+RUN echo "++++++++++++++++++++++++++++++++++++++++++++++" \
+    echo "Stage 1: Git clone and branch checkout and build for taudem_accelerated_flowDirections: $(date)"
 RUN cd taudem_accelerated_flowDirections/taudem \
     && git checkout $taudemVersion2 \
     && mkdir build \
@@ -42,23 +66,36 @@ RUN cd taudem_accelerated_flowDirections/taudem \
     && cmake .. \
     && make
 
+
 ## ============================
 ## Move needed binaries to the next stage of the image
+RUN echo "++++++++++++++++++++++++++++++++++++++++++++++" \
+    echo "Stage 1: tauDEM cleanup: $(date)"
+
 RUN mkdir -p $taudemDir
 RUN mkdir -p $taudemDir2
 RUN cd taudem/bin \
-     && mv -t $taudemDir flowdircond streamnet gagewatershed catchhydrogeo dinfdistdown
+     && mv -t $taudemDir flowdircond streamnet gagewatershed catchhydrogeo
 RUN cd taudem_accelerated_flowDirections/taudem/build/bin \
-     && mv -t $taudemDir2 d8flowdir dinfflowdir
+     && mv -t $taudemDir2 d8flowdir
 
 ## ============================
 ## Fix permissions before copying to final stage
-RUN chown -R root:root $depDir && chmod -R 777 $depDir
+# RUN chown -R root:root $depDir && chmod -R 777 $depDir
+
+RUN echo "++++++++++++++++++++++++++++++++++++++++++++++" \
+    echo "Stage 1: Complete: $(date)" \
+    echo "++++++++++++++++++++++++++++++++++++++++++++++"
 
 
 ###############################################################################################
 # Base Image that has GDAL, PROJ, etc
+
+RUN echo "++++++++++++++++++++++++++++++++++++++++++++++" \
+    echo "Stage 2: Starting Stage 2 build: $(date)"
+
 FROM ghcr.io/osgeo/gdal:ubuntu-small-3.12.3
+
 ARG dataDir=/data
 ENV projectDir=/foss_fim
 ARG depDir=/dependencies
@@ -70,29 +107,49 @@ ENV workDir=/fim_temp
 ENV taudemDir=$depDir/taudem/bin
 ENV taudemDir2=$depDir/taudem_accelerated_flowDirections/taudem/build/bin
 
-## ADDING FIM GROUP ##
-# TODO: In theory, we do not need this but for some reason, without it
-# the image will not actual start up
-ARG GroupID=1370800235
-ARG GroupName=fim
-RUN groupadd --gid $GroupID $GroupName
-ENV GID=$GroupID
-ENV GN=$GroupName
+ENV LC_ALL=C.UTF-8 \
+    LANG=C.UTF-8 \
+    DEBIAN_FRONTEND=noninteractive \
+    TZ=UTC
 
 ## ============================
 ## Create working directories
 RUN mkdir -p $workDir
-RUN mkdir -p $depDir
 
-## ============================
-## Fix COPY issue
-COPY --from=builder $depDir $depDir
+COPY --from=taudem_builder $depDir $depDir
 RUN chown -R root:root $depDir && chmod -R 777 $depDir
 
-## adding environment variables for numba and python ##
-ENV LC_ALL=C.UTF-8
-ENV LANG=C.UTF-8
-ENV PYTHONUNBUFFERED=TRUE
+ENV PATH="${projectDir}:${PATH}"
+
+## ADD TO PYTHON PATHS ##
+ENV PYTHONPATH="${projectDir}:\
+${srcDir}:\
+${srcDir}/utils:\
+${projectDir}/data:\
+${toolsDir}"
+
+## ADDING FIM GROUP ##
+# ARG GroupID=1370800235
+# ARG GroupName=fim
+# RUN groupadd --gid $GroupID $GroupName
+# ENV GID=$GroupID
+# ENV GN=$GroupName
+
+# # Use the astral image to get uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+# ==============================================================================
+# UV Optimizations for global system Python and faster container startup
+ENV UV_SYSTEM_PYTHON=1
+ENV UV_COMPILE_BYTECODE=1
+ENV UV_PYTHON=/usr/bin/python3
+# Set system environment variables to prevent Python issues inside Docker
+ENV PYTHONUNBUFFERED=1
+
+
+
+RUN echo "++++++++++++++++++++++++++++++++++++++++++++++" \
+    echo "Stage 2: Apt downloads and setup: $(date)"
 
 ########################
 
@@ -103,86 +160,217 @@ ENV PYTHONUNBUFFERED=TRUE
 
 ########################
 
-
-## ============================
-## Install necessary packages
-ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    p7zip-full python3.12 python3-pip python3-dev time parallel \
-    mpich libmpich-dev libgeos-dev \
-    make gcc g++ expect rsync tzdata wget bzip2 curl unzip acl osmium-tool \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
-RUN apt auto-remove
+    build-essential \
+    python3-dev \
+    libspatialindex-dev \
+    libnetcdf-dev \
+    libhdf5-dev \
+    time \
+    parallel \
+    htop \
+    acl \
+    p7zip-full \
+    unzip \
+    git \
+    rsync \
+    tzdata \
+    wget \
+    osmium-tool \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
-## Python Environment Bypass (Required for Ubuntu 24.04/Python 3.12) ##
-ENV PIP_BREAK_SYSTEM_PACKAGES=1 \
-    PIP_IGNORE_INSTALLED=1 \
-    PIPENV_SYSTEM=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_ROOT_USER_ACTION=ignore
 
-ENV TZ=UTC
-ENV MAMBA_ROOT_PREFIX=/opt/micromamba
+# Set required include paths so the build process can locate the GDAL C++ headers
+ENV CPLUS_INCLUDE_PATH=/usr/include/gdal
+ENV C_INCLUDE_PATH=/usr/include/gdal
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
 
-# Install Pipenv with the break flag 
-RUN python3 -m pip install --no-cache-dir pipenv --break-system-packages
 
-ENV PIPENV_VENV_IN_PROJECT=1
 
-# These currently throw errors as they are not yet installed
-# by this point, but continues with the fresh install. Leaving upgrade error
-# in place in case this order of installing changes later.
-RUN python3 -m pip install --upgrade pip setuptools wheel
+# ==============================================================================
+# Point Python C-extensions to the container's native GDAL and PROJ installations
+# Configure vital environment variables so system tools can find GDAL/PROJ
+ENV GDAL_CONFIG=/usr/bin/gdal-config
+ENV PROJ_DIR=/usr/share/proj
 
-# Install a newer PDAL runtime than the Ubuntu package currently provides.
-RUN ARCH=$(uname -m) && \
-    if [ "$ARCH" = "aarch64" ]; then \
-        MAMBA_ARCH="linux-aarch64"; \
-    else \
-        MAMBA_ARCH="linux-64"; \
-    fi && \
-    wget -qO- https://micro.mamba.pm/api/micromamba/${MAMBA_ARCH}/latest | tar -xvj -C /usr/local/bin --strip-components=1 bin/micromamba && \
-    micromamba create -y -p /opt/pdal-env -c conda-forge pdal=2.9.3 gdal proj proj-data && \
-    micromamba clean --all --yes
+# ==============================================================================
+# UV Optimizations for global system Python and faster container startup
+ENV UV_SYSTEM_PYTHON=1
+ENV UV_COMPILE_BYTECODE=1
+ENV UV_PYTHON=/usr/bin/python3
+# Set system environment variables to prevent Python issues inside Docker
+ENV PYTHONUNBUFFERED=1
 
-# adding AWS CLI (for bash) ##
-RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
-    unzip awscliv2.zip && \
-    ./aws/install && \
-    rm awscliv2.zip
+# ==============================================================================
+# This prevents thread-multiplication chaos when you spawn a Python ProcessPool 
+# or run several GNU parallel jobs at once.
+# Parallel Processing & CPU Thrashing Mitigations
+ENV OMP_NUM_THREADS=1
+ENV MKL_NUM_THREADS=1
+ENV OPENBLAS_NUM_THREADS=1
+ENV VECLIB_MAXIMUM_THREADS=1
+ENV NUMBA_NUM_THREADS=1
+ENV ARROW_IO_THREADS=1
 
-# ----------------------------------
-# Mar 2023 / Sep 2024
-# There are some nuances in the whitebox python downloads in that the first time it loads
-# it goes to the internet and downloads the latest/greatest WBT (whiteboxtools) engine which is
-# required for the whitebox python library to work. We don't want to have FIM attempting a download
-# each time a container is opened and the whitebox engine is called.
-# Instead we will setup the WBT engine at time of docker build (same as Taudem and AWS).
-# Whitebox code detects that the engine it there and makes no attempt to update it.
-# We download and unzip it to the same file folder that pip deployed the whitebox library.
-# Whitebox also attempts to always download a folder called testdata regardless of use.
-# We added an empty folder to fake out whitebox_tools.py so it doesn't try to download the folder
-ENV WBT_PATH=/usr/local/lib/python3.12/dist-packages/whitebox/WBT
-RUN wget -P $WBT_PATH https://www.whiteboxgeo.com/WBT_Linux/WhiteboxTools_linux_musl.zip && \
-    unzip -o $WBT_PATH/WhiteboxTools_linux_musl.zip -d $WBT_PATH && \
-    cp $WBT_PATH/WhiteboxTools_linux_amd64/WBT/whitebox_tools $WBT_PATH
-# ----------------------------------
 
-## ADD TO PATHS ##
-ENV PATH="$projectDir:${PATH}"
-ENV PYTHONPATH="${projectDir}:${srcDir}:${srcDir}/utils:${projectDir}/data:${toolsDir}"
+# ==============================================================================
+# GDAL PERFORMANCE TUNING
+# Advanced GDAL/OGR Driver Optimizations and Mosaic Optimizations
 
-# ## install python 3 modules ##
-COPY Pipfile Pipfile.lock ./
-RUN pipenv install --deploy --system --ignore-pipfile
+# *****  NOTES about GDAL Overrides  *****
 
-# CRITICAL: Reinstall Legacy Stack to prevent NumPy 2.x from breaking GDAL 
-RUN python3 -m pip install --force-reinstall --break-system-packages \
-    "numpy<2.0.0" \
-    "scipy==1.13.1"
+# When using gdalwarp, this can be overridden using the -co NUM_THREADS=ALL_CPUS
+# or similar, adjusting for the number of threads, default will set to 1
 
-ENV PDAL_CLI_PATH="/opt/pdal-env/bin/pdal"
-ENV PDAL_ENV_ROOT="/opt/pdal-env"
+# If you are using gdal via rasterio, use a rasterio enviro.
+# import rasterio
+# from rasterio.warp import calculate_default_transform, reproject, Resampling
+
+# # Temporarily open up all CPU cores specifically for this heavy warp block
+# adjusting the NUM THREADS to a value that makes sense for parallelization
+# But you only need the outside rasterio.Env with if you want to override the two
+# defaults which are 1.
+# with rasterio.Env(GDAL_NUM_THREADS='ALL_CPUS', NUM_THREADS='ALL_CPUS'):
+#     with rasterio.open('input.tif') as src:
+#         # Perform your heavy reproject / warp here...
+#         pass
+ENV GDAL_NUM_THREADS=1
+# Optimize GDAL/OGR's built-in GeoParquet driver thread pool 
+ENV OGR_PARQUET_NUM_THREADS=1
+# Expand internal GDAL RAM memory caching (Defaults to only 5% of RAM)
+ENV GDAL_CACHEMAX=1024
+ENV OGR_SQLITE_CACHE=1024
+ENV GDAL_MAX_DATASET_POOL_SIZE=450
+
+# Enhanced settings for large multi-file mosaics
+# Defaults to 100
+# ENV GDAL_MAX_DATASET_POOL_SIZE=2000 \
+#     CPL_VSIL_CURL_ALLOWED_EXTENSIONS=".tif .tiff .vrt"
+
+
+# ==============================================================================
+# File I/O Optimization for Parallel Worker Mounts
+ENV GDAL_DISABLE_READDIR_ON_OPEN=EMPTY_DIR
+ENV OGR_DISABLE_READDIR_ON_OPEN=EMPTY_DIR
+ENV SHAPE_RESTORE_SHX=NO
+ENV OGR_GPKG_FOREIGN_KEYS=OFF
+
+# Advanced GeoParquet Optimization
+# ENV OGR_PARQUET_ROW_GROUP_SIZE=262144
+# ENV OGR_PARQUET_COMPRESSION=ZSTD
+
+
+RUN echo "++++++++++++++++++++++++++++++++++++++++++++++" \
+    echo "Stage 2: Copy Pipfile and install packages: $(date)"
+
+
+# Set the working directory to your dynamic mount point
+ # WORKDIR /foss_fim
+
+# Create a constraints file forcing NumPy < 2 and the matching GDAL version
+RUN echo "numpy<2.0.0" > constraints.txt && \
+    echo "GDAL[numpy]==3.12.3" >> constraints.txt
+
+# Step 4: Create the virtual environment and install requirements
+# We copy requirements.txt to a temporary directory so it survives your volume mount
+# COPY requirements_20261006_2139.txt /requirements.txt
+
+# RUN uv pip install --break-system-packages --no-cache -c constraints.txt -r /requirements.txt
+
+# RUN uv pip install --break-system-packages --no-cache \
+#     -c constraints.txt \
+#     --no-binary gdal \
+#     "gdal==3.12.3"
+
+# Install the rest of your requirements safely
+# RUN uv pip install --break-system-packages --no-cache \
+#     -c /constraints.txt \
+#     --upgrade \
+#     -r /requirements.txt
+
+
+# TODO: Rob: REally only need the upgrade to fix reference versions now
+
+# --no-build-isolation combined with constraints forces it to build GDAL against NumPy < 2.
+# RUN uv pip install --no-cache --no-build-isolation \
+#     -c constraints.txt \
+#     --upgrade \    
+#     -r requirements.txt
+
+
+COPY requirements_202610014_raw_dev.txt /requirements.txt
+# RUN uv pip install -c constraints.txt -r /requirements.txt
+
+
+# Verify the all packages in the requirements file are valid and have not dependencies issues
+RUN echo "++++++++++++++++++++++++++++++++++++++++++++++" \
+    echo "Stage 2: Verify python package dependencies: $(date)"
+
+# RUN uv pip check
+
+
+# RUN echo "++++++++++++++++++++++++++++++++++++++++++++++" \
+#     echo "Stage 2: Set up Micro Mamba: $(date)"
+
+# ENV PDAL_CLI_PATH="/opt/pdal-env/bin/pdal"
+# ENV PDAL_ENV_ROOT="/opt/pdal-env"
+
+# # Install a newer PDAL runtime than the Ubuntu package currently provides.
+# ENV MAMBA_ROOT_PREFIX=/opt/micromamba
+# RUN ARCH=$(uname -m) && \
+#     if [ "$ARCH" = "aarch64" ]; then \
+#         MAMBA_ARCH="linux-aarch64"; \
+#     else \
+#         MAMBA_ARCH="linux-64"; \
+#     fi && \
+#     wget --no-verbose -O- https://micro.mamba.pm/api/micromamba/${MAMBA_ARCH}/latest | tar -xvj -C /usr/local/bin --strip-components=1 bin/micromamba && \
+#     micromamba create -y -p /opt/pdal-env -c conda-forge pdal=2.9.3 gdal proj proj-data && \
+#     micromamba clean --all --yes
+
+# # Adding AWS CLI (for bash) ##
+# RUN echo "++++++++++++++++++++++++++++++++++++++++++++++" \
+#     echo "Stage 2: Install AWS CLI: $(date)"
+# RUN curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
+#     unzip -qo awscliv2.zip && \
+#     ./aws/install && \
+#     rm awscliv2.zip
+
+
+# RUN echo "++++++++++++++++++++++++++++++++++++++++++++++" \
+#     echo "Stage 2: Install Whitebox: $(date)"
+# # Mar 2023 / Sep 2024
+# # There are some nuances in the whitebox python downloads in that the first time it loads
+# # it goes to the internet and downloads the latest/greatest WBT (whiteboxtools) engine which is
+# # required for the whitebox python library to work. We don't want to have FIM attempting a download
+# # each time a container is opened and the whitebox engine is called.
+# # Instead we will setup the WBT engine at time of docker build (same as Taudem and AWS).
+# # Whitebox code detects that the engine it there and makes no attempt to update it.
+# # We download and unzip it to the same file folder that pip deployed the whitebox library.
+# # Whitebox also attempts to always download a folder called testdata regardless of use.
+# # We added an empty folder to fake out whitebox_tools.py so it doesn't try to download the folder
+# ENV WBT_PATH=/usr/local/lib/python3.12/dist-packages/whitebox/WBT
+# RUN wget --no-verbose -P $WBT_PATH https://www.whiteboxgeo.com/WBT_Linux/WhiteboxTools_linux_musl.zip && \
+#     unzip -qo $WBT_PATH/WhiteboxTools_linux_musl.zip -d $WBT_PATH && \
+#     cp $WBT_PATH/WhiteboxTools_linux_amd64/WBT/whitebox_tools $WBT_PATH
+# # ----------------------------------
+
+RUN echo "++++++++++++++++++++++++++++++++++++++++++++++" \
+    echo "Stage 2: Finalizing stage: $(date)"
+
+# Create the symlink to fix the pre-compiled binary for Taudem which is built on older GDAL versions
+# RUN ln -s /usr/lib/x86_64-linux-gnu/libgdal.so.38 /usr/lib/x86_64-linux-gnu/libgdal.so.34 && ldconfig
+
 
 ADD ./src/entrypoint.sh /
 ENTRYPOINT ["/bin/bash", "/entrypoint.sh"]
+
+# Set Bash as the fallback command. Since you run in interactive mode (-it),
+# if your entrypoint exits or is overridden, you are cleanly dropped into the shell.
+CMD ["/bin/bash"]
+
+RUN echo "++++++++++++++++++++++++++++++++++++++++++++++" \
+    echo "Stage 2: Complete: $(date)" \
+    echo "++++++++++++++++++++++++++++++++++++++++++++++"
+

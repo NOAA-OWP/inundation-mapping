@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e          # Critical: We need the -e in place which means file in place if an error occurs.
+set -eE         # Critical: We need the -e in place which means file in place if an error occurs.
 #                 HOWEVER.. as soon as we turn on the error TRAP, we need to have it turned back off again
 #                 otherwise the trap will not fire. Just above the TRAP, I add set +e to let trapping handling it.
 set -o pipefail  # Crucial: Forces the pipe to fail if the subscript fails but only when a pipe is used.
@@ -36,7 +36,7 @@ usage ()
         2) HUC number
             Example:
 
-                ./fim_process_huc.sh hand_test 05030104
+                /foss_fim/fim_process_huc.sh hand_test 05030104
     "
 }
 
@@ -102,20 +102,29 @@ export errorLogFile="$tempHucDataDir/logs/huc_${hucNumber}_error_report.csv"
 exit_and_copy() {
 
     set +e  # shut off auto exit on error
+    wait
     compile_error_report
+    echo ""
 
     # Ensure all child folders and files are set to the perms we want
-    chmod -R 774 $tempHucDataDir
+    chmod -R 777 $tempHucDataDir
+    
     echo "============================================================================================="
-    echo
+    echo ""
     echo "***** Starting copying folder temp directory: $tempHucDataDir to output directory: $outputHucDataDir"
-    date -u +"%Y-%m-%d %H:%M:%S"  # to screen
-    date -u +"%Y-%m-%d %H:%M:%S" >> $hucLogFile  # to file
-    cp -r --no-preserve=ownership "${tempHucDataDir}/" "${outputHucDataDir}/"
+    msg_complete="HUC processing complete (UTC): $(date -u '+%Y-%m-%d %H:%M:%S')"
+    l_echo $msg_complete $hucLogFile
+    # cp -r --no-preserve=ownership "${tempHucDataDir}/" "${outputHucDataDir}/"
+    # sync
+    # cp -r "${tempHucDataDir}/" "${outputHucDataDir}/"
+    rsync -ar --no-perms --no-owner --no-group  "${tempHucDataDir}/" "${outputHucDataDir}/"
     rm -rdf $tempHucDataDir
+    # sleep 5
+    wait
+
     echo "***** Copy complete, removed old temp directory"
     echo "============================================================================================="    
-    echo
+    echo ""
     exit 0  # for fim_process_huc, we want to return a 0.
 }
 
@@ -128,17 +137,23 @@ compile_error_report() {
     # But if this script itself fails, it gets a special log file.
     # python3 $srcDir/utils/huc_process_error_report.py \
     # -u $hucNumber -s $hucLogFile -o $errorLogFile >> $hucLogFile 2> $log_scan_tool_failed_file
+    touch $log_scan_tool_failed_file  # make an empty file
     python3 $srcDir/utils/huc_process_error_report.py \
-    -u $hucNumber -s $hucLogFile -o $errorLogFile > >(tee -a $hucLogFile) 2> >(tee -a $log_scan_tool_failed_file >&2)
-    
+    -u $hucNumber -s $hucLogFile -o $errorLogFile >> $hucLogFile 2>> $log_scan_tool_failed_file
+    # echo "after huc_process_error_report"
+    sleep 2
 
     # Delete the file if it is empty. The line above will create an empty file if there is no error
+    # echo "scan value (1) is ${log_scan_tool_failed_file}"
     # and in this case, I do not want an empty file
     if [ ! -s $log_scan_tool_failed_file ]; then
+        # echo "scan (2) value is ${log_scan_tool_failed_file}"
         rm $log_scan_tool_failed_file
     else
         l_echo "Continuing processing of other hucs when applicable, stand by" $hucLogFile
     fi
+    sleep 2
+    echo ""
 }
 
 
@@ -161,7 +176,7 @@ trap 'exit_and_copy' EXIT
 # it does not include some errors and exceptions recorded inside the child .sh files. 
 # We will catch those via error search tools.
 
-set +e  # turns off, yes off, the system no longer auto aborts, as trapping will handle it from from here down.
+# set +e  # turns off, yes off, the system no longer auto aborts, as trapping will handle it from from here down.
 trap 'handle_error $LINENO $hucLogFile' ERR
 
 mkdir -p $tempHucDataDir
@@ -226,3 +241,6 @@ grep -i -n "warning" "$hucLogFile" > "$warningLogFile" || true
 # exit_and_copy will be copied here if not earlier,
 # depending on exceptions or errors from the TRAP ... ERR and down.
 # in 'exit_and_copy', will also do the error log scanning
+# sleep 10
+# echo "leaving fim_process_huc.sh"
+# sleep 10

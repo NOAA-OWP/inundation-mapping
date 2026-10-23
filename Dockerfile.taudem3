@@ -1,0 +1,154 @@
+# ==========================================
+# Stage 1: Build Environment (Using OSGeo GDAL 3.12)
+# ==========================================
+FROM ghcr.io/osgeo/gdal:ubuntu-small-3.12.3 AS taudem_builder
+RUN echo "++++++++++++++++++++++++++++++++++++++++++++++\n Stage 1: Starting TauDEM build: $(date)"
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install remaining system compilation prerequisites (GDAL is already baked in)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    cmake \
+    git \
+    libmpich-dev \
+    mpich \
+    openmpi-bin \
+    libopenmpi-dev \
+    # gdal-bin \
+    # libgdal-dev \
+    # libproj-dev \
+    libtiff-dev \
+    libgeotiff-dev \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install core build essentials, compression libraries, and MPICH
+# RUN apt-get update && apt-get install -y --no-install-recommends \
+#     build-essential \
+#     cmake \
+#     git \
+#     libmpich-dev \
+#     mpich \
+#     ca-certificates \
+#     libproj-dev \
+#     libtiff-dev \
+#     libgeotiff-dev \
+#     wget \
+#     && rm -rf /var/lib/apt/lists/*
+
+# Release build (optimized)
+# Run the make command with your variables
+# RUN make release COMPILER=linux
+
+# Debug build (with debugging symbols)
+# RUN make debug COMPILER=linux
+
+# 1. Download and Build GDAL 3.12 from Source
+# WORKDIR /opt
+# # RUN wget https://github.com && \
+# #     tar -xf gdal-3.12.0.tar.gz
+# RUN git clone --depth 1 --branch v3.12.0 --recurse-submodules https://github.com/OSGeo/gdal.git
+
+# WORKDIR /opt/gdal-3.12.0
+# # Proceed with standard compilation
+# WORKDIR /opt/gdal/build
+# RUN cmake -DCMAKE_BUILD_TYPE=Release .. && \
+#     make -j$(nproc) && \
+#     make install && \
+#     ldconfig
+
+# Clone the official TauDEM repository
+WORKDIR /opt
+# RUN git clone https://github.com/dtarb/TauDEM.git \
+#     && cd TauDEM \
+#     && git checkout -b v5.5.0
+
+# Note: --depth 1 means a simple clone and not all of the history, just the recent commit
+RUN git clone --branch v5.5.0 --depth 1 https://github.com/dtarb/TauDEM.git \
+    && cd TauDEM
+
+# ROB: Get specific version
+
+# Build TauDEM using CMake (CMake will automatically bind to the built-in GDAL 3.12 paths)
+WORKDIR /opt/TauDEM/src
+# RUN mkdir build && cd build && \
+#     cmake -DCMAKE_BUILD_TYPE=Release -DINTERPROCEDURAL_OPTIMIZATION=OFF .. && \
+#     make -j$(nproc) && \
+#     make install
+
+# RUN mkdir build && cd build && \
+#     cmake -DCMAKE_BUILD_TYPE=Release .. && \
+#     sed -i 's/-flto=auto -ffat-lto-objects//g' CMakeCache.txt && \
+#     make -j$(nproc) && \
+#     make install
+
+# RUN mkdir build && cd build && \
+#     # 1. CMAKE_VERBOSE_MAKEFILE=ON tells CMake to generate a verbose Makefile
+#     # 2. Overriding CFLAGS/CXXFLAGS directly prevents the broken MPI LTO string injection
+#     cmake -DCMAKE_BUILD_TYPE=Release \
+#           -DCMAKE_VERBOSE_MAKEFILE=ON \
+#           -DCMAKE_C_FLAGS="-O3" \
+#           -DCMAKE_CXX_FLAGS="-O3" .. && \
+#     # 3. VERBOSE=1 prints every raw g++ compilation command to your terminal logs
+#     make VERBOSE=1 -j$(nproc) && \
+#     make install
+
+# RUN mkdir build && cd build && \
+#     cmake -DCMAKE_BUILD_TYPE=Release .. && \
+#     make -j$(nproc) && \
+#     make install
+
+# Linux with GCC
+# 1. Configure the project and set the build directory to /taudem_builder/bin
+RUN cmake -S . -B /opt/TauDEM/build \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_C_COMPILER=/usr/bin/gcc \
+    -DCMAKE_CXX_COMPILER=/usr/bin/g++ \
+    -DMPI_C_COMPILER=/usr/bin/mpicc \
+    -DMPI_CXX_COMPILER=/usr/bin/mpicxx
+
+# 2. Compile the files using the configured folder and compile for only the ones we want
+RUN cmake --build /opt/TauDEM/build --target flowdircond streamnet gagewatershed catchhydrogeo d8flowdir pitremove
+
+ARG TAUDEM_BIN_DIR=/TauDEM_builder/bin
+RUN mkdir -p $TAUDEM_BIN_DIR \
+    && cd /opt/TauDEM/build \
+    && cp flowdircond streamnet gagewatershed catchhydrogeo d8flowdir pitremove ${TAUDEM_BIN_DIR}/
+
+ENV OMPI_ALLOW_RUN_AS_ROOT=1 \
+    OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+
+# Verify the binaries can run and output usage guides
+# RUN /taudem_builder/bin/d8flowdir --help
+
+# # Verify MPI execution framework works inside the container environment
+# RUN mpiexec -n 2 /taudem_builder/d8flowdir --help
+
+# ----------------------------------------------------
+# 🔍 VISUAL DEBUG INTEGRATION TESTS
+# NOTE: TauDEM does not have a --help option, so we look for a specific phrase to help validate it
+# Technically, the output from the test calls here is an error as it the calls do not pass in
+# args. But if the phrase does not exist, the binary is not present is invalid.
+# ----------------------------------------------------
+RUN echo "\n++++++++++++++++++++++++++++++++++++++++++++++" \
+    echo "--- TESTING TauDEM Binary and MPIEXEC calls using b8flowdir --" \
+    echo "    If you do not get an error, then both Binary and MPIEXEC are good\n"
+RUN echo "--- testing binary ---" \
+    && ${TAUDEM_BIN_DIR}/d8flowdir 2>&1 | grep -q "Simple Usage"
+RUN echo "--- testing MPIExec calls ---" \
+    && mpiexec --allow-run-as-root -n 2 ${TAUDEM_BIN_DIR}/d8flowdir 2>&1 | grep -q "Simple Usage"
+
+# # Test 2: Print raw output of a parallel MPI wrapper call
+# RUN echo "--- TESTING MPIEXEC FLOWDIR OUTPUT using d8flowdir ---" \
+#     && mpiexec --allow-run-as-root -n 2 ${TAUDEM_BIN_DIR}/d8flowdir 2>&1 | grep -q "Simple Usage"
+
+# RUN echo "\n*** NOTE:\n It will give an error as their are no args and d8flowdir does not have an --help option." \
+#     echo "If you see 'Error: To run this program, use either the Simple Usage option or'" \
+#     echo "Then it is able to module compiled just fine and mpiexec can see it just fine as well." 
+
+RUN echo "\n\n++++++++++++++++++++++++++++++++++++++++++++++\n Stage 1: TauDEM build complete: $(date)"
+
+# Keep this in this test taudem file only. Do not copy it into the Dockerfile.dev
+
+CMD ["/bin/bash"]

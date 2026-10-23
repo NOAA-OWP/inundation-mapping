@@ -14,6 +14,8 @@ from create_flow_forecast_file import create_flow_forecast_file
 from osgeo import gdal
 from preprocess_benchmark import preprocess_benchmark_static
 
+# Force the entire suite to throw standard catchable Python errors
+gdal.UseExceptions()
 
 def create_ble_benchmark(
     input_file: str,

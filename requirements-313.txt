@@ -1,0 +1,59 @@
+# =====================================================================
+# GEOSPATIAL ECOSYSTEM WHEELS
+# =====================================================================
+geopandas==1.0.1
+shapely==2.0.6
+osmnx
+overpy
+rasterstats
+rio-vrt
+rtree
+whitebox
+pyflwdir
+netcdf4
+
+# =====================================================================
+# CORE DATA SCIENCE, COMPUTATION & ARRAYS (Strictly Pinned)
+# =====================================================================
+numpy==2.1.3
+pandas==2.2.3
+scipy==1.14.1
+xarray==2024.11.0
+zarr==2.18.3
+xgboost==2.1.2
+scikit-learn==1.5.2
+scikit-image==0.24.0
+
+# =====================================================================
+# PARALLEL COMPUTING & DISTRIBUTED WORKLOADS
+# =====================================================================
+dask[complete]==2024.11.2
+distributed==2024.11.2
+
+# =====================================================================
+# CLOUD STORAGE & NETWORK UTILITIES
+# =====================================================================
+boto3
+gcsfs
+requests
+urllib3
+python-dotenv
+
+# =====================================================================
+# JUPYTER LAB & INTERACTIVE NOTEBOOKS
+# =====================================================================
+jupyter
+jupyterlab
+ipympl
+seaborn
+tqdm
+
+# =====================================================================
+# MISCELLANEOUS FORMATTING & FILE PARSERS
+# =====================================================================
+laspy[laszip]
+lmoments3
+natsort
+openpyxl
+py7zr
+tables

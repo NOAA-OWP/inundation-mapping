@@ -1,9 +1,9 @@
 ## ============================
 ## The OWP version does not need Taudem, so there is only one stage
 FROM python:3.12-slim
-ARG dataDir=/data
+ARG DATA_DIR=/data
 ENV projectDir=/foss_fim
-ENV inputsDir=$dataDir/inputs
+ENV inputsDir=$DATA_DIR/inputs
 ENV outputsDir=/outputs
 ENV srcDir=$projectDir/src
 ENV toolsDir=$projectDir/tools

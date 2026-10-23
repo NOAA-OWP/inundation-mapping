@@ -1,0 +1,284 @@
+# ==========================================
+# Stage 1: Build Environment (Using OSGeo GDAL 3.12)
+# ==========================================
+# FROM ghcr.io/osgeo/gdal:ubuntu-small-3.12.3 AS taudem_builder
+# RUN echo "++++++++++++++++++++++++++++++++++++++++++++++\n Stage 1: Starting TauDEM build: $(date)"
+
+# ENV DEBIAN_FRONTEND=noninteractive
+
+# # Install remaining system compilation prerequisites (GDAL is already baked in)
+# RUN apt-get update && apt-get install -y --no-install-recommends \
+#     build-essential \
+#     cmake \
+#     git \
+#     libmpich-dev \
+#     mpich \
+#     openmpi-bin \
+#     libopenmpi-dev \
+#     # gdal-bin \
+#     # libgdal-dev \
+#     # libproj-dev \
+#     libtiff-dev \
+#     libgeotiff-dev \
+#     ca-certificates \
+#     && rm -rf /var/lib/apt/lists/*
+
+#     # Clone the official TauDEM repository
+# WORKDIR /opt
+# # RUN git clone https://github.com/dtarb/TauDEM.git \
+# #     && cd TauDEM \
+# #     && git checkout -b v5.5.0
+
+# # Note: --depth 1 means a simple clone and not all of the history, just the recent commit
+# RUN git clone --branch v5.5.0 --depth 1 https://github.com/dtarb/TauDEM.git \
+#     && cd TauDEM
+
+# # ROB: Get specific version
+
+# # Build TauDEM using CMake (CMake will automatically bind to the built-in GDAL 3.12 paths)
+# WORKDIR /opt/TauDEM/src
+
+# # Linux with GCC
+# # 1. Configure the project and set the build directory to /taudem_builder/bin
+# RUN cmake -S . -B /opt/TauDEM/build \
+#     -DCMAKE_BUILD_TYPE=Release \
+#     -DCMAKE_C_COMPILER=/usr/bin/gcc \
+#     -DCMAKE_CXX_COMPILER=/usr/bin/g++ \
+#     -DMPI_C_COMPILER=/usr/bin/mpicc \
+#     -DMPI_CXX_COMPILER=/usr/bin/mpicxx
+
+# # 2. Compile the files using the configured folder and compile for only the ones we want
+# RUN cmake --build /opt/TauDEM/build --target flowdircond streamnet gagewatershed catchhydrogeo d8flowdir pitremove
+
+# ARG TAUDEM_BIN_DIR=/TauDEM_builder/bin
+# RUN mkdir -p $TAUDEM_BIN_DIR \
+#     && cd /opt/TauDEM/build \
+#     && cp flowdircond streamnet gagewatershed catchhydrogeo d8flowdir pitremove ${TAUDEM_BIN_DIR}/
+
+# ENV OMPI_ALLOW_RUN_AS_ROOT=1 \
+#     OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+
+# # Verify the binaries can run and output usage guides
+# # RUN /taudem_builder/bin/d8flowdir --help
+
+# # # Verify MPI execution framework works inside the container environment
+# # RUN mpiexec -n 2 /taudem_builder/d8flowdir --help
+
+# # ----------------------------------------------------
+# # VISUAL DEBUG INTEGRATION TESTS
+# # NOTE: TauDEM does not have a --help option, so we look for a specific phrase to help validate it
+# # Technically, the output from the test calls here is an error as it the calls do not pass in
+# # args. But if the phrase does not exist, the binary is not present is invalid.
+# # ----------------------------------------------------
+# RUN echo "\n++++++++++++++++++++++++++++++++++++++++++++++" \
+#     echo "--- TESTING TauDEM Binary and MPIEXEC calls using b8flowdir --" \
+#     echo "    If you do not get an error, then both Binary and MPIEXEC are good\n"
+# RUN echo "--- testing binary ---" \
+#     && ${TAUDEM_BIN_DIR}/d8flowdir 2>&1 | grep -q "Simple Usage"
+# RUN echo "--- testing MPIExec calls ---" \
+#     && mpiexec --allow-run-as-root -n 2 ${TAUDEM_BIN_DIR}/d8flowdir 2>&1 | grep -q "Simple Usage"
+
+
+# RUN echo "\n\n++++++++++++++++++++++++++++++++++++++++++++++\n Stage 1: TauDEM build complete: $(date)"
+
+# # Keep this in this test taudem file only. Do not copy it into the Dockerfile.dev
+
+# # CMD ["/bin/bash"]
+
+# RUN echo "++++++++++++++++++++++++++++++++++++++++++++++" \
+#     echo "Stage 2: Starting Stage 2 build (final): $(date)"
+
+# Docker will check your local machine for this image first
+# TEMP test, using the local taudem image I created earlier
+FROM taudem_build_image_3:latest AS taudem_builder
+
+FROM ghcr.io/osgeo/gdal:ubuntu-small-3.12.3
+
+# 1. Global System Locales, Timezone, and Non-interactive Configurations
+ENV LC_ALL=C.UTF-8 \
+    LANG=C.UTF-8 \
+    DEBIAN_FRONTEND=noninteractive \
+    TZ=UTC
+    
+# 2. Setup Build Arguments and Sequential Environment Paths
+ARG DATA_DIR=/data
+ARG DEP_DIR=/dependencies
+
+ENV projectDir=/foss_fim
+ENV inputsDir=$DATA_DIR/inputs \
+    outputsDir=/outputs \
+    srcDir=$projectDir/src \
+    toolsDir=$projectDir/tools \
+    workDir=/fim_temp
+
+#   FIXED PATHS: Point to /usr/local/share/proj instead of /usr/share/proj
+ENV GDAL_VERSION=3.12.3 \
+    GDAL_CONFIG=/usr/bin/gdal-config \
+    PROJ_DIR=/usr/local/share/proj \
+    PROJ_LIB=/usr/local/share/proj \
+    PYPROJ_GLOBAL_CONTEXT=ON \
+    C_INCLUDE_PATH=/usr/include/gdal \
+    CPLUS_INCLUDE_PATH=/usr/include/gdal
+
+
+# UV Optimizations for global system Python and faster container startup
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_SYSTEM_PYTHON=1 \
+    UV_BREAK_SYSTEM_PACKAGES=1
+
+# Set system environment variables to prevent Python issues inside Docker
+# Also supress all FutureWarnings. We can wait until they become Warnings.
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONWARNINGS="ignore::FutureWarning"
+
+# Set other env variables
+ENV PATH="${projectDir}:${DEP_DIR}:${PATH}"
+
+# This helps with permissions when writing to drives.
+ARG GroupID=1370800235
+ARG GroupName=fim
+RUN groupadd --gid $GroupID $GroupName
+ENV GID=$GroupID
+ENV GN=$GroupName
+
+## ============================
+# Copy TauDEM binaries into image
+ARG TAUDEM_BIN_SRC_DIR=/TauDEM_builder/bin
+ENV taudemDir=$DEP_DIR/TauDEM/bin
+COPY --from=taudem_builder $TAUDEM_BIN_SRC_DIR $taudemDir
+RUN chmod -R 777 $DEP_DIR
+
+## ============================
+# Grab the official 'uv' binary using a multi-stage copy
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+# ==============================================================================
+RUN echo "++++++++++++++++++++++++++++++++++++++++++++++" \
+    && echo "Stage 2: Apt downloads and setup: $(date)"
+
+# System Packages, Runtime Utilities, and C++ Compilers (Must be before uv installs)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # --- Permanent Runtime Utilities ---
+    curl \
+    time \
+    parallel \
+    p7zip-full \
+    unzip \
+    git \
+    rsync \
+    tzdata \
+    wget \
+    osmium-tool \
+    ca-certificates \
+    python3-gdal \
+    mpich \
+    openmpi-bin \
+    # --- Temporary Python/Geospatial Build Tools needed in this script ---
+    build-essential \
+    python3-dev \
+    python3-venv \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+
+RUN echo "++++++++++++++++++++++++++++++++++++++++++++++" \
+    && echo "Stage 2: Copy Pipfile and install packages: $(date)"
+
+COPY ./constraints.txt constraints.txt 
+ENV UV_CONSTRAINT="constraints.txt"
+
+# COPY ./requirements_v9_rebuild_20261019.txt requirements.txt
+
+# Step 4: Core Geospatial Stack Compilation Phase
+# We explicitly force the correct compilation settings for the baseline libraries
+# RUN uv pip install --system --no-cache "numpy>=2.0.0" \
+#     && uv pip install --system --no-cache --no-build-isolation "gdal[numpy]==$(gdal-config --version).*" "pyogrio" \
+#     && uv pip install --system --no-cache --no-binary fiona --no-binary rasterio "fiona" "rasterio"
+
+# # Step 4: Core Geospatial Stack Compilation Phase
+# We explicitly install setuptools and wheel first so the GDAL build backend has them available,
+# then we compile the core stack against NumPy 2.x.
+RUN uv pip install --system --no-cache \
+     "numpy>=2.0.0" "setuptools" "wheel" && \
+    uv pip install --system --no-cache \
+    --no-build-isolation \
+     "gdal[numpy]==$(gdal-config --version).*" "pyogrio" && \
+    uv pip install --system --no-cache \
+    --no-binary fiona \
+    --no-binary rasterio "fiona" "rasterio"
+
+    
+# Bulk Requirements Installation Phase
+# We enforce that NumPy 2.x and GDAL 3.12 are locked, then install everything else
+# RUN echo "numpy>=2.0.0\ngdal==$(gdal-config --version).*\nrasterio\nfiona\npyogrio" > /tmp/geospatial_constraints.txt 
+
+COPY ./requirements_v10b.txt requirements.txt
+
+RUN uv pip install --system --no-cache \
+    -c constraints.txt \
+    -r requirements.txt
+
+# RUN  uv pip compile requirements-min.ini -o requirements_v8_rebuild_20261019.txt
+# Get a uv pip freeze and see what we have for versions.
+
+
+## ******
+
+## ADD GDAL Optimizations
+
+
+
+# RUN apt-get purge -y --auto-remove g++ python3-dev \
+#     && rm -rf /var/lib/apt/lists/*
+
+# # 7 Configure paths and environmental permissions for Root execution
+# ENV USER=root
+# ENV HOME=/root
+
+# ## ADD TO PYTHON PATHS ##
+# ENV PYTHONPATH="/usr/lib/python3/dist-packages"
+ENV PYTHONPATH="${projectDir}:${srcDir}:${srcDir}/utils:${projectDir}/data:${toolsDir}"
+
+# # Lands the interactive terminal directly into your main project folder
+# # Establish landing directory for your dynamic mount
+# WORKDIR ${projectDir}
+
+# ----------------------------------
+# +++ Whitebox
+# Mar 2023 / Sep 2024
+# There are some nuances in the whitebox python downloads in that the first time it loads
+# it goes to the internet and downloads the latest/greatest WBT (whiteboxtools) engine which is
+# required for the whitebox python library to work. We don't want to have FIM attempting a download
+# each time a container is opened and the whitebox engine is called.
+# Instead we will setup the WBT engine at time of docker build (same as Taudem and AWS).
+# Whitebox code detects that the engine it there and makes no attempt to update it.
+# We download and unzip it to the same file folder that pip deployed the whitebox library.
+# Whitebox also attempts to always download a folder called testdata regardless of use.
+# We added an empty folder to fake out whitebox_tools.py so it doesn't try to download the folder
+#ENV WBT_PATH=/usr/local/lib/python3.12/dist-packages/whitebox/WBT
+# ENV WBT_EXE_PATH=/usr/local/lib/python3.12/dist-packages/whitebox/whitebox_tools
+# RUN wget -P $WBT_PATH https://www.whiteboxgeo.com/WBT_Linux/WhiteboxTools_linux_musl.zip && \
+#     unzip -o $WBT_PATH/WhiteboxTools_linux_musl.zip -d $WBT_PATH && \
+#     cp $WBT_PATH/WhiteboxTools_linux_amd64/WBT/whitebox_tools $WBT_PATH
+# FORCE DOWNLOAD ONCE: This detects your /usr/local/... path and bakes it into the image layer
+# RUN python -c "import whitebox; whitebox.download_wbt(reset=True)"
+# ENV WBT_PATH=/usr/local/lib/python3.12/dist-packages/whitebox/WBT/whitebox_tools
+ENV WBT_EXE_PATH=/usr/local/lib/python3.12/dist-packages/whitebox/WBT/whitebox_tools
+# FORCE DOWNLOAD ONCE: This detects your /usr/local/... path and bakes it into the image layer
+RUN python -c "import whitebox; whitebox.download_wbt(reset=True)"
+
+# Expose port 8899 in case you want to launch Jupyter or JupyterLab from inside the container
+EXPOSE 8899
+
+COPY ./src/entrypoint.sh /
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/bin/bash", "/entrypoint.sh"]
+
+CMD ["/bin/bash"]
+
+RUN echo "++++++++++++++++++++++++++++++++++++++++++++++" \
+    && echo "Stage 2: Complete: $(date)" \
+    && echo "++++++++++++++++++++++++++++++++++++++++++++++"

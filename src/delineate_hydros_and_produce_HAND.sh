@@ -90,12 +90,16 @@ args=(
 python3 "${srcDir}/run_taudem_subprocess.py" flowdircond "${args[@]}"
 
 ## D8 SLOPES ##
+# Note: Oct 2026: Now with TauDEM 5.5, you have to give it a sd8 and a p file even if you
+# do not want it a this point.
+# We will just remove the p temp file later.
 echo -e $startDiv"D8 Slopes from DEM ${hucNumber} ${current_branch_id}"
 args=(
     -n "${ncores_fd}"
-    -t "${taudemDir2}"
+    -t "${taudemDir}"
     -fel "${tempCurrentBranchDataDir}/dem_lateral_thalweg_adj_${current_branch_id}.tif"
     -sd8 "${tempCurrentBranchDataDir}/slopes_d8_dem_meters_${current_branch_id}.tif"
+    -p "${tempCurrentBranchDataDir}/slopes_d8_dem_meters_temp_flowdir_${current_branch_id}.tif"    
 )
 python3 "${srcDir}/run_taudem_subprocess.py" d8flowdir "${args[@]}"
 
@@ -132,7 +136,7 @@ args=(
 python3 "${srcDir}/split_flows.py" "${args[@]}"
 
 ## GAGE WATERSHED FOR REACHES ##
-echo -e $startDiv"Gage Watershed for Reaches ${hucNumber} ${current_branch_id}"
+echo -e "${startDiv}Gage Watershed for Reaches ${hucNumber} ${current_branch_id}"
 args=(
     -n "${ncores_gw}"
     -t "${taudemDir}"
@@ -153,7 +157,7 @@ args=(
 python3 "${srcDir}/reachID_grid_to_vector_points.py" "${args[@]}"
 
 ## GAGE WATERSHED FOR PIXELS ##
-echo -e $startDiv"Gage Watershed for Pixels ${hucNumber} ${current_branch_id}"
+echo -e "${startDiv}Gage Watershed for Pixels ${hucNumber} ${current_branch_id}"
 args=(
     -n "${ncores_gw}"
     -t "${taudemDir}"
@@ -338,6 +342,7 @@ args=(
     -i "${iris_sword_slope}"
     -p "${hfab_ransac_slope}"
 )
+# printf '%s\n' "${args[@]}"
 python3 "${srcDir}/add_crosswalk.py" "${args[@]}"
 
 ## HEAL HAND -- REMOVES HYDROCONDITIONING ARTIFACTS ##
