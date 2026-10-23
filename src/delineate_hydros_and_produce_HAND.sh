@@ -193,7 +193,7 @@ python3 "${srcDir}/make_rem.py" "${args[@]}"
 
 ## Mask international FIM ##
 # Check if current HUC8 is in the precomputed border list
-if grep -q "\"${current_huc8}\"" "${BORDER_HUC_FILE}"; then
+if grep -q "^${hucNumber}$" "${BORDER_HUC_FILE}"; then
     echo -e "${startDiv}Mask international FIM ${hucNumber} ${current_branch_id}"
     date -u
     Tstart
