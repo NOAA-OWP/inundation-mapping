@@ -191,6 +191,23 @@ args=(
 )
 python3 "${srcDir}/make_rem.py" "${args[@]}"
 
+## Mask international FIM ##
+# Check if current HUC8 is in the precomputed border list
+if grep -q "^${hucNumber}$" "${BORDER_HUC_FILE}"; then
+    echo -e "${startDiv}Mask international FIM ${hucNumber} ${current_branch_id}"
+    date -u
+    Tstart
+    args=(
+        -m "${inputsDir}/USGS_State_Boundaries/s_11au16.shp"
+        -i "${tempCurrentBranchDataDir}/gw_catchments_reaches_${current_branch_id}.tif"
+        -o "${tempCurrentBranchDataDir}/gw_catchments_reaches_${current_branch_id}.tif"
+    )
+    python3 "${srcDir}/utils/mask_rasters.py" "${args[@]}"
+    Tcount
+else
+    echo -e "${startDiv}Skipping masking international boundaries for ${hucNumber} ${current_branch_id}"
+fi
+
 ## BRING DISTANCE DOWN TO ZERO & MASK TO CATCHMENTS ##
 echo -e "${startDiv}Bring negative values in REM to zero and mask to catchments ${hucNumber} ${current_branch_id}"
 args=(
@@ -372,7 +389,7 @@ if [[ -f "${tempHucDataDir}/osm_bridges_subset.gpkg" ]]; then
     python3 "${srcDir}/heal_bridges_osm.py" "${args[@]}"
     Tcount
 else
-    echo -e "${startDiv}No applicable bridge data for ${hucNumber}"
+    echo -e "${startDiv}No applicable bridge data for ${hucNumber} ${current_branch_id}"
 fi
 
 ## Process roads FIMpact ##

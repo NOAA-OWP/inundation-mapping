@@ -62,24 +62,21 @@ for code in "${return_codes[@]}"
 do
     # Note: It was tricky to load in the fim_enum into bash, so we will just
     # go with the exit code for now
-    if [ $code -eq 0 ]; then
-        echo
-        # do nothing
-    elif [ $code -eq 61 ]; then
-        echo
+    echo
+    if [ $code -eq 61 ]; then
         echo "Acceptable Exit Status: $code -- Branch has no valid flowlines. [[BranchID: $branchId]]"
         # rm -rf $tempHucDataDir/branches/$branchId/  # keep for debugging
     elif [ $code -eq 64 ]; then
-        echo
         echo "Acceptable Exit Status: $code -- Branch has no crosswalks.  [[BranchID: $branchId]]"
         # rm -rf $tempHucDataDir/branches/$branchId/  # keep for debugging
     elif [ $code -eq 65 ]; then
-        echo
         echo "Acceptable Exit Status: $code -- Too many HydroIDs or a HydroID with more" \
         " than 8 digits in gw catchments to convert to Int16   [[BranchID: $branchId]]"
         # rm -rf $tempHucDataDir/branches/$branchId/   # keep for debugging
+    elif [ $code -eq 66 ]; then
+        echo "Acceptable Exit Status: $code -- Branch is completely outside of the US domain. [[BranchID: $branchId]]"
+        # rm -rf $tempHucDataDir/branches/$branchId/   # keep for debugging
     elif [ $code -ne 0 ]; then
-        echo
         echo "***** ERROR - Unknown Exit status: $code detected for [[BranchID: $branchId]] *****"
     fi
 done
