@@ -192,7 +192,8 @@ args=(
 python3 "${srcDir}/make_rem.py" "${args[@]}"
 
 ## Mask international FIM ##
-if [[ "${mask_international_fim}" == "True" ]]; then
+# Check if current HUC8 is in the precomputed border list
+if grep -q "\"${current_huc8}\"" "${BORDER_HUC_FILE}"; then
     echo -e "${startDiv}Mask international FIM ${hucNumber} ${current_branch_id}"
     date -u
     Tstart
@@ -201,7 +202,7 @@ if [[ "${mask_international_fim}" == "True" ]]; then
         -i "${tempCurrentBranchDataDir}/gw_catchments_reaches_${current_branch_id}.tif"
         -o "${tempCurrentBranchDataDir}/gw_catchments_reaches_${current_branch_id}.tif"
     )
-    python3 "${srcDir}/mask_rasters.py" "${args[@]}"
+    python3 "${srcDir}/utils/mask_rasters.py" "${args[@]}"
     Tcount
 else
     echo -e "${startDiv}Skipping masking international boundaries for ${hucNumber} ${current_branch_id}"

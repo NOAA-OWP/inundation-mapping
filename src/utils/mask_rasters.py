@@ -13,6 +13,8 @@ from rasterio.features import shapes
 from rasterio.mask import mask
 from shapely.geometry import box, shape
 
+from utils.fim_enums import FIM_exit_codes
+
 
 def get_mask_geometries_indexed(mask_file, target_bounds=None, target_crs=None):
     """
@@ -85,10 +87,10 @@ def mask_rasters_optimized(mask_path, raster_inputs, output_paths, exit_on_out_o
 
             # Handle out-of-bounds branch
             if not mask_geoms:
-                print(f"ERROR: {in_raster} lies completely outside the mask boundary.")
+                print(f"{in_raster} lies completely outside the mask boundary.")
                 if exit_on_out_of_bounds:
                     print("Terminating branch processing with exit code 1.")
-                    sys.exit(1)
+                    sys.exit(FIM_exit_codes.BRANCH_IS_COMPLETELY_OUTSIDE_US.value)
                 continue
 
             mask_gdf = gpd.GeoDataFrame(geometry=mask_geoms, crs=mask_crs)
