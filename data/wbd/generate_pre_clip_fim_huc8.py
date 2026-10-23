@@ -568,10 +568,11 @@ if __name__ == '__main__':
             - "nwm_lakes_proj_subset.gpkg"        ->  --nwm_lakes
             - "nwm_catchments_proj_subset.gpkg"   ->  --nwm_catchments
             - levee files (3 files)               ->  --levees
-            - "osm_bridges_subset.gpkg"           ->  --osm_bridges
+            - "osm_bridges_subset.parquet"        ->  --osm_bridges
                 Transfers recently pulled, already HUC-level bridge files from osm_bridges_modified_dir.
-            - "osm_roads_subset.gpkg"             ->  --osm_roads
-            - "buildings_subset.gpkg"             ->  --buildings
+            - "osm_roads_subset.parquet"          ->  --osm_roads
+                Transfers recently pulled, already HUC-level road files from osm_roads_per_huc_dir.
+            - "buildings_subset.parquet"          ->  --buildings
 
 
     Example 1:
@@ -612,7 +613,7 @@ if __name__ == '__main__':
         ''',
     )
 
-    parser.add_argument('-n', '--outputs_dir', help='Directory to output all of the HUC level .gpkg files')
+    parser.add_argument('-n', '--outputs_dir', help='Directory to output all of the HUC level files')
     parser.add_argument('-u', '--huc_list', help='List of HUCs to genereate pre-clipped vectors for.')
 
     parser.add_argument(
@@ -641,6 +642,8 @@ if __name__ == '__main__':
         arg_help = f"preclip {arg_option} instead of copying"
         if arg_option == 'osm_bridges':
             arg_help = "transfer recently pulled osm_bridges instead of copying from previous preclips"
+        if arg_option == 'osm_roads':
+            arg_help = "transfer recently pulled osm_roads instead of copying from previous preclips"
         parser.add_argument(f"--{arg_option}", action="store_true", help=arg_help)
 
     args = vars(parser.parse_args())

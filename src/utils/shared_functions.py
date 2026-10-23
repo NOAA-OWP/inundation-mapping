@@ -343,6 +343,7 @@ def run_with_mp(
     task_id_key,  # must be one of the keys in the args list.
     max_workers=4,
     show_progress=True,
+    max_tasks_per_child=None,
 ):
     '''
     Run a set of tasks in parallel using multiprocessing with robust logging and error handling.
@@ -372,6 +373,15 @@ def run_with_mp(
           functions. Instead use screen_queue.put().
 
         - Use file_logger.info() to log the message in the log file.
+
+    - max_tasks_per_child (default None, i.e. unlimited): pass an int to have each worker process
+        exit and be replaced with a fresh one after that many tasks. Some tasks call into native
+        libraries (e.g. GDAL/OGR) that retain memory across calls within the same long-lived
+        process without it ever being freed back to the OS — no amount of Python-level del/
+        gc.collect() or even glibc's malloc_trim reclaims it, since it's not fragmentation but
+        memory the library genuinely keeps live. Only killing and restarting the process reclaims
+        it. Set this low (e.g. 1) if your task_function has this kind of unbounded per-process
+        memory growth.
     '''
 
     # +++++++++++++++++++++
@@ -474,7 +484,9 @@ def run_with_mp(
         #    leaks.  If you do this, close your container to release the memory leaks and restart a new container.
 
         results = {}
-        with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        with ProcessPoolExecutor(
+            max_workers=max_workers, max_tasks_per_child=max_tasks_per_child
+        ) as executor:
 
             future_to_id = {}
             # up to this point, the code is run immediately--submision is done right away. Now we wait for each job to be completed and be processed as below
@@ -698,7 +710,7 @@ def get_env_value(env_var_name):
 def get_huc_vars(huc):
     """Return the region-specific env vars (CRS and input paths) for a given 8-digit HUC number.
 
-    Keys are consistent across all regions ('crs', 'landsea', 'roads', 'NLD',
+    Keys are consistent across all regions ('crs', 'landsea', 'NLD',
     'levees_preprocessed', 'levee_protected_areas', 'lakes', 'nwm_catchments',
     'streams', 'headwaters', 'wbd', 'dem_domain'); a key is None where a region
     has no dedicated value (e.g. American Samoa has no NLD/levee inputs).
@@ -710,7 +722,6 @@ def get_huc_vars(huc):
         return {
             'crs': os.getenv('ALASKA_CRS'),
             'landsea': os.getenv('input_landsea_Alaska'),
-            'roads': os.getenv('osm_roads_alaska'),
             'NLD': os.getenv('input_NLD_Alaska'),
             'levees_preprocessed': os.getenv('input_levees_preprocessed_Alaska'),
             'levee_protected_areas': os.getenv('input_nld_levee_protected_areas_Alaska'),
@@ -725,7 +736,6 @@ def get_huc_vars(huc):
         return {
             'crs': os.getenv('GUAM_CRS'),
             'landsea': os.getenv('input_landsea_Guam'),
-            'roads': os.getenv('osm_roads_guam'),
             'NLD': os.getenv('input_NLD_Guam'),
             'levees_preprocessed': os.getenv('input_levees_preprocessed_Guam'),
             'levee_protected_areas': os.getenv('input_nld_levee_protected_areas_Guam'),
@@ -740,7 +750,6 @@ def get_huc_vars(huc):
         return {
             'crs': os.getenv('AMERICAN_SAMOA_CRS'),
             'landsea': os.getenv('input_landsea_AmericanSamoa'),
-            'roads': os.getenv('osm_roads_americansamoa'),
             'NLD': None,
             'levees_preprocessed': None,
             'levee_protected_areas': None,
@@ -757,7 +766,6 @@ def get_huc_vars(huc):
             'landsea': (
                 os.getenv('input_GL_boundaries') if str(huc).startswith('04') else os.getenv('input_landsea')
             ),
-            'roads': os.getenv('osm_roads'),
             'NLD': os.getenv('input_NLD'),
             'levees_preprocessed': os.getenv('input_levees_preprocessed'),
             'levee_protected_areas': os.getenv('input_nld_levee_protected_areas'),
