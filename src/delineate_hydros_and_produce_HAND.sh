@@ -19,12 +19,12 @@ fi
 
 ## MASK LEVEE-PROTECTED AREAS FROM DEM ##
 if [[ "$mask_leveed_area_toggle" == "True"  &&  -f "${tempHucDataDir}/LeveeProtectedAreas_subset.gpkg" ]]; then
-    echo -e "${startDiv}Mask levee-protected areas from DEM (*Overwrite dem_meters.tif output) ${hucNumber} ${current_branch_id}"
+    echo -e "${startDiv}Mask levee-protected areas from DEM ${hucNumber} ${current_branch_id}"
     args=(
         -dem "${tempCurrentBranchDataDir}/dem_meters_${current_branch_id}.tif"
         -nld "${tempHucDataDir}/LeveeProtectedAreas_subset.gpkg"
         -catchments "${z_arg}"
-        -out "${tempCurrentBranchDataDir}/dem_meters_${current_branch_id}.tif"
+        -out "${tempCurrentBranchDataDir}/dem_meters_masked_${current_branch_id}.tif"
         -b "${branch_id_attribute}"
         -i "${current_branch_id}"
         -b0 "${branch_zero_id}"
@@ -32,6 +32,15 @@ if [[ "$mask_leveed_area_toggle" == "True"  &&  -f "${tempHucDataDir}/LeveeProte
         -l "${levee_id_attribute}"
     )
     python3 "${srcDir}/mask_dem.py" "${args[@]}"
+else
+    echo -e "No levees in this HUC."
+fi
+
+if [[ ! -f "${tempCurrentBranchDataDir}/dem_meters_masked_${current_branch_id}.tif" ]]; then
+    
+    echo -e "Copying dem_meters_${current_branch_id}.tif to dem_meters_masked_${current_branch_id}.tif"
+
+    cp ${tempCurrentBranchDataDir}/dem_meters_${current_branch_id}.tif ${tempCurrentBranchDataDir}/dem_meters_masked_${current_branch_id}.tif
 fi
 
 ## D8 FLOW ACCUMULATIONS ##
@@ -56,7 +65,7 @@ python3 "${srcDir}/unique_pixel_and_allocation.py" "${args[@]}"
 ## ADJUST THALWEG MINIMUM USING LATERAL ZONAL MINIMUM ##
 echo -e "${startDiv}Performing lateral thalweg adjustment ${hucNumber} ${current_branch_id}"
 args=(
-    -e "${tempCurrentBranchDataDir}/dem_meters_${current_branch_id}.tif"
+    -e "${tempCurrentBranchDataDir}/dem_meters_masked_${current_branch_id}.tif"
     -s "${tempCurrentBranchDataDir}/demDerived_streamPixels_${current_branch_id}.tif"
     -a "${tempCurrentBranchDataDir}/demDerived_streamPixels_ids_"${current_branch_id}"_allo.tif"
     -d "${tempCurrentBranchDataDir}/demDerived_streamPixels_ids_"${current_branch_id}"_dist.tif"
@@ -295,7 +304,7 @@ if [[ "${healed_hand_hydrocondition}" == "true"  &&  "${current_branch_id}" != "
         --quiet --type=Float32 --overwrite 
         --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES"
         -R "${tempCurrentBranchDataDir}/rem_zeroed_masked_${current_branch_id}.tif"
-        -D "${tempCurrentBranchDataDir}/dem_meters_${current_branch_id}.tif"
+        -D "${tempCurrentBranchDataDir}/dem_meters_masked_${current_branch_id}.tif"
         -T "${tempCurrentBranchDataDir}/dem_thalwegCond_${current_branch_id}.tif"
         --calc="R+(D-T)" --NoDataValue=${ndv}
         --outfile="${tempCurrentBranchDataDir}/rem_zeroed_masked_${current_branch_id}.tif"
@@ -347,7 +356,7 @@ if [[ "${healed_hand_hydrocondition}" == "true" && "${current_branch_id}" == "${
         --quiet --type=Float32 --overwrite
         --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES"
         -R "${tempCurrentBranchDataDir}/rem_zeroed_masked_${current_branch_id}.tif"
-        -D "${tempCurrentBranchDataDir}/dem_meters_${current_branch_id}.tif"
+        -D "${tempCurrentBranchDataDir}/dem_meters_masked_${current_branch_id}.tif"
         -T "${tempCurrentBranchDataDir}/dem_thalwegCond_${current_branch_id}.tif"
         --calc="R+(D-T)" --NoDataValue="${ndv}"
         --outfile="${tempCurrentBranchDataDir}/rem_zeroed_masked_${current_branch_id}.tif"
