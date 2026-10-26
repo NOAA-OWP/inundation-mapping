@@ -7,14 +7,13 @@ import re
 import sqlite3
 import traceback
 from argparse import ArgumentParser
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
-
-from src.utils.io import write_geodataframe
 
 
 # Parameters
@@ -333,7 +332,7 @@ def merge_nwm_streams_with_ripples(metrics_dir, out_dir, ripple_collection_name)
 
     if not os.path.exists(path_ripple_reaches):
         ripple_reaches_gdf = arrange_outgoing_columns(ripple_reaches_gdf)
-        write_geodataframe(ripple_reaches_gdf, path_ripple_reaches)
+        ripple_reaches_gdf.to_file(path_ripple_reaches, driver='GPKG')
     else:
         msg = f'Ripple reaches GeoPackage already exists, skipping write: {path_ripple_reaches}\n'
         print(msg)
@@ -442,7 +441,7 @@ def merge_ripple_reaches_sourcemodels_with_metrics_db(metrics_dir, out_dir, ripp
 
     if not os.path.exists(path_ripple_reaches_metrics):
         ripple_reaches_metrics_gdf = arrange_outgoing_columns(ripple_reaches_metrics_gdf)
-        write_geodataframe(ripple_reaches_metrics_gdf, path_ripple_reaches_metrics)
+        ripple_reaches_metrics_gdf.to_file(path_ripple_reaches_metrics)
     else:
         msg = f'Metrics geopackage already exists, skipping write: {path_ripple_reaches_metrics}\n'
         print(msg)
@@ -452,7 +451,7 @@ def merge_ripple_reaches_sourcemodels_with_metrics_db(metrics_dir, out_dir, ripp
 
 
 # -----------------------------------------------------------------------------
-def create_ripple_STREAMS_gdf_csv(metrics_dir, out_dir):
+def create_ripple_STREAMS_gdf_csv(metrics_dir, out_dir, n_workers=None):
 
     # Please Note that each stream is made of one or multiple nwm reaches (or feature-ids)
     def log(message):
@@ -468,6 +467,18 @@ def create_ripple_STREAMS_gdf_csv(metrics_dir, out_dir):
     ripple_collections.sort()
 
     log_text = log(f'{len(ripple_collections)} ripple collections have been found to analyze.')
+
+    # Add the parallel preparation here.
+    collection_results = prepare_ripple_collections_parallel(
+        metrics_dir, out_dir, ripple_collections, n_workers=n_workers
+    )
+
+    # Collect worker logs and errors in the parent process.
+    for ripple_collection, collection_log, collection_error in collection_results:
+        log_text += collection_log
+
+        if collection_error is not None:
+            log_text += log(f'Error preparing collection {ripple_collection}:\n' f'{collection_error}')
 
     metrics_streams_conus_ls = []
     metrics_streams_conus_gpkg_ls = []
@@ -614,7 +625,7 @@ def create_ripple_STREAMS_gdf_csv(metrics_dir, out_dir):
                 metrics_streams_gdf = arrange_outgoing_columns(metrics_streams_gdf)
                 if 'huc' in metrics_streams_gdf.columns:
                     metrics_streams_gdf['huc'] = metrics_streams_gdf['huc'].astype('string')
-                write_geodataframe(metrics_streams_gdf, path_streams_metrics)
+                metrics_streams_gdf.to_file(path_streams_metrics)
             else:
                 log_text += log(
                     f'Stream metrics GeoPackage already exists, skipping write: {path_streams_metrics}'
@@ -655,7 +666,7 @@ def create_ripple_STREAMS_gdf_csv(metrics_dir, out_dir):
             metrics_streams_conus_gpkg = arrange_outgoing_columns(metrics_streams_conus_gpkg)
             if 'huc' in metrics_streams_conus_gpkg.columns:
                 metrics_streams_conus_gpkg['huc'] = metrics_streams_conus_gpkg['huc'].astype('string')
-            write_geodataframe(metrics_streams_conus_gpkg, path_metrics_streams_conus_gpkg)
+            metrics_streams_conus_gpkg.to_file(path_metrics_streams_conus_gpkg)
     else:
         log_text += log('No stream metrics GeoPackages were created.')
 
@@ -686,13 +697,13 @@ def create_ripple_STREAMS_gdf_csv(metrics_dir, out_dir):
         all_sourcemodels_conus_gdf = arrange_outgoing_columns(all_sourcemodels_conus_gdf)
         if 'huc' in all_sourcemodels_conus_gdf.columns:
             all_sourcemodels_conus_gdf['huc'] = all_sourcemodels_conus_gdf['huc'].astype('string')
-        write_geodataframe(all_sourcemodels_conus_gdf, path_all_sourcemodels_conus_gpkg)
+        all_sourcemodels_conus_gdf.to_file(path_all_sourcemodels_conus_gpkg, driver='GPKG')
 
     return log_text
 
 
 # -----------------------------------------------------------------------------
-def process_ripple_STREAMS_create_blackList(metrics_dir, out_dir):
+def process_ripple_STREAMS_create_blackList(metrics_dir, out_dir, n_workers=None):
 
     def log(message):
         print(message)
@@ -705,7 +716,7 @@ def process_ripple_STREAMS_create_blackList(metrics_dir, out_dir):
     log_text = ''
 
     if not os.path.exists(path_ripple_streams) or not os.path.exists(path_ripple_reaches):
-        log_text += create_ripple_STREAMS_gdf_csv(metrics_dir, out_dir)
+        log_text += create_ripple_STREAMS_gdf_csv(metrics_dir, out_dir, n_workers=n_workers)
     else:
         log_text += log('Ripple streams and reaches metrics CSV files already exist.')
 
@@ -955,7 +966,7 @@ def process_ripple_STREAMS_create_blackList(metrics_dir, out_dir):
             whitelist_gdf = arrange_outgoing_columns(whitelist_gdf)
             if 'huc' in whitelist_gdf.columns:
                 whitelist_gdf['huc'] = whitelist_gdf['huc'].astype('string')
-            write_geodataframe(whitelist_gdf, path_master_whitelist_conus_gpkg)
+            whitelist_gdf.to_file(path_master_whitelist_conus_gpkg, driver='GPKG')
         else:
             log_text += log(
                 f'All source models CONUS GeoPackage does not exist: {path_all_sourcemodels_conus_gpkg}'
@@ -969,8 +980,46 @@ def process_ripple_STREAMS_create_blackList(metrics_dir, out_dir):
 
 
 # -----------------------------------------------------------------------------
+def process_ripple_collection_metrics(metrics_dir, out_dir, collection):
+    try:
+        log_text = merge_ripple_reaches_sourcemodels_with_metrics_db(metrics_dir, out_dir, collection)
+        return collection, log_text, None
+    except Exception:
+        return collection, "", traceback.format_exc()
+
+
+# -----------------------------------------------------------------------------
+def prepare_ripple_collections_parallel(metrics_dir, out_dir, collections, n_workers=None):
+    if n_workers is None:
+        n_workers = max((os.cpu_count() or 2) - 1, 1)
+
+    if n_workers <= 1:
+        return [
+            process_ripple_collection_metrics(metrics_dir, out_dir, collection) for collection in collections
+        ]
+
+    results = []
+
+    with ProcessPoolExecutor(max_workers=n_workers) as executor:
+        futures = {
+            executor.submit(process_ripple_collection_metrics, metrics_dir, out_dir, collection): collection
+            for collection in collections
+        }
+
+        for future in as_completed(futures):
+            collection = futures[future]
+
+            try:
+                results.append(future.result())
+            except Exception:
+                results.append((collection, "", traceback.format_exc()))
+
+    return sorted(results, key=lambda result: result[0])
+
+
+# -----------------------------------------------------------------------------
 # Apply ripple_streams_blacklist function on metrics_dir
-def apply_ripple_streams_blacklist(metrics_dir, out_dir, log_file_path):
+def apply_ripple_streams_blacklist(metrics_dir, out_dir, log_file_path, n_workers=None):
     """
     Process Ripple stream metrics and create blacklist/whitelist outputs.
 
@@ -995,7 +1044,7 @@ def apply_ripple_streams_blacklist(metrics_dir, out_dir, log_file_path):
         print(msg)
         log_text += msg
 
-        log_text += process_ripple_STREAMS_create_blackList(metrics_dir, out_dir)
+        log_text += process_ripple_STREAMS_create_blackList(metrics_dir, out_dir, n_workers=n_workers)
 
     except Exception:
         error_msg = 'An error occurred while processing Ripple STREAMS\n'
@@ -1017,7 +1066,7 @@ def apply_ripple_streams_blacklist(metrics_dir, out_dir, log_file_path):
 
 
 # -----------------------------------------------------------------------------
-def log_create_blacklist(metrics_dir, out_dir):
+def log_create_blacklist(metrics_dir, out_dir, n_workers=None):
     """
     Create a timestamped log file and run the Ripple stream blacklist workflow.
 
@@ -1052,7 +1101,7 @@ def log_create_blacklist(metrics_dir, out_dir):
     with open(log_file_path, 'w') as log_file:
         log_file.write(log_text)
 
-    log_text += apply_ripple_streams_blacklist(metrics_dir, out_dir, log_file_path)
+    log_text += apply_ripple_streams_blacklist(metrics_dir, out_dir, log_file_path, n_workers=n_workers)
 
     end_time = dt.datetime.now(dt.timezone.utc)
     total_run_time = end_time - begin_time
@@ -1088,14 +1137,24 @@ if __name__ == '__main__':
     parser = ArgumentParser(description="Process Ripple Streams and Create a Black List")
     parser.add_argument('-md', '--metrics-dir', help='saved ripple matrics dir', required=True, type=str)
     parser.add_argument('-od', '--out-dir', help='saved output dir', required=True, type=str)
+    parser.add_argument(
+        "-j",
+        "--n-workers",
+        type=int,
+        default=None,
+        help=(
+            "Number of model collections prepared concurrently. "
+            "Default: CPU count minus 1. Use 1 to disable multiprocessing."
+        ),
+    )
 
     args = vars(parser.parse_args())
-
     metrics_dir = args['metrics_dir']
     out_dir = args['out_dir']
+    n_workers = args['n_workers']
 
     # parent_dir = os.path.dirname(os.path.normpath(metrics_dir))
     # out_dir = os.path.join(parent_dir, 'ripple_metrics')
     # os.makedirs(out_dir, exist_ok=True)
 
-    log_create_blacklist(metrics_dir, out_dir)
+    log_create_blacklist(metrics_dir, out_dir, n_workers=n_workers)
