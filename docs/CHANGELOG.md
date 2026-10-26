@@ -1,6 +1,29 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## 4.10.x.x - 2026-10-26 - [PR#1964](https://github.com/NOAA-OWP/inundation-mapping/pull/1964)
+Masks FIM in areas outside of the U.S. This is accomplished by clipping the branch catchments polygons and masking the branch catchments raster and REM to the international boundary. The international boundary was precomputed by dissolving the States shapefile, and a list of HUCs intersecting the international boundary line was generated to minimize the spatial comparisons required during runtime. A new Exit code (`BRANCH_IS_COMPLETELY_OUTSIDE_US=66`) was introduced that represents branches that are terminated because the entirety of the branch exists outside of the US boundary.
+
+### Additions
+
+- `data/`
+    - `usgs/dissolve_state_boundaries.py`: Generates a pre-computed international boundary file from the USGS States shapefile
+    - `wbd/filter_international_huc8s.py`: Generates a list of HUC8s (saved to `BORDER_HUC_FILE`) that intersect the international boundary perimeter. First dissolves the states layer into a single polygon.
+- `src/utils/`
+    - `clip_polygons.py`: Tool to clip polygons using another polygon file
+    - `mask_rasters.py`: Fast raster masking tool using spatial indexing pre-filtering.
+
+### Changes
+
+- `src/`
+    - `bash_variables.env`: Added `BORDER_HUC_FILE`
+    - `delineate_hydros_and_produce_HAND.sh`: Added call to `mask_rasters.py` if HUC8 is in `BORDER_HUC_FILE`
+    - `process_branch.sh`: Added Exit status 66 as an acceptable code
+    - `utils/`
+        - `fim_enums.py`: Added new exit code (`66`) for `BRANCH_IS_COMPLETELY_OUTSIDE_US`
+        - `post_process_error_report.py`: Updated for new exit code
+<br/>
+        
 ## 4.10.3.0 - 2026-10-16 - [PR#1959](https://github.com/NOAA-OWP/inundation-mapping/pull/1959)
 Various Pip packages changes include:
 - `Added`: cryptography, notebook, scikit-learn, xgboost 
