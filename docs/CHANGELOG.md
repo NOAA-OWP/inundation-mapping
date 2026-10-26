@@ -178,8 +178,8 @@ Bash scripts were also refactored to use bash arrays and use of explicit notatio
     - `deny_branch_zero.lst`, `deny_branches.lst`, `deny_unit.lst`
 - `src/`
     - `add_crosswalk.py`, `adjust_floodplains.py`, `aggregate_branches_to_huc.py`, `associate_levelpaths_with_levees.py`, `derive_level_paths.py`, `filter_catchments_and_add_attributes.py`, `heal_bridges_osm.py`, `longitudinal_flow_adjustment.py`, `make_stages_and_catchlist.py`, `mask_dem.py`, `mitigate_branch_outlet_backpool.py`, `process_buildings_fimpact.py`, `process_roads_fimpact.py`, `split_flows.py`, `src_adjust_ras2fim_rating.py`, `src_adjust_spatial_obs.py`, `src_adjust_usgs_rating_trace.py`, `src_roughness_optimization.py`, `stream_branches.py`, `usgs_gage_crosswalk.py`, `usgs_gage_unit_setup.py`
- - `tools/
-     - catfim/`
+ - `tools/`
+     - `catfim/`
          - `vis_categorical_fim.py`
      - `bridge_inundation.py`, `evaluate_crosswalk.py`, `rating_curve_comparison.py`
 
@@ -842,6 +842,7 @@ In addition, an upgraded `pdal` was added to the Dockerfile and `pillow` was upg
     - `run_by_branch.sh` and `run_huc.sh` Suppress GDAL Error message and fix `gdal_rasterize` nodata issue
 
 <br/>
+
 ## v4.9.13.0 - 2026-05-13 - [PR#1811](https://github.com/NOAA-OWP/inundation-mapping/pull/1811)
 
 A major reorganization of the CatFIM processing pipeline, consolidating and simplifying a complex multi-file workflow into more modular and maintainable components. New scripts (`catfim_shared_functions.py`, `catfim_process_huc.py`, `catfim_post_processing.py`) were created to centralize common operations and move CatFIM processing into a HUC-level scale (whereas previous processing was a mix of site-level, sometimes HUC-level, and sometimes full domain-scale). 
