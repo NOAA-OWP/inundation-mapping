@@ -1178,66 +1178,78 @@ def process_huc_hecras_data(huc, valid_lids, sites_gdf, huc_path, segments_file_
         # End of model list filtering
 
         # Get a full list of the feature IDs affiliated with this site (according to CatFIM crosswalking)
-        all_feature_ids_for_site = (
+        all_fids_for_site = (
             segments_df[segments_df['lid'] == ahps_site]['feature_id'].unique().tolist()
         )
 
         # Subset the controls CSV for each site/model/magnitude combination
         for model_name in model_list:
 
+            # ---
+            # Check 1: Check that all feature IDs are available for the model
+
             # Get a list of feature IDs that have valid HEC-RAS models for this model/site combination
-            valid_model_feature_id_list = (
+            valid_model_fid_list = (
                 valid_hr_models_df[valid_hr_models_df['collection_id'] == model_name]['feature_id']
                 .unique()
                 .tolist()
             )
 
             # Get a list of feature IDs that are in the controls df for this model/site combination
-            site_controls_model_feature_id_list = (
+            site_controls_model_fid_list = (
                 site_controls_df[site_controls_df['model_collection'] == model_name]['reach_id']
                 .unique()
                 .tolist()
             )
 
             # Get a list of feature IDs for this model that are in the valid HR models df (aka whitelist) and the controls df
-            valid_site_model_feature_id_list = list(
-                set(valid_model_feature_id_list) & set(site_controls_model_feature_id_list)
-            )
+            valid_site_model_fid_list = list(set(valid_model_fid_list) & set(site_controls_model_fid_list))
 
             # Print the feature ID count summary
             logging.info('')
-            logging.info(f'{huc} : {ahps_site} : {model_name} - Feature ID count summary:')
-            logging.info(
-                f'{huc} : {ahps_site} : {model_name} - # feature IDs affiliated with this site (from segments df):                {len(all_feature_ids_for_site)}'
-            )
-            logging.info(
-                f'{huc} : {ahps_site} : {model_name} - # feature IDs affiliated with this model (all sites/HUCs, from whitelist): {len(valid_model_feature_id_list)}'
-            )
-            logging.info(
-                f'{huc} : {ahps_site} : {model_name} - # feature IDs affiliated with this site with controls data available:      {len(site_controls_model_feature_id_list)}'
-            )
+            logging.info(f'{huc} : {ahps_site} : {model_name} - Feature ID (FID) count summary:')
+            logging.info(f'  # FIDs affiliated with this site (from segments df)................. {len(all_fids_for_site)}')
+            logging.info(f'  # FIDs affiliated with this model (all sites/HUCs, from whitelist).. {len(valid_model_fid_list)}')
+            logging.info(f'  # FIDs affiliated with this site with controls data available....... {len(site_controls_model_fid_list)}')
             logging.info('')
-            logging.info(
-                f'{huc} : {ahps_site} : {model_name} - # feature IDs that are valid in whitelist AND avail. in controls df:       {len(valid_site_model_feature_id_list)}/{len(all_feature_ids_for_site)}'
-            )
+            logging.info(f'  # FIDs that are valid in whitelist AND avail. in controls df........ {len(valid_site_model_fid_list)}/{len(all_fids_for_site)}')
             logging.info('')
 
-            if len(all_feature_ids_for_site) > len(valid_site_model_feature_id_list):
-                logging.warning(
-                    f'{huc} : {ahps_site} : {model_name} - Valid HEC-RAS models not available for all site feature IDs, HEC-RAS processing will not proceed for this site/model combination'
-                )
-                diff1 = list(set(all_feature_ids_for_site) - set(valid_site_model_feature_id_list))
-                logging.info(
-                    f'Feature IDs that are in all_feature_ids_for_site but not in valid_site_model_feature_id_list: {diff1}'
-                )
+            if len(all_fids_for_site) > len(valid_site_model_fid_list):
+                logging.warning(f'{huc} : {ahps_site} : {model_name} - Valid HEC-RAS models not available for all site FIDs')
+
+                diff1 = list(set(all_fids_for_site) - set(valid_site_model_fid_list))
+                logging.warning(f'FIDs that are in all_fids_for_site but not in valid_site_model_fid_list: {diff1}')
+
+                logging.warning(f'{huc} : {ahps_site} : {model_name} - HEC-RAS processing will not proceed for this site/model combination')
                 continue
 
-            # Add site/model combination to sites_models_list
+            # ---
+            # Check 2: Check for the "same stage" error and error if it is found
+
+            # Get nwm_seg (feature id) for this site
+            nwm_seg = sites_gdf.loc[sites_gdf['nws_lid'] == ahps_site.upper(), 'identifiers_nwm_feature_id'].item()
+            nwm_seg = int(nwm_seg)
+
+            # Subset the controls CSV to just get the values for the central feature ID
+            site_model_fid_controls_df = site_controls_df[(site_controls_df['model_collection'] == model_name) & (site_controls_df['nwm_feature_id'] == nwm_seg)]
+
+            # Get a list of magnitudes (if any) with the same control stage as any other magnitudes for this site/model subset
+            duplicate_control_stage_magnitudes = site_model_fid_controls_df.loc[site_model_fid_controls_df.duplicated(subset=['control_stage'], keep=False), 'magnitude'].tolist()
+
+            if len(duplicate_control_stage_magnitudes) > 0:
+                logging.error(f'{huc} : {ahps_site} : {model_name} - Duplicate control stage magnitudes found, which indicates a HEC-RAS or ripple error')
+                logging.error(f'{huc} : {ahps_site} : {model_name} - Magnitudes with duplicate control stages: {duplicate_control_stage_magnitudes}') # TEMP DEBUG
+                logging.error(f'{huc} : {ahps_site} : {model_name} - HEC-RAS processing will not proceed for this site/model combination')
+                continue
+
+            # ---
+            # If the two checks are passed, add site/model combination to sites_models_list
             sites_models_list.append(
                 {
                     'nws_lid': ahps_site,
                     'model_collection': model_name,
-                    'feature_ids': valid_site_model_feature_id_list,
+                    'feature_ids': valid_site_model_fid_list,
                 }
             )
 

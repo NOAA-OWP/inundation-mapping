@@ -671,14 +671,16 @@ def run_fb_inundation(  # renamed from run_inundation
         #
         # The ones we want to keep end at _extent.tif and remove ones that have _extent_*.tif
 
-        logging.info(f'{huc} : {ahps_site} : {magnitude} - Removing interium inundated branch files')
+        logging.info(f'{huc} : {ahps_site} : {magnitude} - TEMP DEBUG NOT Removing interium inundated branch files') # TEMP DEBUG 
 
-        output_extent_branch_tif = output_extent_tif.replace(".tif", "_*.tif")
-        branch_tifs = glob.glob(output_extent_branch_tif)
+        # logging.info(f'{huc} : {ahps_site} : {magnitude} - Removing interium inundated branch files') # TEMP DEBUG 
 
-        for tif_file in branch_tifs:
-            if os.path.exists(tif_file):
-                os.remove(tif_file)
+        # output_extent_branch_tif = output_extent_tif.replace(".tif", "_*.tif")
+        # branch_tifs = glob.glob(output_extent_branch_tif)
+
+        # for tif_file in branch_tifs:
+        #     if os.path.exists(tif_file):
+        #         os.remove(tif_file)
 
     except Exception as ex:
         # Log errors and their tracebacks
@@ -1634,6 +1636,8 @@ def post_process_huc_mapping(huc, catfim_type, sites_gdf, huc_library_df, output
 
     # Iterate through the saved tifs to make a list of inundated multipolygons
     reformatted_geom_list = []
+
+    logging.info(f'tifs_to_reformat_list: {tifs_to_reformat_list}') # TEMP DEBUG
 
     for tif_to_process in tifs_to_reformat_list:
         if not os.path.exists(tif_to_process):

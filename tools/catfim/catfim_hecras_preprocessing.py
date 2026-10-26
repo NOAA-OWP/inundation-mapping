@@ -320,6 +320,13 @@ def run_controls(
             logging.critical(msg)
             raise Exception(msg)
 
+    logging.info(f'{collection_id} : {magnitude} - Running flows2fim controls with the following inputs:') # TEMP DEBUG
+    logging.info(f' - db_path: {db_path}') # TEMP DEBUG
+    logging.info(f' - flows_csv: {flows_csv}') # TEMP DEBUG
+    logging.info(f' - starts_csv: {starts_csv}') # TEMP DEBUG
+    logging.info(f' - controls_output_csv: {controls_output_csv}') # TEMP DEBUG
+    logging.info(f' - flows2fim_software_path: {flows2fim_software_path}') # TEMP DEBUG
+
     try:
         # Use subprocess to run flows2fim controls
         result = subprocess.run(
@@ -503,7 +510,10 @@ def run_controls_for_all_models_and_magnitudes(
 
         # Iterate through magnitudes and run controls
         for magnitude in magnitude_types:
+            logging.info(f'{collection_id} : {magnitude} - Running controls') ## TEMP DEBUG
             flows_filename = flows_csv_dict[magnitude]
+
+            logging.info(f'{collection_id} : {magnitude} - Using flows file: {flows_filename}') ## TEMP DEBUG
 
             controls_output_csv = run_controls(
                 magnitude,
@@ -515,6 +525,8 @@ def run_controls_for_all_models_and_magnitudes(
                 starts_csv,
             )
 
+            logging.info(f'{collection_id} : {magnitude} - Controls output CSV: {controls_output_csv}') ## TEMP DEBUG
+
             if controls_output_csv is None:
                 logging.warning(
                     f'{collection_id} : {magnitude} - No controls CSV created, error likely occurred'
@@ -525,9 +537,6 @@ def run_controls_for_all_models_and_magnitudes(
             controls_df = pd.read_csv(controls_output_csv)
             controls_df['magnitude'] = magnitude
             controls_df['model_collection'] = collection_id
-            # controls_df['collection_parent_folder'] = ripple_filename
-            # catfim_hecras_fb TODO: Do we need this ripple_filename column? It should be the same for every row...
-            # TODO: Clean up after I've tested that the CatFIM code runs fine without it
 
             # Join the identifiers_df to the controls_df to add the nws_lid column (joining on reach_id for controls_df and nwm_feature_id for identifiers df)
             controls_df = pd.merge(
@@ -555,10 +564,10 @@ def run_controls_for_all_models_and_magnitudes(
 
     # Compile the outputs of the controls in controls_output_csv_list and delete the input temp folder
     combined_df = pd.concat([pd.read_csv(f) for f in controls_output_csv_list], ignore_index=True)
-    logging.info(
-        'Compiled all controls files, deleting temp folder with magnitude/collection-specific controls files'
-    )
-    shutil.rmtree(intermediates_folder)
+    # logging.info(
+    #     'Compiled all controls files, deleting temp folder with magnitude/collection-specific controls files'
+    # )
+    # shutil.rmtree(intermediates_folder) # TEMP DEBUG not deleting for now 
 
     # Save the combined DataFrame to a new CSV file
     compiled_controls_path = os.path.join(output_folder, 'combined_controls_output.csv')
@@ -783,7 +792,7 @@ if __name__ == '__main__':
 
     Example:
 
-    python /projects/catfim_hecras_fb/catfim_hecras_preprocessing.py
+    python /foss_fim/tools/catfim/catfim_hecras_preprocessing.py
     -o '/projects/catfim_hecras_fb/test_outputs/'
     -tf '/data/inputs/wrds/thresholds_20260413.pkl'
     -mf '/data/inputs/wrds/nwm_metadata_20260413.pkl'
