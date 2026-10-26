@@ -2,7 +2,7 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## 4.10.x.x - 2026-10-26 - [PR#1964](https://github.com/NOAA-OWP/inundation-mapping/pull/1964)
-Masks FIM in areas outside of the U.S. This is accomplished by clipping the branch catchments polygons and masking the branch catchments raster and REM to the international boundary. The international boundary was precomputed by dissolving the States shapefile, and a list of HUCs intersecting the international boundary line was generated to minimize the spatial comparisons required during runtime. A new Exit code (`BRANCH_IS_COMPLETELY_OUTSIDE_US=66`) was introduced that represents branches that are terminated because the entirety of the branch exists outside of the US boundary.
+Masks FIM in areas outside of the U.S. This is accomplished by clipping the branch catchments polygons and masking the branch catchments raster (`gw_catchments_reaches_{branch_id}.tif`) and REM to the international boundary. The international boundary was precomputed by dissolving the States shapefile, and a list of HUCs intersecting the international boundary line was generated to minimize the spatial comparisons required during runtime. A new Exit code (`BRANCH_IS_COMPLETELY_OUTSIDE_US=66`) was introduced that represents branches that are terminated because the entirety of the branch exists outside of the US boundary.
 
 ### Additions
 
@@ -22,6 +22,7 @@ Masks FIM in areas outside of the U.S. This is accomplished by clipping the bran
     - `utils/`
         - `fim_enums.py`: Added new exit code (`66`) for `BRANCH_IS_COMPLETELY_OUTSIDE_US`
         - `post_process_error_report.py`: Updated for new exit code
+- `tools/convert_to_int16.py`: Added `blocksize`s
 <br/>
         
 ## 4.10.3.0 - 2026-10-16 - [PR#1959](https://github.com/NOAA-OWP/inundation-mapping/pull/1959)
