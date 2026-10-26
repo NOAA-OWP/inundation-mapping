@@ -39,7 +39,10 @@ def get_mask_geometries_indexed(mask_file, target_bounds=None, target_crs=None):
 
     if not is_raster:
         print(f"Reading vector mask: {mask_file}")
-        gdf = gpd.read_file(mask_file)
+        if mask_file.endswith((".parquet", ".geoparquet")):
+            gdf = gpd.read_parquet(mask_file)
+        else:
+            gdf = gpd.read_file(mask_file)
 
         # 1. Hilbert Sort for spatial cache locality (fixed for GeoSeries)
         if not gdf.empty:
@@ -81,7 +84,8 @@ def mask_rasters_optimized(mask_path, raster_inputs, output_paths, exit_on_out_o
             nodata_val = src.nodata if src.nodata is not None else -9999
 
             # Query vector mask using target raster's bounding box and CRS
-            mask_geoms, mask_crs = get_mask_geometries_indexed(
+            # (Geometries returned here are already filtered and in src.crs)
+            mask_geoms, _ = get_mask_geometries_indexed(
                 mask_file=mask_path, target_bounds=src.bounds, target_crs=src.crs
             )
 
@@ -93,13 +97,8 @@ def mask_rasters_optimized(mask_path, raster_inputs, output_paths, exit_on_out_o
                     sys.exit(FIM_exit_codes.BRANCH_IS_COMPLETELY_OUTSIDE_US.value)
                 continue
 
-            mask_gdf = gpd.GeoDataFrame(geometry=mask_geoms, crs=mask_crs)
-            if mask_gdf.crs != src.crs:
-                mask_gdf = mask_gdf.to_crs(src.crs)
-
-            geometries = mask_gdf.geometry.values
-
-            out_image, out_transform = mask(src, geometries, crop=True, nodata=nodata_val)
+            # Pass geometries directly without reconstructing mask_gdf
+            out_image, out_transform = mask(src, mask_geoms, crop=True, nodata=nodata_val)
             out_meta = src.meta.copy()
 
             out_meta.update(

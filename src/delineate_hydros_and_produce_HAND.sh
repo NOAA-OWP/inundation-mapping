@@ -191,23 +191,6 @@ args=(
 )
 python3 "${srcDir}/make_rem.py" "${args[@]}"
 
-## Mask international FIM ##
-# Check if current HUC8 is in the precomputed border list
-if grep -q "^${hucNumber}$" "${BORDER_HUC_FILE}"; then
-    echo -e "${startDiv}Mask international FIM ${hucNumber} ${current_branch_id}"
-    date -u
-    Tstart
-    args=(
-        -m "${inputsDir}/USGS_State_Boundaries/s_11au16.shp"
-        -i "${tempCurrentBranchDataDir}/gw_catchments_reaches_${current_branch_id}.tif"
-        -o "${tempCurrentBranchDataDir}/gw_catchments_reaches_${current_branch_id}.tif"
-    )
-    python3 "${srcDir}/utils/mask_rasters.py" "${args[@]}"
-    Tcount
-else
-    echo -e "${startDiv}Skipping masking international boundaries for ${hucNumber} ${current_branch_id}"
-fi
-
 ## BRING DISTANCE DOWN TO ZERO & MASK TO CATCHMENTS ##
 echo -e "${startDiv}Bring negative values in REM to zero and mask to catchments ${hucNumber} ${current_branch_id}"
 args=(
@@ -332,6 +315,33 @@ args=(
     -table "${tempCurrentBranchDataDir}/src_base_${current_branch_id}.csv"
 )
 python3 "${srcDir}/run_taudem_subprocess.py" catchhydrogeo "${args[@]}"
+
+## Mask international FIM ##
+# Check if current HUC8 is in the precomputed border list
+if grep -q "^${hucNumber}$" "${BORDER_HUC_FILE}"; then
+    echo -e "${startDiv}Mask international FIM ${hucNumber} ${current_branch_id}"
+    date -u
+    Tstart
+    args=(
+        -m "${inputsDir}/USGS_State_Boundaries/s_11au16_dissolved.parquet"
+        -i "${tempCurrentBranchDataDir}/gw_catchments_reaches_filtered_addedAttributes_${current_branch_id}.tif" 
+            "${tempCurrentBranchDataDir}/rem_zeroed_masked_${current_branch_id}.tif"
+        -o "${tempCurrentBranchDataDir}/gw_catchments_reaches_filtered_addedAttributes_${current_branch_id}.tif" 
+            "${tempCurrentBranchDataDir}/rem_zeroed_masked_${current_branch_id}.tif"
+    )
+    python3 "${srcDir}/utils/mask_rasters.py" "${args[@]}"
+    Tcount
+
+    # Clip catchments polygons
+    args=(
+        -c "${tempCurrentBranchDataDir}/gw_catchments_reaches_filtered_addedAttributes_${current_branch_id}.parquet" 
+        -b "${inputsDir}/USGS_State_Boundaries/s_11au16_dissolved.parquet"
+        -o "${tempCurrentBranchDataDir}/gw_catchments_reaches_filtered_addedAttributes_${current_branch_id}.parquet"
+    )
+    python3 "${srcDir}/utils/clip_polygons.py" "${args[@]}"
+else
+    echo -e "${startDiv}Skipping masking international boundaries for ${hucNumber} ${current_branch_id}"
+fi
 
 ## FINALIZE CATCHMENTS AND MODEL STREAMS ##
 echo -e $startDiv"Finalize catchments and model streams ${hucNumber} ${current_branch_id}"
