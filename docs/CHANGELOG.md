@@ -1,5 +1,35 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
+
+## 4.X.X.X - 2026-10-26 - [PR#1965](https://github.com/NOAA-OWP/inundation-mapping/pull/1965)
+
+This PR updates the Ripple whitelist and domains  for HydroVIS November Release. The workflow includes:
+
+1. Set initial validity of NWM streams: Exclude blacklisted streams and streams without a valid library path, unless they are identified as bridges.
+
+2. Validate HUC assignments: Check against the reference hydrofabric. Reject duplicate rows with incorrect HUCs, while allowing duplicated streams whose assigned HUCs all fail the reference match.
+
+3. Check raster coverage: Merge available valid-stream domain.tif files by collection and flag non-blacklisted streams with less than 99% coverage.
+
+4. Apply the headwater exception: Identify streams with no upstream contributors and require coverage of their entire downstream 40%, **including the outlet**.
+
+5. Recheck gaps using model polygons: Use each stream’s own model domain; headwaters may also receive coverage from already-valid models.
+
+6. Check bridges without library paths: Require eligible bridges to have 99% coverage by their own model, and invalidate remaining raster/model gaps.
+
+7. Build valid domains and restore covered streams: Remove disconnected polygon parts that intersect no valid stream, merge the retained domains, and restore eligible gap-excluded streams with 100% coverage, preserving other exclusions.
+
+8. Require valid neighbors: Streams without valid library paths must have at least one valid immediate upstream reach and a valid downstream reach. Repeat until no retained stream depends on a newly invalid neighbor.
+
+9. Save timestamped outputs of the whitelist CSV, valid/invalid stream GeoPackages, valid/merged domain GeoPackages, and valid-domain GeoParquet. 
+
+### Changes
+- `/data/ripple`
+    - remove_blacklisted_streams_and_ripple_model_domain_gaps.py: The whole workflow has been changed.
+    - terrain_agreement_metrics_analysis.py
+
+<br/>
+
 ## 4.10.3.1 - 2026-10-21 - [PR#1939](https://github.com/NOAA-OWP/inundation-mapping/pull/1939)
 
 Refactor to meet HydroVIS needs. We are trying to have all projects that feed into HydroVIS meet the following criteria:
