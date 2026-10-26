@@ -98,7 +98,7 @@ def merge_huc_error_reports(hand_dir, error_output_csv_path, branch_accepted_exi
 
     # To keep the df shape matching, lets load all of the recs first into a df
     # then split it to two csv output files.
-    # One for branches that have acceptable branch exit codes like 60 - 65.
+    # One for branches that have acceptable branch exit codes like 60 - 66.
     # The rest to the error file.
     combined_df = None
     if num_recs_merged > 0:

@@ -15,6 +15,30 @@ Refactor to meet HydroVIS needs. We are trying to have all projects that feed in
   - Return a pandas.DataFrame rather than writing a file and return nothing directly
 <br/>
 
+## 4.10.x.x - 2026-10-26 - [PR#1964](https://github.com/NOAA-OWP/inundation-mapping/pull/1964)
+Masks FIM in areas outside of the U.S. This is accomplished by clipping the branch catchments polygons and masking the branch catchments raster (`gw_catchments_reaches_{branch_id}.tif`) and REM to the international boundary. The international boundary was precomputed by dissolving the States shapefile, and a list of HUCs intersecting the international boundary line was generated to minimize the spatial comparisons required during runtime. A new Exit code (`BRANCH_IS_COMPLETELY_OUTSIDE_US=66`) was introduced that represents branches that are terminated because the entirety of the branch exists outside of the US boundary.
+
+### Additions
+
+- `data/`
+    - `usgs/dissolve_state_boundaries.py`: Generates a pre-computed international boundary file from the USGS States shapefile
+    - `wbd/filter_international_huc8s.py`: Generates a list of HUC8s (saved to `BORDER_HUC_FILE`) that intersect the international boundary perimeter. First dissolves the states layer into a single polygon.
+- `src/utils/`
+    - `clip_polygons.py`: Tool to clip polygons using another polygon file
+    - `mask_rasters.py`: Fast raster masking tool using spatial indexing pre-filtering.
+
+### Changes
+
+- `src/`
+    - `bash_variables.env`: Added `BORDER_HUC_FILE`
+    - `delineate_hydros_and_produce_HAND.sh`: Added call to `mask_rasters.py` if HUC8 is in `BORDER_HUC_FILE`
+    - `process_branch.sh`: Added Exit status 66 as an acceptable code
+    - `utils/`
+        - `fim_enums.py`: Added new exit code (`66`) for `BRANCH_IS_COMPLETELY_OUTSIDE_US`
+        - `post_process_error_report.py`: Updated for new exit code
+- `tools/convert_to_int16.py`: Added `blocksize`s
+<br/>
+        
 ## 4.10.3.0 - 2026-10-16 - [PR#1959](https://github.com/NOAA-OWP/inundation-mapping/pull/1959)
 Various Pip packages changes include:
 - `Added`: cryptography, notebook, scikit-learn, xgboost 
@@ -168,8 +192,8 @@ Bash scripts were also refactored to use bash arrays and use of explicit notatio
     - `deny_branch_zero.lst`, `deny_branches.lst`, `deny_unit.lst`
 - `src/`
     - `add_crosswalk.py`, `adjust_floodplains.py`, `aggregate_branches_to_huc.py`, `associate_levelpaths_with_levees.py`, `derive_level_paths.py`, `filter_catchments_and_add_attributes.py`, `heal_bridges_osm.py`, `longitudinal_flow_adjustment.py`, `make_stages_and_catchlist.py`, `mask_dem.py`, `mitigate_branch_outlet_backpool.py`, `process_buildings_fimpact.py`, `process_roads_fimpact.py`, `split_flows.py`, `src_adjust_ras2fim_rating.py`, `src_adjust_spatial_obs.py`, `src_adjust_usgs_rating_trace.py`, `src_roughness_optimization.py`, `stream_branches.py`, `usgs_gage_crosswalk.py`, `usgs_gage_unit_setup.py`
- - `tools/
-     - catfim/`
+ - `tools/`
+     - `catfim/`
          - `vis_categorical_fim.py`
      - `bridge_inundation.py`, `evaluate_crosswalk.py`, `rating_curve_comparison.py`
 
@@ -832,6 +856,7 @@ In addition, an upgraded `pdal` was added to the Dockerfile and `pillow` was upg
     - `run_by_branch.sh` and `run_huc.sh` Suppress GDAL Error message and fix `gdal_rasterize` nodata issue
 
 <br/>
+
 ## v4.9.13.0 - 2026-05-13 - [PR#1811](https://github.com/NOAA-OWP/inundation-mapping/pull/1811)
 
 A major reorganization of the CatFIM processing pipeline, consolidating and simplifying a complex multi-file workflow into more modular and maintainable components. New scripts (`catfim_shared_functions.py`, `catfim_process_huc.py`, `catfim_post_processing.py`) were created to centralize common operations and move CatFIM processing into a HUC-level scale (whereas previous processing was a mix of site-level, sometimes HUC-level, and sometimes full domain-scale). 
