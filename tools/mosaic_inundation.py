@@ -96,7 +96,9 @@ def Mosaic_inundation(
         inundation_maps_df = map_file
         del map_file
     elif isinstance(map_file, str):
-        inundation_maps_df = pd.read_csv(map_file, dtype={unit_attribute_name: str, "branchID": str})
+        inundation_maps_df = pd.read_csv(
+            map_file, dtype={unit_attribute_name: 'string', "branchID": 'string'}
+        )
     else:
         raise TypeError("Pass Pandas Dataframe or file path string to csv for map_file argument")
 
@@ -122,7 +124,6 @@ def Mosaic_inundation(
         tqdm_disable = True
 
     ag_mosaic_output = ""
-    remove_at_end = []
 
     for ag in tqdm(aggregation_units, disable=tqdm_disable, desc="Mosaicing FIMs"):
         try:
@@ -140,7 +141,7 @@ def Mosaic_inundation(
         if (is_mosaic_for_branches) and (ag not in mosaic_output):
             ag_mosaic_output = fh.append_id_to_file_name(mosaic_output, ag)  # change it
 
-        remove_list = mosaic_by_unit(
+        mosaic_by_unit(
             inundation_maps_list,
             ag_mosaic_output,
             nodata,
@@ -150,18 +151,8 @@ def Mosaic_inundation(
             verbose=verbose,
         )
 
-        if remove_list is not None:
-            remove_at_end.extend(remove_list)
-            remove_at_end = list(set(remove_at_end))  # Ensures unique values
-
     if inundation_polygon is not None:
         mosaic_final_inundation_extent_to_poly(ag_mosaic_output, inundation_polygon)
-
-    if remove_inputs:
-        fh.vprint("Removing inputs ...", verbose)
-
-        for remove_file in remove_at_end:
-            os.remove(remove_file)
 
     # Return file name and path of the final mosaic output file.
     # Might be empty.
@@ -217,12 +208,9 @@ def mosaic_by_unit(
     if remove_inputs:
         fh.vprint("Removing inputs ...", verbose)
 
-        remove_list = []
         for inun_map in inundation_maps_list:
             if inun_map is not None and os.path.isfile(inun_map):
-                remove_list.append(inun_map)
-
-        return remove_list
+                os.unlink(inun_map)
 
 
 def _vprint(message, verbose):

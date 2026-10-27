@@ -1,5 +1,63 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
+## 4.10.3.1 - 2026-10-21 - [PR#1939](https://github.com/NOAA-OWP/inundation-mapping/pull/1939)
+
+Refactor to meet HydroVIS needs. We are trying to have all projects that feed into HydroVIS meet the following criteria:
+
+- All scripts have a modular entry point (i.e. a function that can be imported and called to perform the core logic)
+- No inputs to said modular entry point are paths to files that must be read. Any such case should be replaced with a pandas.DataFrame passed directly. If unavoidable, and as needed for intermediate processing, then all reads should be filesystem agnostic (ideally using fsspec).
+- The modular entry point does not write output files, but rather returns a pandas.DataFrame or other in-memory Pythonic objects.
+
+### Changes
+- File reads/writes now handled only on CLI entry point (i.e. `if __name__ == "__main__"`)
+- The `optimized_flash_flow_conflation` module entry point updated to:
+  - Accept a pandas.DataFrame rather than the path to a file.
+  - Return a pandas.DataFrame rather than writing a file and return nothing directly
+<br/>
+
+## 4.10.3.0 - 2026-10-16 - [PR#1959](https://github.com/NOAA-OWP/inundation-mapping/pull/1959)
+Various Pip packages changes include:
+- `Added`: cryptography, notebook, scikit-learn, xgboost 
+- `Updated`: (Pipfile only, not counting pipfile.lock changes): jupyterlab, py7zr, urllib3
+- `Updated GVAL`:  Moved from 0.2.12 to 0.2.13.  Unable to go to the latest of 0.14.0 due to dependency issues.
+- A good handful of dependencies have been upgraded in Pipfile.lock related to the changes above.
+
+This will also satisfy all latest DepBot warnings for: jupyter-server, mistune, idna, aiohttp, pyarrow, tornado, bleach.
+
+Note: `Dockerfile.owp` has not been changed at this time as the changes here are not needed in owp servers for its tools.
+
+### Changes
+- `Dockerfile.dev`: Added the apt package `osmium-tools` for Ali. Added some code to help with adding or updating packages inside the container for pipenv. New procedure doc coming soon.
+- `Pipfile` / `Pipfile.lock`: As described above.
+- `src/entrypoint.sh`:  A little cleanup
+<br/>
+
+## 4.10.2.2 - 2026-10-16 - [PR#1957](https://github.com/NOAA-OWP/inundation-mapping/pull/1957)
+
+For certain sites in stage-based CatFIM, inundation labeled for one site was also being mapped at another nearby site. For example, site major stage inundation for site RDYP1 was also being mapped at the location of site COKP1 (but it was still labeled as RDYP1 major stage). This issue has been repaired by including a filter in that section of processing that filters out any .tif files that are not for the site being processed.
+
+### Changes
+- `/inundation-mapping/tools/catfim/generate_categorical_fim_mapping.py`: Added list filtering to `mosaic_sb_inundation()`.
+<br />
+
+## 4.10.2.1 - 2026-10-08 - [PR#1953](https://github.com/NOAA-OWP/inundation-mapping/pull/1953)
+
+Refactor LoFi code for better performance. 
+The primary mechanisms that accomplish this are:
+- invert the main processing loop to optimize file i/o
+- vectorize the percentile computations.
+
+LoFi API changes:
+- `inundate_probabilistic` no longer computes streamflow percentiles internally. The user should call the `generate_streamflow_percentiles` function to compute the percentiles and use the result when calling `inundate_probabilistic`. This allows the resources needed to compute the percentiles to be closed before the main processing loop for more effective memory use.
+
+### Changes
+- `tools/lofi/probabilistic_inundation.py`: Invert main processing loop and vectorize `generate_streamflow_percentiles`. Separate percentile computation to better management of the ensemble resources.
+- `tools/lofi/probabilistic_version.py`: Update version of LoFI.
+- `tools/inundation.py`: Use ExitStack to manage rasterio resources.
+- `tools/inundate_gms.py`: Code cleanup.
+- `tools/mosaic_inundation.py`: Code cleanup.
+- `src/utils/shared_functions.py`: Added `is_local_path`.
+<br/>
 
 ## v4.10.x.x - 2026-09-09 - [PR##1946](https://github.com/NOAA-OWP/inundation-mapping/pull/1946)
 
