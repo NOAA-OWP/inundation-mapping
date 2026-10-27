@@ -1059,11 +1059,11 @@ def get_aws_credentials(aws_creds_file):
     return hv_aws_access_key, hv_aws_secret_key, hv_aws_region
 
 
-def setup_aws_s3_download(aws_creds_file):
+def setup_aws_s3_download(aws_creds_file, bucket_name_param):
     '''
     Adapted from deploy to hydrovis.
 
-    s3_client, bucket_name = setup_aws_s3_download(aws_creds_file)
+    s3_client, bucket_name = setup_aws_s3_download(aws_creds_file, "HV_S3_BUCKET_NAME")
 
     '''
 
@@ -1072,7 +1072,7 @@ def setup_aws_s3_download(aws_creds_file):
     # Load bucket name from hv params
     hv_params_file = '/foss_fim/config/hv_deploy_params.env'
     load_dotenv(hv_params_file)
-    bucket_name = os.getenv("HV_S3_BUCKET_NAME")
+    bucket_name = os.getenv(bucket_name_param)
 
     hv_aws_access_key, hv_aws_secret_key, hv_aws_region = get_aws_credentials(aws_creds_file)
 
@@ -1090,7 +1090,7 @@ def setup_aws_s3_download(aws_creds_file):
     # Validate bucket
     is_success, return_msg = s3_sf.does_s3_bucket_exist(s3_client, bucket_name)
     if not is_success:
-        logging.error(f"HV_S3_BUCKET_NAME value of {bucket_name}. Check the AWS creds env file and case.")
+        logging.error(f"{bucket_name_param} value of {bucket_name}. Check the AWS creds env file and case.")
         raise Exception(return_msg)
 
     return s3_client, bucket_name

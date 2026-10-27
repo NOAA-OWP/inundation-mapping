@@ -187,7 +187,7 @@ def __create_runtime_args_file(
     nwm_meta_file,
     ripple_filename,
     lst_models,
-    BUCKET_NAME,
+    HV_BUCKET_NAME,
     flows2fim_software_path,
     ripple_model_status_path,
     aws_creds_file,
@@ -207,8 +207,8 @@ def __create_runtime_args_file(
         The name of the ripple file.
     lst_models : list
         The list of models.
-    BUCKET_NAME : str
-        The name of the S3 bucket.
+    HV_BUCKET_NAME : str
+        The name of the HV S3 bucket.
     flows2fim_software_path : str
         The path to the flows2fim software.
     ripple_model_status_path : str
@@ -229,7 +229,7 @@ def __create_runtime_args_file(
         file.write(f"NWM_METAFILE_PATH=\"{nwm_meta_file}\"\n")
         file.write(f"RIPPLE_FILENAME=\"{ripple_filename}\"\n")
         file.write(f"LST_MODELS={lst_models}\n")
-        file.write(f"BUCKET_NAME={BUCKET_NAME}\n")
+        file.write(f"BUCKET_NAME={HV_BUCKET_NAME}\n")
         file.write(f"FLOWS2FIM_PATH=\"{flows2fim_software_path}\"\n")
         file.write(f"RIPPLE_MODEL_STATUS_PATH=\"{ripple_model_status_path}\"\n")
         file.write(f"AWS_CREDS_FILE=\"{aws_creds_file}\"\n")
@@ -261,9 +261,9 @@ def download_ripple_file_from_s3(ripple_filename, collection_id, collection_temp
     target_file_path = os.path.join(collection_temp_folder, filename)
 
     does_file_exist = s3_sf.download_s3_file(
-        S3_CLIENT, BUCKET_NAME, s3_file_key, target_file_path, test_bucket_exists=True
+        S3_CLIENT, HV_BUCKET_NAME, s3_file_key, target_file_path, test_bucket_exists=True
     )
-    logging.info(f'File exists at {BUCKET_NAME}/{s3_file_key}: {does_file_exist}')
+    logging.info(f'File exists at {HV_BUCKET_NAME}/{s3_file_key}: {does_file_exist}')
 
     return target_file_path
 
@@ -423,7 +423,7 @@ def run_controls_for_all_models_and_magnitudes(
     logging.info(f"Getting model collections from {collections_path}")
 
     # Get a list of all available model collections from ripple_filename
-    collections_filepath_lst = s3_sf.get_folder_list(S3_CLIENT, BUCKET_NAME, collections_path)
+    collections_filepath_lst = s3_sf.get_folder_list(S3_CLIENT, HV_BUCKET_NAME, collections_path)
     all_collections_lst = [os.path.basename(os.path.normpath(p)) for p in collections_filepath_lst]
 
     logging.info(f'Found {len(all_collections_lst)} available collections in S3')
@@ -453,10 +453,10 @@ def run_controls_for_all_models_and_magnitudes(
     # should still end up in the valid collections list so we can download the data for it. And then this file will be used to
     # filter again during CatFIM processing to ensure that the correct model is being used for each feature ID.
 
-    # Read in CSV and get a list of valid collections (where is_valid == True)
+    # Read in CSV and get a list of valid collections (where valid == True)
     ripple_model_status_table = pd.read_csv(ripple_model_status_path)
     valid_ripple_collections_list = (
-        ripple_model_status_table[ripple_model_status_table['is_valid'] == True]['collection_id']
+        ripple_model_status_table[ripple_model_status_table['valid'] == True]['collection_id']
         .unique()
         .tolist()
     )
@@ -629,7 +629,7 @@ def catfim_hecras_preprocessing(
     nwm_meta_file,
     ripple_filename,
     flows2fim_software_path,
-    ripple_model_status_path,
+    local_ripple_model_status_path,
     lst_models,
 ):
     '''
@@ -647,8 +647,8 @@ def catfim_hecras_preprocessing(
         The folder name of the Ripple model collections parent folder.
     flows2fim_software_path : str
         The path to the flows2fim software.
-    ripple_model_status_path : str
-        The path to the ripple model status file.
+    local_ripple_model_status_path : str
+        The path to a local copy of the ripple model status CSV (whitelist). If blank, file will be downloaded from S3.
     lst_models : str
         Space-delimited list of models to preprocess HEC-RAS for. Defaults to all models in the given ripple folder. If 'all', all available models will be processed.
 
@@ -656,47 +656,42 @@ def catfim_hecras_preprocessing(
 
     load_dotenv('/foss_fim/src/bash_variables.env')
 
-    # Get paths from variables.env if not provided as arguments
+    # Get paths from bash_variables.env if not provided as arguments
     if ripple_filename == "":
         ripple_filename = os.getenv("ripple_s3_models_location")
 
-    if ripple_model_status_path == "":
-        ripple_model_status_path = os.getenv("ripple_whitelist_file")
-
-        if os.path.isfile(ripple_model_status_path) is False:
-            raise FileNotFoundError(
-                f"Unable to find the ripple model status file at default path {ripple_model_status_path}. Please provide a valid ripple model status file path."
-            )
-
-    # Get input threshold and metadata files
     default_threshold_file = os.getenv("nwm_threshold_file")
     if threshold_file == "":
-        # check the path even though it came from bash_variables.
         if os.path.isfile(default_threshold_file) is False:
             raise FileNotFoundError(
                 f"Unable to find the threshold file at default path {default_threshold_file}. Please provide a valid threshold file path."
             )
-        threshold_file = default_threshold_file
+        else:
+            threshold_file = default_threshold_file
 
     default_nwm_meta_file = os.getenv("nwm_meta_file")
     if nwm_meta_file == "":
-        # check the path even though it came from bash_variables.
         if os.path.isfile(default_nwm_meta_file) is False:
             raise FileNotFoundError(
                 f"Unable to find the NWM metadata file at default path {default_nwm_meta_file}. Please provide a valid NWM metadata file path."
             )
-        nwm_meta_file = default_nwm_meta_file
+        else:
+            nwm_meta_file = default_nwm_meta_file
 
-    # Get input variables
-    magnitude_types = csf.MAGNITUDES_TYPES
 
-    # S3 Setup: Make the S3 client, get the bucket name, and validate S3 input paths
+    # S3 Setup - Make the S3 client, get the bucket name, and validate S3 input paths
     aws_creds_file = '/data/config/aws_credentials.env'
-    global BUCKET_NAME, S3_CLIENT
-    S3_CLIENT, BUCKET_NAME = csf.setup_aws_s3_download(aws_creds_file)
+
+    global S3_CLIENT, HV_BUCKET_NAME, RIPPLE_BUCKET_NAME # TODO: Where is the best place to define this?
+
+    hv_bucket_name_param = "HV_S3_BUCKET_NAME" # TODO: We might not to define before feeding into the function
+    ripple_bucket_name_param = "FIM_RIPPLE_S3_BUCKET_NAME" # TODO: We might not to define before feeding into the function
+
+    # Validate HV bucket
+    S3_CLIENT, HV_BUCKET_NAME = csf.setup_aws_s3_download(aws_creds_file, hv_bucket_name_param)
 
     collections_path = '/fim/ripple/' + ripple_filename + '/collections/'
-    collections_path_success = s3_sf.does_s3_folder_exist(S3_CLIENT, BUCKET_NAME, collections_path)
+    collections_path_success = s3_sf.does_s3_folder_exist(S3_CLIENT, HV_BUCKET_NAME, collections_path)
 
     if not collections_path_success:
         raise Exception(f'S3 collections path {collections_path} does not exist.')
@@ -710,14 +705,43 @@ def catfim_hecras_preprocessing(
         intermediates_folder,
         output_folder,
         flows2fim_software_path,
-        ripple_model_status_path,
     ]
     for path in input_path_list:
         if not os.path.exists(path):
-            raise Exception(f'Input file {path} does not exist. Cannot create flows files.')
+            raise Exception(f'Input file {path} does not exist. Cannot create run CatFIM HEC-RAS pre-processing files.')
 
     lst_models = lst_models.split()
 
+    # Get the Ripple model status file (whitelist)
+    # - if no path is provided -> pulls the whitelist from the S3 path
+    # - if local path is provided -> reads the whitelist from the local path
+    if local_ripple_model_status_path == "":
+        whitelist_csv_filename = os.getenv("ripple_whitelist_file")
+        # ex. 'ripple_feature_ids_whitelist_final_20261026_124812_no_path.csv' - pulled from bash_variables.env
+
+        whitelist_filepath = f'/ripple_whitelist/{whitelist_csv_filename}'
+        whitelist_target_file_path = os.path.join(output_folder, whitelist_csv_filename)
+        whitelist_msg = f'No local ripple model status path provided. Using whitelist {whitelist_csv_filename} from S3.'
+
+        # Set up and validate ripple bucket
+        S3_CLIENT, RIPPLE_BUCKET_NAME = csf.setup_aws_s3_download(aws_creds_file, ripple_bucket_name_param)
+
+        # Download file to the the output folder
+        does_file_exist = s3_sf.download_s3_file(
+            S3_CLIENT, RIPPLE_BUCKET_NAME, whitelist_filepath, whitelist_target_file_path, test_bucket_exists=True
+        )
+        if not does_file_exist:
+            raise Exception(f'Ripple whitelist not found at {RIPPLE_BUCKET_NAME}/{whitelist_filepath}. Fix filepaths or supply a local file.')
+        ripple_model_status_path = whitelist_target_file_path
+
+    else:
+        if os.path.isfile(local_ripple_model_status_path) is False:
+            raise FileNotFoundError(
+                f"Unable to find the ripple model status path (whitelist) at path {local_ripple_model_status_path}. Please provide a valid filepath or use the default."
+            )
+        whitelist_msg = f'Using local whitelist - {local_ripple_model_status_path}'
+        ripple_model_status_path = local_ripple_model_status_path
+        
     # Set up the main logger
     log_file_path = sf.setup_file_logger(output_folder, "catfim_hecras_preprocessing")
 
@@ -726,17 +750,19 @@ def catfim_hecras_preprocessing(
     display_dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
 
     try:
-
         print('======================================')
-        logging.info(f'Starting CatFIM HEC-RAS preprocessing...  - {display_dt_string} (UTC)')
+        logging.info(f'Starting CatFIM HEC-RAS preprocessing... {display_dt_string} (UTC)')
         logging.info("")
         logging.info(f"Logs will be saved to {log_file_path}")
         logging.info("")
-        logging.info(f"Using S3 bucket: {BUCKET_NAME}")
+        logging.info(f"Using S3 HV bucket: {HV_BUCKET_NAME}")
         logging.info(f"Using Ripple filename: {ripple_filename}")
+        logging.info(whitelist_msg)
         logging.info("")
 
         # Make flows file from the input WRDS data
+        magnitude_types = csf.MAGNITUDES_TYPES
+
         flows_csv_dict, identifiers_csv_path = create_flows_files(
             threshold_file, nwm_meta_file, intermediates_folder, magnitude_types
         )
@@ -762,13 +788,11 @@ def catfim_hecras_preprocessing(
             nwm_meta_file,
             ripple_filename,
             lst_models,
-            BUCKET_NAME,
+            HV_BUCKET_NAME,
             flows2fim_software_path,
             ripple_model_status_path,
             aws_creds_file,
         )
-
-        # -----
 
     except Exception as ex:
         logging.critical(f"Exception occured: {ex}")
@@ -852,8 +876,8 @@ if __name__ == '__main__':
 
     parser.add_argument(
         '-w',
-        '--ripple-model-status-path',
-        help='OPTIONAL: Path to the ripple model status file.',
+        '--local-ripple-model-status-path',
+        help='OPTIONAL: Path to a local copy of the ripple model status file (whitelist). If blank, the file will be pulled from S3.',
         required=False,
         default="",
     )
