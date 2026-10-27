@@ -258,9 +258,43 @@ def add_crosswalk(
         f"{len(sml_segs)}"
     )
 
+
+    # TODO: Oct 2026:
+    # With the new TauDEM 5.5, it completely changed column names.
+    # as we have so many downstream that is affected, just load only the columns we need
+    # as the new src_base_0.csv from TauDEM catchhydrogeo has extra columns now
+
     # calculate src_full
-    input_src_base = pd.read_csv(input_srcbase_fileName, dtype=object)
-    input_src_base = input_src_base.rename(columns={' SLOPE': 'SLOPE_RISE_RUN'})
+    col_mapping = {'Id': 'CatchId',
+                    'Stage_m': 'Stage',
+                    'ReachWetArea_m2': 'SurfaceArea (m2)',
+                    'ReachBedArea_m2': 'BedArea (m2)',
+                    'ReachVolume_m3': 'Volume (m3)',
+                    'ReachSlope': 'SLOPE_RISE_RUN',
+                    'ReachLength_m': 'LENGTHKM',
+                    'CatchArea_m2': 'AREASQKM'
+    }
+    
+    # ++++ Note: While our original column named "LENGTHKM", it was really in meters.
+    # input_src_base = pd.read_csv(input_srcbase_fileName,
+    #                              header=0,                                 
+    #                              usecols=list(col_mapping.keys()),
+    #                              names=list(col_mapping.values()),
+    #                              dtype=object)
+
+
+    Keeps failing on finding the columns, test load without rename and rename seperately
+    
+    input_src_base = pd.read_csv(input_srcbase_fileName,
+                                 header=0,                                 
+                                 usecols=list(col_mapping.keys()),
+                                 names=list(col_mapping.values()),
+                                 dtype=object)
+
+
+
+    # Oct 2026: One column now needs a scale adj from m to km.  Could be zero? likely not
+    input_src_base['AREASQKM'] = input_src_base['AREASQKM'] / 1000
 
     if input_src_base.CatchId.dtype != 'int':
         input_src_base.CatchId = input_src_base.CatchId.astype(int)

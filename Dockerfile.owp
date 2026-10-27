@@ -1,68 +1,83 @@
 ## ============================
-## The OWP version does not need Taudem, so there is only one stage
+##
+### Note: This file is for internal NOAA/OWP usage only.
+## 
+## ============================
+
+
+
+
+# ## ============================
+# ## The OWP version does not need Taudem, so there is only one stage
 FROM python:3.12-slim
-ARG DATA_DIR=/data
-ENV projectDir=/foss_fim
-ENV inputsDir=$DATA_DIR/inputs
-ENV outputsDir=/outputs
-ENV srcDir=$projectDir/src
-ENV toolsDir=$projectDir/tools
-ENV workDir=/fim_temp
 
-## ADDING FIM GROUP ##
-## Skip for OWP Enviro
-# ARG GroupID=1370800235
-# ARG GroupName=fim
-# RUN addgroup --gid $GroupID $GroupName
-# ENV GID=$GroupID
-# ENV GN=$GroupName
+RUN echo "\n\n Oct 2026: The ability to make podman images is temporary disabled." \
+    && echo "\n In the interium, please use older, previously created podman images."
 
-## ============================
-## Create working directories
-RUN mkdir -p $workDir
+RUN exit 1
 
-## adding environment variables for numba and python ##
-ENV LC_ALL=C.UTF-8
-ENV LANG=C.UTF-8
+# ARG DATA_DIR=/data
+# ENV projectDir=/foss_fim
+# ENV inputsDir=$DATA_DIR/inputs
+# ENV outputsDir=/outputs
+# ENV srcDir=$projectDir/src
+# ENV toolsDir=$projectDir/tools
+# ENV workDir=/fim_temp
 
-# Prevents Python from writing .pyc files and keeps stdout/stderr unbuffered
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_ROOT_USER_ACTION=ignore
+# ## ADDING FIM GROUP ##
+# ## Skip for OWP Enviro
+# # ARG GroupID=1370800235
+# # ARG GroupName=fim
+# # RUN addgroup --gid $GroupID $GroupName
+# # ENV GID=$GroupID
+# # ENV GN=$GroupName
 
-## ============================
-## Install necessary packages
-ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    p7zip-full time parallel \
-    build-essential libpq-dev libexpat1 \
-    rsync tzdata wget bzip2 curl unzip apt \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+# ## ============================
+# ## Create working directories
+# RUN mkdir -p $workDir
 
-RUN apt auto-remove
+# ## adding environment variables for numba and python ##
+# ENV LC_ALL=C.UTF-8
+# ENV LANG=C.UTF-8
 
-RUN pip install --upgrade pip
-RUN pip install --no-cache-dir pipenv
-COPY Pipfile Pipfile.lock ./
-RUN pipenv install --system --deploy --ignore-pipfile
+# # Prevents Python from writing .pyc files and keeps stdout/stderr unbuffered
+# ENV PYTHONDONTWRITEBYTECODE=1 \
+#     PYTHONUNBUFFERED=1 \
+#     PIP_NO_CACHE_DIR=1 \
+#     PIP_ROOT_USER_ACTION=ignore
 
-# adding AWS CLI (for bash) ##
-RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
-    unzip awscliv2.zip && \
-    ./aws/install && \
-    rm awscliv2.zip
+# ## ============================
+# ## Install necessary packages
+# ENV DEBIAN_FRONTEND=noninteractive
+# RUN apt-get update && apt-get install -y --no-install-recommends \
+#     p7zip-full time parallel \
+#     build-essential libpq-dev libexpat1 \
+#     rsync tzdata wget bzip2 curl unzip apt \
+#     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# ----------------------------------
-## ADD TO PATHS ##
-ENV PATH="$projectDir:${PATH}"
-ENV PYTHONPATH="${projectDir}:${srcDir}:${srcDir}/utils:${projectDir}/data:${toolsDir}"
+# RUN apt auto-remove
 
-## ============================
-## Set default permissions
-# RUN umask 0027
+# RUN pip install --upgrade pip
+# RUN pip install --no-cache-dir pipenv
+# COPY Pipfile Pipfile.lock ./
+# RUN pipenv install --system --deploy --ignore-pipfile
 
-## ============================
-## Set entrypoint
-ADD ./src/entrypoint.sh /
-ENTRYPOINT ["/bin/bash", "/entrypoint.sh"]
+# # adding AWS CLI (for bash) ##
+# RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
+#     unzip awscliv2.zip && \
+#     ./aws/install && \
+#     rm awscliv2.zip
+
+# # ----------------------------------
+# ## ADD TO PATHS ##
+# ENV PATH="$projectDir:${PATH}"
+# ENV PYTHONPATH="${projectDir}:${srcDir}:${srcDir}/utils:${projectDir}/data:${toolsDir}"
+
+# ## ============================
+# ## Set default permissions
+# # RUN umask 0027
+
+# ## ============================
+# ## Set entrypoint
+# ADD ./src/entrypoint.sh /
+# ENTRYPOINT ["/bin/bash", "/entrypoint.sh"]

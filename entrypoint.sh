@@ -7,9 +7,8 @@ set -e
 #   - New Files get 664 (rw-rw-r--)
 umask 0002
 
-# Dynamically ensure runtime MPI bypass blocks are always globally active
-export OMPI_ALLOW_RUN_AS_ROOT=1
-export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+# Simply "source" the file to execute the exports
+. ./system_optimization.sh
 
 # Hand over process execution to whatever command was passed to the container (e.g. bash, python, jupyter)
 echo "Running foss_fim docker container"

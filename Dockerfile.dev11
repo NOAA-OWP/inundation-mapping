@@ -1,106 +1,100 @@
 # ==========================================
-# Stage 1: Build Environment (Using OSGeo GDAL 3.12)
+###
+### For more details about how this Dockerfile is designed, please see /docs/DOCKER_BUILDS.md.
+###
 # ==========================================
-# FROM ghcr.io/osgeo/gdal:ubuntu-small-3.12.3 AS taudem_builder
-# RUN echo "++++++++++++++++++++++++++++++++++++++++++++++\n Stage 1: Starting TauDEM build: $(date)"
+# Stage 1: Build Environment (Using OSGeo GDAL 3.12.3)
+# ==========================================
+FROM ghcr.io/osgeo/gdal:ubuntu-small-3.12.3 AS taudem_builder
+RUN echo "++++++++++++++++++++++++++++++++++++++++++++++\n Stage 1: Starting TauDEM build: $(date)"
 
-# ENV DEBIAN_FRONTEND=noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
 
-# # Install remaining system compilation prerequisites (GDAL is already baked in)
-# RUN apt-get update && apt-get install -y --no-install-recommends \
-#     build-essential \
-#     cmake \
-#     git \
-#     libmpich-dev \
-#     mpich \
-#     openmpi-bin \
-#     libopenmpi-dev \
-#     # gdal-bin \
-#     # libgdal-dev \
-#     # libproj-dev \
-#     libtiff-dev \
-#     libgeotiff-dev \
-#     ca-certificates \
-#     && rm -rf /var/lib/apt/lists/*
+# Install remaining system compilation prerequisites (GDAL is already baked in)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    cmake \
+    git \
+    libmpich-dev \
+    mpich \
+    openmpi-bin \
+    libopenmpi-dev \
+    libtiff-dev \
+    libgeotiff-dev \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
-#     # Clone the official TauDEM repository
-# WORKDIR /opt
-# # RUN git clone https://github.com/dtarb/TauDEM.git \
-# #     && cd TauDEM \
-# #     && git checkout -b v5.5.0
+# Clone the official TauDEM repository
+WORKDIR /opt
 
-# # Note: --depth 1 means a simple clone and not all of the history, just the recent commit
-# RUN git clone --branch v5.5.0 --depth 1 https://github.com/dtarb/TauDEM.git \
-#     && cd TauDEM
+# Note: --depth 1 means a simple clone and not all of the history, just the recent commit
+# Using TauDEM version 5.5.0
+RUN git clone --branch v5.5.0 --depth 1 https://github.com/dtarb/TauDEM.git \
+    && cd TauDEM
 
-# # ROB: Get specific version
+# Build TauDEM using CMake (CMake will automatically bind to the built-in GDAL 3.12 paths)
+WORKDIR /opt/TauDEM/src
 
-# # Build TauDEM using CMake (CMake will automatically bind to the built-in GDAL 3.12 paths)
-# WORKDIR /opt/TauDEM/src
+# Linux with GCC
+# Configure the project and set the build directory to /taudem_builder/bin
+RUN cmake -S . -B /opt/TauDEM/build \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_C_COMPILER=/usr/bin/gcc \
+    -DCMAKE_CXX_COMPILER=/usr/bin/g++ \
+    -DMPI_C_COMPILER=/usr/bin/mpicc \
+    -DMPI_CXX_COMPILER=/usr/bin/mpicxx
 
-# # Linux with GCC
-# # 1. Configure the project and set the build directory to /taudem_builder/bin
-# RUN cmake -S . -B /opt/TauDEM/build \
-#     -DCMAKE_BUILD_TYPE=Release \
-#     -DCMAKE_C_COMPILER=/usr/bin/gcc \
-#     -DCMAKE_CXX_COMPILER=/usr/bin/g++ \
-#     -DMPI_C_COMPILER=/usr/bin/mpicc \
-#     -DMPI_CXX_COMPILER=/usr/bin/mpicxx
+# Compile the files using the configured folder and compile for only the ones we want
+RUN cmake --build /opt/TauDEM/build --target flowdircond \
+    streamnet gagewatershed catchhydrogeo d8flowdir pitremove
 
-# # 2. Compile the files using the configured folder and compile for only the ones we want
-# RUN cmake --build /opt/TauDEM/build --target flowdircond streamnet gagewatershed catchhydrogeo d8flowdir pitremove
+ARG TAUDEM_BIN_DIR=/TauDEM_builder/bin
+RUN mkdir -p $TAUDEM_BIN_DIR \
+    && cd /opt/TauDEM/build \
+    && cp flowdircond streamnet gagewatershed catchhydrogeo d8flowdir pitremove ${TAUDEM_BIN_DIR}/
 
-# ARG TAUDEM_BIN_DIR=/TauDEM_builder/bin
-# RUN mkdir -p $TAUDEM_BIN_DIR \
-#     && cd /opt/TauDEM/build \
-#     && cp flowdircond streamnet gagewatershed catchhydrogeo d8flowdir pitremove ${TAUDEM_BIN_DIR}/
-
-# ENV OMPI_ALLOW_RUN_AS_ROOT=1 \
-#     OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
-
-# # Verify the binaries can run and output usage guides
-# # RUN /taudem_builder/bin/d8flowdir --help
-
-# # # Verify MPI execution framework works inside the container environment
-# # RUN mpiexec -n 2 /taudem_builder/d8flowdir --help
+ENV OMPI_ALLOW_RUN_AS_ROOT=1 \
+    OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
 
 # # ----------------------------------------------------
-# # VISUAL DEBUG INTEGRATION TESTS
+# # 🔍 VISUAL DEBUG INTEGRATION TESTS
 # # NOTE: TauDEM does not have a --help option, so we look for a specific phrase to help validate it
 # # Technically, the output from the test calls here is an error as it the calls do not pass in
 # # args. But if the phrase does not exist, the binary is not present is invalid.
 # # ----------------------------------------------------
-# RUN echo "\n++++++++++++++++++++++++++++++++++++++++++++++" \
-#     echo "--- TESTING TauDEM Binary and MPIEXEC calls using b8flowdir --" \
-#     echo "    If you do not get an error, then both Binary and MPIEXEC are good\n"
-# RUN echo "--- testing binary ---" \
-#     && ${TAUDEM_BIN_DIR}/d8flowdir 2>&1 | grep -q "Simple Usage"
+# RUN echo "\n\n*******************************************" \
+#     echo "--- TESTING Stage 1 TauDEM Binary and MPIEXEC calls using b8flowdir --" \
+#     echo "\n--- testing binary ---"
+# RUN ${TAUDEM_BIN_DIR}/d8flowdir 2>&1 | grep -q "Simple Usage"
 # RUN echo "--- testing MPIExec calls ---" \
 #     && mpiexec --allow-run-as-root -n 2 ${TAUDEM_BIN_DIR}/d8flowdir 2>&1 | grep -q "Simple Usage"
 
+# RUN echo "\n\nIf you do not see the word Error above in this test block, " \
+#     echo "then TauDEM and mpiexec should be fine (tested against d8flowdir)." 
 
-# RUN echo "\n\n++++++++++++++++++++++++++++++++++++++++++++++\n Stage 1: TauDEM build complete: $(date)"
+# # Give it 30 seconds for the user to read possible TauDEM error
+# RUN sleep 30 && echo "*** CTRL-C to abort if you see unacceptable errors from TauDEM Stage 1."
 
-# # Keep this in this test taudem file only. Do not copy it into the Dockerfile.dev
+RUN echo "\n\n++++++++++++++++++++++++++++++++++++++++++++++\n Stage 1: TauDEM build complete: $(date)"
 
-# # CMD ["/bin/bash"]
+# ==========================================
+# Stage 2: Main Build Environment (Using OSGeo GDAL 3.12)
+# ==========================================
+FROM ghcr.io/osgeo/gdal:ubuntu-small-3.12.3 AS main_builder
 
-# RUN echo "++++++++++++++++++++++++++++++++++++++++++++++" \
-#     echo "Stage 2: Starting Stage 2 build (final): $(date)"
+# ------------------------
+# TauDEM Stage Debugging
+# See comments about easier, quicker debugging options as described in /docs/DOCKER_BUILDS.md.
+# FROM taudem_debug_image:latest AS taudem_builder
+# ------------------------
 
-# Docker will check your local machine for this image first
-# TEMP test, using the local taudem image I created earlier
-FROM taudem_build_image_3:latest AS taudem_builder
-
-FROM ghcr.io/osgeo/gdal:ubuntu-small-3.12.3
-
-# 1. Global System Locales, Timezone, and Non-interactive Configurations
+# Global System Locales, Timezone, and Non-interactive Configurations
 ENV LC_ALL=C.UTF-8 \
     LANG=C.UTF-8 \
     DEBIAN_FRONTEND=noninteractive \
     TZ=UTC
     
-# 2. Setup Build Arguments and Sequential Environment Paths
+# Setup Build Arguments and Sequential Environment Paths
 ARG DATA_DIR=/data
 ARG DEP_DIR=/dependencies
 
@@ -111,7 +105,6 @@ ENV inputsDir=$DATA_DIR/inputs \
     toolsDir=$projectDir/tools \
     workDir=/fim_temp
 
-#   FIXED PATHS: Point to /usr/local/share/proj instead of /usr/share/proj
 ENV GDAL_VERSION=3.12.3 \
     GDAL_CONFIG=/usr/bin/gdal-config \
     PROJ_DIR=/usr/local/share/proj \
@@ -119,13 +112,6 @@ ENV GDAL_VERSION=3.12.3 \
     PYPROJ_GLOBAL_CONTEXT=ON \
     C_INCLUDE_PATH=/usr/include/gdal \
     CPLUS_INCLUDE_PATH=/usr/include/gdal
-
-
-# UV Optimizations for global system Python and faster container startup
-ENV UV_COMPILE_BYTECODE=1 \
-    UV_LINK_MODE=copy \
-    UV_SYSTEM_PYTHON=1 \
-    UV_BREAK_SYSTEM_PACKAGES=1
 
 # Set system environment variables to prevent Python issues inside Docker
 # Also supress all FutureWarnings. We can wait until they become Warnings.
@@ -135,6 +121,8 @@ ENV PYTHONUNBUFFERED=1 \
 
 # Set other env variables
 ENV PATH="${projectDir}:${DEP_DIR}:${PATH}"
+## ADD TO PYTHON PATHS ##
+ENV PYTHONPATH="${projectDir}:${srcDir}:${srcDir}/utils:${projectDir}/data:${toolsDir}"
 
 # This helps with permissions when writing to drives.
 ARG GroupID=1370800235
@@ -183,24 +171,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     g++ \
     && rm -rf /var/lib/apt/lists/*
 
-
 RUN echo "++++++++++++++++++++++++++++++++++++++++++++++" \
     && echo "Stage 2: Copy Pipfile and install packages: $(date)"
+
+# UV Optimizations for global system Python and faster container startup
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_SYSTEM_PYTHON=1 \
+    UV_BREAK_SYSTEM_PACKAGES=1
 
 COPY ./constraints.txt constraints.txt 
 ENV UV_CONSTRAINT="constraints.txt"
 
-# COPY ./requirements_v9_rebuild_20261019.txt requirements.txt
-
-# Step 4: Core Geospatial Stack Compilation Phase
-# We explicitly force the correct compilation settings for the baseline libraries
-# RUN uv pip install --system --no-cache "numpy>=2.0.0" \
-#     && uv pip install --system --no-cache --no-build-isolation "gdal[numpy]==$(gdal-config --version).*" "pyogrio" \
-#     && uv pip install --system --no-cache --no-binary fiona --no-binary rasterio "fiona" "rasterio"
-
-# # Step 4: Core Geospatial Stack Compilation Phase
+# Core Geospatial Stack Compilation Phase
 # We explicitly install setuptools and wheel first so the GDAL build backend has them available,
 # then we compile the core stack against NumPy 2.x.
+# UV_BREAK_SYSTEM_PACKAGES=1 needs to be on for this Dockerfile level us pip install
 RUN uv pip install --system --no-cache \
      "numpy>=2.0.0" "setuptools" "wheel" && \
     uv pip install --system --no-cache \
@@ -210,42 +196,44 @@ RUN uv pip install --system --no-cache \
     --no-binary fiona \
     --no-binary rasterio "fiona" "rasterio"
 
-    
-# Bulk Requirements Installation Phase
-# We enforce that NumPy 2.x and GDAL 3.12 are locked, then install everything else
-# RUN echo "numpy>=2.0.0\ngdal==$(gdal-config --version).*\nrasterio\nfiona\npyogrio" > /tmp/geospatial_constraints.txt 
-
-COPY ./requirements_v10b.txt requirements.txt
+# COPY ./requirements_v8_rebuild_20261019_2.txt requirements.txt
+# COPY ./requirements-v11-freeze-orig.txt requirements.txt
+# COPY ./requirements_v10b.txt requirements.txt
+COPY ./requirements.txt requirements.txt
 
 RUN uv pip install --system --no-cache \
     -c constraints.txt \
     -r requirements.txt
 
-# RUN  uv pip compile requirements-min.ini -o requirements_v8_rebuild_20261019.txt
-# Get a uv pip freeze and see what we have for versions.
+RUN echo "++++++++++++++++++++++++++++++++++++++++++++++" \
+    echo "Stage 2: Set up Micro Mamba: $(date)"
+
+# Install a newer PDAL runtime than the Ubuntu package currently provides.
+ENV MAMBA_ROOT_PREFIX=/opt/micromamba
+RUN ARCH=$(uname -m) && \
+    if [ "$ARCH" = "aarch64" ]; then \
+        MAMBA_ARCH="linux-aarch64"; \
+    else \
+        MAMBA_ARCH="linux-64"; \
+    fi && \
+    wget --no-verbose -O- https://micro.mamba.pm/api/micromamba/${MAMBA_ARCH}/latest | tar -xvj -C /usr/local/bin --strip-components=1 bin/micromamba && \
+    micromamba create -y -p /opt/pdal-env -c conda-forge pdal=2.9.3 gdal proj proj-data && \
+    micromamba clean --all --yes
+
+ENV PDAL_CLI_PATH="/opt/pdal-env/bin/pdal"
+ENV PDAL_ENV_ROOT="/opt/pdal-env"
 
 
-## ******
+RUN echo "++++++++++++++++++++++++++++++++++++++++++++++" \
+    && echo "Stage 2: Install AWS CLI: $(date)"
+RUN curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
+     unzip -qo awscliv2.zip && \
+     ./aws/install && \
+     rm awscliv2.zip
 
-## ADD GDAL Optimizations
 
-
-
-# RUN apt-get purge -y --auto-remove g++ python3-dev \
-#     && rm -rf /var/lib/apt/lists/*
-
-# # 7 Configure paths and environmental permissions for Root execution
-# ENV USER=root
-# ENV HOME=/root
-
-# ## ADD TO PYTHON PATHS ##
-# ENV PYTHONPATH="/usr/lib/python3/dist-packages"
-ENV PYTHONPATH="${projectDir}:${srcDir}:${srcDir}/utils:${projectDir}/data:${toolsDir}"
-
-# # Lands the interactive terminal directly into your main project folder
-# # Establish landing directory for your dynamic mount
-# WORKDIR ${projectDir}
-
+RUN echo "++++++++++++++++++++++++++++++++++++++++++++++" \
+    && echo "Stage 2: Configure Whitebox: $(date)"
 # ----------------------------------
 # +++ Whitebox
 # Mar 2023 / Sep 2024
@@ -270,14 +258,18 @@ ENV WBT_EXE_PATH=/usr/local/lib/python3.12/dist-packages/whitebox/WBT/whitebox_t
 # FORCE DOWNLOAD ONCE: This detects your /usr/local/... path and bakes it into the image layer
 RUN python -c "import whitebox; whitebox.download_wbt(reset=True)"
 
+
+RUN echo "++++++++++++++++++++++++++++++++++++++++++++++" \
+    && echo "Stage 2: Finalization: $(date)"
 # Expose port 8899 in case you want to launch Jupyter or JupyterLab from inside the container
 EXPOSE 8899
 
-COPY ./src/entrypoint.sh /
-RUN chmod +x /entrypoint.sh
+COPY ./system_optimization.sh /
+COPY ./entrypoint.sh /
+RUN chmod +x /entrypoint.sh && chmod +x /system_optimization.sh
 ENTRYPOINT ["/bin/bash", "/entrypoint.sh"]
 
-CMD ["/bin/bash"]
+# CMD ["/bin/bash"]
 
 RUN echo "++++++++++++++++++++++++++++++++++++++++++++++" \
     && echo "Stage 2: Complete: $(date)" \
