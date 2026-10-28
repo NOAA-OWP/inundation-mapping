@@ -30,6 +30,7 @@ from src.utils.shared_variables import VIZ_PROJECTION
 from tools.inundate_gms import Inundate_gms
 from tools.mosaic_inundation import Mosaic_inundation
 from tools.tools_shared_functions import mask_out_lakes
+from tools.run_flows2fim_from_s3 import run_flows2fim_fim_from_s3
 
 
 """
@@ -346,18 +347,6 @@ def run_fb_mapping(
                     controls_filename = f"{ahps_site}_{magnitude}_{model_name}_controls.csv"
                     controls_csv = os.path.join(output_temp_dir, controls_filename)
 
-                    # Define the library extent path
-                    library_extent_path = os.path.join(
-                        'vsis3',
-                        hydrovis_bucket_name,
-                        'fim',
-                        'ripple',
-                        collection_parent_folder,
-                        'collections',
-                        model_name,
-                        'library_extent',
-                    )
-
                     # Define output inundation extent tif path
                     tif_name = ahps_site + '_' + magnitude + '_' + model_name + '_extent_hr.tif'
                     output_extent_tif = os.path.join(output_mapping_dir, tif_name)
@@ -366,62 +355,92 @@ def run_fb_mapping(
                         f"{huc} : {ahps_site} : {magnitude} - Begin HEC-RAS inundation for {tif_name}"
                     )
 
-                    flows2fim_subprocess_cmd = [
-                        flows2fim_path,
-                        'fim',
-                        '-lib',
-                        library_extent_path,
-                        '-c',
-                        controls_csv,
-                        '-fmt',
-                        'cog',
-                        '-o',
-                        output_extent_tif,
-                        '-type',
-                        'extent',
-                    ]
-                    try:
-                        # Define AWS credentials
-                        aws_env = os.environ.copy()  # Copy existing system variables
-                        aws_env.update(
-                            {
-                                "AWS_ACCESS_KEY_ID": hv_aws_access_key,
-                                "AWS_SECRET_ACCESS_KEY": hv_aws_secret_key,
-                                "AWS_DEFAULT_REGION": hv_aws_region,
-                            }
-                        )
+                    # Run flows2fim fim using models stored in S3
+                    flows2fim_fim_is_success, status_msg = run_flows2fim_fim_from_s3(
+                        hydrovis_bucket_name, collection_parent_folder, model_name, flows2fim_path, controls_csv, output_extent_tif,
+                    )
 
-                        # Use subprocess to run flows2fim (with the AWS env)
-                        result = subprocess.run(
-                            flows2fim_subprocess_cmd, capture_output=True, text=True, env=aws_env, check=True
-                        )
-                        if result.stdout:
-                            result_list = result.stdout.strip().split('\n')
-                            for result in result_list:
-                                logging.info(f"{huc} : {ahps_site} : {magnitude} - {result}")
-                        else:
-                            logging.warning(
-                                f"{huc} : {ahps_site} : {magnitude} - No outputs returned for flows2fim subprocess"
-                            )
-                    # catfim_hecras_fb TODO: Should I simplify these try except statements? Feels like I don't need this many
-                    except FileNotFoundError:
-                        logging.critical(
-                            "A critical error occurred while attempting HEC-RAS inundation: flows2fim fim command not found."
-                        )
-                        sys.exit(1)
+                    if flows2fim_fim_is_success is False:
+                        logging.error(f"{huc} : {ahps_site} : {magnitude} - Error occurred while trying to run flows2fim fim")
+                        for msg in status_msg:
+                            logging.error(f"{huc} : {ahps_site} : {magnitude} - {msg}")
 
-                    except subprocess.CalledProcessError as e:
-                        logging.error(
-                            f"{huc} : {ahps_site} : {magnitude} - flows2fim subprocess failed with non-zero exit code {e.returncode}: {e.stderr}"
-                        )
-                        continue
+                    else:
+                        for msg in status_msg:
+                            logging.info(f"{huc} : {ahps_site} : {magnitude} - {msg}")
 
-                    except Exception as e:
-                        logging.critical(
-                            f"{huc} : {ahps_site} : {magnitude} - flows2fim subprocess failed: {e}"
-                        )
-                        logging.error(traceback.format_exc())
-                        continue
+
+                    # START SECTION THAT WILL BE MADE INTO SEPARATE TOOL
+                    # # Define the library extent path
+                    # library_extent_path = os.path.join(
+                    #     'vsis3',
+                    #     hydrovis_bucket_name,
+                    #     'fim',
+                    #     'ripple',
+                    #     collection_parent_folder,
+                    #     'collections',
+                    #     model_name,
+                    #     'library_extent',
+                    # )
+
+                    # flows2fim_subprocess_cmd = [
+                    #     flows2fim_path,
+                    #     'fim',
+                    #     '-lib',
+                    #     library_extent_path,
+                    #     '-c',
+                    #     controls_csv,
+                    #     '-fmt',
+                    #     'cog',
+                    #     '-o',
+                    #     output_extent_tif,
+                    #     '-type',
+                    #     'extent',
+                    # ]
+                    # try:
+                    #     # Define AWS credentials
+                    #     aws_env = os.environ.copy()  # Copy existing system variables
+                    #     aws_env.update(
+                    #         {
+                    #             "AWS_ACCESS_KEY_ID": hv_aws_access_key,
+                    #             "AWS_SECRET_ACCESS_KEY": hv_aws_secret_key,
+                    #             "AWS_DEFAULT_REGION": hv_aws_region,
+                    #         }
+                    #     )
+
+                    #     # Use subprocess to run flows2fim (with the AWS env)
+                    #     result = subprocess.run(
+                    #         flows2fim_subprocess_cmd, capture_output=True, text=True, env=aws_env, check=True
+                    #     )
+
+                    #     if result.stdout:
+                    #         result_list = result.stdout.strip().split('\n')
+                    #         for result in result_list:
+                    #             logging.info(f"{huc} : {ahps_site} : {magnitude} - {result}")
+                    #     else:
+                    #         logging.warning(
+                    #             f"{huc} : {ahps_site} : {magnitude} - No outputs returned for flows2fim subprocess"
+                    #         )
+                    # # catfim_hecras_fb TODO: Should I simplify these try except statements? Feels like I don't need this many
+                    # except FileNotFoundError:
+                    #     logging.critical(
+                    #         "A critical error occurred while attempting HEC-RAS inundation: flows2fim fim command not found."
+                    #     )
+                    #     sys.exit(1)
+
+                    # except subprocess.CalledProcessError as e:
+                    #     logging.error(
+                    #         f"{huc} : {ahps_site} : {magnitude} - flows2fim subprocess failed with non-zero exit code {e.returncode}: {e.stderr}"
+                    #     )
+                    #     continue
+
+                    # except Exception as e:
+                    #     logging.critical(
+                    #         f"{huc} : {ahps_site} : {magnitude} - flows2fim subprocess failed: {e}"
+                    #     )
+                    #     logging.error(traceback.format_exc())
+                    #     continue
+                    # # END SECTION THAT WILL BE MADE INTO SEPARATE TOOL
 
                     # Exit this process if the flows2fim subprocess ran but the tif cannot be found
                     if not os.path.exists(output_extent_tif):
