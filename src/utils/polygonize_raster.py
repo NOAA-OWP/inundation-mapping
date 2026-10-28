@@ -1,19 +1,24 @@
 #!/usr/bin/env python3
 import argparse
+import concurrent.futures
+import glob
 import os
-import subprocess
 import sys
 from datetime import datetime, timezone
 
 import geopandas as gpd
-import pandas as pd
+import numpy as np
 import rasterio
+import shapely
 from rasterio.features import shapes
 from shapely.geometry import shape
 
 from utils.io import write_geodataframe
 
 
+# =====================================================================
+# UNCHANGED: Retained for external script compatibility & CLI usage
+# =====================================================================
 def polygonize_raster(
     input_raster: str, output_file: str, field_name: str = "DN", connectivity: int = 8, quiet: bool = False
 ):
@@ -63,86 +68,119 @@ def polygonize_raster(
         sys.exit(1)
 
 
-def polygonize_extent(dem_files, dem_domain_file, file_logger, sf=None, fh=None):
+# =====================================================================
+# In-memory, multi-core exact 10m HUC polygonization helpers
+# =====================================================================
+def _extract_exact_huc_geometry(dem_file: str):
     """
-    Create a polygon of 3DEP domain from individual HUC DEMs which are then dissolved into a single polygon.
+    Extracts the exact 1:1 pixel polygon domain for a single HUC8 DEM in-memory.
+    Replaces the external gdal_calc.py call, temporary .tif, and .parquet writes.
     """
-    msg = f" - Polygonizing -- {dem_domain_file} - Started (be patient, it can take a while)"
-    if sf:
+    try:
+        with rasterio.open(dem_file) as src:
+            arr = src.read(1)
+            nodata_val = src.nodata if src.nodata is not None else -9999.0
+
+            valid_mask = ((arr > -900) & (arr != nodata_val)).astype(np.uint8)
+
+            if not np.any(valid_mask):
+                return None
+
+            geoms = [
+                shape(geom)
+                for geom, val in shapes(
+                    valid_mask, mask=(valid_mask == 1), transform=src.transform, connectivity=8
+                )
+                if val == 1
+            ]
+
+            if not geoms:
+                return None
+
+            return shapely.coverage_union_all(geoms)
+
+    except Exception as e:
+        print(f"Error processing {dem_file}: {e}", file=sys.stderr)
+        return None
+
+
+def _hierarchical_union(geometries, batch_size: int = 32):
+    """
+    Hierarchically merges polygons in batches to maintain low peak memory
+    and avoid quadratic GEOS scaling across large CONUS-scale sets.
+    """
+    current_geoms = [g for g in geometries if g is not None and not g.is_empty]
+
+    while len(current_geoms) > 1:
+        batches = [current_geoms[i : i + batch_size] for i in range(0, len(current_geoms), batch_size)]
+        next_level = []
+        for batch in batches:
+            try:
+                merged = shapely.coverage_union_all(batch)
+            except Exception:
+                merged = shapely.unary_union(batch)
+            next_level.append(merged)
+        current_geoms = next_level
+
+    return current_geoms[0] if current_geoms else shapely.GeometryCollection()
+
+
+def polygonize_extent(dem_files, dem_domain_file, number_of_jobs=1, file_logger=None, sf=None, fh=None):
+    """
+    Create a polygon of 3DEP domain from individual HUC DEMs at exact 10m resolution.
+    Runs in-memory across multiple CPU cores, then hierarchically dissolves geometries.
+    """
+    msg = f" - Polygonizing -- {dem_domain_file} - Started (10m exact in-memory)"
+    if sf and file_logger:
         sf.l_print(msg, file_logger, "info")
+    else:
+        print(msg)
 
     start_time = datetime.now(timezone.utc)
-    if sf:
+    if sf and file_logger:
         sf.l_print(
-            f"Polygonation start time: {start_time.strftime('%m/%d/%Y %H:%M:%S')}", file_logger, "info"
+            f"Polygonization start time: {start_time.strftime('%m/%d/%Y %H:%M:%S')}", file_logger, "info"
         )
 
     if len(dem_files) == 0:
-        raise Exception("There are no DEMs to polygonize")
+        raise ValueError("There are no DEMs to polygonize")
 
     dem_files = sorted(list(set(dem_files)))
-    gdfs = []
 
-    for dem_file in dem_files:
-        if sf:
-            sf.l_print(f"Polygonizing: {dem_file}", file_logger, "info")
+    with rasterio.open(dem_files[0]) as ref:
+        target_crs = ref.crs
 
-        edge_tif = f"{os.path.splitext(dem_file)[0]}_edge.tif"
-        edge_parquet = f"{os.path.splitext(edge_tif)[0]}.parquet"
-
-        if not os.path.exists(edge_tif):
-            subprocess.run(
-                [
-                    "gdal_calc.py",
-                    "-A",
-                    dem_file,
-                    f"--outfile={edge_tif}",
-                    "--calc=where(A > -900, 1, 0)",
-                    "--co",
-                    "BIGTIFF=YES",
-                    "--co",
-                    "NUM_THREADS=ALL_CPUS",
-                    "--co",
-                    "TILED=YES",
-                    "--co",
-                    "COMPRESS=LZW",
-                    "--co",
-                    "SPARSE_OK=TRUE",
-                    "--type=Byte",
-                    "--quiet",
-                ],
-                check=True,
-            )
-
-        # Matched to local polygonize_raster function name
-        polygonize_raster(
-            input_raster=edge_tif, output_file=edge_parquet, field_name="DN", connectivity=8, quiet=True
-        )
-
-        gdf = gpd.read_parquet(edge_parquet)
-        gdfs.append(gdf)
-
-        if os.path.exists(edge_tif):
-            os.remove(edge_tif)
-        if os.path.exists(edge_parquet):
-            os.remove(edge_parquet)
-
-    if gdfs:
-        dem_parquets = gpd.GeoDataFrame(pd.concat(gdfs, ignore_index=True), crs=gdfs[0].crs)
+    max_workers = min(os.cpu_count() - 2, number_of_jobs)
+    if sf and file_logger:
+        sf.l_print(f"Extracting 10m pixel boundaries using {max_workers} processes...", file_logger, "info")
     else:
-        dem_parquets = gpd.GeoDataFrame()
+        print(f"Extracting 10m pixel boundaries across {len(dem_files)} DEMs using {max_workers} workers...")
 
-    dem_parquets["DN"] = 1
-    dem_dissolved = dem_parquets.dissolve(by="DN")
+    huc_geometries = []
+    with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
+        for poly in executor.map(_extract_exact_huc_geometry, dem_files):
+            if poly is not None and not poly.is_empty:
+                huc_geometries.append(poly)
+
+    if not huc_geometries:
+        raise RuntimeError("No valid geometries could be extracted from input DEMs")
+
+    if sf and file_logger:
+        sf.l_print(f"Hierarchically dissolving {len(huc_geometries)} HUC8 boundaries...", file_logger, "info")
+    else:
+        print(f"Dissolving {len(huc_geometries)} boundaries...")
+
+    dissolved_geom = _hierarchical_union(huc_geometries, batch_size=32)
+
+    dem_dissolved = gpd.GeoDataFrame({"DN": [1]}, geometry=[dissolved_geom], crs=target_crs)
 
     os.makedirs(os.path.dirname(os.path.abspath(dem_domain_file)), exist_ok=True)
     write_geodataframe(dem_dissolved, dem_domain_file)
 
-    if sf:
-        if not os.path.exists(dem_domain_file):
-            sf.l_print(f" - Polygonizing -- {dem_domain_file} - Failed", file_logger, "error")
-        else:
-            sf.l_print(f" - Polygonizing -- {dem_domain_file} - Complete", file_logger, "info")
+    if sf and file_logger:
+        status_msg = "Complete" if os.path.exists(dem_domain_file) else "Failed"
+        level = "info" if status_msg == "Complete" else "error"
+        sf.l_print(f" - Polygonizing -- {dem_domain_file} - {status_msg}", file_logger, level)
 
         end_time = datetime.now(timezone.utc)
         sf.l_print(f"Polygonization end time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}", file_logger, "info")
@@ -150,19 +188,37 @@ def polygonize_extent(dem_files, dem_domain_file, file_logger, sf=None, fh=None)
             sf.l_print(
                 fh.print_date_time_duration(start_time, end_time, print_dur_msg=False), file_logger, "info"
             )
+    else:
+        print(f"Saved domain boundary to {dem_domain_file}")
 
 
+# =====================================================================
+# CLI: Preserves original positional usage while adding domain batch mode
+# =====================================================================
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Python equivalent of gdal_polygonize converting a raster directly to GeoParquet."
+        description="Extract polygon boundaries from single rasters or multiple HUC DEM extents."
     )
-    parser.add_argument("input_raster", help="Path to input raster file (.tif)")
-    parser.add_argument("output_file", help="Path to output vector file")
+
+    # Flag to select the multi-HUC domain mode
+    parser.add_argument(
+        "--domain",
+        action="store_true",
+        help="Run polygonize_extent across multiple DEM files rather than polygonize_raster on a single file",
+    )
+
+    # Positional arguments matching original interface
+    parser.add_argument(
+        "inputs",
+        nargs="+",
+        help="Input raster(s). If running standard polygonize, pass 1 raster. If --domain is set, pass multiple rasters or a glob path.",
+    )
+    parser.add_argument("output_file", help="Path to output vector file (.parquet, .gpkg, .shp, etc.)")
     parser.add_argument(
         "field_name",
         nargs="?",
         default="HydroID",
-        help="Name of the attribute column to create from raster values",
+        help="Name of the attribute column to create from raster values (default: HydroID)",
     )
     parser.add_argument("-q", "--quiet", action="store_true", help="Suppress progress outputs")
     parser.add_argument(
@@ -175,4 +231,26 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    polygonize_raster(**vars(args))
+
+    if args.domain:
+        # Resolve any glob patterns in input paths
+        expanded_files = []
+        for item in args.inputs:
+            matches = glob.glob(item)
+            if matches:
+                expanded_files.extend(matches)
+            elif os.path.exists(item):
+                expanded_files.append(item)
+
+        polygonize_extent(
+            dem_files=expanded_files, dem_domain_file=args.output_file, file_logger=None, sf=None, fh=None
+        )
+    else:
+        # Standard single-raster polygonize mode
+        polygonize_raster(
+            input_raster=args.inputs[0],
+            output_file=args.output_file,
+            field_name=args.field_name,
+            connectivity=args.connectivity,
+            quiet=args.quiet,
+        )
