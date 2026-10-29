@@ -12,7 +12,7 @@ import sys
 import rasterio as rio
 from osgeo import gdal
 
-from data.create_vrt_file import create_vrt_file
+from data.elevation.create_vrt_file import create_vrt_file
 
 
 gdal.UseExceptions()

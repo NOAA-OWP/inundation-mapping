@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 
 import src.utils.shared_functions as sf
-from data.dem.create_vrt_file import create_vrt_file
+from data.elevation.create_vrt_file import create_vrt_file
 from src.utils.polygonize_raster import polygonize_extent
 from src.utils.shared_functions import FIM_Helpers as fh
 
@@ -58,11 +58,12 @@ def main():
     Creates a VRT of the DEM(s) in the input folder(s) and DEM_domain.parquet polygon of the spatial extent.
 
     Example usage:
-    python3 /foss_fim/data/dem/create_domain_vrt.py \
+    python3 /foss_fim/data/elevation/create_domain_vrt.py \
         -i '/data/inputs/dems/3dep_dems/10m_SouthAlaska/20260619' \
-           '/data/inputs/dems/ifsar_dtm/10m_NorthAlaska/20260708' \
+           '/data/inputs/dems/ifsar_dtm/Fairbanks/20261027' \
+           '/data/inputs/dems/ifsar_dtm/Juneau/20261027' \
         -o '/data/inputs/dems/vrt' \
-        -s 'Alaska_3338_20261026' \
+        -s 'Alaska_3338_20261027' \
         -j 14
     """
     parser = argparse.ArgumentParser(

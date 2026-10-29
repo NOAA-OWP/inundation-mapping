@@ -20,7 +20,7 @@ from rasterio.features import rasterize
 from rasterio.merge import merge
 from shapely.geometry import Point
 
-from data.create_vrt_file import create_vrt_file
+from data.elevation.create_vrt_file import create_vrt_file
 from src.utils.shared_functions import run_with_mp, setup_mp_file_logger
 
 
