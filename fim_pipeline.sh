@@ -107,16 +107,14 @@ else
     fi
 fi
 
+wait
+sync
 echo "---- Unit (HUC) processing is complete"
 date -u
 Calc_Duration "Duration : " $pipeline_start_time ""
 echo "---------------------------------------------------"
 
 ## POST PROCESSING
-
-# Remove run from the fim_temp directory
-rm -df $workDir/$runName
-
 # Pipe into post processing
 ${projectDir}/fim_post_processing.sh -n $runName
 

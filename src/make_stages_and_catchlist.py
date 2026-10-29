@@ -26,8 +26,14 @@ def make_stages_and_catchlist(
     flows = flows.merge(catchments[['HydroID']], on='HydroID', how='inner')
     catchments = catchments.merge(flows[['HydroID']], on='HydroID', how='inner')
 
+    # print(f"type of flows is {type(flows)}")
+
     stages_max = stages_max + stages_interval
     stages = np.round(np.arange(stages_min, stages_max, stages_interval), 4)
+    with open(stages_filename, 'w') as f:
+            f.write("Stage\n")
+            for stage in stages:
+                f.write("{}\n".format(stage))    
 
     try:
         # areasqkm = catchments['areasqkm'].tolist()
@@ -37,34 +43,17 @@ def make_stages_and_catchlist(
             how='left',  # or 'inner' depending on what you want
         )
     except KeyError:
+        print(f"KeyError detected while building catchments for {catchlist_filename}")
         areasqkm = (catchments['geometry'].area / 10**6).tolist()
         hydroIDs = catchments['HydroID'].tolist()
         areasqkm_df = pd.DataFrame({'HydroID': hydroIDs, 'areasqkm': areasqkm})
         mergedflows_catchments = flows.merge(areasqkm_df[['HydroID', 'areasqkm']], on='HydroID', how='left')
 
-    hydroIDs = mergedflows_catchments['HydroID'].tolist()
-    len_of_hydroIDs = len(hydroIDs)
-    slopes = mergedflows_catchments['S0'].tolist()
-    lengthkm = mergedflows_catchments['LengthKm'].tolist()
-    areasqkm = mergedflows_catchments['areasqkm'].tolist()
-
-    # hydroIDs = flows['HydroID'].tolist()
-    # len_of_hydroIDs = len(hydroIDs)
-    # slopes = flows['S0'].tolist()
-    # lengthkm = flows['LengthKm'].tolist()
-
     del flows
     del catchments
 
-    with open(stages_filename, 'w') as f:
-        f.write("Stage\n")
-        for stage in stages:
-            f.write("{}\n".format(stage))
-
-    with open(catchlist_filename, 'w') as f:
-        f.write("{}\n".format(len_of_hydroIDs))
-        for h, s, l, a in zip(hydroIDs, slopes, lengthkm, areasqkm):
-            f.write("{} {} {} {}\n".format(h, s, l, a))
+    catchments_df = pd.DataFrame(mergedflows_catchments[['HydroID', 'S0', 'LengthKm', 'areasqkm']])
+    catchments_df.to_csv(catchlist_filename, header=False, index=False)
 
 
 if __name__ == '__main__':

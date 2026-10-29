@@ -36,6 +36,7 @@ dem_thalwegCond_{}.tif
 flowaccum_d8_burned_filled_{}.tif
 flowdir_d8_burned_filled_{}.tif
 flowdir_d8_burned_filled_flows_{}.tif
+flowdir_d8_burned_filled_temp_slope_{}.tif
 flows_grid_boolean_{}.tif
 flows_points_pixels_{}.parquet
 flows_points_pixels_{}.shp
@@ -62,6 +63,7 @@ rem_{}.tif
 rem_zeroed_masked_{}_float32.tif
 slopes_d8_dem_meters_{}.tif
 slopes_d8_dem_meters_masked_{}.tif
+slopes_d8_dem_meters_temp_flowdir_{}.tif
 sn_catchments_reaches_{}.tif
 src_{}.json
 #src_base_{}.csv

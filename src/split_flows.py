@@ -3,6 +3,7 @@
 import argparse
 import os
 import sys
+
 from collections import OrderedDict
 from os import remove
 from os.path import isfile
@@ -21,7 +22,7 @@ from utils.io import write_geodataframe
 from utils.shared_functions import getDriver
 from utils.shared_variables import FIM_ID
 
-
+pd.set_option("display.max_colwidth", None)
 gpd.options.io_engine = "pyogrio"
 
 
@@ -286,10 +287,24 @@ def split_flows(
         print("No relevant streams within HUC boundaries.")
         sys.exit(FIM_exit_codes.NO_FLOWLINES_EXIST.value)  # will send a 61 back
 
+    # print("*****************")
+    # print(flows.geometry)
+    # sys.exit(1)
+
     # --- begin copied into branch outlet backpool --- DEBUG -- maybe make this a function so we can call both?
     # Iterate through flows and calculate channel slope, manning's n, and LengthKm for each segment
     with rasterio.open(dem_filename, 'r') as dem:
         for i, lineString in enumerate(flows.geometry):
+            # print("++++++++++++++")
+            # print(f"idx is {i}")
+            # if i > 15:
+            #     print("all done")
+            #     sys.exit(1)
+                
+            # print("*****************")
+            # print(flows.geometry)
+            # sys.exit(1)
+
             # Reverse geometry order (necessary for BurnLines)
             lineString = LineString(lineString.coords[::-1])
 
@@ -305,28 +320,54 @@ def split_flows(
                 # Calculate channel slope
                 start_point = line_points[0]
                 end_point = line_points[-1]
+                # print("=========================")
+                # print("lineString.length < max_length is true")
+                # print(f"start_point is {start_point} and end_point is {end_point}")
                 start_elev, end_elev = [
                     i[0] for i in rasterio.sample.sample_gen(dem, [start_point, end_point])
                 ]
-                slope = float(abs(start_elev - end_elev) / lineString.length)
+                # print(f"start_elev is {start_elev} and end_elev is {end_elev} and lineString.length is {lineString.length}")
+                # print(start_elev - end_elev)
+                # print(str((start_elev - end_elev) / lineString.length))
+                # print(round((start_elev - end_elev) / lineString.length),12)
+                slope = round(float(abs(start_elev - end_elev) / lineString.length), 6)
+                # print(f"new slope is (1) .. {slope:.15f}")
                 if slope < slope_min:
                     slope = slope_min
-                slopes = slopes + [slope]
+                # print(f"new slope it {slope}")
+                # print(f"len of total slopes is {len(slopes)}")
+                #slopes = slopes + [slope]
+                slopes.append(slope)
+                # print(f"len of total slopes is {len(slopes)}")
+                # print(f"total slopes it {slopes}")
                 continue
 
             # Calculate the split length
             splitLength = lineString.length / np.ceil(lineString.length / max_length)
 
+            # print(f"splitLength is {splitLength:.15}")
+
             cumulative_line = []
             line_points = []
             last_point = []
 
+            # print(",,,,,,,,,,,,,,,,,,")
+            # print(lineString)
+            # print(",,,,,,,,,,,,,,,,,,")
+
             last_point_in_entire_lineString = list(zip(*lineString.coords.xy))[-1]
+            # print(f"last_point_in_entire_lineString is {last_point_in_entire_lineString}")
+            # print(last_point_in_entire_lineString)
+            # sys.exit(1)
 
             # Calculate cumulative length and channel slope,
             for point in zip(*lineString.coords.xy):
-                cumulative_line = cumulative_line + [point]
-                line_points = line_points + [point]
+
+                # print(">>>>>>")
+                # print("for point in zip(*lineString.coords.xy):")
+
+                cumulative_line.append(point)
+                # line_points = line_points + [point]
                 numberOfPoints_in_cumulative_line = len(cumulative_line)
 
                 if last_point:
@@ -337,6 +378,7 @@ def split_flows(
 
                 cumulative_length = LineString(cumulative_line).length
 
+                # print(f"cumulative_length is {cumulative_length}")
                 # If the cumulative line length is greater than or equal to the split length....
                 if cumulative_length >= splitLength:
                     splitLineString = LineString(cumulative_line)
@@ -348,13 +390,15 @@ def split_flows(
                     start_elev, end_elev = [
                         i[0] for i in rasterio.sample.sample_gen(dem, [start_point, end_point])
                     ]
-                    slope = float(abs(start_elev - end_elev) / splitLineString.length)
+
+                    # print(f"--- start_elev is {start_elev} and end_elev is {end_elev} and splitLineString.length is {splitLineString.length}")
+
+                    slope = round(float(abs(start_elev - end_elev) / splitLineString.length), 6)
                     if slope < slope_min:
                         slope = slope_min
                     slopes = slopes + [slope]
 
                     last_point = end_point
-
                     if last_point == last_point_in_entire_lineString:
                         continue
 
@@ -368,7 +412,7 @@ def split_flows(
             start_point = cumulative_line[0]
             end_point = cumulative_line[-1]
             start_elev, end_elev = [i[0] for i in rasterio.sample.sample_gen(dem, [start_point, end_point])]
-            slope = float(abs(start_elev - end_elev) / splitLineString.length)
+            slope = round(float(abs(start_elev - end_elev) / splitLineString.length), 6)
             if slope < slope_min:
                 slope = slope_min
             slopes = slopes + [slope]
@@ -402,10 +446,22 @@ def split_flows(
 
     del wbd8
 
+    # print(tResults)
     if tResults[0] == 'OK':
         split_flows_gdf = tResults[1]
     else:
         print('Error: Could not add network attributes to stream segments')
+        print(f"Details: {tResults}")
+        sys.exit(1)
+
+    split_flows_gdf = tResults[1]
+
+    # print("split_flows_gdf is ...")
+    # file_path = "outputs/Robh_pkgs_1/split_flows.csv"
+    # split_flows_gdf.to_csv(file_path)
+
+    # print("all done")
+    # sys.exit(1)
 
     # Remove single node segments
     split_flows_gdf = split_flows_gdf.query("From_Node != To_Node")

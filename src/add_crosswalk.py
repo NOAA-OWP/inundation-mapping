@@ -9,7 +9,7 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 from numpy import unique
-from rasterstats import zonal_stats
+# from rasterstats import zonal_stats
 
 from utils.fim_enums import FIM_exit_codes
 from utils.io import write_geodataframe
@@ -258,9 +258,13 @@ def add_crosswalk(
         f"{len(sml_segs)}"
     )
 
-    # calculate src_full
-    input_src_base = pd.read_csv(input_srcbase_fileName, dtype=object)
-    input_src_base = input_src_base.rename(columns={' SLOPE': 'SLOPE_RISE_RUN'})
+    # Oct 2026: With TauDEM 5.5, we remapped column names and some data scales inside run_taudem_subprocess
+    # run_catchhydrogeo.  We temp changed it there to help with downstream code field mapping. We want to clean
+    # up all of the column names to better conventions anyways some day. ie) "Volume (m3)" (spaces and bad chars)
+    # ++++ Note: While our original column was incorrectly named "LENGTHKM", it was really in meters.
+    input_src_base = pd.read_csv(input_srcbase_fileName,
+                                 header=0,
+                                 dtype=object)
 
     if input_src_base.CatchId.dtype != 'int':
         input_src_base.CatchId = input_src_base.CatchId.astype(int)
