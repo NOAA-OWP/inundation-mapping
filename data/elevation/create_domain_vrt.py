@@ -60,8 +60,7 @@ def main():
     Example usage:
     python3 /foss_fim/data/elevation/create_domain_vrt.py \
         -i '/data/inputs/dems/3dep_dems/10m_SouthAlaska/20260619' \
-           '/data/inputs/dems/ifsar_dtm/Fairbanks/20261027' \
-           '/data/inputs/dems/ifsar_dtm/Juneau/20261027' \
+           '/data/inputs/dems/ifsar_dtm/10m_NorthAlaska/20261027' \
         -o '/data/inputs/dems/vrt' \
         -s 'Alaska_3338_20261027' \
         -j 14
