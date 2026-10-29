@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+"""Download and stage FEMA National Flood Hazard Layer (NFHL) data."""
+
 import argparse
 import datetime as dt
 import os
@@ -218,7 +221,7 @@ def download_nfhl(
                 with open(os.devnull, 'w') as devnull:
                     with redirect_stdout(devnull), redirect_stderr(devnull):
                         nfhl_df = ESRI_REST.query(
-                            "https://hazards.fema.gov/arcgis/rest/services/FIRMette/NFHLREST_FIRMette/MapServer/20/query",
+                            "https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/28/query",
                             f="json",
                             where=where_clause,
                             returnGeometry="true",
@@ -232,7 +235,7 @@ def download_nfhl(
                         )
 
                         nfhl_availability_df = ESRI_REST.query(
-                            "https://hazards.fema.gov/arcgis/rest/services/FIRMette/NFHLREST_FIRMette/MapServer/0/query",
+                            "https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/0/query",
                             f="json",
                             where="1=1",
                             returnGeometry="true",
@@ -351,9 +354,10 @@ def download_nfhl_wrapper(huc_list, output_folder, geometryType='esriGeometryEnv
     os.makedirs(output_folder, exist_ok=True)
     # Set up logger
     file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
-    log_file_path = os.path.join(output_folder, f"nfhl_download-{file_dt_string}.log")
+    log_string = f"nfhl_download-{file_dt_string}"
+    log_file_path = os.path.join(output_folder, f"{log_string}.log")
     # file_logger = setup_mp_file_logger(log_file_path)
-    file_logger = setup_mp_file_logger(log_file_path, "nfhl_download")
+    file_logger = setup_mp_file_logger(log_file_path, f"{log_string}")
 
     try:
 
@@ -431,6 +435,13 @@ def download_nfhl_wrapper(huc_list, output_folder, geometryType='esriGeometryEnv
         file_logger.error(traceback.format_exc())
 
         print(f"   End time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}")
+
+
+def fetch_nfhl_by_hucs(region, hucs, inputs_dir, num_processes=14):
+    nfhl_output_dir = os.path.join(inputs_dir, "hazards", "flood_hazard_zones", region)
+    os.makedirs(nfhl_output_dir, exist_ok=True)
+
+    download_nfhl_wrapper(huc_list=hucs, output_folder=nfhl_output_dir, num_processes=num_processes)
 
 
 if __name__ == "__main__":
