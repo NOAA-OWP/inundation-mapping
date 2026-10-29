@@ -9,7 +9,7 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 from numpy import unique
-from rasterstats import zonal_stats
+# from rasterstats import zonal_stats
 
 from utils.fim_enums import FIM_exit_codes
 from utils.io import write_geodataframe
@@ -258,43 +258,13 @@ def add_crosswalk(
         f"{len(sml_segs)}"
     )
 
-
-    # TODO: Oct 2026:
-    # With the new TauDEM 5.5, it completely changed column names.
-    # as we have so many downstream that is affected, just load only the columns we need
-    # as the new src_base_0.csv from TauDEM catchhydrogeo has extra columns now
-
-    # calculate src_full
-    col_mapping = {'Id': 'CatchId',
-                    'Stage_m': 'Stage',
-                    'ReachWetArea_m2': 'SurfaceArea (m2)',
-                    'ReachBedArea_m2': 'BedArea (m2)',
-                    'ReachVolume_m3': 'Volume (m3)',
-                    'ReachSlope': 'SLOPE_RISE_RUN',
-                    'ReachLength_m': 'LENGTHKM',
-                    'CatchArea_m2': 'AREASQKM'
-    }
-    
-    # ++++ Note: While our original column named "LENGTHKM", it was really in meters.
-    # input_src_base = pd.read_csv(input_srcbase_fileName,
-    #                              header=0,                                 
-    #                              usecols=list(col_mapping.keys()),
-    #                              names=list(col_mapping.values()),
-    #                              dtype=object)
-
-
-    Keeps failing on finding the columns, test load without rename and rename seperately
-    
+    # Oct 2026: With TauDEM 5.5, we remapped column names and some data scales inside run_taudem_subprocess
+    # run_catchhydrogeo.  We temp changed it there to help with downstream code field mapping. We want to clean
+    # up all of the column names to better conventions anyways some day. ie) "Volume (m3)" (spaces and bad chars)
+    # ++++ Note: While our original column was incorrectly named "LENGTHKM", it was really in meters.
     input_src_base = pd.read_csv(input_srcbase_fileName,
-                                 header=0,                                 
-                                 usecols=list(col_mapping.keys()),
-                                 names=list(col_mapping.values()),
+                                 header=0,
                                  dtype=object)
-
-
-
-    # Oct 2026: One column now needs a scale adj from m to km.  Could be zero? likely not
-    input_src_base['AREASQKM'] = input_src_base['AREASQKM'] / 1000
 
     if input_src_base.CatchId.dtype != 'int':
         input_src_base.CatchId = input_src_base.CatchId.astype(int)

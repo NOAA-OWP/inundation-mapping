@@ -114,10 +114,8 @@ ENV GDAL_VERSION=3.12.3 \
     CPLUS_INCLUDE_PATH=/usr/include/gdal
 
 # Set system environment variables to prevent Python issues inside Docker
-# Also supress all FutureWarnings. We can wait until they become Warnings.
 ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONWARNINGS="ignore::FutureWarning"
+    PYTHONDONTWRITEBYTECODE=1
 
 # Set other env variables
 ENV PATH="${projectDir}:${DEP_DIR}:${PATH}"

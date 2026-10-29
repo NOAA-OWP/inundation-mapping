@@ -305,7 +305,6 @@ rd_depression_filling "${args[@]}"
 # We will just remove the sf8 temp file later.
 echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber ${branch_zero_id}"
 args=(
-    -n "$ncores_fd"
     -t "${taudemDir}"
     -fel "${tempCurrentBranchDataDir}/dem_burned_filled_${branch_zero_id}.tif"
     -p "${tempCurrentBranchDataDir}/flowdir_d8_burned_filled_${branch_zero_id}.tif"

@@ -95,7 +95,6 @@ python3 "${srcDir}/run_taudem_subprocess.py" flowdircond "${args[@]}"
 # We will just remove the p temp file later.
 echo -e $startDiv"D8 Slopes from DEM ${hucNumber} ${current_branch_id}"
 args=(
-    -n "${ncores_fd}"
     -t "${taudemDir}"
     -fel "${tempCurrentBranchDataDir}/dem_lateral_thalweg_adj_${current_branch_id}.tif"
     -sd8 "${tempCurrentBranchDataDir}/slopes_d8_dem_meters_${current_branch_id}.tif"
@@ -133,12 +132,12 @@ args=(
     -t "${slope_min}"
     -b "${lakes_buffer_dist_meters}"
 )
+# printf '%s\n' "${args[@]}"
 python3 "${srcDir}/split_flows.py" "${args[@]}"
 
 ## GAGE WATERSHED FOR REACHES ##
 echo -e "${startDiv}Gage Watershed for Reaches ${hucNumber} ${current_branch_id}"
 args=(
-    -n "${ncores_gw}"
     -t "${taudemDir}"
     -p "${tempCurrentBranchDataDir}/flowdir_d8_burned_filled_${current_branch_id}.tif"
     -gw "${tempCurrentBranchDataDir}/gw_catchments_reaches_${current_branch_id}.tif"
@@ -159,7 +158,6 @@ python3 "${srcDir}/reachID_grid_to_vector_points.py" "${args[@]}"
 ## GAGE WATERSHED FOR PIXELS ##
 echo -e "${startDiv}Gage Watershed for Pixels ${hucNumber} ${current_branch_id}"
 args=(
-    -n "${ncores_gw}"
     -t "${taudemDir}"
     -p "${tempCurrentBranchDataDir}/flowdir_d8_burned_filled_${current_branch_id}.tif"
     -gw "${tempCurrentBranchDataDir}/gw_catchments_pixels_${current_branch_id}.tif"
@@ -276,6 +274,7 @@ args=(
     -i "${stage_interval_meters}"
     -t "${stage_max_meters}"
 )
+
 python3 "${srcDir}/make_stages_and_catchlist.py" "${args[@]}"
 
 ## MASK REM RASTER TO REMOVE OCEAN AREAS ##
@@ -318,7 +317,11 @@ args=(
     -H "${tempCurrentBranchDataDir}/stage_${current_branch_id}.txt"
     -table "${tempCurrentBranchDataDir}/src_base_${current_branch_id}.csv"
 )
+printf '%s\n' "${args[@]}"
 python3 "${srcDir}/run_taudem_subprocess.py" catchhydrogeo "${args[@]}"
+
+echo "all done"
+exit(1)
 
 ## FINALIZE CATCHMENTS AND MODEL STREAMS ##
 echo -e $startDiv"Finalize catchments and model streams ${hucNumber} ${current_branch_id}"

@@ -31,7 +31,7 @@ def make_stages_and_catchlist(
     stages_max = stages_max + stages_interval
     stages = np.round(np.arange(stages_min, stages_max, stages_interval), 4)
     with open(stages_filename, 'w') as f:
-            # f.write("Stage\n")
+            f.write("Stage\n")
             for stage in stages:
                 f.write("{}\n".format(stage))    
 
