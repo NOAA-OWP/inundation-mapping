@@ -46,7 +46,7 @@ def unzip(zip_path, extract_to="."):
 
 def preprocess_dggs_ifsar(
     input_dem_zip_file,
-    out_dem_folder,
+    output_dem_dir,
     region,
     date,
     hucs,
@@ -61,7 +61,7 @@ def preprocess_dggs_ifsar(
     -----------
     input_dem_zip_file : str
         Path to raw downloaded DTM zip archive from AK DGGS.
-    out_dem_folder : str
+    output_dem_dir : str
         Output directory for staging, extraction, logs, and temporary mosaic.
     region : str
         Region identifier (e.g., 'Fairbanks', 'Juneau').
@@ -79,13 +79,13 @@ def preprocess_dggs_ifsar(
     overall_start_time = datetime.now(timezone.utc)
     file_dt_string = overall_start_time.strftime("%Y_%m_%d-%H_%M_%S")
     log_file_name = f"ifsar_downloaded_{region}-{file_dt_string}.log"
-    log_file_path = os.path.join(out_dem_folder, log_file_name)
+    log_file_path = os.path.join(output_dem_dir, log_file_name)
     logger_name = f"ifsar_downloaded_{region}"
     file_logger = sf.setup_mp_file_logger(log_file_path, logger_name)
 
-    sf.l_print(f"Processing DGGS IFSAR data in {out_dem_folder}", file_logger, "info")
+    sf.l_print(f"Processing DGGS IFSAR data in {output_dem_dir}", file_logger, "info")
 
-    os.makedirs(out_dem_folder, exist_ok=True)
+    os.makedirs(output_dem_dir, exist_ok=True)
 
     if not os.path.exists(input_dem_zip_file):
         print(
@@ -94,11 +94,11 @@ def preprocess_dggs_ifsar(
         )
         sys.exit(1)
 
-    unzip(input_dem_zip_file, out_dem_folder)
+    unzip(input_dem_zip_file, output_dem_dir)
 
-    output_mosaic = os.path.join(out_dem_folder, f"{region}_ifsar_DTM_{target_crs_number}.tif")
+    output_mosaic = os.path.join(output_dem_dir, f"{region}_ifsar_DTM_{target_crs_number}.tif")
 
-    absolute_out_folder = os.path.abspath(out_dem_folder)
+    absolute_out_folder = os.path.abspath(output_dem_dir)
     extracted_zip_dir = os.path.join(absolute_out_folder, "dds4", "ifsar", "dtm")
     zip_pattern = os.path.join(extracted_zip_dir, "*.zip")
     zip_files = glob.glob(zip_pattern)
@@ -142,9 +142,7 @@ def preprocess_dggs_ifsar(
 
         for huc in hucs:
             cutline_path = os.path.join(inputs_dir, "wbd", "HUC8_Alaska", f"HUC8_{huc}.gpkg")
-            dest_dir = os.path.join(inputs_dir, "dems", "ifsar_dtm", region, date)
-            os.makedirs(dest_dir, exist_ok=True)
-            dest_ds = os.path.join(dest_dir, f"HUC8_{huc}_dem.tif")
+            dest_ds = os.path.join(output_dem_dir, f"HUC8_{huc}_dem.tif")
 
             if not os.path.exists(cutline_path):
                 print(f"Warning: Cutline {cutline_path} not found. Skipping HUC {huc}.")

@@ -16,7 +16,7 @@ if PROJECT_ROOT not in sys.path:
 
 import py7zr
 
-from data.dem.preprocess_nhdplus_ned import preprocess_nhdplus_ned
+from data.elevation.preprocess_nhdplus_ned import preprocess_nhdplus_ned
 from data.hazards.get_fema_nfhl import fetch_nfhl_by_hucs
 from data.hydrography.preprocess_nhdplus_pi import preprocess_nhdplus_pi
 from data.watersheds.preprocess_wbd import preprocess_wbd

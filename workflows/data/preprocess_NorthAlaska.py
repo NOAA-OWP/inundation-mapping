@@ -115,6 +115,7 @@ def main():
         print(f"    Target HUCs: {hucs}")
         print(f"    Target CRS: EPSG:{args.target_crs_number}")
         print(f"    Staging Dir: {region_staging_dir}")
+        print(f"    Output Dir: {args.out_dem_folder}")
         print(f"{'='*70}\n")
 
         # -------------------------------------------------------------------------
@@ -128,7 +129,7 @@ def main():
             print(f"[{region}] (1/4) Running DGGS IFSAR DEM preprocessing...")
             preprocess_dggs_ifsar(
                 input_dem_zip_file=region_dem_zip,
-                out_dem_folder=region_staging_dir,
+                out_dem_folder=args.out_dem_folder,
                 region=region,
                 date=args.date,
                 hucs=hucs,

@@ -64,6 +64,7 @@ def main():
         -o '/data/inputs/dems/vrt' \
         -s 'Alaska_3338_20261027' \
         -j 14
+        -p
     """
     parser = argparse.ArgumentParser(
         description='Create a VRT and DEM_Domain GeoParquet from source folders.'
