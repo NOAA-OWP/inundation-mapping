@@ -396,6 +396,8 @@ def crosswalk_trace_flows(joined_gdf, nhd_flowlines_gpkg, search):
 
     # Get nwm_feature_id for 8km upstream and 8km downstream
     upstream_trace_list, downstream_trace_list = [], []
+    # Oct 2026: Consider changing this to itertuples is it much faster than iterrows for geodataframes.
+    # but only for GeoDataframes. Then use row.index (geometry.index in this case)
     for index, row in joined_gdf_with_streams.iterrows():
 
         # Get upstream and downstream traces
@@ -496,6 +498,8 @@ def restructure_data_for_pkl(joined_gdf_with_streams):
 
     # Reformat the data so it matches thresholds.pkl
     all_thresh_df_list = []
+    # Oct 2026: Consider changing this to itertuples is it much faster than iterrows for geodataframes.
+    # but only for GeoDataframes. Then use row.index (geometry.index in this case)
     for index, row in joined_gdf_with_streams.iterrows():
         thresholds = [
             {
@@ -541,6 +545,8 @@ def restructure_data_for_pkl(joined_gdf_with_streams):
 
     # Reformat the data so it matches nwm_metafile.pkl
     metadata_dict_list = []
+    # Oct 2026: Consider changing this to itertuples is it much faster than iterrows for geodataframes.
+    # but only for GeoDataframes. Then use row.index (geometry.index in this case)
     for index, row in joined_gdf_with_streams.iterrows():
         metadata_dict_lid = {
             "identifiers": {

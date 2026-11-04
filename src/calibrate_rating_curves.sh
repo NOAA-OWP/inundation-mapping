@@ -108,7 +108,7 @@ if [ "$src_bankfull_toggle" = "True" ]; then
     # Run SRC bankfull estimation routine routine
     python3 ${srcDir}/identify_src_bankfull.py \
         -huc_dir ${tempHucDataDir} \
-        -flows $bankfull_flows_file \
+        -flows ${bankfull_flows_file} \
         -jb $jobBranchLimit
 fi
 

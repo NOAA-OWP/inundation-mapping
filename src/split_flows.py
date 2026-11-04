@@ -207,8 +207,9 @@ def split_flows(
     else:
         nwm_streams_terminal = nwm_streams[nwm_streams['to'] == 0]
         if not nwm_streams_terminal.empty:
-            for i, row in nwm_streams_terminal.iterrows():
-                linestring_geo = row['geometry']
+            # Oct 2026: For GeoDataframes (not Dataframes), itertuples is much faster.
+            for row in nwm_streams_terminal.itertuples():
+                linestring_geo = row.geometry
 
                 # Identify the end vertex (most downstream, should be last), transform into geodataframe
                 terminal_nwm_point = []
@@ -330,7 +331,7 @@ def split_flows(
                 # print(start_elev - end_elev)
                 # print(str((start_elev - end_elev) / lineString.length))
                 # print(round((start_elev - end_elev) / lineString.length),12)
-                slope = round(float(abs(start_elev - end_elev) / lineString.length), 6)
+                slope = round(float(abs(start_elev - end_elev) / lineString.length), 12)
                 # print(f"new slope is (1) .. {slope:.15f}")
                 if slope < slope_min:
                     slope = slope_min
@@ -393,7 +394,7 @@ def split_flows(
 
                     # print(f"--- start_elev is {start_elev} and end_elev is {end_elev} and splitLineString.length is {splitLineString.length}")
 
-                    slope = round(float(abs(start_elev - end_elev) / splitLineString.length), 6)
+                    slope = round(float(abs(start_elev - end_elev) / splitLineString.length), 12)
                     if slope < slope_min:
                         slope = slope_min
                     slopes = slopes + [slope]
@@ -412,7 +413,7 @@ def split_flows(
             start_point = cumulative_line[0]
             end_point = cumulative_line[-1]
             start_elev, end_elev = [i[0] for i in rasterio.sample.sample_gen(dem, [start_point, end_point])]
-            slope = round(float(abs(start_elev - end_elev) / splitLineString.length), 6)
+            slope = round(float(abs(start_elev - end_elev) / splitLineString.length), 12)
             if slope < slope_min:
                 slope = slope_min
             slopes = slopes + [slope]
@@ -468,8 +469,9 @@ def split_flows(
 
     split_points = OrderedDict()
 
+    # Oct 2026: For GeoDataframes (not Dataframes), itertuples is much faster.
     # Iterate through split flows line segments and create the points along each segment
-    for index, segment in split_flows_gdf.iterrows():
+    for segment in split_flows_gdf.itertuples():
         # Get the points of the linestring geometry
         lineString = segment.geometry
 
@@ -478,9 +480,9 @@ def split_flows(
                 if segment.NextDownID == split_points[point]:
                     pass
                 else:
-                    split_points[point] = segment[hydro_id]
+                    split_points[point] = segment.HydroID
             else:
-                split_points[point] = segment[hydro_id]
+                split_points[point] = segment.HydroID
 
     hydroIDs_points = [hidp for hidp in split_points.values()]
     split_points = [Point(*point) for point in split_points]

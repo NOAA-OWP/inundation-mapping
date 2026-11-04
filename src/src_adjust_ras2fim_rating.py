@@ -298,6 +298,10 @@ def branch_proc_list(ras_df, huc_dir, debug_outputs_option, log_file, branch_job
 
     # multiprocess all available branches
     print(f"Calculating new SRCs for {len(procs_list)} branches using {branch_jobs} jobs...")
+
+    # TODO: Nov 2026: This should be cleaned up.  branch_jobs value is ok at this is called after.
+    # Test what happens if errors happen in 
+    #  branches are processed.
     with Pool(processes=branch_jobs) as pool:
         log_output = pool.starmap(update_rating_curve, procs_list)
         log_file.writelines(["%s\n" % item for item in log_output])

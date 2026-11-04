@@ -3,6 +3,7 @@ import argparse
 import subprocess
 import sys
 
+import numpy as np
 import pandas as pd
 
 '''
@@ -41,13 +42,17 @@ def run_d8flowdir(taudem_dir, fel_path, p_path=None, sd8_path=None):
             cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1
         )
 
+        err_details = ""
         # Read the output line by line as it is generated
+        # With moving to TauDEM 5.5, do we need this anymore?
         for line in process.stdout:
 
             # Drop the specific GDAL ERROR 6 message entirely
             if "ERROR 6:" in line and "Dataset does not support the AddBand() method." in line:
                 continue
-
+            elif "ERROR:":
+                err_details += line
+                continue  # there can be more than one error
             # Reformat the warnings specifically based on which file is missing
             elif "no output sd8 file specified" in line:
                 print("INFO: TauDEM d8flowdir running without optional sd8 slope output.")
@@ -64,7 +69,8 @@ def run_d8flowdir(taudem_dir, fel_path, p_path=None, sd8_path=None):
 
         # Enforce strict exit code checking. If it failed, raise an exception.
         if process.returncode != 0:
-            raise RuntimeError(f"TauDEM d8flowdir failed with exit code {process.returncode}")
+            raise RuntimeError(f"TauDEM d8flowdir failed with exit code {process.returncode}." \
+                               f" Details: {err_details}")
 
     except Exception as e:
         # Ensure the exception is printed to standard error for downstream catch
@@ -94,13 +100,16 @@ def run_flowdircond(taudem_dir, p_path, z_path, zfdc_path):
             cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1
         )
 
+        err_details = ""
         # Read the output line by line as it is generated
         for line in process.stdout:
 
             # Drop the specific GDAL ERROR 6 message entirely
             if "ERROR 6:" in line and "Dataset does not support the AddBand() method." in line:
                 continue
-
+            elif "ERROR:":
+                err_details += line
+                continue  # there can be more than one error
             # Print everything else normally (errors, standard output, etc.)
             else:
                 # Use end="" because the line already has a newline character from the stream
@@ -111,7 +120,8 @@ def run_flowdircond(taudem_dir, p_path, z_path, zfdc_path):
 
         # Enforce strict exit code checking. If it failed, raise an exception.
         if process.returncode != 0:
-            raise RuntimeError(f"TauDEM flowdircond failed with exit code {process.returncode}")
+            raise RuntimeError(f"TauDEM flowdircond failed with exit code {process.returncode}." \
+                f" Details: {err_details}")
 
     except Exception as e:
         # Ensure the exception is printed to standard error for downstream catch
@@ -168,13 +178,16 @@ def run_streamnet(
             cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1
         )
 
+        err_details = ""
         # Read the output line by line as it is generated
         for line in process.stdout:
 
             # Drop the specific GDAL ERROR 6 message entirely
             if "ERROR 6:" in line and "Dataset does not support the AddBand() method." in line:
                 continue
-
+            elif "ERROR:":
+                err_details += line
+                continue  # there can be more than one error
             # Print everything else normally (errors, standard output, etc.)
             else:
                 # Use end="" because the line already has a newline character from the stream
@@ -185,7 +198,8 @@ def run_streamnet(
 
         # Enforce strict exit code checking. If it failed, raise an exception.
         if process.returncode != 0:
-            raise RuntimeError(f"TauDEM streamnet failed with exit code {process.returncode}")
+            raise RuntimeError(f"TauDEM streamnet failed with exit code {process.returncode}." \
+				f" Details: {err_details}")
 
     except Exception as e:
         # Ensure the exception is printed to standard error for downstream catch
@@ -225,13 +239,16 @@ def run_gagewatershed(taudem_dir, p_path, gw_path, o_path, id_path):
             cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1
         )
 
+        err_details = ""
         # Read the output line by line as it is generated
         for line in process.stdout:
 
             # Drop the specific GDAL ERROR 6 message entirely
             if "ERROR 6:" in line and "Dataset does not support the AddBand() method." in line:
                 continue
-
+            elif "ERROR:":
+                err_details += line
+                continue  # there can be more than one error
             # Print everything else normally (errors, standard output, etc.)
             else:
                 # Use end="" because the line already has a newline character from the stream
@@ -242,7 +259,8 @@ def run_gagewatershed(taudem_dir, p_path, gw_path, o_path, id_path):
 
         # Enforce strict exit code checking. If it failed, raise an exception.
         if process.returncode != 0:
-            raise RuntimeError(f"TauDEM gagewatershed failed with exit code {process.returncode}")
+            raise RuntimeError(f"TauDEM gagewatershed failed with exit code {process.returncode}." \
+				f" Details: {err_details}")
 
     except Exception as e:
         # Ensure the exception is printed to standard error for downstream catch
@@ -288,30 +306,33 @@ def run_catchhydrogeo(taudem_dir, hand_path, catch_path, catchlist_path, slp_pat
             cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1
         )
 
+        # Run the process and capture the streams, it will wait for it.
+        # stdout, stderr = process.communicate()
+
+        err_details = ""
         # Read the output line by line as it is generated
-        # Oct 2026: With moving to TauDEM 5.5, do we need this anymore?  Comment out and try        
-        # for line in process.stdout:
-
-        #     # Drop the specific GDAL ERROR 6 message entirely
-
-        #     if "ERROR 6:" in line and "Dataset does not support the AddBand() method." in line:
-        #         continue
-
-        #     # Print everything else normally (errors, standard output, etc.)
-        #     else:
-        #         # Use end="" because the line already has a newline character from the stream
-        #         print(line, end="")
+        for line in process.stdout:
+            # Drop the specific GDAL ERROR 6 message entirely
+            if "ERROR 6:" in line and "Dataset does not support the AddBand() method." in line:
+                continue
+            elif "ERROR:":
+                err_details += line
+                continue  # there can be more than one error
+            # Print everything else normally (errors, standard output, etc.)
+            else:
+                # Use end="" because the line already has a newline character from the stream
+                print(line, end="")
 
         # Wait for the process to fully complete and grab the exit code
         process.wait()
 
         # Enforce strict exit code checking. If it failed, raise an exception.
         if process.returncode != 0:
-            raise RuntimeError(f"TauDEM catchhydrogeo failed with exit code {process.returncode}")
-        
+            raise RuntimeError(f"TauDEM catchhydrogeo failed with exit code {process.returncode}." \
+				f" Details: {err_details}")
+                
         # ++++++++++++++++++++++++++++++++
         # Oct 2026,
-
         # After talking to Carson, we thought it would be better to adjust things here for now.
         
         # With the new TauDEM 5.5, it also completely changed column names.
@@ -322,33 +343,29 @@ def run_catchhydrogeo(taudem_dir, hand_path, catch_path, catchlist_path, slp_pat
                     'ReachWetArea_m2': 'SurfaceArea (m2)',
                     'ReachBedArea_m2': 'BedArea (m2)',
                     'ReachVolume_m3': 'Volume (m3)',
-                    'ReachSlope': 'SLOPE_RISE_RUN',
+                    'ReachSlope': 'SLOPE',
                     'ReachLength_m': 'LENGTHKM',
                     'CatchArea_m2': 'AREASQKM'
         }
         # ++++ Note: While our original column was incorrectly named "LENGTHKM", it was really in meters
         #  even in our pre TauDEM 5.5 code.
-        # hydro_df = pd.read_csv(table_path,
-        #                         header=0)
+        hydro_df = pd.read_csv(table_path)
         
-        # # For reasons unknown, when TauDEM makes the src_base_{branchid}.csv  (table_path), it is having a bit of trouble
-        # # with the column headers. The first column 'ID' is fine but all of the rest of the column headers names have a space
-        # # in front of them. ie) ' Stage_m' instead of `Stage_m` and ` ReachSlope`, instead of `ReachSlope.`
-        # # We will load the file back up, strip the header names and resave.
-        # hydro_df = hydro_df.columns.str.strip()
+        # For reasons unknown, when TauDEM makes the src_base_{branchid}.csv  (table_path), it is having a bit of trouble
+        # with the column headers. The first column 'ID' is fine but all of the rest of the column headers names have a space
+        # in front of them. ie) ' Stage_m' instead of `Stage_m` and ` ReachSlope`, instead of `ReachSlope.`
+        # We will load the file back up, strip the header names and resave.
+        # Strip spaces first, then rename if it matches your dictionary
+        hydro_df = hydro_df.rename(columns=lambda x: col_mapping.get(x.strip(), x.strip()))
 
-        # hydro_df = hydro_df.rename(columns=col_mapping)
+        hydro_df['AREASQKM'] = np.where(hydro_df['AREASQKM'] != 0, hydro_df['AREASQKM'] / 1000000, hydro_df['AREASQKM'])
 
-        # Oct 2026: One column now needs a scale adj from m to km.  Could be zero? likely not
-        # hydro_df['AREASQKM'] = hydro_df['AREASQKM'] / 1000
-
-        # hydro_df.to_csv(table_path, index=False)
+        hydro_df.to_csv(table_path, index=False)
 
     except Exception as e:
         # Ensure the exception is printed to standard error for downstream catch
         print(f"\nERROR: {e}", file=sys.stderr)
         sys.exit(1)
-
 
 def main():
     """

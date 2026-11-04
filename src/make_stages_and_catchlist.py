@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import fileinput
 
 import geopandas as gpd
 import numpy as np
@@ -55,6 +56,16 @@ def make_stages_and_catchlist(
     catchments_df = pd.DataFrame(mergedflows_catchments[['HydroID', 'S0', 'LengthKm', 'areasqkm']])
     catchments_df.to_csv(catchlist_filename, header=False, index=False)
 
+    # Nov 2026: As weird as this seems, we write each line by hand, as we need it space delimited
+    # with a record count as the first row when it is later feed into taudem.
+    # Manually write a line back to the top of the file. Not the pretties answer, but it is easier
+    # than making a manual DF row with just one column created which would also leave a bunch of
+    # empty spaces on the end
+    with fileinput.input(catchlist_filename, inplace=True) as file:
+        for line in file:
+            if file.isfirstline():
+                print(len(catchments_df))  # Inserts the new line at the very top
+            print(line, end="")  # Prints the original lines back into the file
 
 if __name__ == '__main__':
     # Parse arguments.

@@ -2,79 +2,76 @@
 
 import argparse
 import datetime as dt
-
-# import multiprocessing
+import logging
 import os
-
-# import re
-# import shutil
-# import sys
+import sys
 import traceback
-import warnings
-from functools import reduce
+import shutil
+
 from multiprocessing import Pool
-from os.path import dirname, isdir, isfile, join
-from pathlib import Path
+from os.path import  isdir, isfile, join
 
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 from tqdm import tqdm
 
+from src.utils.shared_functions import setup_file_logger
+
 
 sns.set_theme(style="whitegrid")
-warnings.simplefilter(action='ignore', category=FutureWarning)
 
-#################################
-# TODO: July 4, 2026:  In the event of an exception, the log file will not exist
-# and its details as well.
-# This needs a try/except with printing to log and at least a one liner
-# saying including the word "exception or error", which can be picked up automatically
-# by the rollup to fim_process_huc.sh or process_rerun_calibration_huc.sh
-################################
-
-"""
-    Identify the SRC bankfull stage values using the NWM bankfull estimated flows
-
-    Parameters
-    ----------
-    fim_dir : str
-        Directory containing FIM output folders.
-    bankfull_flow_dir : str
-        Directory containing "bankfull" flows files (e.g. NWM bankfull estimated recurr).
-    branch_jobs : str
-        Number of branch jobs.
-    plots : str
-        Optional: Flag to create SRC plots for all hydroids (True/False)
-"""
+# Unpacks the dictionary in each list items
+def _run_bankfull_lookup(args):
+    return src_bankfull_lookup(**args)
 
 
-def src_bankfull_lookup(args):
-    src_full_filename = args[0]
-    df_bflows = args[1]
-    huc = args[2]
-    branch_id = args[3]
-    src_plot_option = args[4]
-    huc_output_dir = args[5]
+# TODO: Nov 2026: We will build up a list of log messages in this child MP worker.
+# We will do this until we upgrade the pool where we can have each worker write to the log(s)
+# instead of collecting it as a return from each worker
+def src_bankfull_lookup(src_orig_full_filename, df_bflows, huc, branch_id, src_plot_option, huc_src_plots_output_dir):
+
+    """
+        Identify the SRC bankfull stage values using the NWM bankfull estimated flows
+
+        Parameters
+        ----------
+        fim_dir : str
+            Directory containing FIM output folders.
+        bankfull_flow_dir : str
+            Directory containing "bankfull" flows files (e.g. NWM bankfull estimated recurr).
+        branch_jobs : str
+            Number of branch jobs.
+        plots : str
+            Optional: Flag to create SRC plots for all hydroids (True/False)
+    """
+    
+    log_text = []
 
     ## Read the src_full_crosswalked.csv
-    print('Calculating bankfull: ' + str(huc) + '  branch id: ' + str(branch_id))
-    log_text = 'Calculating: ' + str(huc) + '  branch id: ' + str(branch_id) + '\n'
+    print(".......................")
+    log_text.append(".......................")
+    msg = f"Calculating: {huc} - branch id: {str(branch_id)}"
+    print(msg)    
+    log_text.append(msg)
+    has_error = False
+
     try:
-        df_src = pd.read_csv(src_full_filename, dtype={'HydroID': int, 'feature_id': int})
+        df_src = pd.read_csv(src_orig_full_filename, dtype={'HydroID': int, 'feature_id': int})
         if 'bankfull_flow' in df_src.columns:
-            log_text += (
+            log_text.append(
                 'WARNING: HUC: '
-                + str(huc)
+                + huc
                 + '  branch id: '
                 + str(branch_id)
                 + ' --> bankfull_flow column already exists in the src_full_crosswalked.csv file. '
-                'Please be sure to run the "update_htable_src.py to clean up the src_full_crosswalked.csv\n'
+                'Please be sure to run the "update_htable_src.py to clean up the src_full_crosswalked.csv'
             )
             print(
                 f'WARNING bankfull_flow column already exists in the src_full_crosswalked.csv file for {huc}.'
                 ' Please be sure to run the "update_htable_src.py to clean up the src_full_crosswalked.csv'
             )
+            return log_text, False
 
         ## NWM recurr rename discharge var
         df_bflows = df_bflows.rename(columns={'discharge': 'bankfull_flow'})
@@ -89,7 +86,7 @@ def src_bankfull_lookup(args):
 
             err_msg = (
                 'WARNING: Missing feature_id in crosswalk for huc: '
-                + str(huc)
+                + huc
                 + '  branch id: '
                 + str(branch_id)
                 + ' --> these featureids will be ignored in bankfull calcs (~'
@@ -97,19 +94,19 @@ def src_bankfull_lookup(args):
                 + ' features)'
             )
             print(err_msg)
-            log_text += f"{err_msg} \n"
+            log_text.append(err_msg)
             ## Fill missing/nan nwm bankfull_flow values with -999 to handle later
             df_src['bankfull_flow'] = df_src['bankfull_flow'].fillna(-999)
 
         negative_flows = len(df_src.loc[(df_src.bankfull_flow <= 0) & (df_src.bankfull_flow != -999)])
 
         if negative_flows > 0:
-            log_text += (
+            log_text.append(
                 'INFO: HUC: '
-                + str(huc)
+                + huc
                 + '  branch id: '
                 + str(branch_id)
-                + ' --> Negative or zero flow values found in the input bankfull flows csv (posible lakeid loc)\n'
+                + ' --> Negative or zero flow values found in the input bankfull flows csv (posible lakeid loc)'
             )
 
         ## Define the channel geometry variable names to use from the src
@@ -127,26 +124,26 @@ def src_bankfull_lookup(args):
         if df_src['Q_bfull_find'].isnull().values.any():
             err_msg = (
                 'WARNING: HUC: '
-                + str(huc)
+                + huc
                 + '  branch id: '
                 + str(branch_id)
                 + ' --> Null values found in "Q_bfull_find" calc. These will be filled with 999999 ()'
             )
             print(err_msg)
-            log_text += f"{err_msg} \n"
+            log_text.append(err_msg)
 
             ## Fill missing/nan nwm 'Discharge (m3s-1)' values with 999999 to handle later
             df_src['Q_bfull_find'] = df_src['Q_bfull_find'].fillna(999999)
         if df_src['HydroID'].isnull().values.any():
             err_msg = (
                 'WARNING: HUC: '
-                + str(huc)
+                + huc
                 + '  branch id: '
                 + str(branch_id)
                 + ' --> Null values found in "HydroID"...'
             )
             print(err_msg)
-            log_text += f"{err_msg} \n"
+            log_text.append(err_msg)
 
         df_bankfull_calc = df_src[
             ['Stage', 'HydroID', bedarea_var, volume_var, hradius_var, surface_area_var, 'Q_bfull_find']
@@ -187,6 +184,9 @@ def src_bankfull_lookup(args):
 
         ## The bankfull ratio variables below were previously used for the composite variable roughness routine
         ##      (not currently implimented)
+
+        ## NOTE: if this gets reimplemented.. get rid of the inplace=True. Those need to be removed system wide.
+
         # ## Calculate the channel portion of bankfull Volume
         # df_src['chann_volume_ratio'] = 1.0 # At stage=0 set channel_ratio to 1.0 (avoid div by 0)
         # df_src['chann_volume_ratio'].where(
@@ -224,7 +224,7 @@ def src_bankfull_lookup(args):
         # #df_src = df_src.drop(['HRadius_bankfull'], axis=1)
 
         ## mask bankfull variables when the bankfull estimated flow value is <= 0
-        df_src['Stage_bankfull'].mask(df_src['bankfull_flow'] <= 0.0, inplace=True)
+        df_src['Stage_bankfull'] = df_src['Stage_bankfull'].mask(df_src['bankfull_flow'] <= 0.0)
 
         ## Create a new column to identify channel/floodplain via the bankfull stage value
         df_src.loc[df_src['Stage'] <= df_src['Stage_bankfull'], 'bankfull_proxy'] = 'channel'
@@ -232,33 +232,33 @@ def src_bankfull_lookup(args):
         df_src['bankfull_proxy'] = df_src['bankfull_proxy'].fillna('channel')
 
         ## Output new SRC with bankfull column
-        df_src.to_csv(src_full_filename, index=False)
-        log_text += 'Completed: ' + str(huc)
+        df_src.to_csv(src_orig_full_filename, index=False)
+        log_text.append(f"{src_orig_full_filename} updated")
 
         ## plot rating curves (optional arg)
         if src_plot_option:
-            if isdir(huc_output_dir) is False:
-                os.mkdir(huc_output_dir)
-            generate_src_plot(df_src, huc_output_dir)
+            if isdir(huc_src_plots_output_dir) is False:
+                os.mkdir(huc_src_plots_output_dir)
+            generate_src_plot(df_src, huc_src_plots_output_dir)
 
     except Exception:
         # summary = traceback.StackSummary.extract(traceback.walk_stack(None))
         # print(str(huc) + '  branch id: ' + str(branch_id) + " failed for some reason")
         # print(f"*** {ex}")
         # print(''.join(summary.format()))
-        err_msg = f'ERROR --> HUC: {str(huc)} - branch id: {str(branch_id)}'
-        log_text += f"{err_msg} \n"
-        log_text += traceback.format_exc()
+        err_msg = f'ERROR --> HUC: {huc} - branch id: {str(branch_id)}'
+        log_text.append(err_msg)
+        log_text.append(traceback.format_exc())
+        has_error = True
 
         # this goes back to calibrate_rating_curve.sh which rolls up to its parent "tee"
         # Then it can be scanned in the error system based on solely the "tee" file
         print(err_msg)
         print(traceback.format_exc())
 
-        # re raise ex ? # TODO: Do we want to stop processing the huc if we get an error here?
-        # If yes, we need to raise ex, make sure to write your log_text if you need to.
+        # do not re-raise
 
-    return log_text
+    return log_text, has_error
 
 
 def generate_src_plot(df_src, plt_out_dir):
@@ -297,29 +297,36 @@ def generate_src_plot(df_src, plt_out_dir):
         plt.close()
 
 
-def multi_process(src_bankfull_lookup, procs_list, log_file, branch_jobs, verbose):
+def multi_process(procs_list, branch_jobs, verbose):
 
     print(f"Identifying bankfull stage for {len(procs_list)} branches using {branch_jobs} jobs")
 
+    # TODO: Nov 2026: This should be cleaned up or use the shared function version
+    map_output = None
     with Pool(processes=branch_jobs) as pool:
         # progress_bar = tqdm(total=len(procs_list[0]))
         if verbose:
-            map_output = tqdm(pool.imap(src_bankfull_lookup, procs_list), total=len(procs_list))
-            tuple(map_output)  # fetch the lazy results
+            map_output = tqdm(pool.imap(_run_bankfull_lookup, procs_list), total=len(procs_list))
+            # tuple(map_output)  # fetch the lazy results
         else:
-            map_output = pool.map(src_bankfull_lookup, procs_list)
-    log_file.writelines(["%s\n" % item for item in map_output])
+            map_output = pool.map(_run_bankfull_lookup, procs_list)
 
+    in_error = False
+    # TODO: Nov 2026: Do this until we upgrade the pool where we can have each worker write to the log(s)
+    # instead of collecting it as a return from each worker
+    for log_text_list, has_error in map_output:
+        if has_error:
+            for item in log_text_list:
+                logging.error(item)  # Note.. error type
+            in_error = True
+        else:
+            for item in log_text_list:
+                logging.info(item)  # Note.. info type
+
+    return in_error
 
 def run_prep(huc_dir, bankfull_flow_filepath, branch_jobs, verbose, src_plot_option):
-    procs_list = []
 
-    ## Print message to user and initiate run clock
-    print('Writing progress to log file here: /logs/log_bankfull_indentify.log')
-    print('This may take a few minutes...')
-
-    ## Check that the input fim_dir exists
-    # assert os.path.isdir(fim_dir), 'ERROR: could not find the input fim_dir location: ' + str(fim_dir)
     ## Check that the bankfull flow filepath exists and read to dataframe
     # Note: This does work in the fim_pipeline chain as it throws an exception that is caught by the .sh files
     # which rollup to the huc_{huc num}_unit.log file for future scanning.
@@ -327,55 +334,63 @@ def run_prep(huc_dir, bankfull_flow_filepath, branch_jobs, verbose, src_plot_opt
         bankfull_flow_filepath
     )
 
-    ## Create a time var to log run time
-    begin_time = dt.datetime.now()
     ## initiate log file
     log_dir = os.path.join(huc_dir, "logs", "src_calibrations")
     if not os.path.isdir(log_dir):
         os.makedirs(log_dir)
+    log_file_path = setup_file_logger(log_dir, "identify_src_bankfull")
 
-    log_file = open(join(log_dir, 'log_bankfull_indentify.log'), "w")
-    log_file.write('START TIME: ' + str(begin_time) + '\n')
-    log_file.write('#########################################################\n\n')
+    overall_start_time = dt.datetime.now(dt.timezone.utc)
+    logging.info("Start Identify Src Bankfull")
+    logging.info(f"START TIME: {overall_start_time.strftime("%m/%d/%Y %H:%M:%S")}")
+    logging.info("")
+    print(f"Logs will be saved to {log_file_path}")    
+    in_error = False
+    try:
+        df_bflows = pd.read_csv(bankfull_flow_filepath, dtype={'feature_id': int})
 
-    df_bflows = pd.read_csv(bankfull_flow_filepath, dtype={'feature_id': int})
+        # get hucnumber
+        huc = os.path.basename(os.path.normpath(huc_dir))
+        huc_branches_dir = os.path.join(huc_dir, 'branches')
+        procs_list = []
+        for branch_id in os.listdir(huc_branches_dir):
+            branch_dir = os.path.join(huc_branches_dir, branch_id)
 
-    # get hucnumber
-    huc = os.path.basename(os.path.normpath(huc_dir))
-    huc_branches_dir = os.path.join(huc_dir, 'branches')
-    for branch_id in os.listdir(huc_branches_dir):
-        branch_dir = os.path.join(huc_branches_dir, branch_id)
-        src_orig_full_filename = join(branch_dir, 'src_full_crosswalked_' + branch_id + '.csv')
-        huc_output_dir = join(branch_dir, 'src_plots')
-        ## Check if BARC modified src_full_crosswalked_BARC.csv exists otherwise use
-        #   orginial src_full_crosswalked.csv
-        if isfile(src_orig_full_filename):
-            procs_list.append(
-                [src_orig_full_filename, df_bflows, huc, branch_id, src_plot_option, huc_output_dir]
-            )
-        else:
-            print(
-                f'HUC: {str(huc)}  branch id: {str(branch_id)}'
-                'WARNING --> can not find the SRC crosswalked csv file in the fim output dir: '
-                f' {str(branch_dir)}  - skipping this branch!!!'
-            )
-            log_file.write(
-                f'HUC: {str(huc)}  branch id: {str(branch_id)}'
-                'WARNING --> can not find the SRC crosswalked csv file in the fim output dir: '
-                f' {str(branch_dir)}  - skipping this branch!!!\n'
-            )
+            huc_src_plots_output_dir = join(branch_dir, 'src_plots')
+            src_orig_full_filename = join(branch_dir, 'src_full_crosswalked_' + branch_id + '.csv')
 
-    log_file.write('#########################################################\n\n')
+            ## Check if BARC modified src_full_crosswalked_BARC.csv exists otherwise use
+            #   orginial src_full_crosswalked.csv
+            if isfile(src_orig_full_filename):
+                args = {
+                        'src_orig_full_filename': src_orig_full_filename,
+                        'df_bflows': df_bflows,
+                        'huc': huc,
+                        'branch_id': branch_id,
+                        'src_plot_option': src_plot_option,
+                        'huc_src_plots_output_dir': huc_src_plots_output_dir,
+                    }
+                procs_list.append(args)
+            else:
+                msg = (f"HUC: {str(huc)}  branch id: {str(branch_id)}: "
+                "WARNING --> can not find the SRC crosswalked csv file in the fim output dir:" 
+                f" {str(branch_dir)}  - skipping this branch!!!")
+                logging.warning(msg)
 
-    ## Pass huc procs_list to multiprocessing function
-    multi_process(src_bankfull_lookup, procs_list, log_file, branch_jobs, verbose)
-
-    ## Record run time and close log file
-    end_time = dt.datetime.now()
-    log_file.write('END TIME: ' + str(end_time) + '\n')
-    tot_run_time = end_time - begin_time
-    log_file.write('TOTAL RUN TIME: ' + str(tot_run_time))
-    log_file.close()
+        logging.info
+        ## Pass huc procs_list to multiprocessing function
+        in_error = multi_process(procs_list, branch_jobs, verbose)
+    
+    except Exception as ex:
+        logging.critical(f"Critical Error while processing bankfull for {huc_dir}")
+        logging.critical(traceback.format_exc())
+        logging.info("")
+        raise ex
+    finally:
+        logging.info(f"End of processing identify_src_bankful")
+        if in_error:
+            print("Aborting....")
+            raise Exception("Aborting....")
 
 
 if __name__ == '__main__':
@@ -385,14 +400,14 @@ if __name__ == '__main__':
     parser.add_argument('-huc_dir', '--huc_dir', help='huc run directory', required=True, type=str)
     parser.add_argument(
         '-flows',
-        '--bankfull-flow-input',
+        '--bankfull-flow-filepath',
         help='NWM recurrence flows dir (flow units in CMS!!!)',
         required=True,
         type=str,
     )
     parser.add_argument(
         '-jb',
-        '--branch_jobs',
+        '--branch-jobs',
         help='OPTIONAL: number of branches job (default=8)',
         required=False,
         default=8,
@@ -417,12 +432,4 @@ if __name__ == '__main__':
     )
 
     args = vars(parser.parse_args())
-
-    huc_dir = args['huc_dir']
-    bankfull_flow_filepath = args['bankfull_flow_input']
-    branch_jobs = args['branch_jobs']
-    verbose = bool(args['verbose'])
-    src_plot_option = args['src_plot_option']
-
-    ## Prepare/check inputs, create log file, and spin up the proc list
-    run_prep(huc_dir, bankfull_flow_filepath, branch_jobs, verbose, src_plot_option)
+    run_prep(**args)

@@ -505,12 +505,12 @@ class StreamNetwork(gpd.GeoDataFrame):
 
         headwater_points_gdf = gpd.GeoDataFrame(inlets.copy())
 
-        for idx, row in inlets.iterrows():
+        for row in inlets.itertuples():
             headwater_point = row.geometry.coords[inlet_linestring_index]
 
             headwater_point = Point(headwater_point)
 
-            headwater_points_gdf.loc[idx, "geometry"] = headwater_point
+            headwater_points_gdf.loc[row.Index, "geometry"] = headwater_point
 
         return headwater_points_gdf
 
@@ -1573,6 +1573,7 @@ class StreamBranchPolygons(StreamNetwork):
                 [self.loc[self.loc[:, branch_id_attribute] == branch_id, :].squeeze()]
             )
         else:
+            # TODO: Oct 2026: This does not make sense, research this. why iterrows?
             generator_to_iterate = self.iterrows()
 
         return_list = []  # list to return rasterio objects or gdf's

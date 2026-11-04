@@ -18,8 +18,14 @@ from utils.shared_variables import FIM_ID
 
 
 # Define acceptable slope range
-SLOPE_MIN = 9.999e-7
+# TODO: Nov 2026: A variable with same name of SLOPE_MIN is in params_template.env
+SLOPE_MIN = 9.999e-7  
 SLOPE_MAX = 0.5
+
+# Debugging settings
+pd.set_option("display.max_rows", None) 
+pd.set_option("display.max_columns", None)
+pd.set_option("display.width", 200)
 
 
 def add_crosswalk(
@@ -258,13 +264,23 @@ def add_crosswalk(
         f"{len(sml_segs)}"
     )
 
-    # Oct 2026: With TauDEM 5.5, we remapped column names and some data scales inside run_taudem_subprocess
-    # run_catchhydrogeo.  We temp changed it there to help with downstream code field mapping. We want to clean
-    # up all of the column names to better conventions anyways some day. ie) "Volume (m3)" (spaces and bad chars)
-    # ++++ Note: While our original column was incorrectly named "LENGTHKM", it was really in meters.
-    input_src_base = pd.read_csv(input_srcbase_fileName,
-                                 header=0,
-                                 dtype=object)
+    # Oct 2026: Let's only load the columns we need.
+    # TODO: review the new src_base_{}.txt file as TauDEM now gives us a bunch of new columns.
+    # Might save us from having to calculate some of them as they might be included now.
+    col_mapping = ['CatchId',
+                   'Stage',
+                   'Number of Cells',
+                   'SurfaceArea (m2)',
+                   'BedArea (m2)',
+                   'Volume (m3)',
+                   'SLOPE',
+                   'LENGTHKM',
+                   'AREASQKM']
+
+    input_src_base = pd.read_csv(input_srcbase_fileName, dtype=object, usecols=col_mapping)
+    # Oct 2026: Why don't we do this when we create the column? We want to redo all column names anyways
+    # we can fix it then
+    input_src_base = input_src_base.rename(columns={'SLOPE': 'SLOPE_RISE_RUN'})
 
     if input_src_base.CatchId.dtype != 'int':
         input_src_base.CatchId = input_src_base.CatchId.astype(int)
@@ -277,9 +293,15 @@ def add_crosswalk(
 
     # Prioritize HFAB slope values, then fall back to IRIS-SWORD, and finally
     # use the original rise/run slope as the last resort for any remaining gaps.
-    input_src_base['SLOPE_HFAB'] = pd.to_numeric(input_src_base['SLOPE_HFAB'], errors='coerce')
-    input_src_base['SLOPE_IRIS_SWORD'] = pd.to_numeric(input_src_base['SLOPE_IRIS_SWORD'], errors='coerce')
-    input_src_base['SLOPE_RISE_RUN'] = pd.to_numeric(input_src_base['SLOPE_RISE_RUN'], errors='coerce')
+    input_src_base['SLOPE_HFAB'] = pd.to_numeric(
+        input_src_base['SLOPE_HFAB'], errors='coerce')
+    input_src_base['SLOPE_IRIS_SWORD'] = pd.to_numeric(
+        input_src_base['SLOPE_IRIS_SWORD'], errors='coerce')
+    input_src_base['SLOPE_RISE_RUN'] = pd.to_numeric(
+        input_src_base['SLOPE_RISE_RUN'], errors='coerce')
+
+
+
     input_src_base['SLOPE'] = (
         input_src_base['SLOPE_HFAB']
         .combine_first(input_src_base['SLOPE_IRIS_SWORD'])
@@ -292,7 +314,7 @@ def add_crosswalk(
     # Example: 9.99999974737875E-06 → 1.000e-05 → 0.00001
     input_src_base['SLOPE'] = input_src_base['SLOPE'].apply(lambda x: float(f"{x:.3e}"))
 
-    input_src_base = input_src_base.rename(columns=lambda x: x.strip(" "))
+    # input_src_base = input_src_base.rename(columns=lambda x: x.strip(" "))
     input_src_base = input_src_base.apply(pd.to_numeric, **{'errors': 'coerce'})
     input_src_base['TopWidth (m)'] = input_src_base['SurfaceArea (m2)'] / input_src_base['LENGTHKM'] / 1000
     input_src_base['WettedPerimeter (m)'] = input_src_base['BedArea (m2)'] / input_src_base['LENGTHKM'] / 1000
@@ -352,13 +374,15 @@ def add_crosswalk(
             )
             output_src = output_src.drop(columns=['Discharge (m3s-1)_df2'])
         else:
-            for index, segment in sml_segs.iterrows():
-                short_id = segment['short_id']
-                update_id = segment['update_id']
+            # Oct 2026: For GeoDataframes (not Dataframes), itertuples is much faster.
+            for segment in sml_segs.itertuples():
+                short_id = segment.short_id
+                update_id = segment.update_id
                 new_values = output_src.loc[output_src['HydroID'] == update_id][
                     ['Stage', 'Discharge (m3s-1)']
                 ]
 
+                # Must use iterrows versus itertuples due to bad colum names
                 for src_index, src_stage in new_values.iterrows():
                     output_src.loc[
                         (output_src['HydroID'] == short_id) & (output_src['Stage'] == src_stage['Stage']),
@@ -405,7 +429,7 @@ def add_crosswalk(
             'Discharge (m3s-1)',
         ],
     ]
-    output_hydro_table.rename(columns={'Stage': 'stage', 'Discharge (m3s-1)': 'discharge_cms'}, inplace=True)
+    output_hydro_table = output_hydro_table.rename(columns={'Stage': 'stage', 'Discharge (m3s-1)': 'discharge_cms'})
 
     # Set placeholder variables to be replaced in post-processing (as needed).
     # Create here to ensure consistent column vars. These variables represent the original unmodified values
@@ -474,6 +498,11 @@ def add_crosswalk(
         q_list = q_list.tolist()
 
         output_src_json[str(hid)] = {'q_list': q_list, 'stage_list': stage_list}
+
+    # Nov 2.
+    # We lost at least some records columns of src_calibrated.
+
+
 
     # write out
     write_geodataframe(output_catchments, output_catchments_fileName, index=False)

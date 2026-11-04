@@ -274,7 +274,6 @@ args=(
     -i "${stage_interval_meters}"
     -t "${stage_max_meters}"
 )
-
 python3 "${srcDir}/make_stages_and_catchlist.py" "${args[@]}"
 
 ## MASK REM RASTER TO REMOVE OCEAN AREAS ##
@@ -317,11 +316,8 @@ args=(
     -H "${tempCurrentBranchDataDir}/stage_${current_branch_id}.txt"
     -table "${tempCurrentBranchDataDir}/src_base_${current_branch_id}.csv"
 )
-printf '%s\n' "${args[@]}"
+# printf '%s\n' "${args[@]}"
 python3 "${srcDir}/run_taudem_subprocess.py" catchhydrogeo "${args[@]}"
-
-echo "all done"
-exit(1)
 
 ## FINALIZE CATCHMENTS AND MODEL STREAMS ##
 echo -e $startDiv"Finalize catchments and model streams ${hucNumber} ${current_branch_id}"

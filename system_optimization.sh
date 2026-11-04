@@ -75,7 +75,7 @@ export GDAL_CACHEMAX=5124
 # 2.  Enhanced settings for large multi-file mosaics, mostly when downloading
 # data files via external vrt.
 # Defaults to 100
-# export GDAL_MAX_DATASET_POOL_SIZE=2000 
+# export GDAL_MAX_DATASET_POOL_SIZE=2048 
 
 # 3. HARD MEMORY PROTECTION: Caps how much RAM the pooled datasets can consume.
 # Prevents large underlying files from triggering an OOM crash.
@@ -122,7 +122,15 @@ export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
 export OPENBLAS_NUM_THREADS=1
 export GDAL_NUM_THREADS=1
-
+# Dynamically ensure runtime MPI bypass blocks are always globally active
+export OMPI_ALLOW_RUN_AS_ROOT=1
+export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+# Force Open MPI to default to 1 process when mpiexec/mpirun is called
+export OMPI_MCA_orte_default_num_procs=1
+# Fixes a common OpenMPI warning/crash regarding shared memory access in Docker
+export OMPI_MCA_btl_vader_single_copy_mechanism=none
+# Restricts OpenMPI to localhost loopback inside the container (prevents looking for external cluster fabrics)
+export OMPI_MCA_btl=self,vader
 
 # =====================================================================
 # --- PYARROW & GEOPARQUET SYSTEM ENHANCEMENTS ---
@@ -163,6 +171,4 @@ export MALLOC_PERTURB_=0
 # of RAM when a worker process requests variable-sized raster windows.
 export MMAP_THRESHOLD=131072
 
-# Dynamically ensure runtime MPI bypass blocks are always globally active
-export OMPI_ALLOW_RUN_AS_ROOT=1
-export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+

@@ -28,7 +28,7 @@ class build_stream_traversal_columns(object):
             '''Finds next downstream line, retrieves its HydroID and stores it in the NextDownID field.'''
         )
 
-    def execute(self, streams, wbd8, hydro_id):
+    def execute(self, streams_gdf, wbd8, hydro_id):
         split_code = 1
         sOK = 'OK'
         from_node = "From_Node"
@@ -36,63 +36,63 @@ class build_stream_traversal_columns(object):
         next_down_id = "NextDownID"
 
         # check for HydroID; Assign if it doesn't exist
-        if hydro_id not in streams.columns:
+        if hydro_id not in streams_gdf.columns:
             print("Required field " + hydro_id + " does not exist in input. Generating..")
 
             # Get stream midpoint
             stream_midpoint = []
-            for i, lineString in enumerate(streams.geometry):
+            for i, lineString in enumerate(streams_gdf.geometry):
                 stream_midpoint = stream_midpoint + [lineString.interpolate(0.5, normalized=True)]
 
             stream_md_gpd = gpd.GeoDataFrame(
-                {'geometry': stream_midpoint}, crs=streams.crs, geometry='geometry'
+                {'geometry': stream_midpoint}, crs=streams_gdf.crs, geometry='geometry'
             )
             stream_wbdjoin = gpd.sjoin(stream_md_gpd, wbd8, how='left', predicate='within')
             stream_wbdjoin = stream_wbdjoin.rename(columns={"geometry": "midpoint", "fimid": "HUC8id"})
-            streams = streams.join(stream_wbdjoin).drop(columns=['midpoint'])
+            streams_gdf = streams_gdf.join(stream_wbdjoin).drop(columns=['midpoint'])
 
-            streams['seqID'] = (
-                (streams.groupby('HUC8id', dropna=False).cumcount(ascending=True) + 1)
+            streams_gdf['seqID'] = (
+                (streams_gdf.groupby('HUC8id', dropna=False).cumcount(ascending=True) + 1)
                 .astype('str')
                 .str.zfill(4)
             )
-            streams = streams.loc[streams['HUC8id'].notna(), :]
-            if streams.HUC8id.dtype != 'str':
-                streams.HUC8id = streams.HUC8id.astype(str)
-            if streams.seqID.dtype != 'str':
-                streams.seqID = streams.seqID.astype(str)
+            streams_gdf = streams_gdf.loc[streams_gdf['HUC8id'].notna(), :]
+            if streams_gdf.HUC8id.dtype != 'str':
+                streams_gdf.HUC8id = streams_gdf.HUC8id.astype(str)
+            if streams_gdf.seqID.dtype != 'str':
+                streams_gdf.seqID = streams_gdf.seqID.astype(str)
 
-            streams = streams.assign(hydro_id=lambda x: x.HUC8id + x.seqID)
-            streams = streams.rename(columns={"hydro_id": hydro_id}).sort_values(hydro_id)
-            streams = streams.drop(columns=['HUC8id', 'seqID'])
-            streams[hydro_id] = streams[hydro_id].astype(int)
+            streams_gdf = streams_gdf.assign(hydro_id=lambda x: x.HUC8id + x.seqID)
+            streams_gdf = streams_gdf.rename(columns={"hydro_id": hydro_id}).sort_values(hydro_id)
+            streams_gdf = streams_gdf.drop(columns=['HUC8id', 'seqID'])
+            streams_gdf[hydro_id] = streams_gdf[hydro_id].astype(int)
             print('Generated ' + hydro_id)
 
         # Check for TO/From Nodes; Assign if doesnt exist
         bOK = True
-        if from_node not in streams.columns:
+        if from_node not in streams_gdf.columns:
             print("Field " + from_node + " does not exist in input ")
             bOK = False
-        if to_node not in streams.columns:
+        if to_node not in streams_gdf.columns:
             print("Field " + to_node + " does not exist in input. Generating..")
             bOK = False
 
         if bOK is False:
             # Add fields if not they do not exist.
-            if from_node not in streams.columns:
-                streams[from_node] = np.int32(-1)
+            if from_node not in streams_gdf.columns:
+                streams_gdf[from_node] = np.int32(-1)
             else:
-                streams[from_node] = streams[from_node].astype('Int32')
+                streams_gdf[from_node] = streams_gdf[from_node].astype('Int32')
 
-            if to_node not in streams.columns:
-                streams[to_node] =  np.int32(-1)
+            if to_node not in streams_gdf.columns:
+                streams_gdf[to_node] =  np.int32(-1)
             else:
-                streams[to_node] = streams[to_node].astype('Int32')
+                streams_gdf[to_node] = streams_gdf[to_node].astype('Int32')
 
-            streams = streams.sort_values(by=[hydro_id], ascending=True).copy()
+            streams_gdf = streams_gdf.sort_values(by=[hydro_id], ascending=True).copy()
     
             xy_dict = {}
-            for row in streams.itertuples():
+            for row in streams_gdf.itertuples():
                 if pd.isna(row.geometry):  # Hummm.. would any ever have missing geoms?
                     print(f"Possible Error: hydro_id: {hydro_id} has a record with a missing geometry." \
                             " Research required.")
@@ -109,11 +109,11 @@ class build_stream_traversal_columns(object):
                     from_key = '{},{}'.format(firstx, firsty)
                     if from_key in xy_dict:
                         # print(f"from key is {xy_dict[from_key]}")
-                        streams.at[row.Index, from_node] = xy_dict[from_key]
+                        streams_gdf.at[row.Index, from_node] = xy_dict[from_key]
                     else:
                         #print(f"len(xy_dict) + 1 is {len(xy_dict) + 1}")
                         xy_dict[from_key] = len(xy_dict) + 1
-                        streams.at[row.Index, from_node] = xy_dict[from_key]
+                        streams_gdf.at[row.Index, from_node] = xy_dict[from_key]
 
                     # print("xy_dict is ...")
                     # print(xy_dict)
@@ -124,26 +124,27 @@ class build_stream_traversal_columns(object):
                     to_key = '{},{}'.format(lastx, lasty)
                     # if xy_dict.has_key(to_key):
                     if to_key in xy_dict:
-                        streams.at[row.Index, to_node] = xy_dict[to_key]
+                        streams_gdf.at[row.Index, to_node] = xy_dict[to_key]
                     else:
                         xy_dict[to_key] = len(xy_dict) + 1
-                        streams.at[row.Index, to_node] = xy_dict[to_key]
+                        streams_gdf.at[row.Index, to_node] = xy_dict[to_key]
 
-            if streams['geometry'].isna().any():
+            if streams_gdf['geometry'].isna().any():
                 print("Some of the input features have a null shape.")
                 print(from_node + " and " + to_node + " fields cannot be populated for those features.")
             else:
                 print('Generated To/From Nodes')
 
         # Create NextDownID field
-        if next_down_id not in streams.columns:
-            streams[next_down_id] = np.int32(-1)
+        if next_down_id not in streams_gdf.columns:
+            streams_gdf[next_down_id] = np.int32(-1)
 
         # Create dict to store from_node values for each HydroID
         dnodes = dict()
         lstHydroIDs = []  # TODO: Oct 2026: This variable does not make sense. Why do we even need it?
         # for row in streams[[from_node, hydro_id]].iterrows():
-        for row in streams.itertuples():
+        # Oct 2026: For GeoDataframes (not Dataframes), itertuples is much faster.
+        for row in streams_gdf.itertuples():
             # print("++++++++++++++")
             # print(f"idx is {row.Index}")
 
@@ -175,7 +176,7 @@ class build_stream_traversal_columns(object):
 
         # for each stream segment, search dict for HydroID downstream and
         # for urow in streams[[next_down_id, to_node, from_node, hydro_id]].iterrows():
-        for row in streams.itertuples():
+        for row in streams_gdf.itertuples():
             # print("++++++++++++++")
             # print(f"idx is {row.Index}")
 
@@ -214,11 +215,11 @@ class build_stream_traversal_columns(object):
             except:
                 pass
 
-            streams.loc[streams[hydro_id] == hydroIDcol, [next_down_id]] = nextdownIDcol
+            streams_gdf.loc[streams_gdf[hydro_id] == hydroIDcol, [next_down_id]] = nextdownIDcol
 
         # streams = streams.sort_values(by=hydro_id).reset_index(drop=True)
 
-        tReturns = (sOK, streams)
+        tReturns = (sOK, streams_gdf)
 
         # except Exception as ex:
         #     raise ex

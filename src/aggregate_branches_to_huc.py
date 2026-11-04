@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
 import argparse
-import glob
+# import glob
 import os
-import re
+# import re
 import traceback
 import warnings
 
@@ -229,13 +229,9 @@ class HucDirectory(object):
         usgs_elev_table = pd.read_csv(usgs_elev_filename, dtype=self.usgs_dtypes)
         self.agg_usgs_elev_table.append(usgs_elev_table)
 
-    def aggregate_hydrotables(self, branch_path, branch_id):
-        hydrotable_filename = join(branch_path, f'hydroTable_{branch_id}.csv')
-        if not os.path.isfile(hydrotable_filename):
-            return
+    def aggregate_hydrotables(self, branch_id, hydrotable):
 
-        hydrotable = pd.read_csv(hydrotable_filename, dtype=self.hydrotable_dtypes)
-        hydrotable['branch_id'] = branch_id
+        hydrotable['branch_id'] = int(branch_id)
         hydrotable[['calb_applied']] = hydrotable[['calb_applied']].fillna(value=False)
         if 'subdiv_applied' in hydrotable.columns:
             hydrotable['subdiv_applied'] = hydrotable['subdiv_applied'].fillna(value=False)
@@ -249,7 +245,7 @@ class HucDirectory(object):
             return
 
         src_cross = pd.read_csv(src_cross_filename, dtype=self.src_crosswalked_dtypes)
-        src_cross['branch_id'] = branch_id
+        src_cross['branch_id'] = int(branch_id)
         self.agg_src_cross.append(src_cross)
 
     def aggregate_ras_elev_table(self, branch_path):
@@ -260,7 +256,7 @@ class HucDirectory(object):
         ras_elev_table = pd.read_csv(ras_elev_filename, dtype=self.ras_dtypes)
         self.agg_ras_elev_table.append(ras_elev_table)
 
-    def aggregate_bridge_pnts(self, branch_path, branch_id):
+    def aggregate_bridge_pnts(self, branch_path, branch_id, hydrotable):
         bridge_filename = join(branch_path, f'osm_bridge_centroids_{branch_id}.parquet')
         if not os.path.isfile(bridge_filename):
             return
@@ -270,13 +266,18 @@ class HucDirectory(object):
             bridge_pnts[col] = bridge_pnts[col].astype(dtype)
         if bridge_pnts.empty:
             return
-        hydrotable_filename = join(branch_path, f'hydroTable_{branch_id}.csv')
-        hydrotable = pd.read_csv(hydrotable_filename, dtype=self.hydrotable_dtypes)
+
         # Get the flows for each stage
+
+        # print("+++ In aggregate_bridge_pnts ")
+        # print(f"len of hydrotable is {len(hydrotable)} with branch_id of {branch_id}")
+
         bridge_pnts = flows_from_hydrotable(bridge_pnts, hydrotable)
         self.agg_bridge_pnts.append(bridge_pnts)
 
-    def aggregate_road_fimpacts(self, branch_path, branch_id):
+        print("+++ End of aggregate_bridge_pnts ")
+
+    def aggregate_road_fimpacts(self, branch_path, branch_id, hydrotable):
         fimpact_filename = join(branch_path, f'osm_roads_fimpact_{branch_id}.csv')
         if not os.path.isfile(fimpact_filename):
             return
@@ -284,9 +285,6 @@ class HucDirectory(object):
         fimpact_df = pd.read_csv(fimpact_filename)
         if fimpact_df.empty:
             return
-
-        hydrotable_filename = join(branch_path, f'hydroTable_{branch_id}.csv')
-        hydrotable = pd.read_csv(hydrotable_filename, dtype=self.hydrotable_dtypes)
 
         # make sure to remove any road with threshold hand greater than 25m (the max available in HydroTable)
         # these roads are assumed to be non-inundated. so no need to process them further.
@@ -303,7 +301,7 @@ class HucDirectory(object):
 
             self.agg_road_fimpact.append(fimpact_df)
 
-    def aggregate_building_fimpacts(self, branch_path, branch_id):
+    def aggregate_building_fimpacts(self, branch_path, branch_id, hydrotable):
         fimpact_filename = join(branch_path, f'buildings_fimpact_{branch_id}.csv')
         if not os.path.isfile(fimpact_filename):
             return
@@ -311,9 +309,6 @@ class HucDirectory(object):
         fimpact_df = pd.read_csv(fimpact_filename)
         if fimpact_df.empty:
             return
-
-        hydrotable_filename = join(branch_path, f'hydroTable_{branch_id}.csv')
-        hydrotable = pd.read_csv(hydrotable_filename, dtype=self.hydrotable_dtypes)
 
         # make sure to remove any building with threshold hand greater than 25m (the max available in HydroTable)
         # these building are assumed to be non-inundated. so no need to process them further.
@@ -341,187 +336,217 @@ class HucDirectory(object):
         building_flag,
         huc_id,
     ):
-        try:
-            # try catch and its own log file output in error only.
-            for branch_id, branch_path in self.iter_branches():
-                if usgs_elev_flag:
-                    self.aggregate_usgs_elev_table(branch_path)
-                if ras_elev_flag:
-                    self.aggregate_ras_elev_table(branch_path)
+        # try catch and its own log file output in error only.
+        for branch_id, branch_path in self.iter_branches():
 
-                ## Other aggregate funtions can go here
-                if hydro_table_flag:
-                    self.aggregate_hydrotables(branch_path, branch_id)
-                if src_cross_flag:
-                    self.aggregate_src_full_crosswalk(branch_path, branch_id)
-                if bridge_flag:
-                    self.aggregate_bridge_pnts(branch_path, branch_id)
-                if road_flag:
-                    self.aggregate_road_fimpacts(branch_path, branch_id)
-                if building_flag:
-                    self.aggregate_building_fimpacts(branch_path, branch_id)
+            # This helps stop reloading the hydrotables per type per branch. ie)  bridges, roads, buildings all use
+            # Not all types need it, but many do.
+            branch_hydrotable_df = None
+            if hydro_table_flag or bridge_flag or road_flag or building_flag:
+                branch_hydrotable_filename = join(branch_path, f'hydroTable_{branch_id}.csv')
+                if not os.path.isfile(branch_hydrotable_filename):
+                    return
+                branch_hydrotable_df = pd.read_csv(branch_hydrotable_filename, dtype=self.hydrotable_dtypes)
+                if branch_hydrotable_df.empty:
+                    raise ValueError(f"Branch {branch_id} hydrotable should not be empty")
 
-            ## After all of the branches are visited, the code below will write the aggregates
             if usgs_elev_flag:
-                usgs_elev_table_file = join(self.huc_dir_path, 'usgs_elev_table.csv')
-                if os.path.isfile(usgs_elev_table_file):
-                    os.remove(usgs_elev_table_file)
+                self.aggregate_usgs_elev_table(branch_path)
+            if ras_elev_flag:
+                self.aggregate_ras_elev_table(branch_path)
 
-                if self.agg_usgs_elev_table:
-                    agg_usgs = pd.concat(self.agg_usgs_elev_table, ignore_index=True)
-                    agg_usgs.to_csv(usgs_elev_table_file, index=False)
-
+            ## Other aggregate funtions can go here
             if hydro_table_flag:
-
-                hydrotable_file = join(self.huc_dir_path, 'hydrotable.csv')
-                if os.path.isfile(hydrotable_file):
-                    os.remove(hydrotable_file)
-
-                if self.agg_hydrotable:
-                    agg_hydrotable = pd.concat(self.agg_hydrotable, ignore_index=True)
-
-                    # TODO: Jun 2025: Rename poorly named columns like SurfaceArea (m2)
-                    # and go though all tools removing csv orfeather in favour of parquet
-                    # (keep an eye on LoFI/Prob code)
-
-                    # Streamline inundation downstream
-                    # some columns like Bathymetry_source are always string even on load of the files
-                    # but we cast some to make sure (notice feature_id and huc for example?)
-                    # TODO: Jun 2025: branch_id should become string for consistency
-                    dtype = {
-                        "HUC": str,
-                        "branch_id": int,
-                        "feature_id": str,
-                        "HydroID": str,
-                        "stage": float,
-                        "discharge_cms": float,
-                        "SurfaceArea (m2)": int,
-                        "LakeID": int,
-                    }
-                    htable_req_cols = [
-                        "HUC",
-                        "branch_id",
-                        "feature_id",
-                        "HydroID",
-                        "stage",
-                        "discharge_cms",
-                        "SurfaceArea (m2)",
-                        "LakeID",
-                        "Bathymetry_source",
-                    ]
-                    agg_hydrotable.to_csv(hydrotable_file, index=False)
-                    temp_df = agg_hydrotable.reset_index()
-                    temp_df = temp_df[htable_req_cols].astype(dtype)
-                    temp_df.to_feather(hydrotable_file.replace('.csv', '.feather'))
-
-                    # Note: with using the hydroid and feature_id as indexes which has huge performance
-                    # gains, especially for HydroVIS, it will change a bit of how we work and view that data.
-                    # We will end using a lot more df.query commands instead of loc and iloc.
-                    # Note: Indexes are not columns and you cant use them quite the same way. Watch for
-                    # datatypes above.
-                    # example usage:
-                    #       Good:       df.query("feature_id == '10926557'")
-                    #       Won't work: df.loc[df["feature_id"] == '10926557']
-                    temp_df = temp_df.sort_values(['HydroID', 'feature_id', 'discharge_cms'])
-                    temp_df = temp_df.set_index(['HydroID', 'feature_id'])
-                    temp_df.to_parquet(
-                        hydrotable_file.replace('.csv', '.parquet'),
-                        compression='zstd',
-                        index=True,
-                        write_page_checksum=True,
-                        write_page_index=True,
-                    )
+                print(f"hydro_table_flag: branch_path = {branch_path}; {branch_id}")                    
+                self.aggregate_hydrotables(branch_id, branch_hydrotable_df)
 
             if src_cross_flag:
-                src_crosswalk_file = join(self.huc_dir_path, 'src_full_crosswalked.csv')
-                if os.path.isfile(src_crosswalk_file):
-                    os.remove(src_crosswalk_file)
-
-                if self.agg_src_cross:
-                    agg_src_cross = pd.concat(self.agg_src_cross, ignore_index=True)
-                    agg_src_cross.to_csv(src_crosswalk_file, index=False)
-
-            if ras_elev_flag:
-                ras_elev_table_file = join(self.huc_dir_path, 'ras_elev_table.csv')
-                if os.path.isfile(ras_elev_table_file):
-                    os.remove(ras_elev_table_file)
-
-                if self.agg_ras_elev_table:
-                    agg_ras_elev = pd.concat(self.agg_ras_elev_table, ignore_index=True)
-                    agg_ras_elev.to_csv(ras_elev_table_file, index=False)
-
+                self.aggregate_src_full_crosswalk(branch_path, branch_id)
             if bridge_flag:
-                bridge_pnts_file = join(self.huc_dir_path, 'osm_bridge_centroids.parquet')
-                if os.path.isfile(bridge_pnts_file):
-                    os.remove(bridge_pnts_file)
-
-                if self.agg_bridge_pnts:
-                    # Just making things shorter so they are easier to read
-                    bridge_pnts = pd.concat(self.agg_bridge_pnts, ignore_index=True)
-                    # Use branch 0 to get the feature_id each bridge crosses
-                    b0 = bridge_pnts.loc[bridge_pnts.branch == '0', ['osmid', 'feature_id']]
-                    b0 = b0.rename(columns={'feature_id': 'crossing_feature_id'})
-                    bridge_pnts = bridge_pnts.merge(b0, on='osmid', how='left')
-                    # Remove bridge points that have the same osmid and feature_id
-                    g = bridge_pnts.groupby(['osmid', 'feature_id'])['threshold_discharge'].transform('min')
-                    bridge_pnts = bridge_pnts.copy()[(bridge_pnts['threshold_discharge'] == g)]
-                    # Set backwater bridge sites
-                    bridge_pnts['is_backwater'] = 0
-                    c = bridge_pnts.groupby(['osmid'])['feature_id'].transform('count')
-                    bridge_pnts.loc[
-                        (c > 1) & (bridge_pnts.feature_id != bridge_pnts.crossing_feature_id), 'is_backwater'
-                    ] = 1
-                    # Write file
-                    bridge_pnts = bridge_pnts.astype(self.bridge_dtypes, errors='ignore')
-
-                    # Set the CRS if it is not already set
-                    if bridge_pnts.crs is None:
-                        bridge_pnts.set_crs(get_huc_vars(huc_id)['crs'], inplace=True)
-                    write_geodataframe(bridge_pnts, bridge_pnts_file, index=False)
-
+                print(f"bridge_flag: branch_path = {branch_path}; {branch_id}")   
+                self.aggregate_bridge_pnts(branch_path, branch_id, branch_hydrotable_df)
             if road_flag:
-                roads_fimpact_file = join(self.huc_dir_path, 'osm_roads_fimpact.csv')
-                if os.path.isfile(roads_fimpact_file):
-                    os.remove(roads_fimpact_file)
-
-                if self.agg_road_fimpact:
-                    agg_road_fimpact = pd.concat(self.agg_road_fimpact, ignore_index=True)
-                    agg_road_fimpact = agg_road_fimpact.astype(self.road_dtypes, errors='raise')
-
-                    agg_road_fimpact.to_csv(roads_fimpact_file, index=False)
-
+                print(f"road_flag: branch_path = {branch_path}; {branch_id}")
+                self.aggregate_road_fimpacts(branch_path, branch_id, branch_hydrotable_df)
             if building_flag:
-                buildings_fimpact_file = join(self.huc_dir_path, 'buildings_fimpact.csv')
-                if os.path.isfile(buildings_fimpact_file):
-                    os.remove(buildings_fimpact_file)
+                print(f"building_flag: branch_path = {branch_path}; {branch_id}")
+                self.aggregate_building_fimpacts(branch_path, branch_id, branch_hydrotable_df)
 
-                if not self.agg_building_fimpact.empty:
-                    self.agg_building_fimpact = self.agg_building_fimpact.astype(
-                        self.building_dtypes, errors='raise'
-                    )
+        print("===========================")
 
-                    self.agg_building_fimpact.to_csv(buildings_fimpact_file, index=False)
+        ## After all of the branches are visited, the code below will write the aggregates
+        if usgs_elev_flag:
+            usgs_elev_table_file = join(self.huc_dir_path, 'usgs_elev_table.csv')
+            if os.path.isfile(usgs_elev_table_file):
+                os.remove(usgs_elev_table_file)
 
-        except Exception as ex:
-            errMsg = (
-                "--------------------------------------"
-                f"\n huc_id {huc_id} has an error - outside multi proc\n"
-            )
-            errMsg = errMsg + traceback.format_exc()
-            print(errMsg, flush=True)
-            log_error(
-                self.huc_dir_path,
-                usgs_elev_flag,
-                hydro_table_flag,
-                src_cross_flag,
-                ras_elev_flag,
-                bridge_flag,
-                road_flag,
-                building_flag,
-                huc_id,
-                errMsg,
-            )
-            raise ex  # we need to re-raise here to abort the scripts above it.
+            if self.agg_usgs_elev_table:
+                agg_usgs = pd.concat(self.agg_usgs_elev_table, ignore_index=True)
+                agg_usgs.to_csv(usgs_elev_table_file, index=False)
+
+        if hydro_table_flag:
+
+            hydrotable_file = join(self.huc_dir_path, 'hydrotable.csv')
+            if os.path.isfile(hydrotable_file):
+                os.remove(hydrotable_file)
+
+            if self.agg_hydrotable:
+                agg_hydrotable = pd.concat(self.agg_hydrotable, ignore_index=True)
+
+                # TODO: Jun 2025: Rename poorly named columns like SurfaceArea (m2)
+                # and go though all tools removing csv orfeather in favour of parquet
+                # (keep an eye on LoFI/Prob code)
+
+                # Streamline inundation downstream
+                # some columns like Bathymetry_source are always string even on load of the files
+                # but we cast some to make sure (notice feature_id and huc for example?)
+                # TODO: Jun 2025: branch_id should become string for consistency
+                col_types = {
+                    "HUC": str,
+                    "branch_id": int,
+                    "feature_id": str,
+                    "HydroID": str,
+                    "stage": float,
+                    "discharge_cms": float,
+                    "SurfaceArea (m2)": int,
+                    "LakeID": int,
+                }
+                htable_req_cols = [
+                    "HUC",
+                    "branch_id",
+                    "feature_id",
+                    "HydroID",
+                    "stage",
+                    "discharge_cms",
+                    "SurfaceArea (m2)",
+                    "LakeID",
+                    "Bathymetry_source",
+                ]
+                agg_hydrotable.to_csv(hydrotable_file, index=False)
+                temp_df = agg_hydrotable.reset_index()
+                temp_df = temp_df[htable_req_cols].astype(col_types)
+                temp_df.to_feather(hydrotable_file.replace('.csv', '.feather'))
+                
+                # TODO: Oct 2026: Why are we reseting the index? We really do not need it
+                # temp_df = agg_hydrotable.reset_index()
+
+                # TODO: Oct 2026: We will be getting out of the feather biz, switching to parquet
+                agg_hydrotable.to_feather(hydrotable_file.replace('.csv', '.feather'))
+                
+                # Note: with using the hydroid and feature_id as indexes which has huge performance
+                # gains, especially for HydroVIS, it will change a bit of how we work and view that data.
+                # We will end using a lot more df.query commands instead of loc and iloc.
+                # Note: Indexes are not columns and you cant use them quite the same way. Watch for
+                # datatypes above.
+                # example usage:
+                #       Good:       df.query("feature_id == '10926557'")
+                #       Won't work: df.loc[df["feature_id"] == '10926557']
+                temp_df = temp_df.sort_values(['HydroID', 'feature_id', 'discharge_cms'])
+                temp_df = temp_df.set_index(['HydroID', 'feature_id'])
+                temp_df.to_parquet(
+                    hydrotable_file.replace('.csv', '.parquet'),
+                    compression='zstd',
+                    index=True,
+                    write_page_checksum=True,
+                    write_page_index=True,
+                )
+
+        if src_cross_flag:
+            src_crosswalk_file = join(self.huc_dir_path, 'src_full_crosswalked.csv')
+            if os.path.isfile(src_crosswalk_file):
+                os.remove(src_crosswalk_file)
+
+            if self.agg_src_cross:
+                agg_src_cross = pd.concat(self.agg_src_cross, ignore_index=True)
+                agg_src_cross.to_csv(src_crosswalk_file, index=False)
+
+        if ras_elev_flag:
+            ras_elev_table_file = join(self.huc_dir_path, 'ras_elev_table.csv')
+            if os.path.isfile(ras_elev_table_file):
+                os.remove(ras_elev_table_file)
+
+            if self.agg_ras_elev_table:
+                agg_ras_elev = pd.concat(self.agg_ras_elev_table, ignore_index=True)
+                agg_ras_elev.to_csv(ras_elev_table_file, index=False)
+
+        if bridge_flag:
+            print("if bridge_flag...")
+            bridge_pnts_file = join(self.huc_dir_path, 'osm_bridge_centroids.parquet')
+            if os.path.isfile(bridge_pnts_file):
+                os.remove(bridge_pnts_file)
+
+            if self.agg_bridge_pnts:
+                # Just making things shorter so they are easier to read
+                bridge_pnts = pd.concat(self.agg_bridge_pnts, ignore_index=True)
+                # Use branch 0 to get the feature_id each bridge crosses
+                b0 = bridge_pnts.loc[bridge_pnts.branch == '0', ['osmid', 'feature_id']]
+                b0 = b0.rename(columns={'feature_id': 'crossing_feature_id'})
+                bridge_pnts = bridge_pnts.merge(b0, on='osmid', how='left')
+                # Remove bridge points that have the same osmid and feature_id
+                g = bridge_pnts.groupby(['osmid', 'feature_id'])['threshold_discharge'].transform('min')
+                bridge_pnts = bridge_pnts.copy()[(bridge_pnts['threshold_discharge'] == g)]
+                # Set backwater bridge sites
+                bridge_pnts['is_backwater'] = 0
+                c = bridge_pnts.groupby(['osmid'])['feature_id'].transform('count')
+                bridge_pnts.loc[
+                    (c > 1) & (bridge_pnts.feature_id != bridge_pnts.crossing_feature_id), 'is_backwater'
+                ] = 1
+                # Write file
+                bridge_pnts = bridge_pnts.astype(self.bridge_dtypes, errors='ignore')
+
+                # Set the CRS if it is not already set
+                if bridge_pnts.crs is None:
+                    bridge_pnts.set_crs(get_huc_vars(huc_id)['crs'], inplace=True)
+                write_geodataframe(bridge_pnts, bridge_pnts_file, index=False)
+
+        if road_flag:
+            print("if road_flag...")
+
+            roads_fimpact_file = join(self.huc_dir_path, 'osm_roads_fimpact.csv')
+            if os.path.isfile(roads_fimpact_file):
+                os.remove(roads_fimpact_file)
+
+            if self.agg_road_fimpact:
+                agg_road_fimpact = pd.concat(self.agg_road_fimpact, ignore_index=True)
+                agg_road_fimpact = agg_road_fimpact.astype(self.road_dtypes, errors='raise')
+
+                agg_road_fimpact.to_csv(roads_fimpact_file, index=False)
+
+        if building_flag:
+            print("if building_flag...")
+
+            buildings_fimpact_file = join(self.huc_dir_path, 'buildings_fimpact.csv')
+            if os.path.isfile(buildings_fimpact_file):
+                os.remove(buildings_fimpact_file)
+
+            if not self.agg_building_fimpact.empty:
+                self.agg_building_fimpact = self.agg_building_fimpact.astype(
+                    self.building_dtypes, errors='raise'
+                )
+
+                self.agg_building_fimpact.to_csv(buildings_fimpact_file, index=False)
+
+        # Let this be caught by the outer ex and log. Getting 4 copies of the same error in print
+        # except Exception as ex:
+        #     errMsg = (
+        #         "--------------------------------------"
+        #         f"\n huc_id {huc_id} has an error - outside multi proc\n"
+        #     )
+        #     errMsg = errMsg + traceback.format_exc()
+        #     print(errMsg, flush=True)
+        #     log_error(
+        #         self.huc_dir_path,
+        #         usgs_elev_flag,
+        #         hydro_table_flag,
+        #         src_cross_flag,
+        #         ras_elev_flag,
+        #         bridge_flag,
+        #         road_flag,
+        #         building_flag,
+        #         huc_id,
+        #         errMsg,
+        #     )
+        #     raise ex  # we need to re-raise here to abort the scripts above it.
 
 
 # ==============================
@@ -564,7 +589,7 @@ def log_error(
 
     # this goes back to calibrate_rating_curve.sh which rolls up to its parent "tee"
     # Then it can be scanned in the error system based on solely the "tee" file
-    print(errMsg)
+    # print(errMsg)
 
     f = open(file_path, "a")
     f.write(errMsg)

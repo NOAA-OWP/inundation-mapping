@@ -71,6 +71,7 @@ def filter_catchments_and_add_attributes(
         # merges input flows attributes and filters hydroids
         if input_catchments.HydroID.dtype != 'int':
             input_catchments.HydroID = input_catchments.HydroID.astype(int)
+
         output_catchments = input_catchments.merge(
             output_flows_filtered.drop(['geometry'], axis=1), on='HydroID'
         )

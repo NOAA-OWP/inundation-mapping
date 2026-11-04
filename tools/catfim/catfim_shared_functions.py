@@ -250,6 +250,8 @@ def check_for_restricted_sites(sites_gdf, catfim_type):
 
     # Check whether LIDs are in restricted sites list, update sites_gdf accordingly
     valid_nwm_lids = []
+    # Oct 2026: Consider changing this to itertuples is it much faster than iterrows for geodataframes.
+    # but only for GeoDataframes. Then use row.index (geometry.index in this case)
     for index, row in sites_gdf.iterrows():
         lid = row["nws_lid"].upper()
         is_restrict_lid = df_restricted_sites.loc[df_restricted_sites['nws_lid'] == lid.upper()]
@@ -569,6 +571,8 @@ def finalize_sites_mapping_status(
     ].str.lower()  # TODO: Make this consistent earlier in the process?
 
     # Update mapping status in the sites gdf
+    # Oct 2026: Consider changing this to itertuples is it much faster than iterrows for geodataframes.
+    # but only for GeoDataframes. Then use row.index (geometry.index in this case)
     for index, row in sites_gdf.iterrows():
         lid = row["nws_lid"]
         lid_mapped = row["mapped"]

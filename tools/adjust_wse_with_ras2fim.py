@@ -11,6 +11,15 @@ from numpy import interp
 
 from src.utils.io import write_geodataframe
 
+# TODO: Oct 2026: This tool appears to be still WIP, but if it becomes used, it will need some redesign
+# It has embedded Pools with hardcoded workers and some inefficencies.
+# such as:
+#   - When using GeoDataframes (not Dataframes), it is much faster to use itertuples, then row.Index
+#     instead of iterrows().
+#   - Consider changing this so it is not a class but standard python functions. Creating classes has overhead
+#     and only has value if you plan to extend or inherit the class. Sometimes if you have a very large number
+#     of properties in the args, it may make sense, but most of the time, there are faster ways than classes
+#   - There are some opportunites for lambda or comprehension.
 
 def get_ras2fim_discharge(args):
     ras_rating_with_stage, this_WSE_base_error, this_point_fid_xs = args
