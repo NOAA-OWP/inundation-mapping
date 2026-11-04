@@ -221,7 +221,7 @@ def download_nfhl(
                 with open(os.devnull, 'w') as devnull:
                     with redirect_stdout(devnull), redirect_stderr(devnull):
                         nfhl_df = ESRI_REST.query(
-                            "https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/28/query",
+                            "https://hazards.fema.gov/gis/nfhl/services/public/NFHL/MapServer/WFSServer/28/query",
                             f="json",
                             where=where_clause,
                             returnGeometry="true",
@@ -235,7 +235,7 @@ def download_nfhl(
                         )
 
                         nfhl_availability_df = ESRI_REST.query(
-                            "https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/0/query",
+                            "https://hazards.fema.gov/gis/nfhl/services/public/NFHL/MapServer/WFSServer/0/query",
                             f="json",
                             where="1=1",
                             returnGeometry="true",
@@ -449,10 +449,10 @@ if __name__ == "__main__":
     """
     Sample Usage
     ----------
-    python3 /foss_fim/data/nfhl/download_fema_nfhl.py -u 11070106 08080206
+    python3 /foss_fim/data/hazards/get_fema_nfhl.py -u 11070106 08080206
         -o /outputs/fema/test -j 8
     OR
-    python3 /foss_fim/data/nfhl/download_fema_nfhl.py -u huc_list.lst
+    python3 /foss_fim/data/hazards/get_fema_nfhl.py -u huc_list.lst
         -o /outputs/fema/test -j 8
     """
 

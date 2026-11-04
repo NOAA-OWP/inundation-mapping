@@ -106,8 +106,8 @@ def _extract_exact_huc_geometry(dem_file: str):
 
 def _hierarchical_union(geometries, batch_size: int = 32):
     """
-    Hierarchically merges polygons in batches to maintain low peak memory
-    and avoid quadratic GEOS scaling across large CONUS-scale sets.
+    Hierarchically merges polygons in batches using unary_union
+    to safely resolve overlaps while maintaining low memory.
     """
     current_geoms = [g for g in geometries if g is not None and not g.is_empty]
 
@@ -115,14 +115,20 @@ def _hierarchical_union(geometries, batch_size: int = 32):
         batches = [current_geoms[i : i + batch_size] for i in range(0, len(current_geoms), batch_size)]
         next_level = []
         for batch in batches:
-            try:
-                merged = shapely.coverage_union_all(batch)
-            except Exception:
-                merged = shapely.unary_union(batch)
+            # Overlaps require unary_union, not coverage_union_all
+            merged = shapely.unary_union(batch)
             next_level.append(merged)
         current_geoms = next_level
 
-    return current_geoms[0] if current_geoms else shapely.GeometryCollection()
+    result = current_geoms[0] if current_geoms else shapely.GeometryCollection()
+
+    # Heal overlapping junction pinch points
+    result = result.buffer(0)
+    if result.geom_type == "MultiPolygon":
+        # Bridge touch-point vertices with a sub-pixel buffer
+        result = result.buffer(0.01).buffer(-0.01)
+
+    return result
 
 
 def polygonize_extent(dem_files, dem_domain_file, number_of_jobs=1, file_logger=None, sf=None, fh=None):

@@ -45,14 +45,7 @@ def unzip(zip_path, extract_to="."):
 
 
 def preprocess_dggs_ifsar(
-    input_dem_zip_file,
-    output_dem_dir,
-    region,
-    date,
-    hucs,
-    inputs_dir,
-    target_crs_number="3338",
-    target_res=10,
+    input_dem_zip_file, output_dem_dir, region, hucs, inputs_dir, target_crs_number="3338", target_res=10
 ):
     """
     Ingests and processes Alaska DGGS IFSAR custom download packages.
@@ -65,8 +58,6 @@ def preprocess_dggs_ifsar(
         Output directory for staging, extraction, logs, and temporary mosaic.
     region : str
         Region identifier (e.g., 'Fairbanks', 'Juneau').
-    date : str
-        Date tag associated with the run.
     hucs : list of str
         List of HUC8 IDs to clip and generate.
     inputs_dir : str

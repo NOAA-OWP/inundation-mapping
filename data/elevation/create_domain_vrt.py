@@ -63,7 +63,7 @@ def main():
            '/data/inputs/dems/ifsar_dtm/10m_NorthAlaska/20261027' \
         -o '/data/inputs/dems/vrt' \
         -s 'Alaska_3338_20261027' \
-        -j 14
+        -j 14 \
         -p
     """
     parser = argparse.ArgumentParser(

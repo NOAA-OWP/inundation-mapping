@@ -64,7 +64,7 @@ def main():
     )
     parser.add_argument(
         "-e",
-        "--out_dem_folder",
+        "--output_dem_dir",
         type=str,
         required=True,
         help="Staging base directory for unzipping and intermediary DEM files",
@@ -102,20 +102,22 @@ def main():
 
     print(f"Starting North Alaska preprocessing for regions: {args.regions}")
 
+    output_dem_dir = os.path.join(args.output_dem_dir, args.date)
+
     for region in args.regions:
         hucs = NORTH_ALASKA_REGIONS[region]
 
         region_dem_zip = os.path.join(
             args.inputs_dir, "dems", "ifsar_dtm", region, args.date, "custom_download.zip"
         )
-        region_staging_dir = os.path.join(args.out_dem_folder, region)
+        region_staging_dir = os.path.join(args.output_dem_dir, region)
 
         print(f"\n{'='*70}")
         print(f"--> Processing Region: {region}")
         print(f"    Target HUCs: {hucs}")
         print(f"    Target CRS: EPSG:{args.target_crs_number}")
         print(f"    Staging Dir: {region_staging_dir}")
-        print(f"    Output Dir: {args.out_dem_folder}")
+        print(f"    Output Dir: {output_dem_dir}")
         print(f"{'='*70}\n")
 
         # -------------------------------------------------------------------------
@@ -129,9 +131,8 @@ def main():
             print(f"[{region}] (1/4) Running DGGS IFSAR DEM preprocessing...")
             preprocess_dggs_ifsar(
                 input_dem_zip_file=region_dem_zip,
-                out_dem_folder=args.out_dem_folder,
+                output_dem_dir=output_dem_dir,
                 region=region,
-                date=args.date,
                 hucs=hucs,
                 inputs_dir=args.inputs_dir,
                 target_crs_number=args.target_crs_number,
