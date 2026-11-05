@@ -119,10 +119,14 @@ def download_all_metadata(metadata_filepath, metadata_url, search):
             metadata_url,
             select_by='nws_lid',
             selector=chunk,
-            must_include=None, # because the LID list is already filtered to riverpoint
+            must_include=None,  # because the LID list is already filtered to riverpoint
             upstream_trace_distance=nwm_us_search,
             downstream_trace_distance=nwm_ds_search,
         )
+
+        if err_msg != "":
+            logging.error(f"Error retrieving metadata for chunk {index}: {err_msg}")
+            continue
 
         # Make sure that the upstream and downstream trace are working)
         if "upstream_nwm_features" not in riverpoint_chunk_meta_df.columns:
@@ -149,8 +153,10 @@ def download_all_metadata(metadata_filepath, metadata_url, search):
     logging.info(f"Sites with 'upstream_nwm_features'............ {upstream_count}/{sites_to_test}")
 
     if percent_upstream_downstream < 50:
-        logging.warning(f"Less than 50% of the first {sites_to_test} sites have upstream and downstream NWM features available.")
-        logging.warning(f"This may indicate an issue with the trace API in the metadata download.")
+        logging.warning(
+            f"Less than 50% of the first {sites_to_test} sites have upstream and downstream NWM features available."
+        )
+        logging.warning("This may indicate an issue with the trace API in the metadata download.")
 
     # Save outputs
     try:
