@@ -99,12 +99,14 @@ def download_all_metadata(metadata_filepath, metadata_url, search):
         downstream_trace_distance=None,
     )
     full_lid_list = riverpoint_all_meta_df['identifiers_nws_lid'].to_list()
-    del riverpoint_all_meta_list, riverpoint_all_meta_df 
+    del riverpoint_all_meta_list, riverpoint_all_meta_df
 
     # Break the lid list into sublists
     n = 200  # chunk size
     chunks = [full_lid_list[i : i + n] for i in range(0, len(full_lid_list), n)]
-    logging.info(f'Pulled {len(full_lid_list)} riverpoint sites. Downloading metadata in {len(chunks)} chunks of {n} sites each.')
+    logging.info(
+        f'Pulled {len(full_lid_list)} riverpoint sites. Downloading metadata in {len(chunks)} chunks of {n} sites each.'
+    )
 
     output_meta_list = []
 
@@ -112,7 +114,7 @@ def download_all_metadata(metadata_filepath, metadata_url, search):
         logging.info('')
         if index % 50 == 0:
             logging.info(f"Processed {index}/{len(chunks)} chunks...")
-    
+
         riverpoint_chunk_meta_list, riverpoint_chunk_meta_df, err_msg = get_metadata(
             metadata_url,
             select_by='nws_lid',
@@ -123,7 +125,7 @@ def download_all_metadata(metadata_filepath, metadata_url, search):
         )
 
         # Make sure that the upstream and downstream trace are working)
-        if not "upstream_nwm_features" in riverpoint_chunk_meta_df.columns:
+        if "upstream_nwm_features" not in riverpoint_chunk_meta_df.columns:
             logging.warning('Upstream NWM features NOT available')
 
         output_meta_list.extend(riverpoint_chunk_meta_list)
@@ -147,7 +149,8 @@ def download_all_metadata(metadata_filepath, metadata_url, search):
     logging.info(f"Sites with 'upstream_nwm_features'............ {upstream_count}/{sites_to_test}")
 
     if percent_upstream_downstream < 50:
-        logging.warning(f"Less than 50% of the first {sites_to_test} sites have upstream and downstream NWM features available. This may indicate an issue with the trace API in the metadata download.")
+        logging.warning(f"Less than 50% of the first {sites_to_test} sites have upstream and downstream NWM features available.")
+        logging.warning(f"This may indicate an issue with the trace API in the metadata download.")
 
     # Save outputs
     try:
@@ -187,7 +190,7 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict, li
     Outputs
     -------
     Saves a combined pickle file 'all_thresholds.pkl' containing all thresholds.
-   
+
     Notes
     -----
     The output is saved as a pickle file instead of CSV becuase that is the file type we
@@ -330,9 +333,13 @@ def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download
 
         # Give a warning if the file will be overwritten
         if os.path.isfile(metadata_filepath):
-            logging.warning(f"File already exists at {metadata_filepath} & metadata_download is set to True. File will be overwritten.")
+            logging.warning(
+                f"File already exists at {metadata_filepath} & metadata_download is set to True. File will be overwritten."
+            )
         else:
-            logging.info(f"NWM metadata file does not exist at {metadata_filepath}, metadata will be downloaded.")
+            logging.info(
+                f"NWM metadata file does not exist at {metadata_filepath}, metadata will be downloaded."
+            )
 
         # Download metadata and save metadata to pkl file
         metadata_start_time = datetime.now(timezone.utc)
@@ -348,7 +355,9 @@ def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download
     # Check metadata file exists and error if metafile is not there
     if not os.path.isfile(metadata_filepath):
         logging.error(f"NWM metadata file not found at {metadata_filepath}.")
-        logging.error("Cannot proceed without NWM metadata. Set metadata_download to True or provide a valid metadata_filepath.")
+        logging.error(
+            "Cannot proceed without NWM metadata. Set metadata_download to True or provide a valid metadata_filepath."
+        )
         output_meta_list = []
 
     else:
@@ -412,7 +421,9 @@ def load_site_thresholds(threshold_file, lid):
         del flows['huc']
 
     else:
-        logging.info(f'Threshold file not found at {threshold_file}, unable to load thresholds for site {lid}.')
+        logging.info(
+            f'Threshold file not found at {threshold_file}, unable to load thresholds for site {lid}.'
+        )
 
     return stages, flows
 
@@ -629,7 +640,9 @@ def download_process_wrds(
 
     logging.info("")
     logging.info(f'Logs saved to {log_file_path}')
-    logging.info(f"WRDS data download processing complete - Total duration: {str(time_duration).split('.')[0]}")
+    logging.info(
+        f"WRDS data download processing complete - Total duration: {str(time_duration).split('.')[0]}"
+    )
     logging.info('================================')
 
 
@@ -637,7 +650,7 @@ if __name__ == '__main__':
     '''
     Download and process WRDS data for metadata and thresholds. This script can be run from the
     command line with various options to specify what data to download and how to process it.
-    
+
     Arguments
     ---------
     -m, --metadata-download (Optional)
@@ -740,7 +753,7 @@ if __name__ == '__main__':
         default=9999,
     )
 
-    parser.add_argument( # TODO: Combine -m and -t into a single argument with choices -d: m, t, or mt
+    parser.add_argument(  # TODO: Combine -m and -t into a single argument with choices -d: m, t, or mt
         '-m',
         '--metadata-download',
         help="OPTIONAL: Create the metadata.pkl file. Must have at least one of -m or -t selected.",
