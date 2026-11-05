@@ -87,93 +87,69 @@ def download_all_metadata(metadata_filepath, metadata_url, search):
     output_meta_list = []
 
     logging.info(f'Upstream and downstream search distance: {search} miles')
-    logging.info('Starting metadata download from WRDS...')
+    logging.info('Starting initial metadata download from WRDS...')
 
-    # Get metadata for all riverpoints
-    # TODO: If we remove the forecast filter do we still need to get OCONUS sites separately?... no, I don't think so
-    unfiltered_meta_list, ___, err_msg = get_metadata(
+    # Use the riverpoint pull to get a site list (without upstream/downstream trace, for now)
+    riverpoint_all_meta_list, riverpoint_all_meta_df, err_msg = get_metadata(
         metadata_url,
         select_by='nws_lid',
         selector=['all'],
         must_include='nws_data.riverpoint',
-        upstream_trace_distance=nwm_us_search,
-        downstream_trace_distance=nwm_ds_search,
+        upstream_trace_distance=None,
+        downstream_trace_distance=None,
     )
-    if err_msg != '':
-        logging.error(err_msg)
+    full_lid_list = riverpoint_all_meta_df['identifiers_nws_lid'].to_list()
+    del riverpoint_all_meta_list, riverpoint_all_meta_df 
 
-    logging.info(f'Downloaded metadata for {len(unfiltered_meta_list)} sites')
+    # Break the lid list into sublists
+    n = 200  # chunk size
+    chunks = [full_lid_list[i : i + n] for i in range(0, len(full_lid_list), n)]
+    logging.info(f'Pulled {len(full_lid_list)} riverpoint sites. Downloading metadata in {len(chunks)} chunks of {n} sites each.')
 
-    ## PREVIOUS METHOD: # TODO: Clean up
-    # # Get all forecast points
-    # forecast_point_meta_list, ___, err_msg = get_metadata(
-    #     metadata_url,
-    #     select_by='nws_lid',
-    #     selector=['all'],
-    #     must_include='nws_data.rfc_forecast_point',
-    #     upstream_trace_distance=nwm_us_search,
-    #     downstream_trace_distance=nwm_ds_search,
-    # )
-    # if err_msg != '':
-    #     logging.error(err_msg)
-    # logging.info(f'Downloaded metadata for {len(forecast_point_meta_list)} forecast sites')
-    # # Get all sites for OCONUS regions (HI, PR, and AK)
-    # oconus_meta_list, ___, err_msg = get_metadata(
-    #     metadata_url,
-    #     select_by='state',
-    #     selector=['HI', 'PR', 'AK'],
-    #     must_include=None,
-    #     upstream_trace_distance=nwm_us_search,
-    #     downstream_trace_distance=nwm_ds_search,
-    # )
-    # if err_msg != '':
-    #     logging.error(err_msg)
-
-    # logging.info(f'Downloaded metadata for {len(oconus_meta_list)} OCONUS sites')
-    # # Append the lists
-    # unfiltered_meta_list = forecast_point_meta_list + oconus_meta_list
-    ## END PREVIOUS METHOD
-
-    # Filter the metadata list
     output_meta_list = []
-    unique_lids_list, duplicate_lids_list = [], []
-    duplicate_meta_list, nonelid_metadata_list = [], []
 
-    for i, site in enumerate(unfiltered_meta_list):
-        nws_lid = site['identifiers']['nws_lid']
+    for index, chunk in enumerate(chunks, start=1):  # TODO: Could add multiproc
+        logging.info('')
+        if index % 50 == 0:
+            logging.info(f"Processed {index}/{len(chunks)} chunks...")
+    
+        riverpoint_chunk_meta_list, riverpoint_chunk_meta_df, err_msg = get_metadata(
+            metadata_url,
+            select_by='nws_lid',
+            selector=chunk,
+            must_include=None, # because the LID list is already filtered to riverpoint
+            upstream_trace_distance=nwm_us_search,
+            downstream_trace_distance=nwm_ds_search,
+        )
 
-        if nws_lid is None:
-            # No LID available
-            nonelid_metadata_list.append(site)
+        # Make sure that the upstream and downstream trace are working)
+        if not "upstream_nwm_features" in riverpoint_chunk_meta_df.columns:
+            logging.warning('Upstream NWM features NOT available')
 
-        elif nws_lid in unique_lids_list:
-            # Duplicate LID
-            duplicate_lids_list.append(nws_lid)
-            duplicate_meta_list.append(site)
+        output_meta_list.extend(riverpoint_chunk_meta_list)
 
-        else:
-            # Unique/unseen LID that's not None
-            unique_lids_list.append(nws_lid)
-            output_meta_list.append(site)
+        logging.info(f'Full meta list is now {len(output_meta_list)} objects long')
 
-    logging.info(f'Total number of unique LIDs................... {len(unique_lids_list)}')
-    logging.info(f'Total number of duplicate LIDs (removed)...... {len(duplicate_lids_list)}')
-    logging.info(f'Total number of sites with no LID (removed)... {len(nonelid_metadata_list)}')
+    logging.info(f'Downloaded metadata for {len(output_meta_list)} sites')
 
-    # Return a count of how many of the first n sites have the upstream and downstream NWM features present
-    # TODO: Simplify this check once we decide what % of sites should have these vals available
+    # Check that the trace API is working by checking the first 100 sites for upstream and downstream NWM features
     downstream_count, upstream_count = 0, 0
-    sites_to_test = 20
+    sites_to_test = 100
     for i in range(sites_to_test):
         if "downstream_nwm_features" in output_meta_list[i]:
             downstream_count += 1
         if "upstream_nwm_features" in output_meta_list[i]:
             upstream_count += 1
+    percent_upstream_downstream = (upstream_count + downstream_count) / (2 * sites_to_test) * 100
 
-    logging.info(f"Spot-checked the first {sites_to_test} sites for upstream and downstream NWM features")
+    logging.info(f"Spot-checked the first {sites_to_test} sites for upstream and downstream NWM features:")
     logging.info(f"Sites with 'downstream_nwm_features'.......... {downstream_count}/{sites_to_test}")
     logging.info(f"Sites with 'upstream_nwm_features'............ {upstream_count}/{sites_to_test}")
 
+    if percent_upstream_downstream < 50:
+        logging.warning(f"Less than 50% of the first {sites_to_test} sites have upstream and downstream NWM features available. This may indicate an issue with the trace API in the metadata download.")
+
+    # Save outputs
     try:
         with open(metadata_filepath, "wb") as p_handle:
             pickle.dump(output_meta_list, p_handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -230,9 +206,14 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict, li
     # Iterate through LIDs in huc_lid_dict and get thresholds from the WRDS API
     list_threshold_dfs = []
 
-    for huc, lids in huc_lid_dict.items():
-        for lid in lids:
+    # for huc, lids in huc_lid_dict.items(): # TODO: Clean up
+    for count, (huc, lids) in enumerate(huc_lid_dict.items(), start=1):
+        # Print an update every n HUCs
+        n = 200
+        if count % n == 0:
+            logging.info(f"Processed {count} HUCs...")
 
+        for lid in lids:
             try:
                 status_msg = ''
                 source_crs_availability = lid_source_dict[lid.upper()]
@@ -343,7 +324,6 @@ def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download
     )
 
     '''
-    output_meta_list = []
 
     if metadata_download == True:
         metadata_url = f'{API_BASE_URL}/metadata'
@@ -369,14 +349,12 @@ def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download
     if not os.path.isfile(metadata_filepath):
         logging.error(f"NWM metadata file not found at {metadata_filepath}.")
         logging.error("Cannot proceed without NWM metadata. Set metadata_download to True or provide a valid metadata_filepath.")
+        output_meta_list = []
 
-        return output_meta_list
-
-    # Open metadata file (either the one we just downloaded or pre-existing)
-    with open(metadata_filepath, "rb") as p_handle:
-        output_meta_list = pickle.load(p_handle)
-
-    logging.info(f"NWM metadata file loaded from {metadata_filepath}.")
+    else:
+        # Open metadata file (either the one we just downloaded or pre-existing)
+        with open(metadata_filepath, "rb") as p_handle:
+            output_meta_list = pickle.load(p_handle)
 
     return output_meta_list
 
@@ -508,9 +486,7 @@ def download_process_wrds(
     input_metadata_file,
 ):
     '''
-    Run download_process_wrds.py independently. This function will becalled by the
-    command line interface at the bottom of this script.
-
+    Main function to run download_process_wrds.py from the commandline.
     '''
 
     overall_start_time = datetime.now(timezone.utc)
@@ -659,8 +635,9 @@ def download_process_wrds(
 
 if __name__ == '__main__':
     '''
-    TODO: Implement logging system
-
+    Download and process WRDS data for metadata and thresholds. This script can be run from the
+    command line with various options to specify what data to download and how to process it.
+    
     Arguments
     ---------
     -m, --metadata-download (Optional)
@@ -715,7 +692,8 @@ if __name__ == '__main__':
     # Parse arguments
     parser = argparse.ArgumentParser(
         description='This script automates the downloading and processing of datasets from WRDS. '
-        'It retrieves metadata and threshold data for specified HUCs and saves them as pickle files in the designated output folder.'
+        'It retrieves metadata and threshold data for specified HUCs and saves them as pickle '
+        'files in the designated output folder.'
     )
 
     parser.add_argument(
@@ -737,7 +715,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '-l',
         '--label',
-        help='OPTIONAL: Label for filenames. Stucture will be metadata_<label>_yyyymmdd.pkl and thresholds_<label>_yyyymmdd.pkl).',
+        help='OPTIONAL: Label for filenames. Stucture will be metadata_<label>_yyyymmdd.pkl '
+        ' and thresholds_<label>_yyyymmdd.pkl).',
         required=False,
         default='',
     )
@@ -745,8 +724,9 @@ if __name__ == '__main__':
     parser.add_argument(
         '-lh',
         '--lst-hucs',
-        help="OPTIONAL: Space-delimited list of HUCs to get WRDS data for. Defaults to all HUCs. e.g. '12090301 19020301'"
-        "Only limits the thresholds downloaded, all metadata will stil be downloaded.",
+        help="OPTIONAL: Space-delimited list of HUCs to get WRDS data for. Defaults to all "
+        "HUCs. e.g. '12090301 19020301'. Only limits the thresholds downloaded, all metadata "
+        "will stil be downloaded.",
         required=False,
         default='all',
     )
