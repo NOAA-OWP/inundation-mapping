@@ -269,23 +269,7 @@ def process_generate_categorical_fim(
 
         # Load NWM metadata from pickle or WRDS
         # Note: We do not pass in a huc list as it can miss some sites. See notes at load_nwm_metadata
-        metadata_json_list, return_msgs = dpw.load_nwm_metadata(
-            nwm_meta_file, api_base_url, search, get_new_meta_data
-        )
-
-        # Parse any messages returned from load_nwm_metadata
-        if len(return_msgs) > 0:
-            # return_msgs is a list and might have some warnings, some messages and/or errors
-            # TODO: This seems a bit bumpy but good enough for now. No idea on a better answer short of
-            # custom exceptions.
-
-            for msg in return_msgs:
-                if "warning" in msg.lower():
-                    logging.warning(msg)
-                elif "error" in msg.lower():
-                    raise Exception(msg)
-                else:
-                    logging.info(msg)
+        metadata_json_list = dpw.load_nwm_metadata(nwm_meta_file, api_base_url, search, get_new_meta_data)
 
         logging.info(f"Completed loading metadata : {sf.calculate_duration_msg(section_start_dt)}")
         logging.info("")
