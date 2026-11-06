@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.10.x.x - 2026-09-09 - [PR##1946](https://github.com/NOAA-OWP/inundation-mapping/pull/1946)
+## v4.10.3.2 - 2026-11-06 - [PR##1946](https://github.com/NOAA-OWP/inundation-mapping/pull/1946)
 
 Bug fix for a missing `nhdplus_path` variable when running Guam in `data/nhdplus/preprocess_nhdplus.py`.
 
