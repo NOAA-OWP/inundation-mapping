@@ -7,11 +7,14 @@ from pathlib import Path
 
 import geopandas as gpd
 import pandas as pd
+import logging
 from dotenv import load_dotenv
 from tools_shared_functions import aggregate_wbd_hucs, get_metadata
 
 from src.utils.io import write_geodataframe
 from src.utils.shared_functions import FIM_Helpers as fh
+from src.utils.shared_functions import setup_file_logger
+
 from utils.shared_variables import PREP_PROJECTION
 
 
@@ -76,45 +79,96 @@ def generate_nws_lid(workspace, env_file, keep_blank_nwm):
     overall_start_dt = datetime.now(timezone.utc)
     display_dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
 
-    print("=========================================================================")
-    print(f"Generating NWS LID GeoPackage - {display_dt_string} (UTC)")
-    print("")
+    log_file_path = setup_file_logger(out_filepath, "generate_nws_lid")
+
+    logging.info("=========================================================================")
+    logging.info(f"Generating NWS LID GeoPackage - {display_dt_string} (UTC)")
+    logging.info("")
 
     if os.path.isfile(out_filepath):
-        print(f"Warning: File already exists and will be overwritten: {out_filepath}")
-        print("")
+        logging.info(f"Warning: File already exists and will be overwritten: {out_filepath}")
+        logging.info("")
 
     # ---
-    # Get the metdata (with downstream trace) for all RFC forecast points
-    print("Getting metadata for all RFC forecast points...")
+    # Get the metdata (with downstream trace) for all riverpoints
+    logging.info("Getting metadata for all riverpoints...")
 
     select_by = 'nws_lid'
     selector = ['all']
-    must_include = 'nws_data.rfc_forecast_point'  # TODO: Remove forecast point requirement here?
-    downstream_trace_distance = 'all'
-    fcst_list, __, err_msg = get_metadata(
-        metadata_url=metadata_url,
+    # must_include = 'nws_data.rfc_forecast_point'  # TODO: Remove forecast point requirement here? # Clean up after testing
+    must_include = 'nws_data.riverpoint'
+
+    # Use the riverpoint pull to get a site list (without upstream/downstream trace, for now)
+    riverpoint_all_meta_list, riverpoint_all_meta_df, err_msg = get_metadata(
+        metadata_url,
         select_by=select_by,
         selector=selector,
         must_include=must_include,
         upstream_trace_distance=None,
-        downstream_trace_distance=downstream_trace_distance,
+        downstream_trace_distance=None,
+    )
+    full_lid_list = riverpoint_all_meta_df['identifiers_nws_lid'].to_list()
+    del riverpoint_all_meta_list, riverpoint_all_meta_df
+
+    # Break the lid list into sublists
+    n = 200  # chunk size
+    chunks = [full_lid_list[i : i + n] for i in range(0, len(full_lid_list), n)]
+    logging.info(
+        f'Pulled {len(full_lid_list)} riverpoint sites. Downloading metadata in {len(chunks)} chunks of {n} sites each.'
     )
 
-    if err_msg != "":
-        print(err_msg)
+    fcst_list = []
+
+    for index, chunk in enumerate(chunks, start=1):
+        logging.info('')
+        if index % 50 == 0:
+            logging.info(f"Processed {index}/{len(chunks)} chunks...")
+
+        riverpoint_chunk_meta_list, riverpoint_chunk_meta_df, err_msg = get_metadata(
+            metadata_url,
+            select_by=select_by,
+            selector=chunk,
+            must_include=None,  # because the LID list is already filtered to riverpoint
+            upstream_trace_distance=None,
+            downstream_trace_distance=downstream_trace_distance,
+        )
+
+        if err_msg != "":
+            logging.error(f"Error retrieving metadata for chunk {index}: {err_msg}")
+            continue
+
+        # Make sure that the upstream and downstream trace are working)
+        if "upstream_nwm_features" not in riverpoint_chunk_meta_df.columns:
+            logging.warning('Upstream NWM features NOT available')
+
+        fcst_list.extend(riverpoint_chunk_meta_list)
+
+        logging.info(f'Full meta list is now {len(fcst_list)} objects long')
+
+
+    # downstream_trace_distance = 'all' # TODO:  Previous code, clean up after testing
+    # fcst_list, __, err_msg = get_metadata(
+    #     metadata_url=metadata_url,
+    #     select_by=select_by,
+    #     selector=selector,
+    #     must_include=must_include,
+    #     upstream_trace_distance=None,
+    #     downstream_trace_distance=downstream_trace_distance,
+    # )
+    # if err_msg != "":
+    #     print(err_msg)
 
     # Get list of all evaluated sites not in fcst_list
     fcst_list_sites = [record.get('identifiers').get('nws_lid').lower() for record in fcst_list]
     evaluated_sites = pd.read_csv(EVALUATED_SITES_CSV)['Total_List'].str.lower().to_list()
     evaluated_sites = list(set(evaluated_sites) - set(fcst_list_sites))
 
-    print(f"Downloaded metadata for {len(fcst_list)} forecast sites")
-    print("")
+    logging.info(f"Downloaded metadata for {len(fcst_list)} forecast sites")
+    logging.info("")
 
     # ---
     # Get metadata (with downstream trace) for all evaluated sites not in forecast sites list
-    print(f"Getting metadata for {len(evaluated_sites)} additional non-forecast sites...")
+    logging.info(f"Getting metadata for {len(evaluated_sites)} additional non-forecast sites...")
 
     select_by = 'nws_lid'
     selector = evaluated_sites
@@ -130,18 +184,18 @@ def generate_nws_lid(workspace, env_file, keep_blank_nwm):
     )
 
     if err_msg != "":
-        print(err_msg)
+        logging.error(err_msg)
 
     # Append all lists
     all_lists = fcst_list + eval_list
 
-    print(f"Downloaded metadata for {len(eval_list)} additional eval sites")
-    print(f"Metadata retrieved for {len(all_lists)} total sites")
-    print("")
+    logging.info(f"Downloaded metadata for {len(eval_list)} additional eval sites")
+    logging.info(f"Metadata retrieved for {len(all_lists)} total sites")
+    logging.info("")
 
     # ---
     # Get spatial data and populate headwater/duplicate attributes
-    print("Aggregating WBD HUCs...")
+    logging.info("Aggregating WBD HUCs...")
     _, nws_lid_gdf = aggregate_wbd_hucs(all_lists, WBD_LAYER, retain_attributes=False)
 
     # Create GDF Geodataframe from all_lists and reproject GDF
@@ -150,32 +204,33 @@ def generate_nws_lid(workspace, env_file, keep_blank_nwm):
 
     # Remove rows without NWM Feature IDs if the -k flag was not used
     if not keep_blank_nwm:
-        print("Removing rows with blank NWM feature ID")
+        logging.info("Removing rows with blank NWM feature ID")
         nws_lid_gdf.dropna(subset=['nwm_feature_id'], inplace=True)
     else:
-        print("Will not remove rows with blank NWM feature ID")
+        logging.info("Will not remove rows with blank NWM feature ID")
 
-    print("Finished creating NWS LID geodataframe")
-    print("")
+    logging.info("Finished creating NWS LID geodataframe")
+    logging.info("")
 
     # ---
     # Reset index and save output files
     nws_lid_gdf.reset_index(drop=True)
     write_geodataframe(nws_lid_gdf, out_filepath)
-    print(f"Saved GPKG to {out_filepath}")
+    logging.info(f"Saved GPKG to {out_filepath}")
 
     # Save a CSV for QC purposes
     out_csv_filepath = out_filepath.replace(".gpkg", ".csv")
     nws_lid_gdf.to_csv(out_csv_filepath, index=False)
-    print(f"Saved CSV to {out_csv_filepath}")
+    logging.info(f"Saved CSV to {out_csv_filepath}")
 
     display_dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
     dur_msg = fh.print_date_time_duration(overall_start_dt, datetime.now(timezone.utc), False)
 
-    print("")
-    print(f"Program complete - {display_dt_string} (UTC)")
-    print(f"{dur_msg}")
-    print("=========================================================================")
+    logging.info("")
+    logging.info(f"Saved logs to {log_file_path}")
+    logging.info(f"Program complete - {display_dt_string} (UTC)")
+    logging.info(f"{dur_msg}")
+    logging.info("=========================================================================")
 
     return
 
