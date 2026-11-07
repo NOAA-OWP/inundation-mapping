@@ -1,27 +1,19 @@
 #!/usr/bin/env python3
 
 import datetime as dt
+import logging
 import os
 import re
 import sys
 import traceback
 from argparse import ArgumentParser
 
-# from concurrent.futures import ProcessPoolExecutor, as_completed
 from os.path import join
 
 import geopandas as gpd
 import pandas as pd
 
-
-#################################
-# TODO: July 4, 2026:  In the event of an exception, the log file will not exist
-# and its details as well.
-# This needs a try/except with printing to log and at least a one liner
-# saying including the word "exception or error", which can be picked up automatically
-# by the rollup to fim_process_huc.sh or process_rerun_calibration_huc.sh
-################################
-
+from src.utils.shared_functions import setup_file_logger
 
 # -------------------------------------------------------
 # Function to use RFC Bathymetry where available over eHydro Data
@@ -56,16 +48,10 @@ def correct_rating_for_ehydro_bathymetry(huc_dir, huc, bathy_file_ehydro):
         bathy_file_ehydro : str
             Path to eHydro bathymetric adjustment geopackage, e.g.
             "/data/inputs/bathymetry/bathymetry_adjustment_data.gpkg".
-        verbose : bool
-            Verbose printing.
-
-        Returns
-        ----------
-        log_text : str
 
     """
 
-    log_text = f'Calculating eHydro bathymetry adjustment: {huc}\n'
+    logging.debug(f'Calculating eHydro bathymetry rating curve adjustment: {huc}')
 
     # Load wbd and use it as a mask to pull the bathymetry data
     # fim_huc_dir = join(fim_dir, huc)
@@ -82,18 +68,21 @@ def correct_rating_for_ehydro_bathymetry(huc_dir, huc, bathy_file_ehydro):
             src_all_branches.append(src_full)
 
     # Update src parameters with bathymetric data
-    for src in src_all_branches:
-        src_df = pd.read_csv(src, low_memory=False)
+    logging.debug("About to process branch crosswalks for ehydro")
+    for src_branch_crosswalk_path in src_all_branches:
+        branch = re.search(r'branches/(\d{10}|0)/', src_branch_crosswalk_path).group()[9:-1]
+        logging.debug(f'  Branch: {branch} - Update src parameters with bathymetric data')
+
+        src_df = pd.read_csv(src_branch_crosswalk_path, low_memory=False)
+        if src_df.empty:
+            logging.debug(f'  Branch: {branch} - There were no eHydro bathymetry feature_ids for this branch')
+            src_df['Bathymetry_source'] = [""] * len(src_df)
+            src_df.to_csv(src_branch_crosswalk_path, index=False)
+            logging.debug(f"  Branch: {branch} - {src_branch_crosswalk_path} saved")
+            continue
+
         if 'Bathymetry_source' in src_df.columns:
             src_df = src_df.drop(columns='Bathymetry_source')
-        branch = re.search(r'branches/(\d{10}|0)/', src).group()[9:-1]
-        log_text += f'  Branch: {branch}\n'
-
-        if bathy_data.empty:
-            log_text += '  There were no eHydro bathymetry feature_ids for this branch'
-            src_df['Bathymetry_source'] = [""] * len(src_df)
-            src_df.to_csv(src, index=False)
-            return log_text
 
         # Merge in missing bathy data and fill Nans
         try:
@@ -116,6 +105,8 @@ def correct_rating_for_ehydro_bathymetry(huc_dir, huc, bathy_file_ehydro):
                 .apply(ohrfc_bathy_precedence, include_groups=False)
                 .reset_index(drop=True)
             )
+            logging.warning(f"  Branch: {branch} - pd.errors.MergeError exception found."
+                            " PS.. do we need to check something to avoid an exception?")
 
             # reconciled_bathy_data = bathy_data.groupby('feature_id')[
             #     ['missing_xs_area_m2', 'missing_wet_perimeter_m']
@@ -167,9 +158,8 @@ def correct_rating_for_ehydro_bathymetry(huc_dir, huc, bathy_file_ehydro):
 
         # Write src back to file
         # src_df = src_df.drop_duplicates(subset=['HydroID', 'Stage'], keep='first').reset_index(drop=True)
-        src_df.to_csv(src, index=False)
-
-    return log_text
+        src_df.to_csv(src_branch_crosswalk_path, index=False)
+        logging.debug(f"  Branch: {branch} - {src_branch_crosswalk_path} saved after ehydro bathy adjustments")
 
 
 # -------------------------------------------------------
@@ -191,16 +181,9 @@ def correct_rating_for_ai_bathymetry(huc_dir, huc, strm_order, bathy_file_aibase
         bathy_file_aibased : str
             Path to AI-based bathymetric adjustment file, e.g.
             "/data/inputs/bathymetry/ml_outputs_v1.01.parquet".
-        verbose : bool
-            Verbose printing.
-
-        Returns
-        ----------
-        log_text : str
 
     """
-    log_text = f'Calculating AI-based bathymetry adjustment: {huc}\n'
-    print(f'Calculating AI-based bathymetry adjustment: {huc}')
+    logging.debug(f'Calculating AI-based bathymetry rating curve adjustment: {huc}')
 
     # Load AI-based bathymetry data
     ml_bathy_data = pd.read_parquet(bathy_file_aibased, engine='pyarrow')
@@ -252,7 +235,7 @@ def correct_rating_for_ai_bathymetry(huc_dir, huc, strm_order, bathy_file_aibase
     # test = aib_df[aib_df.duplicated(subset='feature_id', keep=False)]
     aib_df = aib_df0.drop_duplicates(subset=['feature_id'], keep='first')
     aib_df.index = range(len(aib_df))
-    print(f'Adjusting SRCs with EHydro and OHRFC Bathymetry Data: {huc}')
+    logging.debug(f'Adjusting SRCs with EHydro and OHRFC Bathymetry Data: {huc}')
 
     # Get src_full from each branch
     src_all_branches_path = []
@@ -263,17 +246,18 @@ def correct_rating_for_ai_bathymetry(huc_dir, huc, strm_order, bathy_file_aibase
             src_all_branches_path.append(src_full)
 
     # Update src parameters with bathymetric data
-    for src in src_all_branches_path:
-        src_df = pd.read_csv(src, low_memory=False)
-        # print(src_df.loc[~src_df['Bathymetry_source'].isna()]['Bathymetry_source'])
-
-        src_name = os.path.basename(src)
+    logging.debug("About to process branches for AI-based bathymetry")
+    for src_branch_crosswwalk_path in src_all_branches_path:
+        src_name = os.path.basename(src_branch_crosswwalk_path)
         branch = src_name.split(".")[0].split("_")[-1]
-        log_text += f'  Branch: {branch}\n'
+        logging.debug(f"  Branch: {branch} - started processing")
+       # print(src_df.loc[~src_df['Bathymetry_source'].isna()]['Bathymetry_source'])        
+        src_df = pd.read_csv(src_branch_crosswwalk_path, low_memory=False)
 
         # Merge in missing ai bathy data and fill Nans
         if 'missing_xs_area_m2' not in src_df.columns:
-            src_df.drop(columns=["Bathymetry_source"], inplace=True)
+            logging.debug(f"  Branch: {branch} IS missing the missing_xs_area_m2 column")
+            src_df = src_df.drop(columns=["Bathymetry_source"])
             src_df = src_df.merge(aib_df, on='feature_id', how='left', validate='many_to_one')
 
             src_df['missing_xs_area_m2'] = src_df['missing_xs_area_m2'].fillna(0.0)
@@ -316,9 +300,11 @@ def correct_rating_for_ai_bathymetry(huc_dir, huc, strm_order, bathy_file_aibase
             discharge_bathymetry = src_df2['Discharge (m3s-1)']
             src_df['Discharge (m3s-1)_bathymetryAdjusted'] = discharge_bathymetry
 
-            src_df.to_csv(src, index=False)
+            src_df.to_csv(src_branch_crosswwalk_path, index=False)
+            logging.debug(f"  Branch: {branch} - {src_branch_crosswwalk_path} saved")
 
         else:
+            logging.debug(f"  Branch: {branch} IS NOT missing the missing_xs_area_m2 column")
             # src_df = src_df.merge(aib_df, on='feature_id', how='left', validate='many_to_one')
             # # checked
 
@@ -343,9 +329,8 @@ def correct_rating_for_ai_bathymetry(huc_dir, huc, strm_order, bathy_file_aibase
             src_df.loc[mask, "missing_wet_perimeter_m_x"] = src_df.loc[mask, "missing_wet_perimeter_m_y"]
             src_df.loc[mask, "Bathymetry_source_x"] = src_df.loc[mask, "Bathymetry_source_y"]
 
-            src_df.drop(
-                columns=["missing_xs_area_m2_y", "missing_wet_perimeter_m_y", "Bathymetry_source_y"],
-                inplace=True,
+            src_df = src_df.drop(
+                columns=["missing_xs_area_m2_y", "missing_wet_perimeter_m_y", "Bathymetry_source_y"]
             )
             src_df = src_df.rename(columns={'missing_xs_area_m2_x': 'missing_xs_area_m2'})
             src_df = src_df.rename(columns={'missing_wet_perimeter_m_x': 'missing_wet_perimeter_m'})
@@ -402,16 +387,13 @@ def correct_rating_for_ai_bathymetry(huc_dir, huc, strm_order, bathy_file_aibase
             discharge_bathymetry2 = src_df3['Discharge (m3s-1)']
             src_df['Discharge (m3s-1)_bathymetryAdjusted'] = discharge_bathymetry2
 
-            src_df.to_csv(src, index=False)
-
-    return log_text
+            src_df.to_csv(src_branch_crosswwalk_path, index=False)
+            logging.debug(f"  Branch: {branch} - {src_branch_crosswwalk_path} saved")
 
 
 # --------------------------------------------------------
 # Apply src_adjustment_for_bathymetry
-def apply_src_adjustment_for_bathymetry(
-    huc_dir, huc, strm_order, bathy_file_ehydro, bathy_file_aibased, ai_toggle, verbose, log_file_path
-):
+def apply_src_adjustment_for_bathymetry(huc_dir, huc, strm_order, bathy_file_ehydro, bathy_file_aibased, ai_toggle):
     """
     Function for applying both eHydro & AI-based bathymetry adjustment to synthetic rating curves.
 
@@ -421,80 +403,36 @@ def apply_src_adjustment_for_bathymetry(
         ----------
         Please refer to correct_rating_for_ehydro_bathymetry and
         correct_rating_for_ai_based_bathymetry functions parameters.
-
-        Returns
-        ----------
-        log_text : str
     """
-    log_text = ""
     try:
         if os.path.exists(bathy_file_ehydro):
-            msg = f"Correcting rating curve for ehydro bathy for huc : {huc}"
-            log_text += msg + '\n'
-            print(msg)
-            log_text += correct_rating_for_ehydro_bathymetry(huc_dir, huc, bathy_file_ehydro)
+            correct_rating_for_ehydro_bathymetry(huc_dir, huc, bathy_file_ehydro)
         else:
-            print(f'Bathymetry file does not exist for huc: {huc}')
+            logging.info(f'Bathymetry file does not exist for huc: {huc} - {bathy_file_ehydro}')
 
-    # except Exception as ex:
     except Exception:
-        # this goes back to calibrate_rating_curve.sh which rolls up to its parent "tee"
-        # Then it can be scanned in the error system based on solely the "tee" file
-        err_msg = f"An error has occurred while processing ehydro bathy for huc {huc}"
-        log_text += f"{err_msg} \n"
-        log_text += traceback.format_exc()
-
-        # this goes back to calibrate_rating_curve.sh which rolls up to its parent "tee"
-        # Then it can be scanned in the error system based on solely the "tee" file
-        print(err_msg)
-        print(f"Details: {traceback.format_exc()}")
-
-        # re raise ex ? # TODO: Do we want to stop processing the huc if we get an error here?
-        # If yes, we need to raise ex, make sure to write your log_text if you need to.
-
-    try:
-        with open(log_file_path, "a") as log_file:
-            log_file.write(log_text + '\n')
-    except Exception:
-        print(f"Error trying to write to the log file of {log_file_path}")
-        # ok.. don't need to re-raise this.
+        logging.error(f"An error has occurred while applying src bathy adj for huc {huc}")
+        logging.error(traceback.format_exc())
+        raise  # Yes.. re-raise to stop downstream processing
 
     if ai_toggle == 1:
         try:
             if os.path.exists(bathy_file_aibased):
-                msg = f"Correcting rating curve for AI-based bathy for huc : {huc}"
-                log_text += msg + '\n'
-                print(msg)
-
-                log_text += correct_rating_for_ai_bathymetry(
-                    huc_dir, huc, strm_order, bathy_file_aibased
-                )  # , ai_toggle
+                correct_rating_for_ai_bathymetry(huc_dir, huc, strm_order, bathy_file_aibased)  # , ai_toggle
             else:
-                print(f'AI-based bathymetry file does not exist for huc : {huc}')
+                logging.info(f'AI-based bathymetry file does not exist for huc : {huc} - {bathy_file_aibased}')
 
         # except Exception as ex:
         except Exception:
             # this goes back to calibrate_rating_curve.sh which rolls up to its parent "tee"
             # Then it can be scanned in the error system based on solely the "tee" file
-            err_msg = f"An error has occurred while processing AI-based bathy for huc {huc}"
-            log_text += f"{err_msg} \n"
-            log_text += traceback.format_exc()
-
-            # this goes back to calibrate_rating_curve.sh which rolls up to its parent "tee"
-            # Then it can be scanned in the error system based on solely the "tee" file
-            print(err_msg)
-            print(traceback.format_exc())
-
-            # re raise ex  ? # TODO: Do we want to stop processing the huc if we get an error here?
-            # If yes, we need to raise ex, make sure to write your log_text if you need to.
-
-    with open(log_file_path, "a") as log_file:
-        log_file.write(log_text + '\n')
-
+            logging.error(f"An error has occurred while applying AI-based bathy rating curve adj for huc {huc}")
+            logging.error(traceback.format_exc())
+            raise  # Yes.. re-raise to stop downstream processing
 
 # -------------------------------------------------------
 def process_bathy_adjustment(
-    huc_dir, strm_order, bathy_file_ehydro, bathy_file_aibased, output_suffix, ai_toggle, verbose
+    huc_dir, strm_order, bathy_file_ehydro, bathy_file_aibased, output_suffix, ai_toggle
 ):
     """Function for correcting synthetic rating curves. It will correct each branch's
     SRCs in serial based on the feature_ids in the input bathy_file.
@@ -519,63 +457,42 @@ def process_bathy_adjustment(
             "/data/inputs/wbd/WBD_National_EPSG_5070_WBDHU8_clip_dem_domain.gpkg".
         output_suffix : str
             Output filename suffix.
-        verbose : bool
-            Verbose printing.
 
     """
     # Set up log file
     log_dir = os.path.join(huc_dir, "logs", "src_calibrations")
-    print("Log file output here: " + str(log_dir))
-    if not os.path.isdir(log_dir):
-        os.makedirs(log_dir)
-
-    log_file_path = os.path.join(log_dir, 'bathymetric_adjustment' + output_suffix + '.log')
+    log_file_path = setup_file_logger(log_dir, f"bathymetric_adjustment_{output_suffix}")
 
     print(f'Writing progress to log file here: {log_file_path}')
-    ## Create a time var to log run time
-    begin_time = dt.datetime.now(dt.timezone.utc)
+    logging.info("Start bathmetric adjustments")
+    logging.info("")
+    begin_time = dt.datetime.now(dt.timezone.utc)    
 
-    ## Initiate log file
-    with open(log_file_path, "w") as log_file:
-        log_file.write('START TIME: ' + str(begin_time) + '\n')
-        log_file.write('#########################################################\n\n')
-
-    # Let log_text build up starting here until the bottom.
-    log_text = ""
     # Exit program if the bathymetric data doesn't exist
     if ai_toggle == 1:
         if not all([os.path.exists(bathy_file_ehydro), os.path.exists(bathy_file_aibased)]):
-            statement = f'The input bathymetry files {bathy_file_ehydro} and {bathy_file_aibased} do not exist. Exiting...'
-            with open(log_file_path, "w") as log_file:
-                log_file.write(statement)
-            print(statement)
+            logging.warning(f"The input bathymetry files {bathy_file_ehydro} and {bathy_file_aibased}"
+                         " do not exist. Exiting...")
             sys.exit(0)
     else:
         if not os.path.exists(bathy_file_ehydro):
-            statement = f'The input bathymetry file {bathy_file_ehydro} does not exist. Exiting...'
-            with open(log_file_path, "w") as log_file:
-                log_file.write(statement)
-            print(statement)
+            logging.warning(f'The input bathymetry file {bathy_file_ehydro} does not exist. Exiting...')
             sys.exit(0)
 
     if ai_toggle == 1:
-        msg = f"AI-Based bathymetry data is applied on streams with order {strm_order} or higher\n"
-        log_text += msg
-        print(msg, flush=True)
+        logging.info(f"AI-Based bathymetry data will be applied on streams with order {strm_order} or higher")
 
     # get hucnumber
     huc = os.path.basename(os.path.normpath(huc_dir))
 
-    apply_src_adjustment_for_bathymetry(
-        huc_dir, huc, strm_order, bathy_file_ehydro, bathy_file_aibased, ai_toggle, verbose, log_file_path
-    )
+    apply_src_adjustment_for_bathymetry(huc_dir, huc, strm_order, bathy_file_ehydro, bathy_file_aibased, ai_toggle)
+    
+    logging.info("End bathymetric adjustments")
 
-    ## Record run time and close log file
     end_time = dt.datetime.now(dt.timezone.utc)
-    log_text += 'END TIME: ' + str(end_time) + '\n'
-    tot_run_time = end_time - begin_time
-    log_text += 'TOTAL RUN TIME: ' + str(tot_run_time).split('.')[0]
-    log_file.close()
+    logging.debug(f'END TIME: {end_time}')
+    tot_run_time = end_time - begin_time    
+    logging.debug('DURATION: ' + str(tot_run_time).split('.')[0])
 
 
 if __name__ == '__main__':
@@ -652,25 +569,6 @@ if __name__ == '__main__':
         default=1,
         type=int,
     )
-    parser.add_argument(
-        '-vb',
-        '--verbose',
-        help='OPTIONAL: verbose progress bar',
-        required=False,
-        default=None,
-        action='store_true',
-    )
 
     args = vars(parser.parse_args())
-
-    huc_dir = args['huc_dir']
-    strm_order = args['strm_order']
-    bathy_file_ehydro = args['bathy_file_ehydro']
-    bathy_file_aibased = args['bathy_file_aibased']
-    output_suffix = args['output_suffix']
-    ai_toggle = args['ai_toggle']
-    verbose = bool(args['verbose'])
-
-    process_bathy_adjustment(
-        huc_dir, strm_order, bathy_file_ehydro, bathy_file_aibased, output_suffix, ai_toggle, verbose
-    )
+    process_bathy_adjustment(**args)

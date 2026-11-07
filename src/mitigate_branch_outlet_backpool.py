@@ -129,8 +129,9 @@ def mitigate_branch_outlet_backpool(
         else:
             # Get the nearest flowline to the outlet point
             near_flows = []
-            for index, point in outlet_point.iterrows():
-                nearest_line = flows.loc[flows.distance(point['geometry']).idxmin()]
+            # Oct 2026: For GeoDataframes (not Dataframes), itertuples is much faster.
+            for point in outlet_point.itertuples():
+                nearest_line = flows.loc[flows.distance(point.geometry).idxmin()]
                 near_flows.append(nearest_line)
 
             # Create a new GeoDataFrame with the closest flowline(s)

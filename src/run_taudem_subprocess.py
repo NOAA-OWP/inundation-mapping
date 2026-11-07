@@ -3,8 +3,18 @@ import argparse
 import subprocess
 import sys
 
+import numpy as np
+import pandas as pd
 
-def run_d8flowdir(ncores, taudem_dir, fel_path, p_path=None, sd8_path=None):
+'''
+Oct 2026:
+While technically, we do not need to run any TauDEM commands specifically against mpiexec, it is implied
+and running at one core (which is what we want). 
+Yes.. we always want mpiexc cores to be 1 as we are using this in bash parallelization. No sense risking
+segementation fault issues
+'''
+
+def run_d8flowdir(taudem_dir, fel_path, p_path=None, sd8_path=None):
     """
     Executes TauDEM d8flowdir, intercepting and formatting output streams.
     Throws an error if the underlying process fails.
@@ -17,10 +27,8 @@ def run_d8flowdir(ncores, taudem_dir, fel_path, p_path=None, sd8_path=None):
                 "CRITICAL ERROR: You must provide at least one output path (-p or -sd8).", file=sys.stderr
             )
 
-            sys.exit(1)
-
         # Construct the base command dynamically
-        cmd = ["mpiexec", "-n", str(ncores), f"{taudem_dir}/d8flowdir", "-fel", fel_path]
+        cmd = [f"{taudem_dir}/d8flowdir", "-fel", fel_path]
 
         # Add optional arguments
         if p_path:
@@ -34,13 +42,17 @@ def run_d8flowdir(ncores, taudem_dir, fel_path, p_path=None, sd8_path=None):
             cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1
         )
 
+        err_details = ""
         # Read the output line by line as it is generated
+        # With moving to TauDEM 5.5, do we need this anymore?
         for line in process.stdout:
 
             # Drop the specific GDAL ERROR 6 message entirely
             if "ERROR 6:" in line and "Dataset does not support the AddBand() method." in line:
                 continue
-
+            elif "ERROR:":
+                err_details += line
+                continue  # there can be more than one error
             # Reformat the warnings specifically based on which file is missing
             elif "no output sd8 file specified" in line:
                 print("INFO: TauDEM d8flowdir running without optional sd8 slope output.")
@@ -57,7 +69,8 @@ def run_d8flowdir(ncores, taudem_dir, fel_path, p_path=None, sd8_path=None):
 
         # Enforce strict exit code checking. If it failed, raise an exception.
         if process.returncode != 0:
-            raise RuntimeError(f"TauDEM d8flowdir failed with exit code {process.returncode}")
+            raise RuntimeError(f"TauDEM d8flowdir failed with exit code {process.returncode}." \
+                               f" Details: {err_details}")
 
     except Exception as e:
         # Ensure the exception is printed to standard error for downstream catch
@@ -87,13 +100,16 @@ def run_flowdircond(taudem_dir, p_path, z_path, zfdc_path):
             cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1
         )
 
+        err_details = ""
         # Read the output line by line as it is generated
         for line in process.stdout:
 
             # Drop the specific GDAL ERROR 6 message entirely
             if "ERROR 6:" in line and "Dataset does not support the AddBand() method." in line:
                 continue
-
+            elif "ERROR:":
+                err_details += line
+                continue  # there can be more than one error
             # Print everything else normally (errors, standard output, etc.)
             else:
                 # Use end="" because the line already has a newline character from the stream
@@ -104,7 +120,8 @@ def run_flowdircond(taudem_dir, p_path, z_path, zfdc_path):
 
         # Enforce strict exit code checking. If it failed, raise an exception.
         if process.returncode != 0:
-            raise RuntimeError(f"TauDEM flowdircond failed with exit code {process.returncode}")
+            raise RuntimeError(f"TauDEM flowdircond failed with exit code {process.returncode}." \
+                f" Details: {err_details}")
 
     except Exception as e:
         # Ensure the exception is printed to standard error for downstream catch
@@ -133,8 +150,7 @@ def run_streamnet(
     """
 
     # Construct the command
-    cmd = [
-        f"{taudem_dir}/streamnet",
+    cmd = [f"{taudem_dir}/streamnet",
         "-p",
         p_path,
         "-fel",
@@ -162,13 +178,16 @@ def run_streamnet(
             cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1
         )
 
+        err_details = ""
         # Read the output line by line as it is generated
         for line in process.stdout:
 
             # Drop the specific GDAL ERROR 6 message entirely
             if "ERROR 6:" in line and "Dataset does not support the AddBand() method." in line:
                 continue
-
+            elif "ERROR:":
+                err_details += line
+                continue  # there can be more than one error
             # Print everything else normally (errors, standard output, etc.)
             else:
                 # Use end="" because the line already has a newline character from the stream
@@ -179,7 +198,8 @@ def run_streamnet(
 
         # Enforce strict exit code checking. If it failed, raise an exception.
         if process.returncode != 0:
-            raise RuntimeError(f"TauDEM streamnet failed with exit code {process.returncode}")
+            raise RuntimeError(f"TauDEM streamnet failed with exit code {process.returncode}." \
+				f" Details: {err_details}")
 
     except Exception as e:
         # Ensure the exception is printed to standard error for downstream catch
@@ -187,13 +207,12 @@ def run_streamnet(
         sys.exit(1)
 
 
-def run_gagewatershed(ncores, taudem_dir, p_path, gw_path, o_path, id_path):
+def run_gagewatershed(taudem_dir, p_path, gw_path, o_path, id_path):
     """
     Executes TauDEM gagewatershed, intercepting and filtering error streams.
     Ignores benign GDAL AddBand() errors and throws an error if the process fails.
 
     Args:
-        ncores: Number of MPI cores to use
         taudem_dir: Path to TauDEM binaries
         p_path: Input flow direction file path
         gw_path: Output gage watershed file path
@@ -201,12 +220,8 @@ def run_gagewatershed(ncores, taudem_dir, p_path, gw_path, o_path, id_path):
         id_path: Input ID file path
     """
 
-    # Construct the command with MPI
-    cmd = [
-        "mpiexec",
-        "-n",
-        str(ncores),
-        f"{taudem_dir}/gagewatershed",
+    # Construct the command
+    cmd = [f"{taudem_dir}/gagewatershed",
         "-p",
         p_path,
         "-gw",
@@ -214,7 +229,7 @@ def run_gagewatershed(ncores, taudem_dir, p_path, gw_path, o_path, id_path):
         "-o",
         o_path,
         "-id",
-        id_path,
+        id_path
     ]
 
     try:
@@ -224,13 +239,16 @@ def run_gagewatershed(ncores, taudem_dir, p_path, gw_path, o_path, id_path):
             cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1
         )
 
+        err_details = ""
         # Read the output line by line as it is generated
         for line in process.stdout:
 
             # Drop the specific GDAL ERROR 6 message entirely
             if "ERROR 6:" in line and "Dataset does not support the AddBand() method." in line:
                 continue
-
+            elif "ERROR:":
+                err_details += line
+                continue  # there can be more than one error
             # Print everything else normally (errors, standard output, etc.)
             else:
                 # Use end="" because the line already has a newline character from the stream
@@ -241,7 +259,8 @@ def run_gagewatershed(ncores, taudem_dir, p_path, gw_path, o_path, id_path):
 
         # Enforce strict exit code checking. If it failed, raise an exception.
         if process.returncode != 0:
-            raise RuntimeError(f"TauDEM gagewatershed failed with exit code {process.returncode}")
+            raise RuntimeError(f"TauDEM gagewatershed failed with exit code {process.returncode}." \
+				f" Details: {err_details}")
 
     except Exception as e:
         # Ensure the exception is printed to standard error for downstream catch
@@ -265,8 +284,7 @@ def run_catchhydrogeo(taudem_dir, hand_path, catch_path, catchlist_path, slp_pat
     """
 
     # Construct the command
-    cmd = [
-        f"{taudem_dir}/catchhydrogeo",
+    cmd = [f"{taudem_dir}/catchhydrogeo",
         "-hand",
         hand_path,
         "-catch",
@@ -278,7 +296,7 @@ def run_catchhydrogeo(taudem_dir, hand_path, catch_path, catchlist_path, slp_pat
         "-h",
         h_path,
         "-table",
-        table_path,
+        table_path
     ]
 
     try:
@@ -288,13 +306,18 @@ def run_catchhydrogeo(taudem_dir, hand_path, catch_path, catchlist_path, slp_pat
             cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1
         )
 
+        # Run the process and capture the streams, it will wait for it.
+        # stdout, stderr = process.communicate()
+
+        err_details = ""
         # Read the output line by line as it is generated
         for line in process.stdout:
-
             # Drop the specific GDAL ERROR 6 message entirely
             if "ERROR 6:" in line and "Dataset does not support the AddBand() method." in line:
                 continue
-
+            elif "ERROR:":
+                err_details += line
+                continue  # there can be more than one error
             # Print everything else normally (errors, standard output, etc.)
             else:
                 # Use end="" because the line already has a newline character from the stream
@@ -305,13 +328,44 @@ def run_catchhydrogeo(taudem_dir, hand_path, catch_path, catchlist_path, slp_pat
 
         # Enforce strict exit code checking. If it failed, raise an exception.
         if process.returncode != 0:
-            raise RuntimeError(f"TauDEM catchhydrogeo failed with exit code {process.returncode}")
+            raise RuntimeError(f"TauDEM catchhydrogeo failed with exit code {process.returncode}." \
+				f" Details: {err_details}")
+                
+        # ++++++++++++++++++++++++++++++++
+        # Oct 2026,
+        # After talking to Carson, we thought it would be better to adjust things here for now.
+        
+        # With the new TauDEM 5.5, it also completely changed column names.
+        # As we have so many downstream that is affected, just load only the columns we need
+        # and change the column names.
+        col_mapping = {'Id': 'CatchId',
+                    'Stage_m': 'Stage',
+                    'ReachWetArea_m2': 'SurfaceArea (m2)',
+                    'ReachBedArea_m2': 'BedArea (m2)',
+                    'ReachVolume_m3': 'Volume (m3)',
+                    'ReachSlope': 'SLOPE',
+                    'ReachLength_m': 'LENGTHKM',
+                    'CatchArea_m2': 'AREASQKM'
+        }
+        # ++++ Note: While our original column was incorrectly named "LENGTHKM", it was really in meters
+        #  even in our pre TauDEM 5.5 code.
+        hydro_df = pd.read_csv(table_path)
+        
+        # For reasons unknown, when TauDEM makes the src_base_{branchid}.csv  (table_path), it is having a bit of trouble
+        # with the column headers. The first column 'ID' is fine but all of the rest of the column headers names have a space
+        # in front of them. ie) ' Stage_m' instead of `Stage_m` and ` ReachSlope`, instead of `ReachSlope.`
+        # We will load the file back up, strip the header names and resave.
+        # Strip spaces first, then rename if it matches your dictionary
+        hydro_df = hydro_df.rename(columns=lambda x: col_mapping.get(x.strip(), x.strip()))
+
+        hydro_df['AREASQKM'] = np.where(hydro_df['AREASQKM'] != 0, hydro_df['AREASQKM'] / 1000000, hydro_df['AREASQKM'])
+
+        hydro_df.to_csv(table_path, index=False)
 
     except Exception as e:
         # Ensure the exception is printed to standard error for downstream catch
         print(f"\nERROR: {e}", file=sys.stderr)
         sys.exit(1)
-
 
 def main():
     """
@@ -327,7 +381,6 @@ def main():
 
     # d8flowdir subcommand
     d8_parser = subparsers.add_parser("d8flowdir", help="Run TauDEM d8flowdir")
-    d8_parser.add_argument("-n", "--ncores", type=int, required=True, help="Number of MPI cores to use")
     d8_parser.add_argument("-t", "--taudem_dir", type=str, required=True, help="Path to TauDEM binaries")
     d8_parser.add_argument("-fel", "--fel_path", type=str, required=True, help="Input filled DEM path")
     d8_parser.add_argument("-p", "--p_path", type=str, required=False, help="Output flow direction path")
@@ -369,7 +422,6 @@ def main():
 
     # gagewatershed subcommand
     gw_parser = subparsers.add_parser("gagewatershed", help="Run TauDEM gagewatershed")
-    gw_parser.add_argument("-n", "--ncores", type=int, required=True, help="Number of MPI cores to use")
     gw_parser.add_argument("-t", "--taudem_dir", type=str, required=True, help="Path to TauDEM binaries")
     gw_parser.add_argument("-p", "--p_path", type=str, required=True, help="Input flow direction file path")
     gw_parser.add_argument(
@@ -397,7 +449,7 @@ def main():
     args = parser.parse_args()
 
     if args.command == "d8flowdir":
-        run_d8flowdir(args.ncores, args.taudem_dir, args.fel_path, args.p_path, args.sd8_path)
+        run_d8flowdir(args.taudem_dir, args.fel_path, args.p_path, args.sd8_path)
     elif args.command == "flowdircond":
         run_flowdircond(args.taudem_dir, args.p_path, args.z_path, args.zfdc_path)
     elif args.command == "streamnet":
@@ -414,7 +466,7 @@ def main():
             args.net_path,
         )
     elif args.command == "gagewatershed":
-        run_gagewatershed(args.ncores, args.taudem_dir, args.p_path, args.gw_path, args.o_path, args.id_path)
+        run_gagewatershed(args.taudem_dir, args.p_path, args.gw_path, args.o_path, args.id_path)
     elif args.command == "catchhydrogeo":
         run_catchhydrogeo(
             args.taudem_dir,

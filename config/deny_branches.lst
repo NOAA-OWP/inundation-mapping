@@ -29,6 +29,7 @@ dem_thalwegCond_{}.tif
 flowaccum_d8_burned_filled_{}.tif
 flowdir_d8_burned_filled_{}.tif
 flowdir_d8_burned_filled_flows_{}.tif
+flowdir_d8_burned_filled_temp_slope_{}.tif
 flows_grid_boolean_{}.tif
 flows_grid_boolean_euclidean_distance_{}.tif
 flows_points_pixels_{}.parquet
@@ -57,9 +58,12 @@ nwm_subset_streams_levelPaths_extended_{}.parquet
 #ras_elev_table.csv
 rem_{}.tif
 # rem_zeroed_masked_{}.tif
+rem_zeroed_masked_{}_pre_heal.tif
 rem_zeroed_masked_{}_float32.tif
+rem_zeroed_masked_{}_pre_heal_floa532.tif
 slopes_d8_dem_meters_{}.tif
 slopes_d8_dem_meters_masked_{}.tif
+slopes_d8_dem_meters_temp_flowdir_{}.tif
 sn_catchments_reaches_{}.tif
 src_{}.json
 # src_base_{}.csv
