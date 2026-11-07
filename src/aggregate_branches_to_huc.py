@@ -2,6 +2,7 @@
 
 import argparse
 # import glob
+import logging
 import os
 # import re
 import traceback
@@ -16,23 +17,14 @@ import pandas as pd
 from dotenv import load_dotenv
 
 from heal_bridges_osm import flow_lookup, flows_from_hydrotable
+from src.utils.shared_functions import setup_file_logger
 from utils.io import write_geodataframe
 from utils.shared_functions import get_huc_vars
-
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
-#################################
-# TODO: July 4, 2026:  In the event of an exception, the log file will not exist
-# and its details as well.
-# This needs a try/except with printing to log and at least a one liner
-# saying including the word "exception or error", which can be picked up automatically
-# by the rollup to fim_process_huc.sh or process_rerun_calibration_huc.sh
-################################
-
 load_dotenv('/foss_fim/src/bash_variables.env')
-
 
 class HucDirectory(object):
     def __init__(self, huc_dir, limit_branches=[]):
@@ -268,14 +260,8 @@ class HucDirectory(object):
             return
 
         # Get the flows for each stage
-
-        # print("+++ In aggregate_bridge_pnts ")
-        # print(f"len of hydrotable is {len(hydrotable)} with branch_id of {branch_id}")
-
         bridge_pnts = flows_from_hydrotable(bridge_pnts, hydrotable)
         self.agg_bridge_pnts.append(bridge_pnts)
-
-        print("+++ End of aggregate_bridge_pnts ")
 
     def aggregate_road_fimpacts(self, branch_path, branch_id, hydrotable):
         fimpact_filename = join(branch_path, f'osm_roads_fimpact_{branch_id}.csv')
@@ -357,22 +343,16 @@ class HucDirectory(object):
 
             ## Other aggregate funtions can go here
             if hydro_table_flag:
-                print(f"hydro_table_flag: branch_path = {branch_path}; {branch_id}")                    
                 self.aggregate_hydrotables(branch_id, branch_hydrotable_df)
 
             if src_cross_flag:
                 self.aggregate_src_full_crosswalk(branch_path, branch_id)
             if bridge_flag:
-                print(f"bridge_flag: branch_path = {branch_path}; {branch_id}")   
                 self.aggregate_bridge_pnts(branch_path, branch_id, branch_hydrotable_df)
             if road_flag:
-                print(f"road_flag: branch_path = {branch_path}; {branch_id}")
                 self.aggregate_road_fimpacts(branch_path, branch_id, branch_hydrotable_df)
             if building_flag:
-                print(f"building_flag: branch_path = {branch_path}; {branch_id}")
                 self.aggregate_building_fimpacts(branch_path, branch_id, branch_hydrotable_df)
-
-        print("===========================")
 
         ## After all of the branches are visited, the code below will write the aggregates
         if usgs_elev_flag:
@@ -470,7 +450,6 @@ class HucDirectory(object):
                 agg_ras_elev.to_csv(ras_elev_table_file, index=False)
 
         if bridge_flag:
-            print("if bridge_flag...")
             bridge_pnts_file = join(self.huc_dir_path, 'osm_bridge_centroids.parquet')
             if os.path.isfile(bridge_pnts_file):
                 os.remove(bridge_pnts_file)
@@ -496,12 +475,10 @@ class HucDirectory(object):
 
                 # Set the CRS if it is not already set
                 if bridge_pnts.crs is None:
-                    bridge_pnts.set_crs(get_huc_vars(huc_id)['crs'], inplace=True)
+                    bridge_pnts = bridge_pnts.set_crs(get_huc_vars(huc_id)['crs'])
                 write_geodataframe(bridge_pnts, bridge_pnts_file, index=False)
 
         if road_flag:
-            print("if road_flag...")
-
             roads_fimpact_file = join(self.huc_dir_path, 'osm_roads_fimpact.csv')
             if os.path.isfile(roads_fimpact_file):
                 os.remove(roads_fimpact_file)
@@ -513,8 +490,6 @@ class HucDirectory(object):
                 agg_road_fimpact.to_csv(roads_fimpact_file, index=False)
 
         if building_flag:
-            print("if building_flag...")
-
             buildings_fimpact_file = join(self.huc_dir_path, 'buildings_fimpact.csv')
             if os.path.isfile(buildings_fimpact_file):
                 os.remove(buildings_fimpact_file)
@@ -562,7 +537,7 @@ def log_error(
     road_flag,
     building_flag,
     huc_id,
-    errMsg,
+    err_msg,
 ):
     file_name = f"agg_by_huc_{huc_id}"
     if usgs_elev_flag:
@@ -584,16 +559,13 @@ def log_error(
     log_dir = os.path.join(huc_directory, "logs", "agg_by_huc_errors")
     if not os.path.isdir(log_dir):
         os.makedirs(log_dir)
-
-    file_path = os.path.join(log_dir, file_name)
+    _ = setup_file_logger(log_dir, file_name)
 
     # this goes back to calibrate_rating_curve.sh which rolls up to its parent "tee"
     # Then it can be scanned in the error system based on solely the "tee" file
-    # print(errMsg)
-
-    f = open(file_path, "a")
-    f.write(errMsg)
-    f.close()
+    # TODO: We should f i
+    for line in err_msg:
+        logging.error(line)
 
 
 def aggregate_by_huc(
@@ -635,10 +607,7 @@ def aggregate_by_huc(
         for f in filelist:
             os.remove(f)
     '''
-
-    start_time = datetime.now()
-    dt_string = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
-    print(f"started: {dt_string}")
+    print(f"Started: {datetime.now().strftime("%m/%d/%Y %H:%M:%S")}")
 
     # get hucnumber
     huc_id = os.path.basename(os.path.normpath(huc_dir))
@@ -655,9 +624,10 @@ def aggregate_by_huc(
             huc_id,
         )
     except Exception as ex:
-        errMsg = "--------------------------------------" f"\n huc_id {huc_id} has an error\n"
-        errMsg = errMsg + traceback.format_exc()
-        print(errMsg, flush=True)
+        errMsg = ["--------------------------------------"]
+        errMsg.append(f" huc_id {huc_id} has an error")
+        errMsg.append(traceback.format_exc())
+        # print(errMsg, flush=True)
         log_error(
             huc_dir,
             usgs_elev_flag,
@@ -672,14 +642,7 @@ def aggregate_by_huc(
         )
         raise ex  # We need to re-raise
 
-    end_time = datetime.now()
-    dt_string = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
-    print(f"ended: {dt_string}")
-
-    # Calculate duration
-    time_duration = end_time - start_time
-    print(f"Duration: {str(time_duration).split('.')[0]}")
-    print()
+    print(f"ended: {datetime.now().strftime('%m/%d/%Y %H:%M:%S')}")
 
 
 if __name__ == '__main__':

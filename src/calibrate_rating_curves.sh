@@ -22,26 +22,6 @@ hucNumber=$3
 #   2)  As part of the recalibration process: rerun-calibration.py -> process_rerun_calibration_huc.sh
 
 # ++++++++++++++++++++++++++++++++++++
-# July 2026: 
-# With the new logging system and error trapping being added, there is no longer any value
-# in this file scanning for logs in the src directory. All src files were changed to ensure anything
-# critical will go to screen so it can be picked up by the fim_process_huc.sh (tee) system, or
-# the new process_rerun_calibtration_huc.sh which has the same trapping and logging patterns.
-
-# py files in the calibation family may use their own logs to also include errors and exceptions but
-# they will go to screen at a min. They also might choose to put more advanced info loggign in their own
-# log file for debugging purposes if they need to. We are doing to update all of those files to be more
-# compatiable with both processing flow system (fim_process_huc and rerun_calibration)
-
-# Key functionaly and log scanning were remove from here in favour of "parent" code files (fim_process_huc.sh,
-# process_rerun_calibration.py and /tools/rerun_calibration.py). 
-# Note: The new process_rerun_calibration.py is a new and likely temp script that 
-# to rerun_calibration might (or already does) cover emulateing the fim_process_huc.sh workflow.
-
-# While calibrate is welcome to use l_echo has has no value as would only duplicate exactly what is already covered
-# usign the "tee" command in its parent files.
-
-# ++++++++++++++++++++++++++++++++++++
 
 # In re-run mode, we are working against the actual outputs_temp directory, but 
 # when we are not, we are working against the outputs directory. As a result,
@@ -73,7 +53,7 @@ fi
 
 
 ## RUN AGGREGATE BRANCH ELEV TABLES ##
-echo -e $startDiv"Processing usgs & ras2fim elev table aggregation"
+echo -e $startDiv"Processing usgs & ras2fim elev table aggregation (aggregate_branches_to_huc)"
 python3 $srcDir/aggregate_branches_to_huc.py -huc_dir $tempHucDataDir -elev -ras
 
 

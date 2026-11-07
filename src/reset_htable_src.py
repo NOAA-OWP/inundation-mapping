@@ -1,6 +1,5 @@
 import argparse
 import os
-import re
 
 import pandas as pd
 
@@ -43,7 +42,7 @@ def process_branch(sub_branch_path, branch, huc_id):
     # get all fields of src_base (excluding SLOPE) and the rest from src_full
     # remove slope of src base and rename cathid to match hydroid of src_full for merge
     input_src_base = input_src_base.drop(columns=['SLOPE'])
-    input_src_base.rename(columns={'CatchId': 'HydroID'}, inplace=True)
+    input_src_base = input_src_base.rename(columns={'CatchId': 'HydroID'})
     recalc_df = input_src_base.copy()
 
     recalc_df = recalc_df.merge(
@@ -59,7 +58,7 @@ def process_branch(sub_branch_path, branch, huc_id):
         )
         return
 
-    recalc_df.rename(columns={'default_SLOPE': 'SLOPE', 'default_ManningN': 'ManningN'}, inplace=True)
+    recalc_df = recalc_df.rename(columns={'default_SLOPE': 'SLOPE', 'default_ManningN': 'ManningN'})
 
     # now continue with calculations
     recalc_df['TopWidth (m)'] = recalc_df['SurfaceArea (m2)'] / recalc_df['LENGTHKM'] / 1000
@@ -121,13 +120,11 @@ def process_branch(sub_branch_path, branch, huc_id):
                         ] = src_stage.iloc[1]
 
     # Update src_full & hydroTable
-    input_src_full.set_index(['HydroID', 'Stage'], inplace=True)
-    recalc_df.set_index(['HydroID', 'Stage'], inplace=True)
+    input_src_full = input_src_full.set_index(['HydroID', 'Stage'])
+    recalc_df = recalc_df.set_index(['HydroID', 'Stage'])
 
     # Update src_full with ALL newly calculated values, aligning on the index
-    input_src_full.update(recalc_df)
-    input_src_full.reset_index(inplace=True)
-    input_src_full['Bathymetry_source'] = pd.NA
+    input_src_full = input_src_full.update(recalc_df).reset_index()
 
     # Merge the final discharge values into the hydro table
     input_hydro_table = input_hydro_table.merge(
@@ -165,7 +162,7 @@ def process_branch(sub_branch_path, branch, huc_id):
     if 'subdiv_applied' in input_hydro_table.columns:
         input_hydro_table['subdiv_applied'] = False
 
-    input_hydro_table.drop(columns=['Discharge (m3s-1)'], inplace=True)
+    input_hydro_table = input_hydro_table.drop(columns=['Discharge (m3s-1)'])
 
     # Save updated files
     src_full_preserve_columns = [
@@ -200,7 +197,7 @@ def process_branch(sub_branch_path, branch, huc_id):
 
 
 def reset_hydro_and_src(huc_path):
-    print(huc_path)
+    # print(huc_path)
     huc_id = os.path.basename(os.path.normpath(huc_path))
     branches_path = os.path.join(huc_path, 'branches')
     branch_nos = [
