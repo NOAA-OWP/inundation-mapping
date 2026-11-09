@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## 4.10._____ - 2026-____ - [PR#1960](https://github.com/NOAA-OWP/inundation-mapping/pull/1960)
+## 4.10._____ - 2026-____ - [PR#1968](https://github.com/NOAA-OWP/inundation-mapping/pull/1968) https://github.com/NOAA-OWP/inundation-mapping/pull/1968
 
 Updates the WRDS data download script so it pulls metadata and thresholds from the WRDS API if `riverpoint = True` for a site rather than if `forecast site = True`.  This will increase the amount of sites that we produce CatFIM for.
 
