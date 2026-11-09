@@ -10,6 +10,29 @@ Updates the WRDS data download script so it pulls metadata and thresholds from t
 - `tools/catfim/generate_categorical_fim.py`: Update outputs for `load_nwm_metdata()`.
 - `tools/tools_shared_functions.py`: Added print statements to `get_metadata()`.
 - `data/wrds/download_process_wrds.py`: Implemented logging into function. Changed metadata download to get sites where `riverpoint = True` (rather than `forecast = True`) and so metadata download happens in small groups of sites rather than all at once. Cleaned up docstrings.
+## v4.10.3.2 - 2026-11-06 - [PR##1946](https://github.com/NOAA-OWP/inundation-mapping/pull/1946)
+
+Bug fix for a missing `nhdplus_path` variable when running Guam in `data/nhdplus/preprocess_nhdplus.py`.
+
+### Changes
+
+- `data/nhdplus/preprocess_nhdplus.py`: Restructured the variables that build the file paths.
+
+<br/>
+
+## 4.10.3.1 - 2026-10-21 - [PR#1939](https://github.com/NOAA-OWP/inundation-mapping/pull/1939)
+
+Refactor to meet HydroVIS needs. We are trying to have all projects that feed into HydroVIS meet the following criteria:
+
+- All scripts have a modular entry point (i.e. a function that can be imported and called to perform the core logic)
+- No inputs to said modular entry point are paths to files that must be read. Any such case should be replaced with a pandas.DataFrame passed directly. If unavoidable, and as needed for intermediate processing, then all reads should be filesystem agnostic (ideally using fsspec).
+- The modular entry point does not write output files, but rather returns a pandas.DataFrame or other in-memory Pythonic objects.
+
+### Changes
+- File reads/writes now handled only on CLI entry point (i.e. `if __name__ == "__main__"`)
+- The `optimized_flash_flow_conflation` module entry point updated to:
+  - Accept a pandas.DataFrame rather than the path to a file.
+  - Return a pandas.DataFrame rather than writing a file and return nothing directly
 <br/>
 
 ## 4.10.3.0 - 2026-10-16 - [PR#1959](https://github.com/NOAA-OWP/inundation-mapping/pull/1959)
@@ -108,7 +131,7 @@ This PR smooths out some outstanding quirks found after merging the CatFIM reorg
 - `tools/lofi/probabilistic_inundation.py`: Optimize src subdivision routine. 
 - `tools/lofi/probabilistic_version.py`: Update version of LoFI.
 - `tools/tools_shared_functions.py`: Import gval only when necessary.
-<br />
+
 
 ## v4.10.1.0 - 2026-08-21 - [PR#1869](https://github.com/NOAA-OWP/inundation-mapping/pull/1869)
 
