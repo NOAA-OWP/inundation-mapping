@@ -621,7 +621,21 @@ def __process_elevations(
 
         lid_altitude_ft = float(lid_altitude_ft)  # Ensure it's a float for processing later
 
-        if lid_altitude_ft is None or lid_altitude_ft == 0:
+        # Get additional site altitude info -> nwm_feature_data_altitude
+        # TODO: Confirm that this is a good choice for elev inputs
+        nwm_feature_data_altitude_ft = lid_sites_gdf['nwm_feature_data_altitude'].item()
+        low_altitude_threshold = 40  # ft
+
+        # Error out if the gage zero datum is zero AND the site is not a low elevation site (above 40 ft)
+        if lid_altitude_ft == 0 and nwm_feature_data_altitude_ft > low_altitude_threshold:
+            logging.warning(f'{huc} - {lid}: NWM feature altitude is {nwm_feature_data_altitude_ft} but lid altitude (gage zero datum) is {lid_altitude_ft}, so the lid altitude likely incorrect')
+            msg = f'AHPS site altitude value is invalid (value is {lid_altitude_ft})'
+            logging.warning(f"{huc} - {lid}: {msg}")
+            sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no=True)
+            continue
+
+        # Error out if the gage zero datum is None
+        if lid_altitude_ft is None:
             # Jan 2026: In previous versions not all recs stopped here when this failed
             # some continued on and ultimatly failed down the road.
             msg = f'AHPS site altitude value is invalid (value is {lid_altitude_ft})'
