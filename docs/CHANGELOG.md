@@ -1,6 +1,15 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## 4.10._____ - 2026-____ - [PR#1968](https://github.com/NOAA-OWP/inundation-mapping/pull/1968) https://github.com/NOAA-OWP/inundation-mapping/pull/1968
+
+Updates the WRDS data download script so it pulls metadata and thresholds from the WRDS API if `riverpoint = True` for a site rather than if `forecast site = True`.  This will increase the amount of sites that we produce CatFIM for.
+
+### Changes
+- `tools/catfim/catfim_sites_compare.py`: Update method for finding CatFIM output files.
+- `tools/catfim/generate_categorical_fim.py`: Update outputs for `load_nwm_metdata()`.
+- `tools/tools_shared_functions.py`: Added print statements to `get_metadata()`.
+- `data/wrds/download_process_wrds.py`: Implemented logging into function. Changed metadata download to get sites where `riverpoint = True` (rather than `forecast = True`) and so metadata download happens in small groups of sites rather than all at once. Cleaned up docstrings.
 ## v4.10.3.2 - 2026-11-06 - [PR##1946](https://github.com/NOAA-OWP/inundation-mapping/pull/1946)
 
 Bug fix for a missing `nhdplus_path` variable when running Guam in `data/nhdplus/preprocess_nhdplus.py`.
