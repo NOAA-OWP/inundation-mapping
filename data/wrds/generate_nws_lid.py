@@ -1,21 +1,20 @@
 #!/usr/bin/env python3
 
 import argparse
+import logging
 import os
+import traceback
 from datetime import datetime, timezone
 from pathlib import Path
 
 import geopandas as gpd
 import pandas as pd
-import logging
-import traceback
 from dotenv import load_dotenv
 from tools_shared_functions import aggregate_wbd_hucs, get_metadata
 
 from src.utils.io import write_geodataframe
 from src.utils.shared_functions import FIM_Helpers as fh
 from src.utils.shared_functions import setup_file_logger
-
 from utils.shared_variables import PREP_PROJECTION
 
 
@@ -67,6 +66,9 @@ def __validate_inputs(env_file, workspace, keep_blank_nwm):
 
     today = datetime.now().strftime('%Y%m%d')
     out_filepath = os.path.join(workspace, f'nws_lid_{today}.gpkg')
+
+    if os.path.exists(out_filepath):
+        raise Exception(f'Output file already exists, delete existing file and re-run: {out_filepath}')
 
     # Make sure this val is a true boolean
     keep_blank_nwm = bool(keep_blank_nwm)
@@ -171,7 +173,9 @@ def generate_nws_lid(workspace, env_file, keep_blank_nwm):
         logging.info("")
 
         # Get list of all evaluated sites not in riverpoint_meta_list
-        riverpoint_meta_list_sites = [record.get('identifiers').get('nws_lid').lower() for record in riverpoint_meta_list]
+        riverpoint_meta_list_sites = [
+            record.get('identifiers').get('nws_lid').lower() for record in riverpoint_meta_list
+        ]
         evaluated_sites = pd.read_csv(EVALUATED_SITES_CSV)['Total_List'].str.lower().to_list()
         evaluated_sites = list(set(evaluated_sites) - set(riverpoint_meta_list_sites))
 
