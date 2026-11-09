@@ -1,6 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## 4.10._____ - 2026-____ - [PR#1960](https://github.com/NOAA-OWP/inundation-mapping/pull/1960)
+
+Updates the WRDS data download script so it pulls metadata and thresholds from the WRDS API if `riverpoint = True` for a site rather than if `forecast site = True`.  This will increase the amount of sites that we produce CatFIM for.
+
+### Changes
+- `tools/catfim/catfim_sites_compare.py`: Update method for finding CatFIM output files.
+- `tools/catfim/generate_categorical_fim.py`: Update outputs for `load_nwm_metdata()`.
+- `tools/tools_shared_functions.py`: Added print statements to `get_metadata()`.
+- `data/wrds/download_process_wrds.py`: Implemented logging into function. Changed metadata download to get sites where `riverpoint = True` (rather than `forecast = True`) and so metadata download happens in small groups of sites rather than all at once. Cleaned up docstrings.
+<br/>
+
 ## 4.10.3.0 - 2026-10-16 - [PR#1959](https://github.com/NOAA-OWP/inundation-mapping/pull/1959)
 Various Pip packages changes include:
 - `Added`: cryptography, notebook, scikit-learn, xgboost 
