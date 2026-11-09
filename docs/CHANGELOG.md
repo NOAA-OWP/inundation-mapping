@@ -1,6 +1,49 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## 4.x.x.x - 2026-11-08 - [PR](https://github.com/NOAA-OWP/inundation-mapping/pull/____)
+
+This adds the first input automation workflow. One command now runs the OSM roads and bridges scripts from PR #1949 as a chain:
+
+1. pull
+2. roads per HUC
+3. bridges per HUC
+4. bridge lidar for CONUS and Alaska (optional, `--run_lidar`)
+5. DEM diffs for each region
+
+Each script is followed by a new validator, and nothing continues unless it passes. Each validated output then gets a FIM S3 copy step. The copy only previews unless `--upload_to_fim_s3` is given, and it refuses to overwrite existing S3 folders. Pre-flight checks stop unsafe runs before any long step. `--resume` and `--from_step` continue a long run after a failure.
+
+The workflow never edits `src/bash_variables.env`. Its final report lists the lines to change, and the pre-clip command to run by hand.
+
+The runner, validator base, region helpers and S3 copy step are shared, so later input workflows (DEMs, buildings, NFHL, and so on) can reuse them. No data script changed.
+
+See [`workflows/workflow_automation.md`](../workflows/workflow_automation.md) for how to run it, the validation strategy and the next steps.
+
+### Additions
+- `workflows/workflow_automation.md`: guide to these changes, how to run them, the validation strategy and next steps for further automation.
+- `workflows/shared/workflow_runner.py`: step runner with validation gates, resume and restart-from-step, step listing, a state file and a Markdown report. Also a read-only reader for `KEY=value` files such as `bash_variables.env`.
+- `workflows/shared/regions.py`: the four regions (CONUS, Alaska, Guam, American Samoa) with their HUC rule, CRS, DEM folders and `bash_variables.env` names.
+- `workflows/shared/s3_copy.py`: the FIM S3 copy step. It previews by default. Uploads have an overwrite guard and a check that every file arrived.
+- `workflows/validators/validator_base.py`: shared check results, JSON reports, the HUC coverage rule, GeoParquet checks and baseline comparisons.
+- One validator per script. Each can also run on its own and exits 0 or 1:
+  - `workflows/validators/validate_pull_osm.py`
+  - `workflows/validators/validate_make_osm_roads_per_huc.py`
+  - `workflows/validators/validate_make_osm_bridges_per_huc.py`
+  - `workflows/validators/validate_make_rasters_using_lidar.py`
+  - `workflows/validators/validate_make_dem_dif_for_bridges.py`
+- The OSM workflow, its pre-flight checks and its final report:
+  - `workflows/inputs/osm_workflow.py`: the parent command
+  - `workflows/inputs/osm_roads_workflow.py` and `workflows/inputs/osm_bridges_workflow.py`: the roads and bridges sub-workflows, each also runnable on its own
+  - `workflows/inputs/osm_common.py`: the shared context, options, pre-flight checks and report
+- `workflows/tests/`: unit tests for the runner, regions, validators, step building, pre-flight checks, report, S3 copy, log patterns and command lines.
+
+### Changes
+- `config/workflows_params.template.env`: new "Inputs workflows" section with two settings:
+  - `FIM_S3_ROOT_INPUTS_PATH`, `notset` by default
+  - `OSM_DEM_DIFF_EXTRA_DEM_DIRS_ALASKA`, the North Alaska IfSAR DEM folder for the Alaska DEM diffs
+
+<br/>
+
 ## 4.x.x.x - 2026-10-13 - [PR#1949](https://github.com/NOAA-OWP/inundation-mapping/pull/1949)
 
 ## Summary

@@ -32,3 +32,4 @@ config/*.swp
 **checkpoint.ipynb
 
 .git_local_repo_credentials
+.idea
