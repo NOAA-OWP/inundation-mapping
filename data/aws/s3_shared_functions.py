@@ -362,7 +362,7 @@ def get_file_list(s3_client, bucket_name, s3_parent_src_folder_path, list_of_sea
 
 
 # -------------------------------------------------
-# NOTE:  not fully tested yet as of Oct 16, 2025 - this is a temp unfinished placeholder
+# NOTE: tested and works as of Sept 9, 2026
 def get_folder_list(s3_client, bucket_name, s3_src_folder_path):
     """
     Process:
@@ -804,7 +804,7 @@ def download_files_by_search_key(
 
         if num_files_downloaded == 0:
             print(
-                "*** Warning: Downloading file using search key of 'search_key' found zero files to download."
+                f"*** Warning: Downloading file using search key of '{search_key}' and found zero files to download."
                 " Check the search key value and/or pathing"
             )
 

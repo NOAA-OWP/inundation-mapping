@@ -34,51 +34,49 @@ USGS Gages Acceptance Criteria:
 
 If you have a question about why a specific point is being excluded, you can check the "Status" attribute of the CatFIM point to see what issue might be occurring.
 
-TODO: Add a table of common status messages and what they mean 
-
-| Status | Explanation |
-|---|---|
-| Status | Explanation |
-| Status | Explanation |
-
 If there is a question or concern about a specific point, feel free to reach out to GID via Slack or VLAB.
 
 ## Running CatFIM
 ### Who can run CatFIM?
 CatFIM can only be run by systems that can access the WRDS API, which is restricted to computers on the NOAA network. If you are outside the NOAA network and would like to run code from inundation-mapping, see the README in NOAA-OWP/inundation-mapping.
 
-
 ### Commands
-Stage-based example with step system and pre-downloaded metadata: 
 
-`python /foss_fim/tools/generate_categorical_fim.py -f /outputs/Rob_catfim_test_1 -jh 1 -jn 10 -ji 8 -t /data/docker_test_1 -me '/data/nwm_metafile.pkl' -sb -step 2`
+Flow-based example:
 
-Flow-based example with HUC list:
+`fim_version="4_9_20_1" ; python /foss_fim/tools/catfim/generate_categorical_fim.py -f /data/previous_fim/hand_${fim_version}/ -j 1 -t /temp/test5_hand -o -lh "12100202" -e data/config/catfim.env -ct fb -mod handhrp`
 
-`python /foss_fim/tools/catfim/generate_categorical_fim.py -f /data/previous_fim/fim_4_5_2_11/ -jh 4 -jn 2 -t /data/hand_4_5_11_1_catfim_datavis -o -lh '06010105 17110004 10300101 19020401 19020302'`
+Stage-based example (with specified meta file and threshold file):
 
+`fim_version="4_9_20_1" ; python /foss_fim/tools/catfim/generate_categorical_fim.py -f /data/previous_fim/hand_${fim_version}/ -j 1 -t /projects/catfim_hecras_fb/test_outputs/test5 -o -lh "12100202" -e data/config/catfim.env -ct sb -tf '/data/inputs/wrds/WRDS_Thresholds_20260723.pkl' -mf '/data/inputs/wrds/WRDS_Metadata_20260723.pkl'`
 
 ### Arguments
 - `-f`, `--fim_run_dir`: Path to directory containing HAND outputs, e.g. /data/previous_fim/fim_4_5_2_11
-- `-e`, `--env_file`: OPTIONAL: Docker mount path to the environment file. Defaults to /data/config/fim_enviro_values.env
-- `-jh`, `--job_number_huc`: OPTIONAL: Number of processes to use for HUC scale operations. HUC and inundation job numbers should multiply to no more than one less than the CPU count of the machine. CatFIM sites generally only have 2-3 branches overlapping a site, so this number can be kept low (2-4). Defaults to 1.
-- `-jn`, `--job_number_inundate`: OPTIONAL: Number of processes to use for inundating HUC and inundation job numbers should multiply to no more than one less than the CPU count of the machine. Defaults to 1.
-- `-ji`, `--job_number_intervals`: OPTIONAL: Number of processes to use for inundating multiple intervals in stage-based inundation and interval job numbers should multiply to no more than one less than the CPU count of the machine. Defaults to 1.
-- `-sb`, `--is_stage_based`: Run stage-based CatFIM instead of flow-based? Add this -sb param to make it stage based, leave it off for flow based.
-- `-t`, `--output_folder`: OPTIONAL: Target location, Where the output folder will be. Defaults to /data/catfim/
+- `-ct`, `--catfim-type`: Whether to run flow-based (`fb`) or stage-based (`sb`) CatFIM.
+- `-t`, `--output_folder`: Target location, where the output folder will be. Defaults to /data/catfim/
+- `-e`, `--env-file`: OPTIONAL: Docker mount path to the environment file. Defaults to /data/config/fim_enviro_values.env
+- `-jh`, `--number-jobs`: OPTIONAL: Number of HUCs to process simultaneously.
 - `-s`, `--search`: OPTIONAL: Upstream and downstream search in miles. How far up and downstream do you want to go? Defaults to 5.
-- `-lh`, `--lst_hucs`: OPTIONAL: Space-delimited list of HUCs to produce CatFIM for. Defaults to all HUCs.
-- `-mc`, `--past_major_interval_cap`: OPTIONAL: Stage-Based Only. How many feet past major do you want to go for the interval FIMs? of the machine. Defaults to 5.
-- `-step`: 'OPTIONAL: By adding a number here, you may be able to skip levels of processing. The number you submit means it will start at that step. e.g. step of 2 means start at step 2 which for flow based is the creating of tifs and gpkgs. Note: This assumes those previous steps have already been processed and the files are present. Defaults to 0 which means all steps processed.
-- `-me`, `--nwm_metafile`: OPTIONAL: If you have a pre-existing nwm metadata pickle file, you can path to it here.  NOTE: This parameter is for quick debugging only and should not be used in a production mode.
-- `-cv`, `--catfim-version`: OPTIONAL: The version of the code that was used to run the product. This value is included in the output gpkgs and csvs in a field named product_version. If you put in a value here, we will add the phrase CatFIM to the front of it. ie) 2.0 becomes CatFIM, 2.2 becomes CatFIM, etc. Defaults to blank. 
-- `-hv`, `--model-version`: OPTIONAL: The version of the HAND data outputs that was used to run the product. This value is included in the output gpkgs and csvs in a field named model_version. If you put in a value here, we will change dots to underscores only. This should be a HAND version number only and not include the word HAND_ ie) 4.5.11.1 becomes 4_5_11_1, etc. Defaults to blank.
+- `-lh`, `--lst-hucs`: OPTIONAL: Space-delimited list of HUCs to produce CatFIM for. Defaults to all HUCs.
+- `-mc`, `--past-major-interval-cap`: OPTIONAL: Stage-Based Only. How many feet past major do you want to go for the interval FIMs? of the machine. Defaults to 5.
+- `-mf`, `--nwm-meta-file`: OPTIONAL: If you have a pre-existing nwm metadata pickle file, you can path to it here.
+- `-gmf`, `--get-new-meta-data`: OPTIONAL: Whether or not to download new metadata from WRDS. Only works on OWP servers, not AWS.
+- `-tf`, `--threshold-file`: OPTIONAL: If you have a pre-existing threshold file, you can path to it here. Providing this manual input will prevent the WRDS API from being queried for thresholds.
+- `-gtf`, `--get-new-threshold-data`: OPTIONAL: Whether or not to download new metadata from WRDS. Only works on OWP servers, not AWS.
+- `-mod`, `--model`: OPTIONAL: Define which model(s) to run between HAND and HEC-RAS. Currently only for flow-based CatFIM.
+  - `hand` : run HAND only (default)
+  - `hrp` : run HEC-RAS only - with model preference (use one HEC-RAS model per site)
+  - `hr` : run HEC-RAS only - without model preference (use ALL available HEC-RAS models, not recommended for large runs)
+  - `handhrp` : run HAND and HEC-RAS - with model preference (use one HEC-RAS model per site, prioritize HEC-RAS over HAND
+  - `handhr` : run HAND and HEC RAS - without model preference (use ALL available HEC-RAS models, keep HEC-RAS and HAND sites, not recommended for large runs)
+- `-hf`, `--preprocessed-hecras-folder`: OPTIONAL: Path to the HEC-RAS files directory (generated via catfim_hecras_preprocessing.py). e.g.: /data/catfim/hecras/catfim_hecras_preprocessing_20260910 . Default value comes from bash_variables. Must contain the following files: sites_with_hecras_models.csv and combined_controls_output.csv
+- `-fp`, `--flows2fim-software-path`: OPTIONAL: Path to the flows2fim software.
+- `-sp`, `--skip-processing`: OPTIONAL: If this flag is set, it will set up all of the initial 'pre-processing' steps, but will  not continue with the processing of the hucs or post processing. This allows this tool to be used as either a full fun, or just do post processing and let other tools like AWS do process hucs and post processing.
 - `-o`, `--overwrite`: OPTIONAL: Overwrite files.
 
 ## Running CatFIM Site Comparison
 ### What is CatFIM Site Comparison?
 CatFIM site comparison is an internal tool that allows us to compare multiple different versions of CatFIM outputs. 
-
 
 ### Commands
 
@@ -88,7 +86,6 @@ Generating geopackages:
 Multiple comparisons:
 `python /foss_fim/tools/catfim/catfim_sites_compare.py -p '/data/catfim/hand_4_5_11_1_stage_based/ /data/catfim/fim_4_5_2_11_stage_based/ /data/catfim/hand_4_5_11_1_flow_based/ /data/catfim/fim_4_5_2_11_flow_based/' -o '/test_outputs'`
 
-
 ### Arguments
 
 - `-p`, `--path-list`: Space-delimited list of CatFIM output paths from which to compile sites. Paths MUST have the version number in it (i.e. `4_5_11_1`) because the version number is used to put the versions in sequential order.
@@ -96,6 +93,26 @@ Multiple comparisons:
 - `-k`, `--keep-differences-only`: OPTIONAL: Option to keep only changed sites in the comparison files.
 - `-g`, `--generate-geopackages`: OPTIONAL: Option to generate spatial difference maps and a points geopackage for the version comparisons.
 - `-d`, `--debug-mode`: OPTIONAL: Debug mode. Will only iterate through 100 records while generating geopackages.
+
+## Running CatFIM HEC-RAS Pre-Processing
+
+### What is CatFIM HEC-RAS preprocessing?
+
+It is the processing that occurs to pre-download and subset the controls CSVs required to run HEC-RAS in flow-based CatFIM. It only takes about 8 minutes.
+
+### Example Commands
+
+`python /foss_fim/tools/catfim/catfim_hecras_preprocessing.py -o '/projects/catfim_hecras_fb/hecras_preprocess_test6'`
+ 
+### Arguments
+
+- `-o`, `--output-folder-location`: REQUIRED: Target location to create the catfim_hecras_preprocessing folder to store final outputs. A temp folder will also be created in the catfim_hecras_preprocessing dir. e.g.: /projects/catfim_hecras_fb/test_outputs/final_outputs.
+- `-tf`, `--threshold-file`: OPTIONAL: Filepath to the threshold pkl file. If not provided, will use the default from the env file. e.g.: /data/inputs/wrds/thresholds_20260413.pkl
+- `-mf`, `--nwm-meta-file`: OPTIONAL: Filepath to nwm metadata pickle file. If not provided, will use the default from the env file. e.g.: /data/inputs/wrds/nwm_metadata_20260413.pkl
+- `-r`, `--ripple-filename`: OPTIONAL: Folder from which to get Ripple model inputs.
+- `-f`, `--flows2fim-software-path`: OPTIONAL: Path to the flows2fim software.
+- `-w`, `--ripple-model-status-path`: OPTIONAL: Path to the ripple model status file.
+- `-l`, `--lst-models`: OPTIONAL: Space-delimited list of models to preprocess HEC-RAS for. Defaults to all models in the given ripple folder.
 
 ## Visualization Tips & Tricks
 
