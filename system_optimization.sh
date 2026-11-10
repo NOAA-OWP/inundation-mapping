@@ -102,7 +102,7 @@ export OGR_DISABLE_READDIR_ON_OPEN=YES
 # --- VECTOR PERFORMANCE (Optimized for 2-20 MiB GeoPackages and Parquet files) ---
 # Allocate 32MB per process. This guarantees 
 # that the entire GeoPackage database index and data pages fit entirely in RAM cache.
-export OGR_SQLITE_CACHE=32
+export OGR_SQLITE_CACHE=32MB
 export OGR_SQLITE_SYNCHRONOUS=OFF
 
 # =====================================================================
@@ -151,7 +151,7 @@ export ARROW_SIMD_LEVEL=AVX2
 # =====================================================================
 # --- LOW-LEVEL LINUX & GLIBC MEMORY ALLOCATION TUNING ---
 
-    # 1. Prevent Virtual Memory Arena Proliferation (Crucial for Multi-Processing)
+# 1. Prevent Virtual Memory Arena Proliferation (Crucial for Multi-Processing)
 # By default, glibc creates up to 8 memory arenas per core (64 cores = 512 arenas!).
 # This forces glibc to limit memory pools to 2 per process, stopping memory leaks.
 export MALLOC_ARENA_MAX=2

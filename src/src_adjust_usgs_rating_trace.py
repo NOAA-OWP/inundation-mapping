@@ -301,6 +301,8 @@ def branch_proc_list(usgs_df, huc_dir, is_debug, branch_jobs):
     an MP.
     '''
 
+    logging.debug("Starting processing of branch proc list")
+
     huc = os.path.basename(os.path.normpath(huc_dir))
     usgs_df['huc'] = usgs_df['huc'].astype(int).astype(str).str.zfill(8)
     usgs_df['levpa_id'] = usgs_df['levpa_id'].astype(int).astype(str)
@@ -351,6 +353,7 @@ def branch_proc_list(usgs_df, huc_dir, is_debug, branch_jobs):
         )
 
         # --------------------------
+        logging.debug(f"loading {dem_reaches_path}")
         df = gpd.read_parquet(dem_reaches_path)
         usgs_elev = usgs_df[((usgs_df['huc'] == huc) & (usgs_df['levpa_id'] == branch_id))]
 
@@ -446,24 +449,33 @@ def branch_proc_list(usgs_df, huc_dir, is_debug, branch_jobs):
         procs_list.append(args)
 
     # multiprocess all available branches
-    logging.debug(f"Calculating new SRCs for {len(procs_list)} branches using {branch_jobs} jobs...")
-    map_output = None
+    results = []
     # TODO: Nov 2026: This should be ugpraded, mostly for tracing, debugging and logs
     with Pool(processes=branch_jobs) as pool:
-        map_output = pool.imap(_run_update_rating_curve, procs_list)
+        for map_output in pool.imap(_run_update_rating_curve, procs_list):
+            results.append(map_output)
+
+    in_error = False
 
     # TODO: Nov 2026: This is temp as with this MP setup, child workers can not write to logs
     # so we will send back log text and an error bool so we can shut down the downstream tools if it fails.
     # Once we do, we can use logging.info, .debug, .warning, etc
-    for log_text_list, has_error in map_output:
+    for log_text_list, has_error in results:
         if has_error:
             for item in log_text_list:
                 logging.error(item)  # Note.. error type
             # As we are outside an MP, we can use sys.exit(1) to stop downstream code processing
-            sys.exit(1)
+            in_error = True
         else:
             for item in log_text_list:
-                logging.info(item)  # Note.. info type
+                logging.debug(item)  # Note.. debug type (logs only)
+
+    # logging.debug("Processing completed with log updates")
+
+    if in_error:
+        print("Stopping processing")
+        sys.exit(1)
+
 
 def run_prep(
     huc_dir, usgs_rc_filepath, usgs_sites_filepath, nwm_recurr_filepath, is_debug, branch_jobs
@@ -480,8 +492,8 @@ def run_prep(
     log_dir = os.path.join(huc_dir, "logs", "src_calibrations")
     begin_time = dt.datetime.now()
     # Create log file for processing records
-    log_file_path = setup_file_logger(log_dir, "log_usgs_rc_src_adjust")
-    logging.info("Start USGS rating curve adj")
+    log_file_path = setup_file_logger(log_dir, "usgs_rc_src_adjust")
+    logging.debug("Start USGS rating curve adj")
     print(f"Logs will be saved to {log_file_path}")    
     logging.debug('START TIME: ' + str(begin_time))
     logging.debug('#########################################################')
@@ -493,7 +505,7 @@ def run_prep(
         logging.info(f'Skipping... No USGS calibration points exist (usgs_elev_table.csv) for huc {huc}')
         return
 
-    logging.info('Reading USGS gage HAND elevation from usgs_elev_table.csv file...')
+    logging.debug('Reading USGS gage HAND elevation from usgs_elev_table.csv file...')
     usgs_elev_df = pd.read_csv(
         os.path.join(huc_dir, csv_name), dtype={'location_id': object, 'levpa_id': object}
     )
@@ -533,18 +545,18 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Adjusts rating curve with database of USGS rating curve (calculated WSE/flow).'
     )
-    parser.add_argument('-huc_dir', '--huc_dir', help='directory of a HUC run', required=True)
+    parser.add_argument('-huc-dir', '--huc-dir', help='directory of a HUC run', required=True)
     parser.add_argument(
-        '-usgs_rc', '--usgs-rc-filepath', help='Path to USGS rating curve csv file', required=True
+        '-usgs-rc', '--usgs-rc-filepath', help='Path to USGS rating curve csv file', required=True
     )
     parser.add_argument(
-        '-usgs_sites',
+        '-usgs-sites',
         '--usgs-sites-filepath',
         help='Path to USGS acceptable sites for rating curves file',
         required=True,
     )
     parser.add_argument(
-        '-nwm_recur',
+        '-nwm-recur',
         '--nwm-recurr-filepath',
         help='Path to NWM recur file (multiple NWM flow intervals). NOTE: assumes flow units are cfs!!',
         required=True,

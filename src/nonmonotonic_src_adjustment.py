@@ -8,8 +8,9 @@ import datetime as dt
 import logging
 import os
 import traceback
-from argparse import ArgumentParser
+import sys
 
+from argparse import ArgumentParser
 from os.path import join
 
 import numpy as np
@@ -266,14 +267,14 @@ def process_nonmonotonic_src_adjustment(huc_dir, strm_order):  # bankfull_flows_
     """
 
     # Create a time var to log run time
-    begin_time = dt.datetime.now(dt.timezone.utc)
+    begin_time = dt.datetime.now()
 
     # Set up log file
     log_dir = os.path.join(huc_dir, "logs", "src_calibrations")
     log_file_path = setup_file_logger(log_dir, f"subdiv_src_nonmonotonic_src_adjustment")
 
     print(f"Logs will be saved to {log_file_path}")
-    logging.info("Start of processing nonmonotonic adjs")    
+    logging.debug("Start of processing nonmonotonic adjs")    
     logging.debug('START TIME: ' + str(begin_time))
     logging.debug('#########################################################')
 
@@ -286,7 +287,7 @@ def process_nonmonotonic_src_adjustment(huc_dir, strm_order):  # bankfull_flows_
         logging.critical(traceback.format_exc())
         print("Aborting....")
         logging.info("")
-        raise
+        sys.exit(1)
     finally:
         logging.info("End of processing nonmonotonic adjs")
         ## Record run time and close log file
@@ -295,13 +296,6 @@ def process_nonmonotonic_src_adjustment(huc_dir, strm_order):  # bankfull_flows_
         tot_run_time = end_time - begin_time
         logging.debug('TOTAL RUN TIME: ' + str(tot_run_time))        
 
-    ## Record run time and close log file
-    # end_time = dt.datetime.now(dt.timezone.utc)
-    # log_text += 'END TIME: ' + str(end_time) + '\n'
-    # tot_run_time = end_time - begin_time
-    # log_text += 'TOTAL RUN TIME: ' + str(tot_run_time).split('.')[0]
-    # log_file.close()
-    logging.info("End of processing nonmonotonic adjs")
 
 
 if __name__ == '__main__':
@@ -318,14 +312,14 @@ if __name__ == '__main__':
 
     Sample Usage
     ----------
-    python3 /foss_fim/src/nonmonotonic_src_adjustment.py -fim_dir /outputs/fim_run_dir
+    python3 /foss_fim/src/nonmonotonic_src_adjustment.py -fim-dir /outputs/fim_run_dir
          -sor 4
     """
     parser = ArgumentParser(description="nonmonotonic SRC Adjustment")
-    parser.add_argument('-huc_dir', '--huc_dir', help='Path to FIM output dir', required=True, type=str)
+    parser.add_argument('-huc-dir', '--huc-dir', help='Path to FIM output dir', required=True, type=str)
     parser.add_argument(
         '-sor',
-        '--strm_order',
+        '--strm-order',
         help="stream order on or higher for which nonmonotonic SRC adjustment is applied",
         default=4,
         required=False,
@@ -333,15 +327,11 @@ if __name__ == '__main__':
     )
     # parser.add_argument(
     #     '-flows',
-    #     '--bankfull_flows_file',
+    #     '--bankfull-flows-file',
     #     help="Path to bankfull flow values per feature-id",
     #     required=True,
     #     type=str,
     # )
     args = vars(parser.parse_args())
 
-    huc_dir = args['huc_dir']
-    strm_order = args['strm_order']
-    #  bankfull_flows_file = args['bankfull_flows_file']
-
-    process_nonmonotonic_src_adjustment(huc_dir, strm_order)  # bankfull_flows_file,
+    process_nonmonotonic_src_adjustment(**args)  # bankfull_flows_file,

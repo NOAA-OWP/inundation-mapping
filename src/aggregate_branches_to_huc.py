@@ -7,6 +7,7 @@ import os
 # import re
 import traceback
 import warnings
+import sys
 
 # from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime
@@ -640,7 +641,8 @@ def aggregate_by_huc(
             huc_id,
             errMsg,
         )
-        raise ex  # We need to re-raise
+        # raise ex  # We need to re-raise
+        sys.exit(1)
 
     print(f"ended: {datetime.now().strftime('%m/%d/%Y %H:%M:%S')}")
 
@@ -651,11 +653,11 @@ if __name__ == '__main__':
     # in post processing.
 
     parser = argparse.ArgumentParser(description='Aggregates usgs_elev_table.csv at the HUC level')
-    parser.add_argument('-huc_dir', '--huc_dir', help='HUC Directory', required=True)
+    parser.add_argument('-huc-dir', '--huc-dir', help='HUC Directory', required=True)
     # parser.add_argument('-i', '--hucNumber', help='hucNumber to be postprocessed', required=False)
     parser.add_argument(
         '-elev',
-        '--usgs_elev_flag',
+        '--usgs-elev-flag',
         help='Perform aggregate on branch usgs elev tables',
         required=False,
         default=False,
@@ -663,7 +665,7 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '-htable',
-        '--hydro_table_flag',
+        '--hydro-table-flag',
         help='Perform aggregate on branch hydrotables',
         required=False,
         default=False,
@@ -671,7 +673,7 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '-src',
-        '--src_cross_flag',
+        '--src-cross-flag',
         help='Perform aggregate on branch src crosswalk files',
         required=False,
         default=False,
@@ -679,7 +681,7 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '-ras',
-        '--ras_elev_flag',
+        '--ras-elev-flag',
         help='Perform aggregate on branch ras2fim elev tables',
         required=False,
         default=False,
@@ -687,7 +689,7 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '-bridge',
-        '--bridge_flag',
+        '--bridge-flag',
         help='Perform aggregate on branch bridge centroid files',
         required=False,
         default=False,
@@ -695,7 +697,7 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '-road',
-        '--road_flag',
+        '--road-flag',
         help='Perform aggregate on branch roads fimpact files',
         required=False,
         default=False,
@@ -704,7 +706,7 @@ if __name__ == '__main__':
 
     parser.add_argument(
         '-building',
-        '--building_flag',
+        '--building-flag',
         help='Perform aggregate on branch buildings fimpact files',
         required=False,
         default=False,
@@ -712,5 +714,4 @@ if __name__ == '__main__':
     )
 
     args = vars(parser.parse_args())
-
     aggregate_by_huc(**args)

@@ -58,12 +58,14 @@ class GageCrosswalk(object):
         '''
         if self.gages.empty:
             print(f'There are no gages for branch {self.branch_id}')
-            os._exit(0)
+            # os._exit(0)
+            return
         # Spatial join to fim catchments
         self.catchment_sjoin(input_catchment_filename, huc_CRS)
         if self.gages.empty:
             print(f'There are no gages for branch {self.branch_id}')
-            os._exit(0)
+            # os._exit(0)
+            return            
 
         # Snap to dem derived flow lines
         self.snap_to_dem_derived_flows(input_flows_filename)

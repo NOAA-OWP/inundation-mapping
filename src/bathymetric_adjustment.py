@@ -105,6 +105,7 @@ def correct_rating_for_ehydro_bathymetry(huc_dir, huc, bathy_file_ehydro):
                 .apply(ohrfc_bathy_precedence, include_groups=False)
                 .reset_index(drop=True)
             )
+            # TODO: Nov 2026: Added a card for this fix  (1972)
             logging.warning(f"  Branch: {branch} - pd.errors.MergeError exception found."
                             " PS.. do we need to check something to avoid an exception?")
 
@@ -413,7 +414,8 @@ def apply_src_adjustment_for_bathymetry(huc_dir, huc, strm_order, bathy_file_ehy
     except Exception:
         logging.error(f"An error has occurred while applying src bathy adj for huc {huc}")
         logging.error(traceback.format_exc())
-        raise  # Yes.. re-raise to stop downstream processing
+        # raise  # Yes.. re-raise to stop downstream processing
+        sys.exit(1)
 
     if ai_toggle == 1:
         try:
@@ -428,7 +430,8 @@ def apply_src_adjustment_for_bathymetry(huc_dir, huc, strm_order, bathy_file_ehy
             # Then it can be scanned in the error system based on solely the "tee" file
             logging.error(f"An error has occurred while applying AI-based bathy rating curve adj for huc {huc}")
             logging.error(traceback.format_exc())
-            raise  # Yes.. re-raise to stop downstream processing
+            # raise  # Yes.. re-raise to stop downstream processing
+            sys.exit(1)
 
 # -------------------------------------------------------
 def process_bathy_adjustment(
@@ -464,8 +467,8 @@ def process_bathy_adjustment(
     log_file_path = setup_file_logger(log_dir, f"bathymetric_adjustment_{output_suffix}")
 
     print(f'Writing progress to log file here: {log_file_path}')
-    logging.info("Start bathmetric adjustments")
-    logging.info("")
+    logging.debug("Start bathmetric adjustments")
+    logging.debug("")
     begin_time = dt.datetime.now(dt.timezone.utc)    
 
     # Exit program if the bathymetric data doesn't exist
@@ -487,7 +490,7 @@ def process_bathy_adjustment(
 
     apply_src_adjustment_for_bathymetry(huc_dir, huc, strm_order, bathy_file_ehydro, bathy_file_aibased, ai_toggle)
     
-    logging.info("End bathymetric adjustments")
+    logging.debug("End bathymetric adjustments")
 
     end_time = dt.datetime.now(dt.timezone.utc)
     logging.debug(f'END TIME: {end_time}')
@@ -524,31 +527,31 @@ if __name__ == '__main__':
 
     Sample Usage
     ----------
-    python3 /foss_fim/src/bathymetric_adjustment.py -fim_dir /outputs/fim_run_dir
-        -bathy_eHydro /data/inputs/bathymetry/bathymetric_adjustment_data.gpkg
-        -bathy_aibased /data/inputs/bathymetry/ml_outputs_v1.01.parquet
+    python3 /foss_fim/src/bathymetric_adjustment.py -fim-dir /outputs/fim_run_dir
+        -bath-_eHydro /data/inputs/bathymetry/bathymetric_adjustment_data.gpkg
+        -bathy-aibased /data/inputs/bathymetry/ml_outputs_v1.01.parquet
         -buffer 5000 -wbd /data/inputs/wbd/WBD_National_EPSG_5070_WBDHU8_clip_dem_domain.gpkg
     """
     parser = ArgumentParser(description="Bathymetric Adjustment")
-    parser.add_argument('-huc_dir', '--huc_dir', help='HUC Directory', required=True, type=str)
+    parser.add_argument('-huc-dir', '--huc-dir', help='HUC Directory', required=True, type=str)
     parser.add_argument(
         '-sor',
-        '--strm_order',
+        '--strm-order',
         help="stream order on or higher for which AI-based bathymetry data is applied",
         default=4,
         required=False,
         type=int,
     )
     parser.add_argument(
-        '-bathy_ehydro',
-        '--bathy_file_ehydro',
+        '-bathy-ehydro',
+        '--bathy-file-ehydro',
         help="Path to geopackage with preprocessed eHydro bathymetic data",
         required=True,
         type=str,
     )
     parser.add_argument(
-        '-bathy_aibased',
-        '--bathy_file_aibased',
+        '-bathy-aibased',
+        '--bathy-file-aibased',
         help="Path to parquet file with preprocessed AI-based bathymetic data",
         required=True,
         type=str,
@@ -563,7 +566,7 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '-ait',
-        '--ai_toggle',
+        '--ai-toggle',
         help='Toggle to apply ai_based bathymetry, ait = 1',
         required=False,
         default=1,

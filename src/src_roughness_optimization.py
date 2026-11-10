@@ -112,7 +112,7 @@ def update_rating_curve(
         + '  branch id: '
         + str(branch_id)
     )
-    print(msg)
+    # print(msg)
     log_text.append(msg)
 
     try:

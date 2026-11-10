@@ -1,4 +1,5 @@
-#!/bin/bash -e
+#!/bin/bash
+set -e
 # The addition of the -e tells it to stop on fail and is critical
 ### Yes.. not all of our .sh files are the same with the -e flag, be design.
 
@@ -430,23 +431,30 @@ if [[ -f "${deny_unit_list}" ]]; then
     echo -e "${startDiv}Remove files ${hucNumber}"
     date -u
     Tstart  # TODO: Do we need a tstart and count on this
-    $srcDir/outputs_cleanup.py -d $tempHucDataDir -l $deny_unit_list -b $hucNumber
+    python3 $srcDir/outputs_cleanup.py -d $tempHucDataDir -l $deny_unit_list -b $hucNumber
     Tcount
 fi
 
+# -------------------
 ## ADJUST CALIBRATION
 ## call src adjustments..Pass False as an argument to flag it is not a rerun of calibration. 
+date -u
+Tstart
 $srcDir/calibrate_rating_curves.sh "False" $jobBranchLimit $hucNumber
+Tcount
 
+# -------------------
 ## Start the local csv branch list
 echo -e $startDiv"Generating Branch List that have successfully completed"
-$srcDir/generate_branch_list_csv.py -o $branch_list_csv_file -u $hucNumber
+python3 $srcDir/generate_branch_list_csv.py -o $branch_list_csv_file -u $hucNumber
 
+# -------------------
 echo "---- HUC $hucNumber - branches have now been processed"
 Calc_Duration "Duration for processing branches : " $branch_processing_start_time
 echo
 total_branches=$(wc -l < $branch_list_csv_file)
 
+# -------------------
 # WRITE TO LOG FILE CONTAINING ALL HUC PROCESSING TIMES
 total_duration_display="${hucNumber},$(Calc_Time "${huc_start_time}"),$(Calc_Time_Minutes_in_Percent "${huc_start_time}"),${total_branches},${branch0},${branch0_percent},${branches},${branches_percent}"
 echo -e "${total_duration_display}" >> "${tempHucDataDir}/processing_time_${hucNumber}.txt"

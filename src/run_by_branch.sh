@@ -1,4 +1,5 @@
-#!/bin/bash -e
+#!/bin/bash
+set -e
 # We ... DO ....  the -e here which means stop execution immediately on fail.
 # We want this to auto fail as it is logging and error handling are done by its parent
 # of process_huc.sh
@@ -190,5 +191,3 @@ if [[ -f "${deny_branches_list}" ]]; then
     )
     python3 "${srcDir}/outputs_cleanup.py" "${args[@]}"
 fi
-
-echo

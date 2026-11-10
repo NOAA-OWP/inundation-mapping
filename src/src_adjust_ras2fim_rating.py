@@ -267,10 +267,13 @@ def branch_proc_list(ras_df, huc_dir, is_debug, branch_jobs):
     # multiprocess all available branches
     logging.debug(f"Calculating new SRCs for {len(procs_list)} branches using {branch_jobs} jobs...")
 
-    map_output = None
+    results = []
     # TODO: Nov 2026: This should be ugpraded, mostly for tracing, debugging and logs    
     with Pool(processes=branch_jobs) as pool:
-        map_output = pool.imap(_run_update_rating_curve, procs_list)
+        for map_output in pool.imap(_run_update_rating_curve, procs_list):
+            results.append(map_output)
+
+    in_error = False
 
     # TODO: Nov 2026: This is temp as with this MP setup, child workers can not write to logs
     # so we will send back log text and an error bool so we can shut down the downstream tools if it fails.
@@ -280,10 +283,16 @@ def branch_proc_list(ras_df, huc_dir, is_debug, branch_jobs):
             for item in log_text_list:
                 logging.error(item)  # Note.. error type
             # As we are outside an MP, we can use sys.exit(1) to stop downstream code processing
-            sys.exit(1)
+            in_error = True
         else:
             for item in log_text_list:
-                logging.info(item)  # Note.. info type
+                logging.debug(item)  # Note.. debug type (logs only)
+
+    # logging.debug("Processing completed with log updates")
+
+    if in_error:
+        print("Stopping processing")
+        sys.exit(1)
 
 
 def run_prep(huc_dir, ras_rc_filename, nwm_recurr_filepath, is_debug, branch_jobs):
@@ -349,15 +358,15 @@ if __name__ == '__main__':
         description='Adjusts rating curve with database of RAS2FIM reach average rating curves'
         '(calculated WSE/flow).'
     )
-    parser.add_argument('-huc_dir', '--huc-dir', help='directory of a HUC run.', required=True)
+    parser.add_argument('-huc-dir', '--huc-dir', help='directory of a HUC run.', required=True)
     parser.add_argument(
-        '-ras_rc',
+        '-ras-rc',
         '--ras-rc-filename',
         help='CSV file name for RAS2FIM rating curve (reach avg)',
         required=True,
     )
     parser.add_argument(
-        '-nwm_recur',
+        '-nwm-recur',
         '--nwm-recurr-filepath',
         help='Path to NWM recur file (multiple NWM flow intervals). NOTE: assumes flow units are cfs!!',
         required=True,

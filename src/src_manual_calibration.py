@@ -177,18 +177,14 @@ if __name__ == '__main__':
     ## Parse arguments.
     parser = argparse.ArgumentParser(description='Manually calibrate rating curve')
     parser.add_argument(
-        '-huc_dir', '--huc_dir', help='Parent directory of FIM-required datasets.', required=True
+        '-huc-dir', '--huc-dir', help='Parent directory of FIM-required datasets.', required=True
     )
     parser.add_argument(
-        '-calb_file', '--calibration-file', help='Path to manual calibration file', required=True
+        '-calb-file', '--calibration-file', help='Path to manual calibration file', required=True
     )
 
-    # args = parser.parse_args()
     args = vars(parser.parse_args())
-    huc_dir = args['huc_dir']
-    calibration_file = args['calibration_file']
-
-    manual_calibration(huc_dir, calibration_file)
+    manual_calibration(**args)
 
     # Usage example:
     # python /foss_fim/src/src_manual_calibration.py -huc_dir /outputs/dev-manual-calibration \

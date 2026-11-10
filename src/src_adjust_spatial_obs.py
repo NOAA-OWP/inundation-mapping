@@ -12,15 +12,11 @@ import numpy as np
 import rasterio
 from dotenv import load_dotenv
 
+import utils.shared_variables as sv
 from src_roughness_optimization import update_rating_curve
 from src.utils.shared_functions import setup_file_logger
 from utils.io import write_geodataframe
-from utils.shared_variables import (
-    DEFAULT_FIM_PROJECTION_CRS,
-    DOWNSTREAM_THRESHOLD,
-    ROUGHNESS_MAX_THRESH,
-    ROUGHNESS_MIN_THRESH,
-)
+
 
 
 gpd.options.io_engine = "pyogrio"
@@ -85,7 +81,7 @@ def process_points(branch_dir, huc, branch_id, hand_path, catchments_path, catch
     ## Define coords variable to be used in point raster value attribution.
     coords = [(x, y) for x, y in zip(water_edge_df.X, water_edge_df.Y)]
 
-    water_edge_df = water_edge_df.to_crs(DEFAULT_FIM_PROJECTION_CRS)
+    water_edge_df = water_edge_df.to_crs(sv.DEFAULT_FIM_PROJECTION_CRS)
 
     process_int16 = True
     try:
@@ -179,7 +175,7 @@ def process_points(branch_dir, huc, branch_id, hand_path, catchments_path, catch
 
     try:
         log_msgs, in_error = update_rating_curve(branch_dir, water_edge_median_df, htable_path, huc, branch_id, 
-            catchments_poly_path, is_debug, source_tag, merge_prev_adj, DOWNSTREAM_THRESHOLD)
+            catchments_poly_path, is_debug, source_tag, merge_prev_adj, sv.DOWNSTREAM_THRESHOLD)
         log_text.extend(log_msgs)
     except Exception as e:
         in_error = True
@@ -271,36 +267,47 @@ def ingest_points_layer(huc_dir, branch_jobs, is_debug):
         }
         procs_list.append(args)
 
-    map_output = None
+    results = []
     # TODO: Nov 2026: This should be ugpraded, mostly for tracing, debugging and logs
     with Pool(processes=branch_jobs) as pool:
-        map_output = pool.imap(process_points, procs_list)
+        for map_output in pool.imap(process_points, procs_list):
+            results.append(map_output)
+
+    logging.debug("branches processed, now updating the logs")
+    in_error = False
 
     # TODO: Nov 2026: This is temp as with this MP setup, child workers can not write to logs
     # so we will send back log text and an error bool so we can shut down the downstream tools if it fails.
     # Once we do, we can use logging.info, .debug, .warning, etc
-    for log_text_list, has_error in map_output:
+    for log_text_list, has_error in results:
         if has_error:
             for item in log_text_list:
                 logging.error(item)  # Note.. error type
             # As we are outside an MP, we can use sys.exit(1) to stop downstream code processing
-            sys.exit(1)
+            in_error = True
         else:
             for item in log_text_list:
-                logging.info(item)  # Note.. info type
+                logging.debug(item)  # Note.. debug type (logs only)
+
+    # logging.debug("Processing completed with log updates")
+
+    if in_error:
+        print("Stopping processing")
+        sys.exit(1)
 
 
 def run_prep(huc_dir, is_debug, ds_thresh_override, branch_jobs):
 
-    if ds_thresh_override != DOWNSTREAM_THRESHOLD:
+    downstream_theshold = sv.DOWNSTREAM_THRESHOLD
+    if ds_thresh_override != downstream_theshold:
         print(
             'ALERT!! - Using a downstream distance threshold value ('
             + str(float(ds_thresh_override))
             + 'km) different than the default ('
-            + str(DOWNSTREAM_THRESHOLD)
+            + str(downstream_theshold)
             + 'km) - interpret results accordingly'
         )
-        DOWNSTREAM_THRESHOLD = float(ds_thresh_override)
+        downstream_theshold = float(ds_thresh_override)
 
     log_dir = os.path.join(huc_dir, "logs", "src_calibrations")
     begin_time = dt.datetime.now()
@@ -316,14 +323,13 @@ def run_prep(huc_dir, is_debug, ds_thresh_override, branch_jobs):
     logging.debug(
         'Parameter Values:\n'
         + 'DOWNSTREAM_THRESHOLD = '
-        + str(DOWNSTREAM_THRESHOLD)
+        + str(downstream_theshold)
         + '\n'
         + 'ROUGHNESS_MIN_THRESH = '
-        + str(ROUGHNESS_MIN_THRESH)
+        + str(sv.ROUGHNESS_MIN_THRESH)
         + '\n'
         + 'ROUGHNESS_MAX_THRESH = '
-        + str(ROUGHNESS_MAX_THRESH)
-        + '\n'
+        + str(sv.ROUGHNESS_MAX_THRESH)
     )
     logging.debug('#########################################################')
     logging.debug('START TIME: ' + str(begin_time))
@@ -345,7 +351,7 @@ if __name__ == '__main__':
         description=f'Adjusts rating curve based on files in {input_calib_points_dir}, '
         'containing points of known water boundary.'
     )
-    parser.add_argument('-huc_dir', '--huc-dir', help='directory of a HUC output directory.', required=True)
+    parser.add_argument('-huc-dir', '--huc-dir', help='directory of a HUC output directory.', required=True)
     parser.add_argument(
         '-debug',
         '----is-debug',
@@ -358,7 +364,7 @@ if __name__ == '__main__':
         '-dthresh',
         '--ds-thresh-override',
         help='OPTIONAL Override: distance in km to propogate modified roughness values downstream',
-        default=DOWNSTREAM_THRESHOLD,
+        default=sv.DOWNSTREAM_THRESHOLD,
         required=False,
     )
     parser.add_argument(

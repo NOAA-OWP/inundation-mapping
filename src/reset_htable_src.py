@@ -218,7 +218,7 @@ if __name__ == '__main__':
     '''
     parser = argparse.ArgumentParser(description='Update hydrotable and src files.')
     parser.add_argument(
-        '-huc_dir', '--huc_dir', help='Directory path for fim output for a HUC.', required=True
+        '-huc-dir', '--huc-dir', help='Directory path for fim output for a HUC.', required=True
     )
     args = parser.parse_args()
     reset_hydro_and_src(args.huc_dir)

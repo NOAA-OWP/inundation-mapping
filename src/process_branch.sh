@@ -44,7 +44,7 @@ branch_log_file_name=$tempHucDataDir/logs/branch/"$hucNumber"_branch_"$branchId"
 #########################
 
 echo "++++++++++++++++++++++++++++++++++++"
-echo -e $startDiv"Processing HUC: $hucNumber - branch_id: $branchId"
+echo -e $startDiv"Processing for Branch: $branchId"
 
 branch_start_time=`date +%s`
 date -u
@@ -84,7 +84,7 @@ do
     fi
 done
 
-echo -e $startDiv"End Branch Processing $hucNumber $branchId ..."
+echo -e $startDiv"End Branch Processing for Branch $branchId ..."
 date -u
 Calc_Duration "Duration : " $branch_start_time ""
 echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"

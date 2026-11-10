@@ -6,6 +6,7 @@ import os
 import re
 import logging
 import traceback
+import sys
 
 from argparse import ArgumentParser
 
@@ -310,9 +311,21 @@ def filter_longitudinal_discharge_jitters(huc_dir, huc, stage_interval):
         lakeID_df = catchment_gdf[['HydroID', 'LakeID']].drop_duplicates(subset=['HydroID'])
         # Read src tables
         src_df = pd.read_csv(src_all_branches_path[isrc], low_memory=False)
-        src_df = src_df.merge(lakeID_df, on='HydroID', how='inner')
-        stages = [round(num, 4) for num in src_df['Stage'][0:84]]
 
+        # TODO: Nov 2026: Research: Why are we merging a two column df to the original? 
+        # For now.. we will keep the incoming lakeid column and drop the other.
+
+        # When you re-run calibration, both src_df AND lakeID_df have a LakeID, so you
+        # get get LakeID_x and LakeID_y. Then you have problems with the LakeID missing.
+        # 
+        #  BUT: When you run it first time, src_df did not have
+        # a LakeID column, so we were good.
+        # It only happens when you re-run calibration.
+        src_df = src_df.merge(lakeID_df, on='HydroID', how='inner')
+        if "LakeID_x" in src_df.columns:
+            src_df = src_df.drop(columns=['LakeID_x']).rename(columns={'LakeID_y': 'LakeID'})
+
+        stages = [round(num, 4) for num in src_df['Stage'][0:84]]
         # Find the BedArea and SurfaceArea relation
         sa0_mask = src_df['SurfaceArea (m2)'] == 0
         src_df.loc[sa0_mask, 'BedArea (m2)'] = 0
@@ -628,7 +641,8 @@ def apply_longitudinal_dischage_adjustment(huc_dir, huc):  # bankfull_flows_file
     except Exception:
         logging.error(f"An error has occurred while processing longitudinal adjustment for huc {huc}")
         logging.error(traceback.format_exc())
-        raise  # re-raise so it stops the processing
+        # raise  # re-raise so it stops the processing
+        sys.exit(1)
 
 # -------------------------------------------------------
 def process_longitudinal_flow_adjustment(huc_dir):
@@ -655,13 +669,10 @@ def process_longitudinal_flow_adjustment(huc_dir):
     # Find applicable HUCs to apply longitudinal filter
     # fim_hucs = [h for h in os.listdir(fim_dir) if re.match(r'\d{8}', h)]
 
-    logging.info("Applying longitudinal discharge adjustment")
-    logging.debug("")    
-
     huc = os.path.basename(os.path.normpath(huc_dir))
     apply_longitudinal_dischage_adjustment(huc_dir, huc)
 
-    logging.info(f"End of processing identify_src_bankful")
+    logging.debug(f"End of processing identify_src_bankful")
     end_time = dt.datetime.now(dt.timezone.utc)
     logging.debug('END TIME: ' + str(end_time))
     tot_run_time = end_time - begin_time
@@ -680,13 +691,10 @@ if __name__ == '__main__':
     Sample Usage
     ----------
     python3 /foss_fim/src/filter_longitudinal_flow.py
-        -fim_dir /outputs/fim_run_dir
+        -fim-dir /outputs/fim_run_dir
     """
     parser = ArgumentParser(description="Longitudinal depth/flow filter")
-    parser.add_argument('-huc_dir', '--huc_dir', help='FIM output dir', required=True, type=str)
+    parser.add_argument('-huc-dir', '--huc-dir', help='FIM output dir', required=True, type=str)
 
     args = vars(parser.parse_args())
-
-    huc_dir = args['huc_dir']
-
-    process_longitudinal_flow_adjustment(huc_dir)
+    process_longitudinal_flow_adjustment(**args)

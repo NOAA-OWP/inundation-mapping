@@ -7,6 +7,8 @@ import datetime as dt
 import logging
 import os
 import traceback
+import sys
+
 from argparse import ArgumentParser
 from os.path import join
 
@@ -294,15 +296,15 @@ def process_thalweg_notches_adjustment(huc_dir):  # stage_interval,
         stage_interval = 0.3048  # float(os.getenv('stage_interval_meters'))
 
         huc = os.path.basename(os.path.normpath(huc_dir))
-        apply_thalweg_notches_adjustment(huc_dir, huc, stage_interval, log_file_path)
+        apply_thalweg_notches_adjustment(huc_dir, huc, stage_interval)
 
     except Exception:
         # this goes back to calibrate_rating_curve.sh which rolls up to its parent "tee"
         # Then it can be scanned in the error system based on solely the "tee" file
         logging.error(f"An exception occurred while processing thalweg notch adjustments for {huc_dir}.")
         logging.error(f"Details: {traceback.format_exc()}")
-
-        raise  # raise to stop the processing downstream
+        sys.exit(1)
+        
 
 
 if __name__ == '__main__':
@@ -317,11 +319,11 @@ if __name__ == '__main__':
 
     Sample Usage
     ----------
-    python3 /foss_fim/src/thalweg_notches_src_adjustment.py -huc_dir /outputs/fim_run_dir/huc_dir
+    python3 /foss_fim/src/thalweg_notches_src_adjustment.py -huc-dir /outputs/fim_run_dir/huc_dir
         -j $jobLimit -sor 4
     """
     parser = ArgumentParser(description="thalweg notches in SRC Adjustment")
-    parser.add_argument('-huc_dir', '--huc_dir', help='Path to huc dir', required=True, type=str)
+    parser.add_argument('-huc-dir', '--huc-dir', help='Path to huc dir', required=True, type=str)
     # parser.add_argument(
     #     '-i',
     #     '--stage_interval',
@@ -331,7 +333,4 @@ if __name__ == '__main__':
     # )
 
     args = vars(parser.parse_args())
-
-    huc_dir = args['huc_dir']
-
-    process_thalweg_notches_adjustment(huc_dir)  # stage_interval,
+    process_thalweg_notches_adjustment(**args)  # stage_interval,

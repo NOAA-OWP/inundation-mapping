@@ -6,6 +6,8 @@ import logging
 # import multiprocessing
 import os
 import traceback
+import sys
+
 from multiprocessing import Pool
 from os.path import isdir, isfile, join
 
@@ -45,9 +47,14 @@ def _run_variable_mannings_calc(args):
 # TODO: Nov 2026: We will build up a list of log messages in this child MP worker.
 # We will do this until we upgrade the pool where we can have each worker write to the log(s)
 # instead of collecting it as a return from each worker
-def variable_mannings_calc(in_src_bankfull_filename, df_mann, huc,
-                           branch_id, htable_filename, output_suffix,
-                           src_plot_option, huc_output_dir):
+def variable_mannings_calc(in_src_bankfull_filename,
+                           df_mann,
+                           huc,
+                           branch_id,
+                           htable_filename,
+                           output_suffix,
+                           src_plot_option,
+                           huc_plot_output_dir):
 
     '''
     Return:
@@ -195,9 +202,9 @@ def variable_mannings_calc(in_src_bankfull_filename, df_mann, huc,
 
         ## plot rating curves
         if src_plot_option:
-            if isdir(huc_output_dir) is False:
-                os.mkdir(huc_output_dir)
-            generate_src_plot(df_src, huc_output_dir)
+            if isdir(huc_plot_output_dir) is False:
+                os.mkdir(huc_plot_output_dir)
+            generate_src_plot(df_src, huc_plot_output_dir)
 
         log_text.append(f'Completed: {huc} - branch id: {str(branch_id)}')
 
@@ -257,9 +264,11 @@ def subdiv_mannings_eq(df_src):
         axis=1,
         errors='ignore',
     )  # drop these cols (in case subdiv was previously performed)
+
     df_src['WetArea_chan (m2)'] = df_src['Volume_chan (m3)'] / df_src['LENGTHKM'] / 1000
     df_src['HydraulicRadius_chan (m)'] = df_src['WetArea_chan (m2)'] / df_src['WettedPerimeter_chan (m)']
-    df_src = df_src['HydraulicRadius_chan (m)'].fillna(0)
+    df_src['HydraulicRadius_chan (m)'] = df_src['HydraulicRadius_chan (m)'].fillna(0)
+
     df_src['Discharge_chan (m3s-1)'] = (
         df_src['WetArea_chan (m2)']
         * pow(df_src['HydraulicRadius_chan (m)'], 2.0 / 3)
@@ -267,7 +276,7 @@ def subdiv_mannings_eq(df_src):
         / df_src['channel_n']
     )
     df_src['Velocity_chan (m/s)'] = df_src['Discharge_chan (m3s-1)'] / df_src['WetArea_chan (m2)']
-    df_src = df_src['Velocity_chan (m/s)'].fillna(0)
+    df_src['Velocity_chan (m/s)'] = df_src['Velocity_chan (m/s)'].fillna(0)
 
     ## Calculate discharge (overbank) using Manning's equation
     df_src = df_src.drop(
@@ -283,7 +292,7 @@ def subdiv_mannings_eq(df_src):
     df_src['WetArea_obank (m2)'] = df_src['Volume_obank (m3)'] / df_src['LENGTHKM'] / 1000
     df_src['HydraulicRadius_obank (m)'] = df_src['WetArea_obank (m2)'] / df_src['WettedPerimeter_obank (m)']
     df_src = df_src.replace([np.inf, -np.inf], np.nan)  # need to replace inf instances (divide by 0)
-    df_src = df_src['HydraulicRadius_obank (m)'].fillna(0)
+    df_src['HydraulicRadius_obank (m)'] = df_src['HydraulicRadius_obank (m)'].fillna(0)
     df_src['Discharge_obank (m3s-1)'] = (
         df_src['WetArea_obank (m2)']
         * pow(df_src['HydraulicRadius_obank (m)'], 2.0 / 3)
@@ -291,7 +300,7 @@ def subdiv_mannings_eq(df_src):
         / df_src['overbank_n']
     )
     df_src['Velocity_obank (m/s)'] = df_src['Discharge_obank (m3s-1)'] / df_src['WetArea_obank (m2)']
-    df_src = df_src['Velocity_obank (m/s)'].fillna(0)
+    df_src['Velocity_obank (m/s)'] = df_src['Velocity_obank (m/s)'].fillna(0)
 
     ## Calcuate the total of the subdivided discharge (channel + overbank)
     df_src = df_src.drop(
@@ -355,26 +364,24 @@ def generate_src_plot(df_src, plt_out_dir):
 
 # TODO: Nov 2026: Do this until we upgrade the pool where we can have each worker write to the log(s)
 # instead of collecting it as a return from each worker
-def multi_process(procs_list, branch_jobs, verbose):
+def multi_process(procs_list, branch_jobs):
     logging.debug(
         "Computing subdivided SRC and applying variable Manning's n to channel/overbank for "
         f"{len(procs_list)} branches using {branch_jobs} jobs"
     )
 
     # TODO: Nov 2026: This should be cleaned up or use the shared function version
-    map_output = None
+    results = []
     with Pool(processes=branch_jobs) as pool:
-        if verbose:
-            map_output = tqdm(pool.imap(_run_variable_mannings_calc, procs_list), total=len(procs_list))
-            # tuple(map_output)  # fetch the lazy results
-        else:
-            map_output = pool.imap(_run_variable_mannings_calc, procs_list)
+       for map_output in pool.imap(_run_variable_mannings_calc, procs_list):
+           results.append(map_output)
 
+    # logging.debug("branches processed, now updating the logs")
     in_error = False
     # TODO: Nov 2026: This is temp as with this MP setup, child workers can not write to logs
     # so we will send back log text and an error bool so we can shut down the downstream tools if it fails.
     # Once we do, we can use logging.info, .debug, .warning, etc
-    for log_text_list, has_error in map_output:
+    for log_text_list, has_error in results:
         if has_error:
             for item in log_text_list:
                 logging.error(item)  # Note.. error type
@@ -383,17 +390,19 @@ def multi_process(procs_list, branch_jobs, verbose):
             for item in log_text_list:
                 logging.debug(item)  # Note.. debug (log file only, not screen) type
 
+    # logging.debug("branch processing completed with log updates")
+
     return in_error
 
 
-def run_prep(huc_dir, mann_n_table, output_suffix, branch_jobs, verbose, src_plot_option):
+def run_prep(huc_dir, mann_n_table, output_suffix, branch_jobs, src_plot_option):
     ## Create a time var to log run time
     begin_time = dt.datetime.now()
 
     ## initiate log file
     log_dir = os.path.join(huc_dir, "logs", "src_calibrations")
     log_file_path = setup_file_logger(log_dir, f"subdiv_src_{output_suffix}")
-    logging.info("Start subdiv_chan_obank_src")
+    logging.debug("Start subdiv_chan_obank_src")
     print(f"Logs will be saved to {log_file_path}")    
     logging.debug('START TIME: ' + str(begin_time))
     logging.debug('#########################################################')    
@@ -456,19 +465,17 @@ def run_prep(huc_dir, mann_n_table, output_suffix, branch_jobs, verbose, src_plo
                     logging.warning(msg)
 
             ## Pass huc procs_list to multiprocessing function
-            in_error = multi_process(procs_list, branch_jobs, verbose)
+            in_error = multi_process(procs_list, branch_jobs)
+            if in_error:
+                print("Aborting....")
+                sys.exit(1)
+            logging.debug("End of processing subdiv_chan_obank_src")                
 
     except Exception as ex:
         logging.critical(f"Critical Error while processing subdiv_chan_obank_src for {huc_dir}")
         logging.critical(traceback.format_exc())
         logging.info("")
-        raise ex
-    finally:
-        logging.info("End of processing subdiv_chan_obank_src")
-        if in_error:
-            print("Aborting....")
-            raise Exception("Aborting....")
-
+        sys.exit(1)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -476,7 +483,7 @@ if __name__ == '__main__':
         "component. Impliment user provided Manning's n values for in-channel vs. overbank flow. "
         "Recalculate Manning's eq for discharge"
     )
-    parser.add_argument('-huc_dir', '--huc_dir', help='FIM output dir', required=True, type=str)
+    parser.add_argument('-huc-dir', '--huc-dir', help='FIM output dir', required=True, type=str)
     parser.add_argument(
         '-mann',
         '--mann-n-table',
@@ -494,19 +501,11 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '-jb',
-        '--branch_jobs',
+        '--branch-jobs',
         help='OPTIONAL: number of branches workers (default=8)',
         required=False,
         default=8,
         type=int,
-    )
-    parser.add_argument(
-        '-vb',
-        '--verbose',
-        help='OPTIONAL: verbose progress bar',
-        required=False,
-        default=None,
-        action='store_true',
     )
     parser.add_argument(
         '-plots',

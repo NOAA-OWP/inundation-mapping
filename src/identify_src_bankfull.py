@@ -5,6 +5,7 @@ import datetime as dt
 import logging
 import os
 import traceback
+import sys
 
 from multiprocessing import Pool
 from os.path import isdir, isfile, join
@@ -12,7 +13,6 @@ from os.path import isdir, isfile, join
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
-from tqdm import tqdm
 
 from src.utils.shared_functions import setup_file_logger
 
@@ -23,7 +23,6 @@ sns.set_theme(style="whitegrid")
 # Unpacks the dictionary in each list items. Only needed as we are usign imap and dictionaries
 def _run_bankfull_lookup(args):
     return src_bankfull_lookup(**args)
-
 
 # TODO: Nov 2026: For now, we will build up a list of log messages in this child MP worker.
 # We will do this until we upgrade the pool where we can have each worker write to the log(s)
@@ -50,9 +49,7 @@ def src_bankfull_lookup(src_orig_full_filename, df_bflows, huc, branch_id, src_p
 
     ## Read the src_full_crosswalked.csv
     log_text.append(".......................")
-    msg = f"Calculating: {huc} - branch id: {str(branch_id)}"
-    print(msg)    
-    log_text.append(msg)
+    log_text.append(f"Adjusting Bankful for {huc} - branch id: {str(branch_id)}")
 
     try:
         df_src = pd.read_csv(src_orig_full_filename, dtype={'HydroID': int, 'feature_id': int})
@@ -228,7 +225,10 @@ def src_bankfull_lookup(src_orig_full_filename, df_bflows, huc, branch_id, src_p
 
         ## Output new SRC with bankfull column
         df_src.to_csv(src_orig_full_filename, index=False)
-        log_text.append(f"{src_orig_full_filename} updated")
+        
+        # Once this script can handle logging.debug, add this back in so we can help trace page progress.
+        # log_text.append(f"{src_orig_full_filename} updated")
+        # logging.debug(f"{src_orig_full_filename} updated")  (or similar logging object)
 
         ## plot rating curves (optional arg)
         if src_plot_option:
@@ -289,38 +289,38 @@ def generate_src_plot(df_src, plt_out_dir):
 
 # TODO: Nov 2026: Do this until we upgrade the pool where we can have each worker write to the log(s)
 # instead of collecting it as a return from each worker
-def multi_process(procs_list, branch_jobs, verbose):
+def multi_process(procs_list, branch_jobs):
 
-    print(f"Identifying bankfull stage for {len(procs_list)} branches using {branch_jobs} jobs")
+    # print(f"Identifying bankfull stage for {len(procs_list)} branches using {branch_jobs} jobs")
+    logging.info(f"Identifying bankfull stage for {len(procs_list)} branches using {branch_jobs} jobs")
 
     # TODO: Nov 2026: This should be cleaned up or use the shared function version
-    map_output = None
+    results = []
     with Pool(processes=branch_jobs) as pool:
-        # progress_bar = tqdm(total=len(procs_list[0]))
-        if verbose:
-            map_output = tqdm(pool.imap(_run_bankfull_lookup, procs_list), total=len(procs_list))
-            # tuple(map_output)  # fetch the lazy results
-        else:
-            map_output = pool.imap(_run_bankfull_lookup, procs_list)
+        for map_output in pool.map(_run_bankfull_lookup, procs_list):
+            results.append(map_output)
 
+    logging.debug("branches processed, now updating the logs")
     in_error = False
 
     # TODO: Nov 2026: This is temp as with this MP setup, child workers can not write to logs
     # so we will send back log text and an error bool so we can shut down the downstream tools if it fails.
     # Once we do, we can use logging.info, .debug, .warning, etc
-    for log_text_list, has_error in map_output:
+    for log_text_list, has_error in results:
         if has_error:
             for item in log_text_list:
                 logging.error(item)  # Note.. error type
             in_error = True
         else:
             for item in log_text_list:
-                logging.info(item)  # Note.. info type
+                logging.debug(item)  # Note.. debug type (logs only)
+
+    logging.debug("Log files updated for MP")
 
     return in_error
 
 
-def run_prep(huc_dir, bankfull_flow_filepath, branch_jobs, verbose, src_plot_option):
+def run_prep(huc_dir, bankfull_flow_filepath, branch_jobs, src_plot_option):
 
     ## Check that the bankfull flow filepath exists and read to dataframe
     # Note: This does work in the fim_pipeline chain as it throws an exception that is caught by the .sh files
@@ -336,7 +336,7 @@ def run_prep(huc_dir, bankfull_flow_filepath, branch_jobs, verbose, src_plot_opt
     log_dir = os.path.join(huc_dir, "logs", "src_calibrations")
     log_file_path = setup_file_logger(log_dir, "identify_src_bankfull")
 
-    logging.info("Start Identify Src Bankfull")
+    logging.debug("Start Identify Src Bankfull")
     print(f"Logs will be saved to {log_file_path}")
     print('This may take a few minutes...')
     logging.debug('START TIME: ' + str(begin_time))
@@ -374,32 +374,33 @@ def run_prep(huc_dir, bankfull_flow_filepath, branch_jobs, verbose, src_plot_opt
                 f" {str(branch_dir)}  - skipping this branch!!!")
                 logging.warning(msg)
 
-        logging.info("")
+        logging.debug("")
         ## Pass huc procs_list to multiprocessing function
-        mp_error = multi_process(procs_list, branch_jobs, verbose)
+        mp_error = multi_process(procs_list, branch_jobs)
+        if mp_error:
+            print("Aborting...")
+            sys.exit(1)  # messages already added to screen/logging
     
     except Exception:
         logging.critical(f"Critical Error while processing bankfull for {huc_dir}")
         logging.critical(traceback.format_exc())
-        logging.info("")
-        raise
+        logging.debug("")
+        sys.exit(1)
+
     finally:
-        logging.info("End of processing identify_src_bankful")
+        logging.debug("End of processing identify_src_bankful")
         ## Record run time and close log file
         end_time = dt.datetime.now()
-        logging.debug('END TIME: ' + str(end_time) + '\n')
+        logging.debug('END TIME: ' + str(end_time))
         tot_run_time = end_time - begin_time
         logging.debug('TOTAL RUN TIME: ' + str(tot_run_time))   
-        if mp_error:
-            print("Aborting...")
-            raise  # messages already added to screen/logging
         
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Identify bankfull stage for each hydroid synthetic rating curve'
     )
-    parser.add_argument('-huc_dir', '--huc_dir', help='huc run directory', required=True, type=str)
+    parser.add_argument('-huc-dir', '--huc-dir', help='huc run directory', required=True, type=str)
     parser.add_argument(
         '-flows',
         '--bankfull-flow-filepath',
@@ -415,14 +416,6 @@ if __name__ == '__main__':
         default=8,
         type=int,
     )
-    parser.add_argument(
-        '-vb',
-        '--verbose',
-        help='OPTIONAL: verbose progress bar',
-        required=False,
-        default=None,
-        action='store_true',
-    )    
     parser.add_argument(
         '-plots',
         '--src-plot-option',
