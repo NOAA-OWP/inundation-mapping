@@ -146,12 +146,12 @@ def generate_nws_lid(workspace, env_file, keep_blank_nwm):
 
     # Create GDF Geodataframe from all_lists and reproject GDF
     nws_lid_gdf.columns = [name.replace('identifiers_', '') for name in nws_lid_gdf.columns]
-    nws_lid_gdf.to_crs(PREP_PROJECTION, inplace=True)
+    nws_lid_gdf = nws_lid_gdf.to_crs(PREP_PROJECTION)
 
     # Remove rows without NWM Feature IDs if the -k flag was not used
     if not keep_blank_nwm:
         print("Removing rows with blank NWM feature ID")
-        nws_lid_gdf.dropna(subset=['nwm_feature_id'], inplace=True)
+        nws_lid_gdf = nws_lid_gdf.dropna(subset=['nwm_feature_id'])
     else:
         print("Will not remove rows with blank NWM feature ID")
 

@@ -173,8 +173,8 @@ def get_huc_metadata(huc, huc_path):
         logging.warning(msg)
 
     # There appears to be actual column named "index" at this point, remove it
-    huc_sites_gdf.reset_index(drop=True, inplace=True)
-    huc_sites_gdf.rename(columns={"identifiers_nws_lid": "nws_lid"}, inplace=True)
+    huc_sites_gdf = huc_sites_gdf.reset_index(drop=True)
+    huc_sites_gdf = huc_sites_gdf.rename(columns={"identifiers_nws_lid": "nws_lid"})
 
     # -----
     # Get the site list and use it to filter the metadata JSON list
@@ -307,8 +307,8 @@ def load_restricted_sites(catfim_type):
     df_restricted_sites['catfim_type'] = df_restricted_sites['catfim_type'].str.strip()
 
     # Need to drop the comment lines before doing any more processing
-    df_restricted_sites.drop(
-        df_restricted_sites[df_restricted_sites.nws_lid.str.startswith("#")].index, inplace=True
+    df_restricted_sites = df_restricted_sites.drop(
+        df_restricted_sites[df_restricted_sites.nws_lid.str.startswith("#")].index
     )
 
     # Filter df_restricted_sites by CatFIM type
@@ -886,9 +886,11 @@ def drop_output_columns(df, catfim_type):
         raise Exception(msg)
 
     # Remove listed columns if they are found
+    # TODO: Nov 2026: We may want to see if we can build up a list of columns names to change
+    # so we do not have to keep re-writing df_new over and over again. (now that we can not use inplace)
     for colname in cols_to_remove:
         if colname in df_new.columns:
-            df_new.drop(columns=[colname], errors='ignore', inplace=True)
+            df_new = df_new.drop(columns=[colname], errors='ignore')
 
     return df_new
 
@@ -917,9 +919,11 @@ def rename_output_columns(df, column_rename_dict):
     # but we are moving towards having more uniform column names between the two outputs.
 
     # Iterate down the colname dictionary and rename whichever ones are there
+    # TODO: Nov 2026: We may want to see if we can build up a list of columns names to change
+    # so we do not have to keep re-writing df_new over and over again. (now that we can not use inplace)
     for old_name, new_name in column_rename_dict.items():
         if old_name in df_new.columns:
-            df_new.rename(columns={old_name: new_name}, inplace=True)
+            df_new = df_new.rename(columns={old_name: new_name})
             # logging.info(f"Renamed column '{old_name}' to '{new_name}' in the output dataframe.")  # Verbose
 
     return df_new

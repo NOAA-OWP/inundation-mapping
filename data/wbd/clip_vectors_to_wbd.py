@@ -409,7 +409,7 @@ def subset_vector_layers(
             nwm_streams = nwm_streams.drop(columns=['index_right'])
 
         # NWM can have duplicate records, but appear to always be identical duplicates
-        nwm_streams.drop_duplicates(subset="ID", keep="first", inplace=True)
+        nwm_streams = nwm_streams.drop_duplicates(subset="ID", keep="first")
 
         streams_in_wbd = gpd.sjoin(nwm_streams, wbd)
         ids_in_wbd = set(streams_in_wbd['ID'])

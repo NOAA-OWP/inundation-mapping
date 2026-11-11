@@ -151,7 +151,7 @@ def inundation_status(
         fimpact_df = fimpact_df.merge(flow_file_data, on='feature_id')
 
         # change the name of the given flow to evaluated discharge
-        fimpact_df.rename(columns={'discharge': 'evaluated_discharge'}, inplace=True)
+        fimpact_df = fimpact_df.rename(columns={'discharge': 'evaluated_discharge'})
 
         # selected the inundated records
         fimpact_df = fimpact_df[fimpact_df['evaluated_discharge'] > fimpact_df['threshold_discharge']]

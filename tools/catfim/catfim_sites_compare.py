@@ -215,13 +215,12 @@ def compile_catfim_sites(sorted_path_list):
         version_id_list.append(version_id)
 
         # Rename status 'mapped' and 'status' columns to have the version_id
-        trimmed_sites_df.rename(
+        trimmed_sites_df = trimmed_sites_df.rename(
             columns={
                 'mapped': f'{version_id}_catfim_mapped',
                 'status': f'{version_id}_status',
                 'site_processed': f'{version_id}_site_processed',
-            },
-            inplace=True,
+            }
         )
 
         # Add site status df to output status df
@@ -447,14 +446,13 @@ def make_version_comparison_tables(
         ]
 
         # Rename status and mapped columns
-        compare_sites_df.rename(
+        compare_sites_df = compare_sites_df.rename(
             columns={
                 old_catfim_status_col: 'previous_catfim_status',
                 new_catfim_status_col: 'new_catfim_status',
                 old_catfim_mapped_col: 'previous_catfim_mapped',
                 new_catfim_mapped_col: 'new_catfim_mapped',
-            },
-            inplace=True,
+            }
         )
 
         # Join the site metadata to the compare_sites_df
@@ -536,7 +534,7 @@ def remove_polygon_shards(input_gdf, minimum_area_threshold):
     if len(cleaned_gdf) == 0:
         return None
 
-    cleaned_gdf.reset_index(inplace=True, drop=True)
+    cleaned_gdf = cleaned_gdf.reset_index(drop=True)
 
     # Condense back into a multipolygon
     cleaned_gdf = cleaned_gdf.dissolve()
@@ -553,7 +551,7 @@ def remove_polygon_shards(input_gdf, minimum_area_threshold):
     # print(f"Vertex count before area threshold and after simplify is {total_vertices}")
 
     # Remove area column
-    cleaned_gdf.drop('area', axis=1, inplace=True)
+    cleaned_gdf = cleaned_gdf.drop('area', axis=1)
     cleaned_gdf = cleaned_gdf.reset_index()
 
     return cleaned_gdf

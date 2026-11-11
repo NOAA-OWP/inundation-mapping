@@ -232,7 +232,7 @@ def catfim_post_processing(output_folder):
 
             # Concatenate sites GeoDataFrames into one GDF and update LID column name
             compiled_sites_gdf = gpd.pd.concat(compiled_sites_gdf_list, ignore_index=True)
-            compiled_sites_gdf.rename(columns={'nws_lid': 'ahps_lid'}, inplace=True)
+            compiled_sites_gdf = compiled_sites_gdf.rename(columns={'nws_lid': 'ahps_lid'})
 
             # Save the compiled GeoDataFrames to GeoPackage files
             write_geodataframe(compiled_sites_gdf, sites_gpkg_path, index=False)
@@ -261,7 +261,7 @@ def catfim_post_processing(output_folder):
 
             # Concatenate library GeoDataFrames into one GDF and update LID column name
             compiled_library_gdf = gpd.pd.concat(compiled_library_gdf_list, ignore_index=True)
-            compiled_library_gdf.rename(columns={'nws_lid': 'ahps_lid'}, inplace=True)
+            compiled_library_gdf = compiled_library_gdf.rename(columns={'nws_lid': 'ahps_lid'})
 
             write_geodataframe(compiled_library_gdf, library_gpkg_path, index=False)
             # compiled_library_gdf.to_file(  # TODO: Clean up

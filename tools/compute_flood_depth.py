@@ -112,7 +112,7 @@ def compute_depth(fimpact_df, flow_file_df, hydrotable_df):
         DataFrame containing only flooded geometries with flood_depth column
     """
     fimpact_df = fimpact_df.merge(flow_file_df, on='feature_id')
-    fimpact_df.rename(columns={'discharge': 'evaluated_discharge'}, inplace=True)
+    fimpact_df = fimpact_df.rename(columns={'discharge': 'evaluated_discharge'})
 
     # Calculate evaluated stage for geometries
     fimpact_df = get_evaluated_stage(fimpact_df, hydrotable_df)

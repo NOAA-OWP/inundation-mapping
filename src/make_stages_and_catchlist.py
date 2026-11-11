@@ -60,7 +60,8 @@ def make_stages_and_catchlist(
     # with a record count as the first row when it is later feed into taudem.
     # Manually write a line back to the top of the file. Not the pretties answer, but it is easier
     # than making a manual DF row with just one column created which would also leave a bunch of
-    # empty spaces on the end
+    # empty spaces on the end. 
+    # Also: use of inplace here is fine, just not with pandas
     with fileinput.input(catchlist_filename, inplace=True) as file:
         for line in file:
             if file.isfirstline():
