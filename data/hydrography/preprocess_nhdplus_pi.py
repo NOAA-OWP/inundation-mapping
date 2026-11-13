@@ -14,7 +14,7 @@ from data.derive_headwaters import findHeadWaterPoints
 from src.utils.io import write_geodataframe
 
 
-def preprocess_nhdplus_pi(
+def preprocess_nhdplus_hydrography_pi(
     nhd_path: str, nhdplus_path: str, target_folder: str, target_crs_number: str, region: str
 ):
     """Processes stream network, attributes, lakes, catchments, and headwaters."""
@@ -107,7 +107,7 @@ def main():
     parser.add_argument("-r", "--region", type=str, required=True, help="Region name")
 
     args = parser.parse_args()
-    preprocess_nhdplus_pi(**vars(args))
+    preprocess_nhdplus_hydrography_pi(**vars(args))
 
 
 if __name__ == "__main__":

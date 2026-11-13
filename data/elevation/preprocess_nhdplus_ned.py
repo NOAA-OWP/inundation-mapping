@@ -12,7 +12,7 @@ import sys
 import rasterio as rio
 from osgeo import gdal
 
-from data.elevation.create_vrt_file import create_vrt_file
+from data.elevation.create_domain_vrt import create_domain_vrt
 
 
 gdal.UseExceptions()
@@ -28,6 +28,7 @@ def preprocess_nhdplus_ned(
     vrt_basename: str,
     vrt_output_dir: str,
     vrt_suffix: str = "",
+    number_of_jobs: int = 1,
 ):
     """Reprojects NED snapshot DEM, converts cm to m, and builds domain VRT."""
     os.makedirs(target_dem_folder, exist_ok=True)
@@ -68,7 +69,14 @@ def preprocess_nhdplus_ned(
             dst.write(elevation_data, 1)
 
     print(f"[{region}] Generating VRT file: {vrt_basename}...")
-    create_vrt_file(target_dem_folder, vrt_basename, vrt_output_dir, vrt_suffix, run_polygonize=True)
+    create_domain_vrt(
+        [target_dem_folder],
+        vrt_basename,
+        vrt_suffix,
+        output_dir=vrt_output_dir,
+        number_of_jobs=number_of_jobs,
+        run_polygonize=True,
+    )
 
 
 def main():
@@ -86,6 +94,9 @@ def main():
     parser.add_argument("-b", "--vrt_basename", type=str, required=True, help="Basename of VRT")
     parser.add_argument("-o", "--vrt_output_dir", type=str, required=True, help="Output folder for VRT")
     parser.add_argument("-s", "--vrt_suffix", type=str, default="", help="Suffix for VRT file")
+    parser.add_argument(
+        "-j", "--number_of_jobs", type=int, required=False, default=1, help="Number of processes"
+    )
 
     args = parser.parse_args()
     preprocess_nhdplus_ned(**vars(args))

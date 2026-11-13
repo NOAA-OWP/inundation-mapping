@@ -22,7 +22,9 @@ def valid_dir(path_str):
     return str(path)
 
 
-def create_domain_vrt(input_dirs, suffix_str, output_dir=None, number_of_jobs=1, run_polygonize=False):
+def create_domain_vrt(
+    input_dirs, vrt_basename, suffix_str, output_dir=None, number_of_jobs=1, run_polygonize=False
+):
     # Fallback to the first input directory if unspecified
     if not output_dir:
         output_dir = input_dirs[0]
@@ -33,7 +35,6 @@ def create_domain_vrt(input_dirs, suffix_str, output_dir=None, number_of_jobs=1,
     dem_files = []
     for d in input_dirs:
         dem_files.extend(glob.glob(os.path.join(d, "*.tif")))
-        dem_files.extend(glob.glob(os.path.join(d, "**", "*.tif"), recursive=True))
 
     dem_files = sorted(list(set(dem_files)))
     if not dem_files:
@@ -41,7 +42,7 @@ def create_domain_vrt(input_dirs, suffix_str, output_dir=None, number_of_jobs=1,
 
     # 2. Build domain parquet output file path
     domain_file_name = f"DEM_Domain_{suffix_str}.parquet"
-    vrt_file_name = f"hand_seamless_dems_10m_{suffix_str}.vrt"
+    vrt_file_name = f"{vrt_basename}_{suffix_str}.vrt"
     dem_domain_output_path = os.path.join(output_dir, domain_file_name)
 
     # 3. Generate domain polygon from DEM file list
@@ -62,6 +63,7 @@ def main():
         -i '/data/inputs/dems/3dep_dems/10m_SouthAlaska/20260619' \
            '/data/inputs/dems/ifsar_dtm/10m_NorthAlaska/20261027' \
         -o '/data/inputs/dems/vrt' \
+        -b 'hand_seamless_dems_10m'
         -s 'Alaska_3338_20261027' \
         -j 14 \
         -p
@@ -77,6 +79,7 @@ def main():
         help='Space-separated list of directories where the .tif files exist.',
         required=True,
     )
+    parser.add_argument('-b', '--vrt_basename', type=str, required=True, help='Output VRT basename')
     parser.add_argument('-s', '--suffix_str', type=str, required=True, help='Output file names.')
     parser.add_argument(
         '-o',
@@ -104,6 +107,7 @@ def main():
         suffix_str=args.suffix_str,
         number_of_jobs=args.number_of_jobs,
         run_polygonize=args.run_polygonize,
+        vrt_basename=args.vrt_basename,
     )
 
 

@@ -30,7 +30,7 @@ if PROJECT_ROOT not in sys.path:
 from data.elevation.preprocess_dggs_ifsar import preprocess_dggs_ifsar
 from data.hazards.get_fema_nfhl import fetch_nfhl_by_hucs
 from data.hydrography.preprocess_nhdplus_NorthAlaska import preprocess_nhdplus
-from data.watersheds.preprocess_wbd import preprocess_wbd
+from data.watersheds.preprocess_wbd import preprocess_wbd_ak
 
 
 NORTH_ALASKA_REGIONS = {"Fairbanks": ["19080306", "19080307"], "Juneau": ["19010301"]}
@@ -145,7 +145,7 @@ def main():
         # -------------------------------------------------------------------------
         if not args.skip_wbd:
             print(f"[{region}] (2/4) Subsetting & projecting WBD boundaries...")
-            preprocess_wbd(
+            preprocess_wbd_ak(
                 region=region, target_crs_number=args.target_crs_number, inputs_dir=args.inputs_dir, hucs=hucs
             )
         else:

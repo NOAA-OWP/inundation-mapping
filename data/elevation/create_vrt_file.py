@@ -9,7 +9,6 @@ from pathlib import Path
 
 from osgeo import gdal
 
-import src.utils.shared_functions as sf
 from src.utils.shared_functions import FIM_Helpers as fh
 
 

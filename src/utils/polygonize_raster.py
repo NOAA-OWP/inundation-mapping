@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 import geopandas as gpd
 import numpy as np
 import rasterio
+import scipy.ndimage
 import shapely
 from rasterio.features import shapes
 from shapely.geometry import shape
@@ -72,32 +73,29 @@ def polygonize_raster(
 # In-memory, multi-core exact 10m HUC polygonization helpers
 # =====================================================================
 def _extract_exact_huc_geometry(dem_file: str):
-    """
-    Extracts the exact 1:1 pixel polygon domain for a single HUC8 DEM in-memory.
-    Replaces the external gdal_calc.py call, temporary .tif, and .parquet writes.
-    """
     try:
         with rasterio.open(dem_file) as src:
             arr = src.read(1)
             nodata_val = src.nodata if src.nodata is not None else -9999.0
 
-            valid_mask = ((arr > -900) & (arr != nodata_val)).astype(np.uint8)
+            # 1 for valid elevation, 0 for ocean/nodata
+            binary_arr = np.where((arr > -900) & (arr != nodata_val), 1, 0).astype(np.uint8)
 
-            if not np.any(valid_mask):
+            if not np.any(binary_arr == 1):
                 return None
 
+            # Do NOT pass a mask! Let shapes() segment the solid 0 and 1 regions (just like dev)
             geoms = [
                 shape(geom)
-                for geom, val in shapes(
-                    valid_mask, mask=(valid_mask == 1), transform=src.transform, connectivity=8
-                )
+                for geom, val in shapes(binary_arr, transform=src.transform, connectivity=8)
                 if val == 1
             ]
 
             if not geoms:
                 return None
 
-            return shapely.coverage_union_all(geoms)
+            # With solid regions, len(geoms) is typically 1 to 5 instead of thousands
+            return shapely.unary_union(geoms)
 
     except Exception as e:
         print(f"Error processing {dem_file}: {e}", file=sys.stderr)
@@ -105,30 +103,17 @@ def _extract_exact_huc_geometry(dem_file: str):
 
 
 def _hierarchical_union(geometries, batch_size: int = 32):
-    """
-    Hierarchically merges polygons in batches using unary_union
-    to safely resolve overlaps while maintaining low memory.
-    """
     current_geoms = [g for g in geometries if g is not None and not g.is_empty]
 
     while len(current_geoms) > 1:
         batches = [current_geoms[i : i + batch_size] for i in range(0, len(current_geoms), batch_size)]
         next_level = []
         for batch in batches:
-            # Overlaps require unary_union, not coverage_union_all
-            merged = shapely.unary_union(batch)
-            next_level.append(merged)
+            next_level.append(shapely.unary_union(batch))
         current_geoms = next_level
 
     result = current_geoms[0] if current_geoms else shapely.GeometryCollection()
-
-    # Heal overlapping junction pinch points
-    result = result.buffer(0)
-    if result.geom_type == "MultiPolygon":
-        # Bridge touch-point vertices with a sub-pixel buffer
-        result = result.buffer(0.01).buffer(-0.01)
-
-    return result
+    return shapely.make_valid(result)
 
 
 def polygonize_extent(dem_files, dem_domain_file, number_of_jobs=1, file_logger=None, sf=None, fh=None):
