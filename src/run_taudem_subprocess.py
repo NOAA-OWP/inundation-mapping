@@ -28,7 +28,7 @@ def run_d8flowdir(taudem_dir, fel_path, p_path=None, sd8_path=None):
             )
 
         # Construct the base command dynamically
-        cmd = [f"{taudem_dir}/d8flowdir", "-fel", fel_path]
+        cmd = ["mpiexec", f"{taudem_dir}/d8flowdir", "-fel", fel_path]
 
         # Add optional arguments
         if p_path:
@@ -36,36 +36,31 @@ def run_d8flowdir(taudem_dir, fel_path, p_path=None, sd8_path=None):
         if sd8_path:
             cmd.extend(["-sd8", sd8_path])
 
-        # We merge stderr into stdout (stderr=subprocess.STDOUT) to process both in one loop.
-        # bufsize=1 and universal_newlines=True (text=True) ensure line-buffered text output.
-        process = subprocess.Popen(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1
-        )
-
         err_details = ""
-        # Read the output line by line as it is generated
-        # With moving to TauDEM 5.5, do we need this anymore?
-        for line in process.stdout:
 
-            # Drop the specific GDAL ERROR 6 message entirely
-            if "ERROR 6:" in line and "Dataset does not support the AddBand() method." in line:
-                continue
-            elif "ERROR:":
-                err_details += line
-                continue  # there can be more than one error
-            # Reformat the warnings specifically based on which file is missing
-            elif "no output sd8 file specified" in line:
-                print("INFO: TauDEM d8flowdir running without optional sd8 slope output.")
-            elif "no output p file specified" in line:
-                print("INFO: TauDEM d8flowdir running without optional p flow direction output.")
+        # We merge stderr into stdout (stderr=subprocess.STDOUT) to process both in one loop.
+        # Note: Bufsize=1 slow things down a lot.
+        with subprocess.Popen(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True) as process:
 
-            # Print everything else normally (errors, standard output, etc.)
-            else:
-                # Use end="" because the line already has a newline character from the stream
-                print(line, end="")
+                for line in process.stdout:
+                    # Drop the specific GDAL ERROR 6 message entirely
+                    # TODO Nov 2026: With TauDEM 5.5, do we even need this anymore?
+                    if "ERROR 6:" in line and "Dataset does not support the AddBand() method." in line:
+                        continue
+                    elif "ERROR:":
+                        err_details += line
+                        continue  # there can be more than one error
+                    # Reformat the warnings specifically based on which file is missing
+                    elif "no output sd8 file specified" in line:
+                        print("INFO: TauDEM d8flowdir running without optional sd8 slope output.")
+                    elif "no output p file specified" in line:
+                        print("INFO: TauDEM d8flowdir running without optional p flow direction output.")
 
-        # Wait for the process to fully complete and grab the exit code
-        process.wait()
+                    # Print everything else normally (errors, standard output, etc.)
+                    else:
+                        # Use end="" because the line already has a newline character from the stream
+                        print(line, end="")
 
         # Enforce strict exit code checking. If it failed, raise an exception.
         if process.returncode != 0:
@@ -90,33 +85,31 @@ def run_flowdircond(taudem_dir, p_path, z_path, zfdc_path):
         zfdc_path: Output conditioned DEM file path
     """
 
-    # Construct the command
-    cmd = [f"{taudem_dir}/flowdircond", "-p", p_path, "-z", z_path, "-zfdc", zfdc_path]
 
     try:
-        # We merge stderr into stdout (stderr=subprocess.STDOUT) to process both in one loop.
-        # bufsize=1 and universal_newlines=True (text=True) ensure line-buffered text output.
-        process = subprocess.Popen(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1
-        )
-
         err_details = ""
-        # Read the output line by line as it is generated
-        for line in process.stdout:
 
-            # Drop the specific GDAL ERROR 6 message entirely
-            if "ERROR 6:" in line and "Dataset does not support the AddBand() method." in line:
-                continue
-            elif "ERROR:":
-                err_details += line
-                continue  # there can be more than one error
-            # Print everything else normally (errors, standard output, etc.)
-            else:
-                # Use end="" because the line already has a newline character from the stream
-                print(line, end="")
+        # Construct the command
+        cmd = ["mpiexec", f"{taudem_dir}/flowdircond", "-p", p_path, "-z", z_path, "-zfdc", zfdc_path]
 
-        # Wait for the process to fully complete and grab the exit code
-        process.wait()
+        # We merge stderr into stdout (stderr=subprocess.STDOUT) to process both in one loop.
+        with subprocess.Popen(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+        ) as process:
+
+            # Read the output line by line as it is generated
+            for line in process.stdout:
+
+                # Drop the specific GDAL ERROR 6 message entirely
+                if "ERROR 6:" in line and "Dataset does not support the AddBand() method." in line:
+                    continue
+                elif "ERROR:":
+                    err_details += line
+                    continue  # there can be more than one error
+                # Print everything else normally (errors, standard output, etc.)
+                else:
+                    # Use end="" because the line already has a newline character from the stream
+                    print(line, end="")
 
         # Enforce strict exit code checking. If it failed, raise an exception.
         if process.returncode != 0:
@@ -150,7 +143,7 @@ def run_streamnet(
     """
 
     # Construct the command
-    cmd = [f"{taudem_dir}/streamnet",
+    cmd = ["mpiexec", f"{taudem_dir}/streamnet",
         "-p",
         p_path,
         "-fel",
@@ -172,29 +165,25 @@ def run_streamnet(
     ]
 
     try:
-        # We merge stderr into stdout (stderr=subprocess.STDOUT) to process both in one loop.
-        # bufsize=1 and universal_newlines=True (text=True) ensure line-buffered text output.
-        process = subprocess.Popen(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1
-        )
-
         err_details = ""
-        # Read the output line by line as it is generated
-        for line in process.stdout:
 
-            # Drop the specific GDAL ERROR 6 message entirely
-            if "ERROR 6:" in line and "Dataset does not support the AddBand() method." in line:
-                continue
-            elif "ERROR:":
-                err_details += line
-                continue  # there can be more than one error
-            # Print everything else normally (errors, standard output, etc.)
-            else:
-                # Use end="" because the line already has a newline character from the stream
-                print(line, end="")
+        # We merge stderr into stdout (stderr=subprocess.STDOUT) to process both in one loop.
+        with subprocess.Popen(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+        ) as process:
+            # Read the output line by line as it is generated
+            for line in process.stdout:
 
-        # Wait for the process to fully complete and grab the exit code
-        process.wait()
+                # Drop the specific GDAL ERROR 6 message entirely
+                if "ERROR 6:" in line and "Dataset does not support the AddBand() method." in line:
+                    continue
+                elif "ERROR:":
+                    err_details += line
+                    continue  # there can be more than one error
+                # Print everything else normally (errors, standard output, etc.)
+                else:
+                    # Use end="" because the line already has a newline character from the stream
+                    print(line, end="")
 
         # Enforce strict exit code checking. If it failed, raise an exception.
         if process.returncode != 0:
@@ -221,7 +210,7 @@ def run_gagewatershed(taudem_dir, p_path, gw_path, o_path, id_path):
     """
 
     # Construct the command
-    cmd = [f"{taudem_dir}/gagewatershed",
+    cmd = ["mpiexec", f"{taudem_dir}/gagewatershed",
         "-p",
         p_path,
         "-gw",
@@ -233,29 +222,25 @@ def run_gagewatershed(taudem_dir, p_path, gw_path, o_path, id_path):
     ]
 
     try:
-        # We merge stderr into stdout (stderr=subprocess.STDOUT) to process both in one loop.
-        # bufsize=1 and universal_newlines=True (text=True) ensure line-buffered text output.
-        process = subprocess.Popen(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1
-        )
-
         err_details = ""
-        # Read the output line by line as it is generated
-        for line in process.stdout:
 
-            # Drop the specific GDAL ERROR 6 message entirely
-            if "ERROR 6:" in line and "Dataset does not support the AddBand() method." in line:
-                continue
-            elif "ERROR:":
-                err_details += line
-                continue  # there can be more than one error
-            # Print everything else normally (errors, standard output, etc.)
-            else:
-                # Use end="" because the line already has a newline character from the stream
-                print(line, end="")
+        # We merge stderr into stdout (stderr=subprocess.STDOUT) to process both in one loop.
+        with subprocess.Popen(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+        ) as process:
+            # Read the output line by line as it is generated
+            for line in process.stdout:
 
-        # Wait for the process to fully complete and grab the exit code
-        process.wait()
+                # Drop the specific GDAL ERROR 6 message entirely
+                if "ERROR 6:" in line and "Dataset does not support the AddBand() method." in line:
+                    continue
+                elif "ERROR:":
+                    err_details += line
+                    continue  # there can be more than one error
+                # Print everything else normally (errors, standard output, etc.)
+                else:
+                    # Use end="" because the line already has a newline character from the stream
+                    print(line, end="")
 
         # Enforce strict exit code checking. If it failed, raise an exception.
         if process.returncode != 0:
@@ -284,7 +269,7 @@ def run_catchhydrogeo(taudem_dir, hand_path, catch_path, catchlist_path, slp_pat
     """
 
     # Construct the command
-    cmd = [f"{taudem_dir}/catchhydrogeo",
+    cmd = ["mpiexec", f"{taudem_dir}/catchhydrogeo",
         "-hand",
         hand_path,
         "-catch",
@@ -300,31 +285,28 @@ def run_catchhydrogeo(taudem_dir, hand_path, catch_path, catchlist_path, slp_pat
     ]
 
     try:
-        # We merge stderr into stdout (stderr=subprocess.STDOUT) to process both in one loop.
-        # bufsize=1 and universal_newlines=True (text=True) ensure line-buffered text output.
-        process = subprocess.Popen(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1
-        )
-
-        # Run the process and capture the streams, it will wait for it.
-        # stdout, stderr = process.communicate()
-
         err_details = ""
-        # Read the output line by line as it is generated
-        for line in process.stdout:
-            # Drop the specific GDAL ERROR 6 message entirely
-            if "ERROR 6:" in line and "Dataset does not support the AddBand() method." in line:
-                continue
-            elif "ERROR:":
-                err_details += line
-                continue  # there can be more than one error
-            # Print everything else normally (errors, standard output, etc.)
-            else:
-                # Use end="" because the line already has a newline character from the stream
-                print(line, end="")
 
-        # Wait for the process to fully complete and grab the exit code
-        process.wait()
+        # We merge stderr into stdout (stderr=subprocess.STDOUT) to process both in one loop.
+        with subprocess.Popen(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+        ) as process:
+
+            # Run the process and capture the streams, it will wait for it.
+            # stdout, stderr = process.communicate()
+
+            # Read the output line by line as it is generated
+            for line in process.stdout:
+                # Drop the specific GDAL ERROR 6 message entirely
+                if "ERROR 6:" in line and "Dataset does not support the AddBand() method." in line:
+                    continue
+                elif "ERROR:":
+                    err_details += line
+                    continue  # there can be more than one error
+                # Print everything else normally (errors, standard output, etc.)
+                else:
+                    # Use end="" because the line already has a newline character from the stream
+                    print(line, end="")
 
         # Enforce strict exit code checking. If it failed, raise an exception.
         if process.returncode != 0:

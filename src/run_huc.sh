@@ -16,8 +16,10 @@ source $outputDestDir/params.env
 source $srcDir/bash_functions.env
 source $srcDir/bash_variables.env
 
-export HYDRA_LAUNCHER="fork"
-export DISPLAY=":0"
+# Nov 2026: Hydra launcher is for gaming platforms. While it can be used in python
+# enviros, it has no value unless you are using the hydra launcher pip package which we do not need.
+# This can have impacts on multi-processing but only when using the hydra packages for gaming.
+# export HYDRA_LAUNCHER="fork"
 
 branch_list_csv_file=$tempHucDataDir/branch_ids.csv
 
@@ -100,6 +102,7 @@ fi
 
 ## DERIVE LEVELPATH  ##
 echo -e "${startDiv}Generating Level Paths for ${hucNumber}"
+date -u
 args=(
     -i "${tempHucDataDir}/nwm_subset_streams.gpkg"
     -s "${tempHucDataDir}/wbd_buffered_streams.gpkg"
@@ -125,6 +128,7 @@ if [[ ! -f "${tempHucDataDir}/nwm_subset_streams_levelPaths_dissolved.parquet" ]
 ## ASSOCIATE LEVEL PATHS WITH LEVEES
 echo -e "${startDiv}Associate level paths with levees"
 if [[ -f "${tempHucDataDir}/nld_subset_levees.gpkg" ]]; then
+    date -u
     args=(
         -nld "${tempHucDataDir}/nld_subset_levees.gpkg"
         -s "${tempHucDataDir}/nwm_subset_streams_levelPaths_dissolved.parquet"
@@ -139,6 +143,7 @@ fi
 
 ## STREAM BRANCH POLYGONS
 echo -e "${startDiv}Generating Stream Branch Polygons for ${hucNumber}"
+date -u
 args=(
     -s "${tempHucDataDir}/nwm_subset_streams_levelPaths_dissolved.parquet"
     -i "${branch_id_attribute}"
@@ -150,6 +155,7 @@ python3 "${srcDir}/buffer_stream_branches.py" "${args[@]}"
 
 ## CREATE BRANCHID LIST FILE
 echo -e "${startDiv}Create list file of branch ids for ${hucNumber}"
+date -u
 args=(
     -d "${tempHucDataDir}/nwm_subset_streams_levelPaths_dissolved.parquet"
     -b "${branch_id_attribute}"
@@ -168,6 +174,7 @@ mkdir -p ${tempCurrentBranchDataDir}
 
 ## CLIP RASTERS
 echo -e "${startDiv}Clipping rasters to branches ${hucNumber} ${branch_zero_id}"
+date -u
 gdal_opts=(
     -cutline "${tempHucDataDir}/wbd_buffered.gpkg"
     -crop_to_cutline
@@ -188,6 +195,10 @@ gdalwarp "${gdal_opts[@]}" "${input_DEM}" "${tempHucDataDir}/dem_meters_orig.tif
 gdalwarp "${gdal_opts[@]}" "${input_pit_fill}" "${tempHucDataDir}/dem_meters_pit_fill.tif"
 gdalwarp "${gdal_opts[@]}" "${input_bridge_elev_diff}" "${tempHucDataDir}/bridge_elev_diff_meters.tif"
 
+
+## CLIP RASTERS
+echo -e "${startDiv} Combine Raw DEM with Pit Fill DEM ${hucNumber} ${branch_zero_id}"
+date -u
 ## Combine Raw DEM with Pit Fill DEM (use pit fill elev)
 gdal_opts=(
     -ot "Float32"
@@ -206,11 +217,11 @@ input_tifs=(
 )
 
 output_tif="${tempHucDataDir}/dem_meters.tif"
-
 gdalwarp "${gdal_opts[@]}" "${input_tifs[@]}" "${output_tif}"
 
 ## GET RASTER METADATA
 echo -e "${startDiv}Get DEM Metadata ${hucNumber} ${branch_zero_id}"
+date -u
 read -r ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy \
     <<<"$("${srcDir}/getRasterInfoNative.py" -r "${tempHucDataDir}/dem_meters.tif")"
 
@@ -218,6 +229,7 @@ read -r ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy \
 echo -e "${startDiv}Rasterize all NLD multilines using zelev vertices ${hucNumber} ${branch_zero_id}"
 # REMAINS UNTESTED FOR AREAS WITH LEVEES
 if [[ -f "${tempHucDataDir}/3d_nld_subset_levees_burned.gpkg" ]]; then
+    date -u
     args=(-q -l "3d_nld_subset_levees_burned" -3d -at -a_nodata "${ndv}"
         -te "${xmin}" "${ymin}" "${xmax}" "${ymax}" -ts "${ncols}" "${nrows}"
         -ot "Float32" -of "GTiff"
@@ -234,6 +246,7 @@ echo -e "${startDiv}Burn nld levees into dem & convert nld elev to meters"
 echo -e "(*Overwrite dem_meters.tif output) ${hucNumber} ${branch_zero_id}"
 # REMAINS UNTESTED FOR AREAS WITH LEVEES
 if [[ -f "${tempCurrentBranchDataDir}/nld_rasterized_elev_${branch_zero_id}.tif" ]]; then
+    date -u
     args=(
         -dem "${tempHucDataDir}/dem_meters.tif"
         -nld "${tempCurrentBranchDataDir}/nld_rasterized_elev_${branch_zero_id}.tif"
@@ -244,6 +257,7 @@ fi
 
 ## RASTERIZE REACH BOOLEAN (1 & 0) - BRANCH 0 (include all NWM streams) ##
 echo -e "${startDiv}Rasterize Reach Boolean ${hucNumber} ${branch_zero_id}"
+date -u
 args=(
     -q -ot "Int32" -burn "1" -init "0" -a_nodata "-9999"
     -co "BIGTIFF=YES"
@@ -256,6 +270,7 @@ gdal_rasterize "${args[@]}"
 ## RASTERIZE REACH BOOLEAN (1 & 0) - BRANCHES (Not 0) (NWM levelpath streams) ##
 if [[ "${levelpaths_exist}" == "1" ]]; then
     echo -e "${startDiv}Rasterize Reach Boolean ${hucNumber} (Branches)"
+    date -u
     args=(
         -q -ot "Int32" -burn "1" -init "0" -a_nodata "-9999"
         -co "BIGTIFF=YES"
@@ -268,6 +283,7 @@ fi
 
 ## RASTERIZE NWM Levelpath HEADWATERS (1 & 0) ##
 echo -e "${startDiv}Rasterize NWM Headwaters ${hucNumber} ${branch_zero_id}"
+date -u
 args=(
     -q -at -ot "Int32" -burn "1" -init "0" -a_nodata "-9999"
     -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES"
@@ -281,6 +297,7 @@ gdal_rasterize "${args[@]}"
 # Using AGREE methodology, hydroenforce the DEM so that it is consistent with the supplied stream network.
 # This allows for more realistic catchment delineation which is ultimately reflected in the output FIM mapping.
 echo -e "${startDiv}Creating AGREE DEM using $agree_DEM_buffer meter buffer ${hucNumber} ${branch_zero_id}"
+date -u
 args=(
     -r "${tempCurrentBranchDataDir}/flows_grid_boolean_${branch_zero_id}.tif"
     -d "${tempHucDataDir}/dem_meters.tif"
@@ -294,6 +311,7 @@ python3 "${srcDir}/agreedem.py" "${args[@]}"
 
 ## PIT REMOVE BURNED DEM - BRANCH 0 (include all NWM streams) ##
 echo -e "${startDiv}Pit remove Burned DEM ${hucNumber} ${branch_zero_id}"
+date -u
 args=(
     "${tempCurrentBranchDataDir}/dem_burned_${branch_zero_id}.tif"
     "${tempCurrentBranchDataDir}/dem_burned_filled_${branch_zero_id}.tif"
@@ -305,6 +323,7 @@ rd_depression_filling "${args[@]}"
 # do not want it a this point.
 # We will just remove the sf8 temp file later.
 echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber ${branch_zero_id}"
+date -u
 args=(
     -t "${taudemDir}"
     -fel "${tempCurrentBranchDataDir}/dem_burned_filled_${branch_zero_id}.tif"
@@ -318,17 +337,21 @@ echo -e "${startDiv}Copying DEM to Branch 0"
 cp "${tempHucDataDir}/dem_meters.tif" "${tempCurrentBranchDataDir}/dem_meters_${branch_zero_id}.tif"
 cp "${tempHucDataDir}/bridge_elev_diff_meters.tif" "${tempCurrentBranchDataDir}/bridge_elev_diff_meters_${branch_zero_id}.tif"
 
-
 ## PRODUCE THE REM AND OTHER HAND FILE OUTPUTS ##
 export hucNumber current_branch_id tempCurrentBranchDataDir tempHucDataDir ndv xmin ymin xmax ymax ncols nrows
 
 ## PRODUCE BRANCH ZERO HAND
+echo -e "${startDiv}Starting into delineate code for Branch 0"
+date -u
 "${srcDir}/delineate_hydros_and_produce_HAND.sh" "unit"
+date -u
+echo "-------------------"
 
 ## CREATE USGS GAGES FILE
 ## Note: the usgs_gages.gpkg was renamed during copying into the unit folder
 if [[ -f "${tempHucDataDir}/nwm_subset_streams_levelPaths.parquet" ]]; then
     echo -e "${startDiv}Assigning USGS gages to branches for ${hucNumber}"
+    date -u
     args=(
         -gages "${tempHucDataDir}/usgs_gages.gpkg"
         -nwm "${tempHucDataDir}/nwm_subset_streams_levelPaths.parquet"
@@ -345,6 +368,7 @@ fi
 ## USGS CROSSWALK ##
 if [[ -f "${tempHucDataDir}/usgs_subset_gages_${branch_zero_id}.gpkg" ]]; then
     echo -e "${startDiv}USGS Crosswalk ${hucNumber} ${branch_zero_id}"
+    date -u
     args=(
         -gages "${tempHucDataDir}/usgs_subset_gages_${branch_zero_id}.gpkg"
         -flows "${tempCurrentBranchDataDir}/demDerived_reaches_split_filtered_${branch_zero_id}.parquet"
@@ -360,6 +384,7 @@ fi
 
 ## CLEANUP BRANCH ZERO OUTPUTS ##
 echo -e "${startDiv}Cleaning up outputs in branch zero ${hucNumber}"
+date -u
 python3 "${srcDir}/outputs_cleanup.py" -d "${tempCurrentBranchDataDir}" -l "${deny_branch_zero_list}" -b "${branch_zero_id}"
 
 branch0=$(Calc_Time $branch0_start_time)
@@ -377,7 +402,6 @@ branch_processing_start_time=`date +%s`
 # Each will return an independant exit code.
 if [ -f $branch_list_lst_file ]; then
     date -u
-    Tstart
     # There may not be a branch_ids.lst if there were no level paths (no stream orders 3+)
     # but there will still be a branch zero
     # Define parallel options in an array
@@ -386,12 +410,11 @@ if [ -f $branch_list_lst_file ]; then
     -j "${jobBranchLimit}"
     --joblog "${branchSummaryLogFile}"
     --colsep ','
-    --line-buffer
+    --group
     )
 
     # Execute GNU Parallel using the array
     parallel "${args[@]}" -- "${srcDir}/process_branch.sh" "${runName}" "${hucNumber}" :::: "${branch_list_lst_file}" || true
-    Tcount
 else
     echo "Exit Status: 63 - No level paths exist with this HUC. Processing branch zero only."
 fi
@@ -399,7 +422,6 @@ fi
 # We should have a summary file now
 # but it is possible we do not have one if there are no non branch 0 branches left
 if [ -f $branchSummaryLogFile ]; then
-
     # Adjust branch summary parallel log to more readable format
     # Changing the 3rd col (Starttime from epoch time to human readable d/t)
     # and 4th column from seconds and milliseconds to min
@@ -430,22 +452,21 @@ branches_percent="$(Calc_Time_Minutes_in_Percent ${branch_processing_start_time}
 if [[ -f "${deny_unit_list}" ]]; then
     echo -e "${startDiv}Remove files ${hucNumber}"
     date -u
-    Tstart  # TODO: Do we need a tstart and count on this
     python3 $srcDir/outputs_cleanup.py -d $tempHucDataDir -l $deny_unit_list -b $hucNumber
-    Tcount
 fi
 
 # -------------------
 ## ADJUST CALIBRATION
 ## call src adjustments..Pass False as an argument to flag it is not a rerun of calibration. 
+echo -e "${startDiv}Starting Calibration Processing ${hucNumber}"
 date -u
-Tstart
 $srcDir/calibrate_rating_curves.sh "False" $jobBranchLimit $hucNumber
-Tcount
+echo "...................................."
 
 # -------------------
 ## Start the local csv branch list
 echo -e $startDiv"Generating Branch List that have successfully completed"
+date -u
 python3 $srcDir/generate_branch_list_csv.py -o $branch_list_csv_file -u $hucNumber
 
 # -------------------
@@ -456,6 +477,8 @@ total_branches=$(wc -l < $branch_list_csv_file)
 
 # -------------------
 # WRITE TO LOG FILE CONTAINING ALL HUC PROCESSING TIMES
+echo -e $startDiv"Calculating branch durations"
+date -u
 total_duration_display="${hucNumber},$(Calc_Time "${huc_start_time}"),$(Calc_Time_Minutes_in_Percent "${huc_start_time}"),${total_branches},${branch0},${branch0_percent},${branches},${branches_percent}"
 echo -e "${total_duration_display}" >> "${tempHucDataDir}/processing_time_${hucNumber}.txt"
 

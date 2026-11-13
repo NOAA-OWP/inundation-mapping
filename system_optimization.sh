@@ -6,8 +6,9 @@
 # Oct 2026: It is expected that some of these values will change as we figuring out
 # the right optimizations per environment run.
 # Later, we may even consider having two optimization files, one for standard
-# development for any NOAA or non NOAA user, and a second for production
-# usage. 
+# development for any NOAA or non NOAA user, and a second for production (thor)
+# usage. If we do eventually create seperate one for dev versus prod, we will need
+# seperate docker images.  ie. DockerFile.dev and Dockerfile.prod (or similar)
 # ----------------------------------------------
 
 # NOTE: This has to be an .sh file and is called by entrypoint.sh for DockerBuilds
@@ -23,8 +24,8 @@
 #   - rasterio, geopandas, parquet, pyarrow, 
 #   - Memory and CPU management and over throttling
 # 
-#  This has been optimized for larger system (128 GiB - 256 GiB RAM and 16 to 64 Cores)
-#  but it optimization only.
+#  This has been optimized for dev systems (128 GiB RAM & 16 Cores), but will help prod enviros significantly.
+
 
 # ==============================================================================
 # GDAL PERFORMANCE TUNING
@@ -48,105 +49,116 @@
 #     with rasterio.open('input.tif') as src:
 #         # Perform your heavy reproject / warp here...
 #         pass
+# Normally, you will likely not override it depending if you are using Multi-Proc, Multi-Thread
+# bash parallel or not.
 
-# -----------
-# GDAL_CACHEMAX, GDAL_MAX_DATASET_POOL_SIZE, GDAL_MAX_DATASET_POOL_RAM_USAGE
-# 1. GDAL_CACHEMAX (The Processing Desk):
+
+
+# ==============================================================================
+# GeoTIFF & Raster Caching & VSI RAM Buffers
+# (2 GB block cache + 1 GB VSI read buffer per worker)
+#    GDAL_CACHEMAX (The Processing Desk):
 #    This is the active RAM buffer where GDAL holds raw raster pixels, decompressed image tiles,
 #    and array blocks currently being read or modified by your Python code.
 #    Defaults to only 5% of RAM (per process)
+export GDAL_CACHEMAX=2048
 
 # Also prevents small network/disk calls from overwhelming the filesystem
 # Per process !!! (4 GiB)
-export GDAL_CACHEMAX=5124
+# export GDAL_CACHEMAX=5124
+# ROB TEST:  Try 2048
 
-# 2. GDAL_MAX_DATASET_POOL_SIZE (The File Handle Limit):
+
+# TEST
+# try 4 GiB, might be too high
+ # 2147483648  = 2 GB dataset pool limit per worker
+# (note;;; usage versus pool size above)
+export GDAL_MAX_DATASET_POOL_RAM_USAGE=4294967296
+# (In bytes)
+
+# GDAL_MAX_DATASET_POOL_SIZE (The File Handle Limit):
 #    This sets a cap on the maximum number of structural file handles (the underlying files inside a VRT,
 #    composite raster, or database connection) that GDAL can keep "open and indexed" simultaneously to 
 #    avoid the time penalty of closing and re-opening them.
-
-# 3. GDAL_MAX_DATASET_POOL_RAM_USAGE (The File Handle Vault Door):
-#    This is a safety brake. It caps the amount of RAM the files inside your dataset pool can collectively
-#    consume just to keep their metadata headers and compression tables cached in memory.
-
-#############
-
-
-# 2.  Enhanced settings for large multi-file mosaics, mostly when downloading
-# data files via external vrt.
 # Defaults to 100
-# export GDAL_MAX_DATASET_POOL_SIZE=2048 
+# export GDAL_MAX_DATASET_POOL_SIZE=2048   # Nov 2026: Intentionally commented out for now. Testing required
 
-# 3. HARD MEMORY PROTECTION: Caps how much RAM the pooled datasets can consume.
-# Prevents large underlying files from triggering an OOM crash.
-# This is per process and helps balance various usage of GDAL tools
-# vrts calls, and python packages with GDAL included.
-# 512MB per process, and as we use -jh, this should be good.
-# GDAL defaults to 25% of the total physical RAM available to the system.
-export GDAL_MAX_DATASET_POOL_RAM_USAGE=512MB
+export VSI_CACHE=TRUE
+# sets a 1 GB virtual file system read buffer per worker
+export VSI_CACHE_SIZE=1073741824
 
-####################
-# The overall GDAL overview
-# With GDAL_CACHEMAX=5124 (4 GiB) and GDAL_MAX_DATASET_POOL_RAM_USAGE=512MB (0.5 GiB),
-# each worker process is explicitly restricted to a maximum of 6.0 GiB of C++ layer allocations.
 
 # ==============================================================================
 # --- FILE I/O OPTIMIZATION FOR NETWORK MOUNTS (EFS/NFS) (and Parallel Worker Mounts) ---
 # This helps with network shared EFS calls.
 # CHANGED: 'YES' completely blocks chatty filesystem directory scans across network mounts
+# Skip Slow Directory Scans
 export GDAL_DISABLE_READDIR_ON_OPEN=YES
 export OGR_DISABLE_READDIR_ON_OPEN=YES
-
-
-# ==============================================================================
-# --- VECTOR PERFORMANCE (Optimized for 2-20 MiB GeoPackages and Parquet files) ---
-# Allocate 32MB per process. This guarantees 
-# that the entire GeoPackage database index and data pages fit entirely in RAM cache.
-export OGR_SQLITE_CACHE=32MB
-export OGR_SQLITE_SYNCHRONOUS=OFF
-
-# =====================================================================
-# Optimize GDAL/OGR's built-in GeoParquet driver thread pool 
-# export OGR_PARQUET_NUM_THREADS=1
-
-# Advanced GeoParquet Optimization
-# export OGR_PARQUET_ROW_GROUP_SIZE=262144
-# export OGR_PARQUET_COMPRESSION=ZSTD
-
 
 # =====================================================================
 # --- THREAD LOCKDOWN & PROCESS POOL CONCURRENCY GOVERNOR ---
 # Crucial for Geoparquet/PyArrow and Python ProcessPool
 # Prevents child math/transform libraries from spawning threads that thrash your 30 workers
+# Prevent hidden thread explosions across OpenMP, BLAS, GDAL, and Apache Arrow (Parquet)
 export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
 export OPENBLAS_NUM_THREADS=1
 export GDAL_NUM_THREADS=1
+
+# ------------------------
+# OpenMPI 4.1.6 Docker & Unbinding Settings
 # Dynamically ensure runtime MPI bypass blocks are always globally active
 export OMPI_ALLOW_RUN_AS_ROOT=1
 export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
-# Force Open MPI to default to 1 process when mpiexec/mpirun is called
-export OMPI_MCA_orte_default_num_procs=1
+export OMPI_MCA_hwloc_base_binding_policy=none
 # Fixes a common OpenMPI warning/crash regarding shared memory access in Docker
 export OMPI_MCA_btl_vader_single_copy_mechanism=none
 # Restricts OpenMPI to localhost loopback inside the container (prevents looking for external cluster fabrics)
 export OMPI_MCA_btl=self,vader
 
+
+# ==============================================================================
+# --- VECTOR PERFORMANCE (Optimized for 2-20 MiB GeoPackages and Parquet files) ---
+# This guarantees that the entire GeoPackage database index and data pages fit entirely in RAM cache.
+# sets a 1,024 MB / 1 GB SQLite cache per worker).
+export OGR_SQLITE_CACHE=1024
+export OGR_SQLITE_SYNCHRONOUS=OFF
+
 # =====================================================================
 # --- PYARROW & GEOPARQUET SYSTEM ENHANCEMENTS ---
+
+# -----------------
+# Optimize GDAL/OGR's built-in GeoParquet driver thread pool 
+# export OGR_PARQUET_NUM_THREADS=1
+
+# Advanced GeoParquet Optimization
+# export OGR_PARQUET_ROW_GROUP_SIZE=262144  -- Nov 2026: Intentionally commented out, testing required
+# export OGR_PARQUET_COMPRESSION=ZSTD  -- Nov 2026: Intentionally commented out, testing required
+
 # Restricts PyArrow to 1 core per process to align with your ProcessPool layout
+# also helps Parquet
 export ARROW_NUM_THREADS=1
+export ARROW_IO_THREADS=1
 # Prevent Memory Fragmentation and Bloat
 # Forces PyArrow's underlying C++ allocator to aggressively release memory 
 # back to the operating system after reading a row group, rather than caching it.
 export ARROW_DEFAULT_MEMORY_POOL=jemalloc
-# Suppress Unused PyArrow Signals
-# Prevents child worker processes from intercepting system interrupts,
-# ensuring clean process terminations when your ProcessPool recycles workers.
-export ARROW_ENABLE_THREADED_SIGNALS=0
 
-export ARROW_SIMD_LEVEL=AVX2
+# (from Gemini about ARROR_DEFAULT_MEMORY_POOL)
+# Why it helps: Recent versions of PyArrow (v18+) switched their default memory allocator to mimalloc, 
+# which introduced a known memory growth/leak bug when reading many Parquet files in a loop.
+# Setting this back to jemalloc prevents RSS memory bloat and reuses allocated memory blocks quickly without
+# making constant system calls to Linux.
 
+# Important caveat: By design, jemalloc holds onto freed memory blocks for a short time so it can reuse them quickly.
+# Across 12 workers, that is totally fine on your 128 GiB RAM machine, though if you ever see RAM climbing higher
+#  than you want, you can also set export MALLOC_CONF="dirty_decay_ms:1000,muzzy_decay_ms:1000" 
+# to make jemalloc return unused RAM to the OS every second
+
+export MALLOC_CONF="narenas:2,dirty_decay_ms:5000,muzzy_decay_ms:5000"
+# jemalloc (MALLOC_CONF): jemalloc to keep freed memory warm for instant reuse rather than constantly handing
+# it back to Linux, while also limiting unnecessary internal arenas since your workers are single-threaded:
 
 # =====================================================================
 # --- LOW-LEVEL LINUX & GLIBC MEMORY ALLOCATION TUNING ---
@@ -157,9 +169,8 @@ export ARROW_SIMD_LEVEL=AVX2
 export MALLOC_ARENA_MAX=2
 
 # 2. Force Aggressive Memory Return to OS
-# Lowers the threshold (in bytes) at which glibc releases unmapped heap spaces 
-# back to Linux. Keeps the container's resident set size (RSS) flat.
-export MALLOC_TRIM_THRESHOLD_=131072
+# -1 disables automatic heap trimming so your workers reuse their allocated RAM at full speed without kernel pauses
+export MALLOC_TRIM_THRESHOLD_=-1
 
 # 3. Disable Memory Allocation Padding
 # Prevents glibc from leaving unused padding space around newly allocated 
@@ -169,6 +180,10 @@ export MALLOC_PERTURB_=0
 # 4. Turn Off Speculative Memory Pre-allocation
 # Stops the glibc allocator from aggressively hoarding contiguous blocks 
 # of RAM when a worker process requests variable-sized raster windows.
+# Forces allocations smaller than 128 KB to stay in the fast heap rather than 
+# triggering slow mmap kernel calls for every tiny <10 MiB file read
 export MMAP_THRESHOLD=131072
 
+# Impacts screen output for terminals
+export DISPLAY=":0"
 

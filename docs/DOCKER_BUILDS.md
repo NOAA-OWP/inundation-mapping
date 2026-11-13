@@ -114,6 +114,8 @@ pyarrow, GDAL, OGR, C++, MPIEXEC (such as TauDEM) and a host of other geospatial
 To test changes to the file, you can make update to it, then test by running:
 ```
   . /foss_fim/system_requirements.sh   (yes.. you need the dot in front)
+  UPDATE: Nov 2026: not sure if it works in container time for testing.. TBD
+  Later, you will need to build a replacement docker image to make it permanent.
 ```
 
 ----------------------------------------
