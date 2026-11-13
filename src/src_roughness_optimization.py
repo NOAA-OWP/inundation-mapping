@@ -1,16 +1,11 @@
-import argparse
-import datetime as dt
-import json
-import multiprocessing
 import os
-import sys
+import traceback
 from collections import deque
-from multiprocessing import Pool
+
 
 import geopandas as gpd
 import numpy as np
 import pandas as pd
-import rasterio
 from geopandas.tools import sjoin
 
 from utils.io import write_geodataframe
@@ -19,7 +14,12 @@ from utils.shared_variables import DOWNSTREAM_THRESHOLD, ROUGHNESS_MAX_THRESH, R
 
 gpd.options.io_engine = "pyogrio"
 
+# +++++++++++++++++++++++++++++++
+# NOTE: This is called by various py files. Some of those py files, are calling this function via MPs, but some are not. As most of those MP's are not yet setup for newer shared_function MPs which loggers built in, we have to stick with using a log_text. Once all of those calling py files are fixed, then we can use a standard python logger in in here.
+# +++++++++++++++++++++++++++++++
 
+# TODO: Nov 6, 2026:
+# This function is way to big and really should be split up to smaller functions.
 def update_rating_curve(
     fim_directory,
     water_edge_median_df,
@@ -95,8 +95,16 @@ def update_rating_curve(
     - df_htable:            same input "htable_path" --> updated hydroTable.csv with new/modified attributes
     - output_src_json:      src.json file with new SRC discharge values
 
+    Returns:
+        - in_error: If true, it means stop downsteam coding processing, else continue
+        - log_text: A list of strings to go to a log file.
+
     '''
-    print(
+
+    log_text = []
+    in_error = False
+
+    msg=(
         "Processing "
         + str(source_tag)
         + " calibration for huc --> "
@@ -104,226 +112,217 @@ def update_rating_curve(
         + '  branch id: '
         + str(branch_id)
     )
-    log_text = (
-        "\nProcessing "
-        + str(source_tag)
-        + " calibration for huc --> "
-        + str(huc)
-        + '  branch id: '
-        + str(branch_id)
-        + '\n'
-    )
-    log_text += "DOWNSTREAM_THRESHOLD: " + str(down_dist_thresh) + 'km\n'
-    log_text += "Merge Previous Adj Values: " + str(merge_prev_adj) + '\n'
-    df_nvalues = water_edge_median_df.copy()
-    df_nvalues.reset_index(inplace=True)
-    df_nvalues = df_nvalues[
-        (df_nvalues.hydroid.notnull()) & (df_nvalues.hydroid > 0)
-    ]  # remove null entries that do not have a valid hydroid
+    # print(msg)
+    log_text.append(msg)
 
-    ## Determine calibration data type for naming calb dataframe column
-    if source_tag == 'point_obs':
-        calb_type = 'calb_coef_spatial'
-    elif source_tag == 'usgs_rating':
-        calb_type = 'calb_coef_usgs'
-    elif source_tag == 'ras2fim_rating':
-        calb_type = 'calb_coef_ras2fim'
-    else:
-        log_text += "WARNING - unknown calibration data source type: " + str(source_tag) + '\n'
+    try:
+        log_text.append("DOWNSTREAM_THRESHOLD: " + str(down_dist_thresh) + 'km')
+        log_text.append("Merge Previous Adj Values: " + str(merge_prev_adj))
+        df_nvalues = water_edge_median_df.copy()
+        df_nvalues = df_nvalues.reset_index()
+        df_nvalues = df_nvalues[
+            (df_nvalues.hydroid.notnull()) & (df_nvalues.hydroid > 0)
+        ]  # remove null entries that do not have a valid hydroid
 
-    ## Read in the hydroTable.csv and check wether it has previously been updated
-    # (rename default columns if needed)
-    df_htable = pd.read_csv(
-        htable_path, dtype={'HUC': object, 'last_updated': object, 'submitter': object, 'obs_source': object}
-    )
-    df_prev_adj = pd.DataFrame()  # initialize empty df for populating/checking later
-    if 'precalb_discharge_cms' not in df_htable.columns:  # need this column to exist before continuing
-        df_htable['calb_applied'] = False
-        df_htable['last_updated'] = pd.NA
-        df_htable['submitter'] = pd.NA
-        df_htable['obs_source'] = pd.NA
-        df_htable['precalb_discharge_cms'] = pd.NA
-        df_htable['calb_coef_usgs'] = pd.NA
-        df_htable['calb_coef_spatial'] = pd.NA
-        df_htable['calb_coef_final'] = pd.NA
-    if (
-        df_htable['precalb_discharge_cms'].isnull().values.any()
-    ):  # check if there are not valid values in the column (True = no previous calibration outputs)
-        df_htable['precalb_discharge_cms'] = df_htable['discharge_cms'].values
-
-    ## The section below allows for previous calibration modifications (i.e. usgs rating calbs) to be
-    #  available in the final calibration outputs
-    # Check if the merge_prev_adj setting is True and there are valid 'calb_coef_final' values from previous
-    # calibration outputs
-    if merge_prev_adj and not df_htable['calb_coef_final'].isnull().all():
-        # Create a subset of hydrotable with previous adjusted SRC attributes
-        df_prev_adj_htable = df_htable.copy()[
-            ['HydroID', 'submitter', 'last_updated', 'obs_source', 'calb_coef_final']
-        ]
-        df_prev_adj_htable = df_prev_adj_htable.rename(
-            columns={
-                'submitter': 'submitter_prev',
-                'last_updated': 'last_updated_prev',
-                'calb_coef_final': 'calb_coef_final_prev',
-                'obs_source': 'obs_source_prev',
-            }
-        )
-        df_prev_adj_htable = df_prev_adj_htable.groupby(["HydroID"]).first()
-        # Only keep previous USGS rating curve adjustments (previous spatial obs adjustments are not retained)
-        df_prev_adj = df_prev_adj_htable[
-            df_prev_adj_htable['obs_source_prev'].str.contains("usgs_rating|ras2fim_rating", na=False)
-        ]
-        log_text += (
-            'HUC: '
-            + str(huc)
-            + '  Branch: '
-            + str(branch_id)
-            + ': found previous hydroTable calibration attributes --> '
-            + 'retaining previous calb attributes for blending...\n'
-        )
-
-    # Delete previous adj columns to prevent duplicate variable issues
-    # (if src_roughness_optimization.py was previously applied)
-    df_htable = df_htable.drop(
-        [
-            'discharge_cms',
-            'submitter',
-            'last_updated',
-            calb_type,
-            'calb_coef_final',
-            'calb_applied',
-            'obs_source',
-        ],
-        axis=1,
-        errors='ignore',
-    )
-    df_htable = df_htable.rename(columns={'precalb_discharge_cms': 'discharge_cms'})
-
-    ## loop through the user provided point data --> stage/flow dataframe row by row
-    for index, row in df_nvalues.iterrows():
-        if row.hydroid not in df_htable['HydroID'].values:
-            print(
-                'WARNING: HydroID for calb point was not found in the hydrotable (check hydrotable) for HUC: '
-                + str(huc)
-                + '  branch id: '
-                + str(branch_id)
-                + ' hydroid: '
-                + str(row.hydroid)
-            )
-            log_text += (
-                'WARNING: HydroID for calb point was not found in the hydrotable (check hydrotable) for HUC: '
-                + str(huc)
-                + '  branch id: '
-                + str(branch_id)
-                + ' hydroid: '
-                + str(row.hydroid)
-                + '\n'
-            )
+        ## Determine calibration data type for naming calb dataframe column
+        if source_tag == 'point_obs':
+            calb_type = 'calb_coef_spatial'
+        elif source_tag == 'usgs_rating':
+            calb_type = 'calb_coef_usgs'
+        elif source_tag == 'ras2fim_rating':
+            calb_type = 'calb_coef_ras2fim'
         else:
-            # filter htable for entries with matching hydroid and ignore stage 0
-            # (first possible stage match at 1ft)
-            df_htable_hydroid = df_htable[(df_htable.HydroID == row.hydroid) & (df_htable.stage > 0)]
-            if df_htable_hydroid.empty:
-                print(
-                    'WARNING: df_htable_hydroid is empty but expected data: '
+            log_text.append("WARNING - unknown calibration data source type: " + str(source_tag))
+
+        ## Read in the hydroTable.csv and check wether it has previously been updated
+        # (rename default columns if needed)
+        df_htable = pd.read_csv(
+            htable_path, dtype={'HUC': object, 'last_updated': object, 'submitter': object, 'obs_source': object}
+        )
+        df_prev_adj = pd.DataFrame()  # initialize empty df for populating/checking later
+        if 'precalb_discharge_cms' not in df_htable.columns:  # need this column to exist before continuing
+            df_htable['calb_applied'] = False
+            df_htable['last_updated'] = pd.NA
+            df_htable['submitter'] = pd.NA
+            df_htable['obs_source'] = pd.NA
+            df_htable['precalb_discharge_cms'] = pd.NA
+            df_htable['calb_coef_usgs'] = pd.NA
+            df_htable['calb_coef_spatial'] = pd.NA
+            df_htable['calb_coef_final'] = pd.NA
+        if (
+            df_htable['precalb_discharge_cms'].isnull().values.any()
+        ):  # check if there are not valid values in the column (True = no previous calibration outputs)
+            df_htable['precalb_discharge_cms'] = df_htable['discharge_cms'].values
+
+        ## The section below allows for previous calibration modifications (i.e. usgs rating calbs) to be
+        #  available in the final calibration outputs
+        # Check if the merge_prev_adj setting is True and there are valid 'calb_coef_final' values from previous
+        # calibration outputs
+        if merge_prev_adj and not df_htable['calb_coef_final'].isnull().all():
+            # Create a subset of hydrotable with previous adjusted SRC attributes
+            df_prev_adj_htable = df_htable.copy()[
+                ['HydroID', 'submitter', 'last_updated', 'obs_source', 'calb_coef_final']
+            ]
+            df_prev_adj_htable = df_prev_adj_htable.rename(
+                columns={
+                    'submitter': 'submitter_prev',
+                    'last_updated': 'last_updated_prev',
+                    'calb_coef_final': 'calb_coef_final_prev',
+                    'obs_source': 'obs_source_prev',
+                }
+            )
+            df_prev_adj_htable = df_prev_adj_htable.groupby(["HydroID"]).first()
+            # Only keep previous USGS rating curve adjustments (previous spatial obs adjustments are not retained)
+            df_prev_adj = df_prev_adj_htable[
+                df_prev_adj_htable['obs_source_prev'].str.contains("usgs_rating|ras2fim_rating", na=False)
+            ]
+            log_text.append(
+                'HUC: '
+                + str(huc)
+                + '  Branch: '
+                + str(branch_id)
+                + ': found previous hydroTable calibration attributes --> '
+                + 'retaining previous calb attributes for blending...'
+            )
+
+        # Delete previous adj columns to prevent duplicate variable issues
+        # (if src_roughness_optimization.py was previously applied)
+        df_htable = df_htable.drop(
+            [
+                'discharge_cms',
+                'submitter',
+                'last_updated',
+                calb_type,
+                'calb_coef_final',
+                'calb_applied',
+                'obs_source',
+            ],
+            axis=1,
+            errors='ignore',
+        )
+        df_htable = df_htable.rename(columns={'precalb_discharge_cms': 'discharge_cms'})
+
+        ## loop through the user provided point data --> stage/flow dataframe row by row
+        for index, row in df_nvalues.iterrows():
+            if row.hydroid not in df_htable['HydroID'].values:
+                # TODO: Nov 2026: Shouldn't this be an error that stops downstream processing?
+                msg = (
+                    'WARNING: HydroID for calb point was not found in the hydrotable (check hydrotable) for HUC: '
                     + str(huc)
                     + '  branch id: '
                     + str(branch_id)
                     + ' hydroid: '
                     + str(row.hydroid)
-                )
-                log_text += (
-                    'WARNING: df_htable_hydroid is empty but expected data: '
-                    + str(huc)
-                    + '  branch id: '
-                    + str(branch_id)
-                    + ' hydroid: '
-                    + str(row.hydroid)
-                    + '\n'
-                )
+                ) 
+                print(msg)
+                log_text.append(msg)
+            else:
+                # filter htable for entries with matching hydroid and ignore stage 0
+                # (first possible stage match at 1ft)
+                df_htable_hydroid = df_htable[(df_htable.HydroID == row.hydroid) & (df_htable.stage > 0)]
+                # TODO: Nov 2026: Should this stop downstream code processing if empty?
+                if df_htable_hydroid.empty:
+                    msg = (
+                        'WARNING: df_htable_hydroid is empty but expected data: '
+                        + str(huc)
+                        + '  branch id: '
+                        + str(branch_id)
+                        + ' hydroid: '
+                        + str(row.hydroid)
+                    )
+                    print(msg)
+                    log_text.append(msg)
 
-            find_src_stage = df_htable_hydroid.loc[
-                df_htable_hydroid['stage'].sub(row.hand).abs().idxmin()
-            ]  # find closest matching stage to the user provided HAND value
+                find_src_stage = df_htable_hydroid.loc[
+                    df_htable_hydroid['stage'].sub(row.hand).abs().idxmin()
+                ]  # find closest matching stage to the user provided HAND value
 
-            ## copy the corresponding htable values for the matching stage->HAND lookup
-            df_nvalues.loc[index, 'feature_id'] = find_src_stage.feature_id
-            df_nvalues.loc[index, 'LakeID'] = find_src_stage.LakeID
-            df_nvalues.loc[index, 'NextDownID'] = find_src_stage.NextDownID
-            df_nvalues.loc[index, 'LENGTHKM'] = find_src_stage.LENGTHKM
-            df_nvalues.loc[index, 'src_stage'] = find_src_stage.stage
-            df_nvalues.loc[index, 'channel_n'] = find_src_stage.channel_n
-            df_nvalues.loc[index, 'overbank_n'] = find_src_stage.overbank_n
-            df_nvalues.loc[index, 'discharge_cms'] = find_src_stage.discharge_cms
+                ## copy the corresponding htable values for the matching stage->HAND lookup
+                df_nvalues.loc[index, 'feature_id'] = find_src_stage.feature_id
+                df_nvalues.loc[index, 'LakeID'] = find_src_stage.LakeID
+                df_nvalues.loc[index, 'NextDownID'] = find_src_stage.NextDownID
+                df_nvalues.loc[index, 'LENGTHKM'] = find_src_stage.LENGTHKM
+                df_nvalues.loc[index, 'src_stage'] = find_src_stage.stage
+                df_nvalues.loc[index, 'channel_n'] = find_src_stage.channel_n
+                df_nvalues.loc[index, 'overbank_n'] = find_src_stage.overbank_n
+                df_nvalues.loc[index, 'discharge_cms'] = find_src_stage.discharge_cms
 
-    if 'discharge_cms' not in df_nvalues:
-        print(
-            'WARNING: "discharge_cms" column does not exist in df_nvalues df: '
-            + str(huc)
-            + '  branch id: '
-            + str(branch_id)
+        if 'discharge_cms' not in df_nvalues:
+            msg = ('ERROR: "discharge_cms" column does not exist in df_nvalues df: '
+                + str(huc)
+                + '  branch id: '
+                + str(branch_id)
+            )
+            print(msg)
+            log_text.append(msg)
+            in_error = True  # Stop downstream code processing
+            return in_error, log_text
+
+
+        ## Calculate calibration coefficient
+        df_nvalues = df_nvalues.rename(columns={'hydroid': 'HydroID'})  # rename the previous ManningN column
+        df_nvalues['hydroid_calb_coef'] = df_nvalues['discharge_cms'] / df_nvalues['flow']  # Qobs / Qsrc
+
+        ## Calcuate a "calibration adjusted" n value using channel and overbank n-values multiplied by calb_coef
+        df_nvalues['channel_n_calb'] = df_nvalues['hydroid_calb_coef'] * df_nvalues['channel_n']
+        df_nvalues['overbank_n_calb'] = df_nvalues['hydroid_calb_coef'] * df_nvalues['overbank_n']
+
+        ## Create dataframe to check for unrealistic/egregious calibration adjustments by applying the calibration
+        # coefficient to the Manning's n values and setting an acceptable range
+        # (values set in tools_shared_variables.py --> >0.8 or <0.001)
+        df_nvalues['Mann_flag'] = np.where(
+            (df_nvalues['channel_n_calb'] >= ROUGHNESS_MAX_THRESH)
+            | (df_nvalues['overbank_n_calb'] >= ROUGHNESS_MAX_THRESH)
+            | (df_nvalues['channel_n_calb'] <= ROUGHNESS_MIN_THRESH)
+            | (df_nvalues['overbank_n_calb'] <= ROUGHNESS_MIN_THRESH)
+            | (df_nvalues['hydroid_calb_coef'].isnull()),
+            'Fail',
+            'Pass',
         )
-        log_text += (
-            'WARNING: "discharge_cms" column does not exist in df_nvalues df: '
-            + str(huc)
-            + '  branch id: '
-            + str(branch_id)
-            + '\n'
-        )
-        return log_text
+        df_mann_flag = df_nvalues[(df_nvalues['Mann_flag'] == 'Fail')][
+            ['HydroID', 'hydroid_calb_coef', 'channel_n_calb', 'overbank_n_calb']
+        ]
+        if not df_mann_flag.empty:
+            log_text.append('!!! Flaged Mannings Roughness values below !!!')
+            log_text.append(df_mann_flag.to_string())
 
-    ## Calculate calibration coefficient
-    df_nvalues = df_nvalues.rename(columns={'hydroid': 'HydroID'})  # rename the previous ManningN column
-    df_nvalues['hydroid_calb_coef'] = df_nvalues['discharge_cms'] / df_nvalues['flow']  # Qobs / Qsrc
+        ## Create magnitude and ahps column by subsetting the "layer" attribute
+        df_nvalues['magnitude'] = df_nvalues['layer'].str.split("_").str[5]
+        df_nvalues['ahps_lid'] = df_nvalues['layer'].str.split("_").str[1]
+        df_nvalues['huc'] = str(huc)
+        df_nvalues = df_nvalues.drop(['layer'], axis=1)
 
-    ## Calcuate a "calibration adjusted" n value using channel and overbank n-values multiplied by calb_coef
-    df_nvalues['channel_n_calb'] = df_nvalues['hydroid_calb_coef'] * df_nvalues['channel_n']
-    df_nvalues['overbank_n_calb'] = df_nvalues['hydroid_calb_coef'] * df_nvalues['overbank_n']
+        ## Create df grouped by hydroid with ahps_lid and huc number
+        df_huc_lid = df_nvalues.groupby(["HydroID"]).first()[['ahps_lid', 'huc']]
+        df_huc_lid.columns = pd.MultiIndex.from_product([['info'], df_huc_lid.columns])
 
-    ## Create dataframe to check for unrealistic/egregious calibration adjustments by applying the calibration
-    # coefficient to the Manning's n values and setting an acceptable range
-    # (values set in tools_shared_variables.py --> >0.8 or <0.001)
-    df_nvalues['Mann_flag'] = np.where(
-        (df_nvalues['channel_n_calb'] >= ROUGHNESS_MAX_THRESH)
-        | (df_nvalues['overbank_n_calb'] >= ROUGHNESS_MAX_THRESH)
-        | (df_nvalues['channel_n_calb'] <= ROUGHNESS_MIN_THRESH)
-        | (df_nvalues['overbank_n_calb'] <= ROUGHNESS_MIN_THRESH)
-        | (df_nvalues['hydroid_calb_coef'].isnull()),
-        'Fail',
-        'Pass',
-    )
-    df_mann_flag = df_nvalues[(df_nvalues['Mann_flag'] == 'Fail')][
-        ['HydroID', 'hydroid_calb_coef', 'channel_n_calb', 'overbank_n_calb']
-    ]
-    if not df_mann_flag.empty:
-        log_text += '!!! Flaged Mannings Roughness values below !!!' + '\n'
-        log_text += df_mann_flag.to_string() + '\n'
+        ## pivot the magnitude column to display n value for each magnitude at each hydroid
+        df_nvalues_mag = df_nvalues.pivot_table(
+            index='HydroID', columns='magnitude', values=['hydroid_calb_coef'], aggfunc='mean'
+        )  # if there are multiple entries per hydroid and magnitude - aggregate using mean
 
-    ## Create magnitude and ahps column by subsetting the "layer" attribute
-    df_nvalues['magnitude'] = df_nvalues['layer'].str.split("_").str[5]
-    df_nvalues['ahps_lid'] = df_nvalues['layer'].str.split("_").str[1]
-    df_nvalues['huc'] = str(huc)
-    df_nvalues = df_nvalues.drop(['layer'], axis=1)
+        ## Optional: Export csv with the newly calculated Manning's N values
+        if debug_outputs_option:
+            output_calc_n_csv = os.path.join(fim_directory, calb_type + '_src_calcs_' + branch_id + '.csv')
+            df_nvalues.to_csv(output_calc_n_csv, index=False)
 
-    ## Create df grouped by hydroid with ahps_lid and huc number
-    df_huc_lid = df_nvalues.groupby(["HydroID"]).first()[['ahps_lid', 'huc']]
-    df_huc_lid.columns = pd.MultiIndex.from_product([['info'], df_huc_lid.columns])
+        ## filter the modified Manning's n dataframe for values out side allowable range
+        df_nvalues = df_nvalues[df_nvalues['Mann_flag'] == 'Pass']
 
-    ## pivot the magnitude column to display n value for each magnitude at each hydroid
-    df_nvalues_mag = df_nvalues.pivot_table(
-        index='HydroID', columns='magnitude', values=['hydroid_calb_coef'], aggfunc='mean'
-    )  # if there are multiple entries per hydroid and magnitude - aggregate using mean
+        ## Check that there are valid entries in the calculate roughness df after filtering
+        if df_nvalues.empty:
+            msg = (
+                'ALERT!! HUC: '
+                + str(huc)
+                + '  branch id: '
+                + str(branch_id)
+                + ' --> no valid roughness calculations- please check point data and src calculations to evaluate'
+            )
+            print(msg)
+            log_text.append(msg)
+            in_error = False  # TODO: Nov 2026. Should this stop downstream code processing?
+            return in_error, log_text
 
-    ## Optional: Export csv with the newly calculated Manning's N values
-    if debug_outputs_option:
-        output_calc_n_csv = os.path.join(fim_directory, calb_type + '_src_calcs_' + branch_id + '.csv')
-        df_nvalues.to_csv(output_calc_n_csv, index=False)
-
-    ## filter the modified Manning's n dataframe for values out side allowable range
-    df_nvalues = df_nvalues[df_nvalues['Mann_flag'] == 'Pass']
-
-    ## Check that there are valid entries in the calculate roughness df after filtering
-    if not df_nvalues.empty:
         ## Create df with the most recent collection time entry and submitter attribs
         df_updated = df_nvalues[['HydroID', 'coll_time', 'submitter', 'ahps_lid']]  # subset the dataframe
         df_updated = df_updated.sort_values('coll_time').drop_duplicates(
@@ -355,9 +354,9 @@ def update_rating_curve(
         df_nrange = df_nrange.merge(
             df_huc_lid, how='outer', on='HydroID'
         )  # join the df_huc_lid df to add attributes for lid and huc#
-        log_text += 'Statistics for Modified Roughness Calcs -->' + '\n'
-        log_text += df_nrange.to_string() + '\n'
-        log_text += '----------------------------------------\n'
+        log_text.append('Statistics for Modified Roughness Calcs -->')
+        log_text.append(df_nrange.to_string())
+        log_text.append('----------------------------------------')
 
         ## Optional: Output csv with SRC calc stats
         if debug_outputs_option:
@@ -373,250 +372,238 @@ def update_rating_curve(
 
         ## Need to check that there are non-lake hydroids in the branch hydrotable (prevents downstream error)
         df_htable_check_lakes = df_nmerge.loc[df_nmerge['LakeID'] == -999]
-        if not df_htable_check_lakes.empty:
-            ## Create attributes to traverse the flow network between HydroIDs
-            df_nmerge = branch_network_tracer(df_nmerge)
-
-            ## Merge the newly caluclated ManningN dataframes
-            df_nmerge = df_nmerge.merge(df_mann_hydroid, how='left', on='HydroID')
-            df_nmerge = df_nmerge.merge(df_updated, how='left', on='HydroID')
-
-            ## Calculate group_ManningN (mean calb n for consective hydroids) and apply values downsteam to
-            # non-calb hydroids (constrained to first Xkm of hydroids- set downstream diststance var as input)
-            df_nmerge = group_manningn_calc(df_nmerge, down_dist_thresh)
-
-            ## Create a df with the median hydroid_calb_coef value per feature_id
-            df_mann_featid = df_nmerge.groupby(["feature_id"])[['hydroid_calb_coef']].mean()
-            df_mann_featid = df_mann_featid.rename(columns={'hydroid_calb_coef': 'featid_calb_coef'})
-            # create a seperate df with attributes to apply to other hydroids that share a featureid
-            df_mann_featid_attrib = df_nmerge.groupby('feature_id').first()
-            df_mann_featid_attrib = df_mann_featid_attrib[df_mann_featid_attrib['submitter'].notna()][
-                ['last_updated', 'submitter']
-            ]
-            df_nmerge = df_nmerge.merge(df_mann_featid, how='left', on='feature_id').set_index('feature_id')
-            df_nmerge = df_nmerge.combine_first(df_mann_featid_attrib).reset_index()
-
-            if not df_nmerge['hydroid_calb_coef'].isnull().all():
-                ## Create the calibration coefficient column by combining the hydroid_calb_coef with the
-                # featid_calb_coef (use feature_id value if the hydroid is in a feature_id that contains
-                # valid hydroid_calb_coef value(s))
-                conditions = [
-                    (df_nmerge['hydroid_calb_coef'].isnull()) & (df_nmerge['featid_calb_coef'].notnull()),
-                    (df_nmerge['hydroid_calb_coef'].isnull())
-                    & (df_nmerge['featid_calb_coef'].isnull())
-                    & (df_nmerge['group_calb_coef'].notnull()),
-                ]
-                choices = [df_nmerge['featid_calb_coef'], df_nmerge['group_calb_coef']]
-                df_nmerge[calb_type] = np.select(conditions, choices, default=df_nmerge['hydroid_calb_coef'])
-                df_nmerge['obs_source'] = np.where(df_nmerge[calb_type].notnull(), source_tag, pd.NA)
-                df_nmerge = df_nmerge.drop(
-                    ['feature_id', 'NextDownID', 'LENGTHKM', 'LakeID', 'order_'], axis=1, errors='ignore'
-                )  # drop these columns to avoid duplicates where merging with the full hydroTable df
-
-                ## Merge in previous SRC adjustments (where available) for hydroIDs that do not have a new
-                # adjusted roughness value
-                if not df_prev_adj.empty:
-                    df_nmerge = pd.merge(df_nmerge, df_prev_adj, on='HydroID', how='outer')
-                    df_nmerge['submitter'] = np.where(
-                        (df_nmerge[calb_type].isnull() & df_nmerge['calb_coef_final_prev'].notnull()),
-                        df_nmerge['submitter_prev'],
-                        df_nmerge['submitter'],
-                    )
-                    df_nmerge['last_updated'] = np.where(
-                        (df_nmerge[calb_type].isnull() & df_nmerge['calb_coef_final_prev'].notnull()),
-                        df_nmerge['last_updated_prev'],
-                        df_nmerge['last_updated'],
-                    )
-                    df_nmerge['obs_source'] = np.where(
-                        (df_nmerge[calb_type].isnull() & df_nmerge['calb_coef_final_prev'].notnull()),
-                        df_nmerge['obs_source_prev'],
-                        df_nmerge['obs_source'],
-                    )
-                    df_nmerge['calb_coef_final'] = np.where(
-                        (df_nmerge[calb_type].isnull() & df_nmerge['calb_coef_final_prev'].notnull()),
-                        df_nmerge['calb_coef_final_prev'],
-                        df_nmerge[calb_type],
-                    )
-                    df_nmerge = df_nmerge.drop(
-                        ['submitter_prev', 'last_updated_prev', 'calb_coef_final_prev', 'obs_source_prev'],
-                        axis=1,
-                        errors='ignore',
-                    )
-                else:
-                    df_nmerge['calb_coef_final'] = df_nmerge[calb_type]
-
-                ## Update the catchments polygon .parquet with joined attribute - "src_calibrated"
-                if os.path.isfile(catchments_poly_path):
-                    try:
-                        input_catchments = gpd.read_parquet(catchments_poly_path)
-                        ## Create new "src_calibrated" column for viz query
-                        if 'src_calibrated' in input_catchments.columns:
-                            input_catchments = input_catchments.drop(
-                                ['src_calibrated', 'obs_source', 'calb_coef_final'], axis=1, errors='ignore'
-                            )
-                        df_nmerge['src_calibrated'] = np.where(
-                            df_nmerge['calb_coef_final'].notnull(), 'True', 'False'
-                        )
-                        output_catchments = input_catchments.merge(
-                            df_nmerge[['HydroID', 'src_calibrated', 'obs_source', 'calb_coef_final']],
-                            how='left',
-                            on='HydroID',
-                        )
-                        output_catchments['src_calibrated'] = output_catchments['src_calibrated'].fillna(
-                            'False'
-                        )
-
-                        try:
-                            write_geodataframe(
-                                output_catchments, catchments_poly_path, index=False, overwrite=True
-                            )  # overwrite the previous layer
-
-                        except Exception as e:
-                            warning_message = (
-                                "WARNING occurred while writing to catchments GeoParquet "
-                                f"for huc: {huc} & branch id: {branch_id}"
-                            )
-                            print(warning_message)
-                            print(f"{warning_message}\n")
-                            print(f"Warning details: {e}\n")
-
-                            # Delete the original GeoParquet file
-                            if os.path.exists(catchments_poly_path):
-                                os.remove(catchments_poly_path)
-                            try:
-                                # Attempt to write to the file again
-                                write_geodataframe(
-                                    output_catchments, catchments_poly_path, index=False, overwrite=True
-                                )
-                                log_text += (
-                                    'Successful second attempt to write output_catchments GeoParquet' + '\n'
-                                )
-                            except Exception as e:
-                                second_attempt_error_message = "ERROR: Failed to write to catchments GeoParquet file even after deleting the original"
-                                print(second_attempt_error_message)
-                                print(f"{second_attempt_error_message}\n")
-                                print(f"Second attempt error details: {e}\n")
-                                sys.exit(1)
-
-                    except Exception as e:
-                        print(f"Error reading GeoParquet file: {e}")
-                        log_text += f"Error reading GeoParquet file: {e}\n"
-                        output_catchments = None
-                        # re raise ex ?  # TODO: Do we want to stop processing the huc if we get an error here?
-                        # If yes, we need to raise ex, make sure to write your log_text if you need to.
-
-                df_nmerge = df_nmerge.drop(['src_calibrated'], axis=1, errors='ignore')
-
-                ## Optional ouputs:
-                #   1) merge_n_csv csv with all of the calculated n values
-                #   2) a catchments .parquet with new joined attributes
-                if debug_outputs_option:
-                    output_merge_n_csv = os.path.join(
-                        fim_directory, calb_type + '_merge_vals_' + branch_id + '.csv'
-                    )
-                    df_nmerge.to_csv(output_merge_n_csv, index=False)
-                    ## output new catchments polygon layer with several new attributes appended
-                    if os.path.isfile(catchments_poly_path):
-                        input_catchments = gpd.read_parquet(catchments_poly_path)
-                        output_catchments_fileName = os.path.join(
-                            os.path.split(catchments_poly_path)[0],
-                            "gw_catchments_src_adjust_" + str(branch_id) + ".parquet",
-                        )
-                        output_catchments = input_catchments.merge(df_nmerge, how='left', on='HydroID')
-                        write_geodataframe(output_catchments, output_catchments_fileName, index=False)
-                        output_catchments = None
-
-                ## Merge the final ManningN dataframe to the original hydroTable
-                df_nmerge = df_nmerge.drop(
-                    [
-                        'ahps_lid',
-                        'start_catch',
-                        'route_count',
-                        'branch_id',
-                        'hydroid_calb_coef',
-                        'featid_calb_coef',
-                        'group_calb_coef',
-                    ],
-                    axis=1,
-                    errors='ignore',
-                )  # drop these columns to avoid duplicates where merging with the full hydroTable df
-                df_htable = df_htable.merge(df_nmerge, how='left', on='HydroID')
-                df_htable['calb_applied'] = np.where(
-                    df_htable['calb_coef_final'].notnull(), 'True', 'False'
-                )  # create true/false column to clearly identify where new roughness values are applied
-
-                ## Calculate new discharge_cms with new adjusted ManningN
-                df_htable['discharge_cms'] = np.where(
-                    df_htable['calb_coef_final'].isnull(),
-                    df_htable['precalb_discharge_cms'],
-                    df_htable['precalb_discharge_cms'] / df_htable['calb_coef_final'],
-                )
-
-                ## Replace discharge_cms with 0 or -999 if present in the original discharge
-                # (carried over from thalweg notch workaround in SRC post-processing)
-                df_htable['discharge_cms'] = df_htable['discharge_cms'].mask(
-                    df_htable['precalb_discharge_cms'] == 0.0, 0.0
-                )
-                df_htable['discharge_cms'] = df_htable['discharge_cms'].mask(
-                    df_htable['precalb_discharge_cms'] == -999, -999
-                )
-
-                ## Export a new hydroTable.csv and overwrite the previous version
-                out_htable = os.path.join(fim_directory, 'hydroTable_' + branch_id + '.csv')
-                df_htable.to_csv(out_htable, index=False)
-
-            else:
-                print(
-                    'ALERT!! HUC: '
-                    + str(huc)
-                    + '  branch id: '
-                    + str(branch_id)
-                    + ' --> no valid hydroid roughness calculations after removing lakeid catchments from '
-                    + ' consideration \n'
-                )
-                log_text += (
-                    'ALERT!! HUC: '
-                    + str(huc)
-                    + '  branch id: '
-                    + str(branch_id)
-                    + ' --> no valid hydroid roughness calculations after removing lakeid catchments from '
-                    + ' consideration \n'
-                )
-        else:
-            print(
-                'WARNING!! HUC: '
+        if df_htable_check_lakes.empty:        
+            msg = ('WARNING!! HUC: '
                 + str(huc)
                 + '  branch id: '
                 + str(branch_id)
                 + ' --> hydrotable is empty after removing lake catchments (will ignore branch)'
             )
-            log_text += (
+            print(msg)
+            log_text.append(msg)
+            in_error = False  # No need to stop downstream processing
+            return in_error, log_text
+
+        ## Create attributes to traverse the flow network between HydroIDs
+        df_nmerge = branch_network_tracer(df_nmerge)
+
+        ## Merge the newly caluclated ManningN dataframes
+        df_nmerge = df_nmerge.merge(df_mann_hydroid, how='left', on='HydroID')
+        df_nmerge = df_nmerge.merge(df_updated, how='left', on='HydroID')
+
+        ## Calculate group_ManningN (mean calb n for consective hydroids) and apply values downsteam to
+        # non-calb hydroids (constrained to first Xkm of hydroids- set downstream diststance var as input)
+        df_nmerge = group_manningn_calc(df_nmerge, down_dist_thresh)
+
+        ## Create a df with the median hydroid_calb_coef value per feature_id
+        df_mann_featid = df_nmerge.groupby(["feature_id"])[['hydroid_calb_coef']].mean()
+        df_mann_featid = df_mann_featid.rename(columns={'hydroid_calb_coef': 'featid_calb_coef'})
+        # create a seperate df with attributes to apply to other hydroids that share a featureid
+        df_mann_featid_attrib = df_nmerge.groupby('feature_id').first()
+        df_mann_featid_attrib = df_mann_featid_attrib[df_mann_featid_attrib['submitter'].notna()][
+            ['last_updated', 'submitter']
+        ]
+        df_nmerge = df_nmerge.merge(df_mann_featid, how='left', on='feature_id').set_index('feature_id')
+        df_nmerge = df_nmerge.combine_first(df_mann_featid_attrib).reset_index()
+
+        if not df_nmerge['hydroid_calb_coef'].isnull().all():
+            ## Create the calibration coefficient column by combining the hydroid_calb_coef with the
+            # featid_calb_coef (use feature_id value if the hydroid is in a feature_id that contains
+            # valid hydroid_calb_coef value(s))
+            conditions = [
+                (df_nmerge['hydroid_calb_coef'].isnull()) & (df_nmerge['featid_calb_coef'].notnull()),
+                (df_nmerge['hydroid_calb_coef'].isnull())
+                & (df_nmerge['featid_calb_coef'].isnull())
+                & (df_nmerge['group_calb_coef'].notnull()),
+            ]
+            choices = [df_nmerge['featid_calb_coef'], df_nmerge['group_calb_coef']]
+            df_nmerge[calb_type] = np.select(conditions, choices, default=df_nmerge['hydroid_calb_coef'])
+            df_nmerge['obs_source'] = np.where(df_nmerge[calb_type].notnull(), source_tag, pd.NA)
+            df_nmerge = df_nmerge.drop(
+                ['feature_id', 'NextDownID', 'LENGTHKM', 'LakeID', 'order_'], axis=1, errors='ignore'
+            )  # drop these columns to avoid duplicates where merging with the full hydroTable df
+
+            ## Merge in previous SRC adjustments (where available) for hydroIDs that do not have a new
+            # adjusted roughness value
+            if not df_prev_adj.empty:
+                df_nmerge = pd.merge(df_nmerge, df_prev_adj, on='HydroID', how='outer')
+                df_nmerge['submitter'] = np.where(
+                    (df_nmerge[calb_type].isnull() & df_nmerge['calb_coef_final_prev'].notnull()),
+                    df_nmerge['submitter_prev'],
+                    df_nmerge['submitter'],
+                )
+                df_nmerge['last_updated'] = np.where(
+                    (df_nmerge[calb_type].isnull() & df_nmerge['calb_coef_final_prev'].notnull()),
+                    df_nmerge['last_updated_prev'],
+                    df_nmerge['last_updated'],
+                )
+                df_nmerge['obs_source'] = np.where(
+                    (df_nmerge[calb_type].isnull() & df_nmerge['calb_coef_final_prev'].notnull()),
+                    df_nmerge['obs_source_prev'],
+                    df_nmerge['obs_source'],
+                )
+                df_nmerge['calb_coef_final'] = np.where(
+                    (df_nmerge[calb_type].isnull() & df_nmerge['calb_coef_final_prev'].notnull()),
+                    df_nmerge['calb_coef_final_prev'],
+                    df_nmerge[calb_type],
+                )
+                df_nmerge = df_nmerge.drop(
+                    ['submitter_prev', 'last_updated_prev', 'calb_coef_final_prev', 'obs_source_prev'],
+                    axis=1,
+                    errors='ignore',
+                )
+            else:
+                df_nmerge['calb_coef_final'] = df_nmerge[calb_type]
+
+            ## Update the catchments polygon .parquet with joined attribute - "src_calibrated"
+            if os.path.isfile(catchments_poly_path):
+                try:
+                    input_catchments = gpd.read_parquet(catchments_poly_path)
+                    ## Create new "src_calibrated" column for viz query
+                    if 'src_calibrated' in input_catchments.columns:
+                        input_catchments = input_catchments.drop(
+                            ['src_calibrated', 'obs_source', 'calb_coef_final'], axis=1, errors='ignore'
+                        )
+                    df_nmerge['src_calibrated'] = np.where(
+                        df_nmerge['calb_coef_final'].notnull(), 'True', 'False'
+                    )
+                    output_catchments = input_catchments.merge(
+                        df_nmerge[['HydroID', 'src_calibrated', 'obs_source', 'calb_coef_final']],
+                        how='left',
+                        on='HydroID',
+                    )
+                    output_catchments['src_calibrated'] = output_catchments['src_calibrated'].fillna(
+                        'False'
+                    )
+
+                    # TODO: Nov 2026: Research this. Why does this neeed a second attempt?
+                    # Likely not multiple mp's writing to the same file, so not sure.
+                    try:
+                        write_geodataframe(
+                            output_catchments, catchments_poly_path, index=False, overwrite=True
+                        )  # overwrite the previous layer
+
+                    except Exception as e:
+                        warning_message = (
+                            "WARNING occurred while writing to catchments GeoParquet "
+                            f"for huc: {huc} & branch id: {branch_id}"
+                        )
+                        print(warning_message)
+                        log_text.append(warning_message)
+                        print(f"Warning details: {e}\n")
+
+                        # Delete the original GeoParquet file
+                        if os.path.exists(catchments_poly_path):
+                            os.remove(catchments_poly_path)
+                        try:
+                            # Attempt to write to the file again
+                            write_geodataframe(
+                                output_catchments, catchments_poly_path, index=False, overwrite=True
+                            )
+                            log_text.append(
+                                'Successful second attempt to write output_catchments GeoParquet')
+                        except Exception as e:
+                            second_attempt_error_message = "ERROR: Failed to write to catchments GeoParquet file even after deleting the original"
+                            print(second_attempt_error_message)
+                            log_text.append(second_attempt_error_message)
+                            log_text.append(f"Second attempt error details: {e}")
+                            # Note: When this is used in an MP, sys.exit does not work
+                            # sys.exit(1)
+                            in_error = True  # Stop downstream code processing
+                            return log_text, in_error
+
+                except Exception as e:
+                    print(f"Error reading GeoParquet file: {e}")
+                    log_text.append(f"Error reading GeoParquet file: {e}")
+                    output_catchments = None
+                    in_error = True  # stop downstream code processing
+                    return log_text, in_error
+
+            df_nmerge = df_nmerge.drop(['src_calibrated'], axis=1, errors='ignore')
+
+            ## Optional ouputs:
+            #   1) merge_n_csv csv with all of the calculated n values
+            #   2) a catchments .parquet with new joined attributes
+            if debug_outputs_option:
+                output_merge_n_csv = os.path.join(
+                    fim_directory, calb_type + '_merge_vals_' + branch_id + '.csv'
+                )
+                df_nmerge.to_csv(output_merge_n_csv, index=False)
+                ## output new catchments polygon layer with several new attributes appended
+                if os.path.isfile(catchments_poly_path):
+                    input_catchments = gpd.read_parquet(catchments_poly_path)
+                    output_catchments_fileName = os.path.join(
+                        os.path.split(catchments_poly_path)[0],
+                        "gw_catchments_src_adjust_" + str(branch_id) + ".parquet",
+                    )
+                    output_catchments = input_catchments.merge(df_nmerge, how='left', on='HydroID')
+                    write_geodataframe(output_catchments, output_catchments_fileName, index=False)
+                    output_catchments = None
+
+            ## Merge the final ManningN dataframe to the original hydroTable
+            df_nmerge = df_nmerge.drop(
+                [
+                    'ahps_lid',
+                    'start_catch',
+                    'route_count',
+                    'branch_id',
+                    'hydroid_calb_coef',
+                    'featid_calb_coef',
+                    'group_calb_coef',
+                ],
+                axis=1,
+                errors='ignore',
+            )  # drop these columns to avoid duplicates where merging with the full hydroTable df
+            df_htable = df_htable.merge(df_nmerge, how='left', on='HydroID')
+            df_htable['calb_applied'] = np.where(
+                df_htable['calb_coef_final'].notnull(), 'True', 'False'
+            )  # create true/false column to clearly identify where new roughness values are applied
+
+            ## Calculate new discharge_cms with new adjusted ManningN
+            df_htable['discharge_cms'] = np.where(
+                df_htable['calb_coef_final'].isnull(),
+                df_htable['precalb_discharge_cms'],
+                df_htable['precalb_discharge_cms'] / df_htable['calb_coef_final'],
+            )
+
+            ## Replace discharge_cms with 0 or -999 if present in the original discharge
+            # (carried over from thalweg notch workaround in SRC post-processing)
+            df_htable['discharge_cms'] = df_htable['discharge_cms'].mask(
+                df_htable['precalb_discharge_cms'] == 0.0, 0.0
+            )
+            df_htable['discharge_cms'] = df_htable['discharge_cms'].mask(
+                df_htable['precalb_discharge_cms'] == -999, -999
+            )
+
+            ## Export a new hydroTable.csv and overwrite the previous version
+            out_htable = os.path.join(fim_directory, 'hydroTable_' + branch_id + '.csv')
+            df_htable.to_csv(out_htable, index=False)
+
+        else:
+            msg = (
                 'ALERT!! HUC: '
                 + str(huc)
                 + '  branch id: '
                 + str(branch_id)
-                + ' --> hydrotable is empty after removing lake catchments (will ignore branch)\n'
+                + ' --> no valid hydroid roughness calculations after removing lakeid catchments from '
+                + ' consideration'
             )
-    else:
-        print(
-            'ALERT!! HUC: '
-            + str(huc)
-            + '  branch id: '
-            + str(branch_id)
-            + ' --> no valid roughness calculations- please check point data and src calculations to evaluate'
-        )
-        log_text += (
-            'ALERT!! HUC: '
-            + str(huc)
-            + '  branch id: '
-            + str(branch_id)
-            + ' --> no valid roughness calculations- please check point data and src calculations to evaluate'
-        )
+            print(msg)
+            log_text.append(msg)
+            in_error = False  # Do not stop downstream code processing
+            return log_text, in_error
+    except Exception:
+        in_error = True
+        msg = "Critical Error in update_rating_curve"
+        print(msg)
+        log_text.append(msg)
+        print(traceback.format_exc())
+        log_text.append(msg)
 
-    log_text += '\n Completed: ' + str(huc) + ' --> branch: ' + str(branch_id) + '\n'
-    log_text += '#########################################################\n'
+    log_text.append('  Completed: ' + str(huc) + ' --> branch: ' + str(branch_id))
+    log_text.append('#########################################################')
     print("Completed huc: " + str(huc) + ' --> branch: ' + str(branch_id))
-    return log_text
+    return log_text, in_error
 
 
 def branch_network_tracer(df_input_htable):

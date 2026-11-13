@@ -4,7 +4,10 @@
 import datetime as dt
 import os
 import re
+import logging
 import traceback
+import sys
+
 from argparse import ArgumentParser
 
 # from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -14,17 +17,9 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 
-
-#################################
-# TODO: July 4, 2026:  In the event of an exception, the log file will not exist
-# and its details as well.
-# This needs a try/except with printing to log and at least a one liner
-# saying including the word "exception or error", which can be picked up automatically
-# by the rollup to fim_process_huc.sh or process_rerun_calibration_huc.sh
-################################
+from src.utils.shared_functions import setup_file_logger
 
 stage_interval = float(os.getenv('stage_interval_meters'))
-
 
 # -------------------------------------------------------
 def extract_longitudinal_variables(src_df, hydroid, stage):
@@ -283,13 +278,8 @@ def filter_longitudinal_discharge_jitters(huc_dir, huc, stage_interval):
             Directory path for fim_pipeline output.
         huc : str
             HUC-8 string.
-
-        Returns
-        ----------
-        log_text : str
-
     """
-    log_text = f'Filtering Longitudinal Flow Fluctuation for HUC8: {huc}\n'
+    logging.debug(f'Filtering Longitudinal Flow Fluctuation for HUC8: {huc}')
     # fim_huc_dir = join(fim_dir, huc)
 
     # Get src_full, hydrotable and catchment from each branch
@@ -314,17 +304,28 @@ def filter_longitudinal_discharge_jitters(huc_dir, huc, stage_interval):
     for isrc in range(len(src_all_branches_path)):  # 5
 
         branch = re.search(r'branches/(\d{10}|0)/', src_all_branches_path[isrc]).group()[9:-1]
-        print(f'Processing Longitudinal flow adjustment for HUC {huc} Branch: {branch}')
-        log_text += f'Processing Longitudinal flow adjustment for HUC {huc} Branch: {branch}\n'
+        logging.debug(f'Processing Longitudinal flow adjustment for HUC {huc} Branch: {branch}')
 
         catchment_gdf0 = gpd.read_parquet(cathment_gpkg_path[isrc])
         catchment_gdf = catchment_gdf0.drop_duplicates(subset=['HydroID'], keep='first')
         lakeID_df = catchment_gdf[['HydroID', 'LakeID']].drop_duplicates(subset=['HydroID'])
         # Read src tables
         src_df = pd.read_csv(src_all_branches_path[isrc], low_memory=False)
-        src_df = src_df.merge(lakeID_df, on='HydroID', how='inner')
-        stages = [round(num, 4) for num in src_df['Stage'][0:84]]
 
+        # TODO: Nov 2026: Research: Why are we merging a two column df to the original? 
+        # For now.. we will keep the incoming lakeid column and drop the other.
+
+        # When you re-run calibration, both src_df AND lakeID_df have a LakeID, so you
+        # get get LakeID_x and LakeID_y. Then you have problems with the LakeID missing.
+        # 
+        #  BUT: When you run it first time, src_df did not have
+        # a LakeID column, so we were good.
+        # It only happens when you re-run calibration.
+        src_df = src_df.merge(lakeID_df, on='HydroID', how='inner')
+        if "LakeID_x" in src_df.columns:
+            src_df = src_df.drop(columns=['LakeID_x']).rename(columns={'LakeID_y': 'LakeID'})
+
+        stages = [round(num, 4) for num in src_df['Stage'][0:84]]
         # Find the BedArea and SurfaceArea relation
         sa0_mask = src_df['SurfaceArea (m2)'] == 0
         src_df.loc[sa0_mask, 'BedArea (m2)'] = 0
@@ -343,13 +344,11 @@ def filter_longitudinal_discharge_jitters(huc_dir, huc, stage_interval):
         #     continue
 
         if np.all(src_df['SurfaceArea (m2)'] == 0) or np.all(src_df['BedArea (m2)'] == 0):
-            print(f"Skipping branch {branch}: all zero data in Surface/Bed area")
-            log_text += f'Skipping branch {branch}: all zero data in Surface/Bed area\n'
+            logging.info(f"Skipping branch {branch}: all zero data in Surface/Bed area")
             continue
 
         if np.unique(src_df['SurfaceArea (m2)']).size < 2:
-            print(f"branch {branch}: SurfaceArea has no variation")
-            log_text += f'branch {branch}: SurfaceArea has no variation\n'
+            logging.info(f"branch {branch}: SurfaceArea has no variation")
             continue
 
         # Safe to fit
@@ -453,7 +452,7 @@ def filter_longitudinal_discharge_jitters(huc_dir, huc, stage_interval):
                     filtered_voi_mhws.append(voi2smooth_df)
                     # TODO: Jul 2026: Should this have the word "warning" so it is picked up by the
                     # warning logs.
-                    print(f'No longitudinal filtering applied for branch {branch}, headwater {hydroid_chain}')
+                    logging.debug(f'No longitudinal filtering applied for branch {branch}, headwater {hydroid_chain}')
 
             voi2smooth_mhws_df = pd.concat(voi2smooth_mhws)
             filtered_voi_mhws_df = pd.concat(filtered_voi_mhws)
@@ -472,7 +471,7 @@ def filter_longitudinal_discharge_jitters(huc_dir, huc, stage_interval):
                 value_name='SurfaceArea (m2)_longitudinalAdjusted',  # f'{keys[jkey]}
             )
 
-            reshaped_filtered_voi.rename(columns={'index': 'HydroID'}, inplace=True)
+            reshaped_filtered_voi = reshaped_filtered_voi.rename(columns={'index': 'HydroID'})
             reshaped_filtered_voi['Stage'] = reshaped_filtered_voi['Stage'].astype(float)
 
             # Adding filtered SurfaceArea to src
@@ -608,24 +607,20 @@ def filter_longitudinal_discharge_jitters(huc_dir, huc, stage_interval):
                 cond_thalweg_rows = long_col > 0
                 src_df.loc[cond_thalweg_rows, 'Longitudinal_adjustment_applied'] = True
             else:
-                print(
-                    f'Warning: thalweg_noches_adjustment routine has not been completed for HUC {huc} Branch: {branch}'
-                )
-                log_text += f'Thalweg_noches_adjustment routine has not been completed for HUC {huc} Branch: {branch}\n'
+                logging.warning(
+                    f'Warning: thalweg_noches_adjustment routine has not been completed for HUC {huc} Branch: {branch}')
 
             # Drop intermediate columns
             src_df = src_df.drop(columns=['SurfaceArea-1', 'volume_stage', 'a_coef', 'b_coef'])
             # Write src back to file
             src_df.to_csv(src_all_branches_path[isrc], index=False)
 
-    log_text += f'Successfully recalculated discharge for HUC {huc}\n'
-    print(f'Successfully recalculated discharges for HUC {huc}')
-    return log_text
+    logging.debug(f'Successfully recalculated discharges for HUC {huc}')
 
 
 # --------------------------------------------------------
 # Apply longitudinal dischage adjustment
-def apply_longitudinal_dischage_adjustment(huc_dir, huc, log_file_path):  # bankfull_flows_file,
+def apply_longitudinal_dischage_adjustment(huc_dir, huc):  # bankfull_flows_file,
     """
     Function for applying longitudinal dischage adjustment to synthetic rating curves.
 
@@ -636,39 +631,18 @@ def apply_longitudinal_dischage_adjustment(huc_dir, huc, log_file_path):  # bank
         Please refer to correct_src_thalweg_notches and
         process longitudinal dischage functions parameters.
 
-        Returns
-        ----------
-        log_text : str
     """
     stage_interval = float(os.getenv('stage_interval_meters'))
-    log_text = ""
     try:
-        msg = f"Correcting rating curve for longitudinal discharge ajustment SRC for HUC : {huc}"
-        log_text += f"{msg} /n"
-        print(msg)
-        log_text += filter_longitudinal_discharge_jitters(huc_dir, huc, stage_interval)  # bankfull_flows_file
+        logging.debug(f"Correcting rating curve for longitudinal discharge ajustment SRC for HUC : {huc}")
+        filter_longitudinal_discharge_jitters(huc_dir, huc, stage_interval)  # bankfull_flows_file
 
     # except Exception as ex:
     except Exception:
-        err_msg = f"An error has occurred while processing longitudinal adjustment for huc {huc}"
-        log_text += f"{err_msg} \n"
-        log_text += traceback.format_exc()
-
-        # this goes back to calibrate_rating_curve.sh which rolls up to its parent "tee"
-        # Then it can be scanned in the error system based on solely the "tee" file
-        print(err_msg)
-        print(traceback.format_exc())
-
-        # re raise ex ? # TODO: Do we want to stop processing the huc if we get an error here?
-        # If yes, we need to raise ex, make sure to write your log_text if you need to.
-
-    try:
-        with open(log_file_path, "a") as log_file:
-            log_file.write(log_text + '\n')
-    except Exception:
-        print(f"Error trying to write to the log file of {log_file_path}", flush=True)
-        # ok. maybe not re-raise here
-
+        logging.error(f"An error has occurred while processing longitudinal adjustment for huc {huc}")
+        logging.error(traceback.format_exc())
+        # raise  # re-raise so it stops the processing
+        sys.exit(1)
 
 # -------------------------------------------------------
 def process_longitudinal_flow_adjustment(huc_dir):
@@ -684,36 +658,25 @@ def process_longitudinal_flow_adjustment(huc_dir):
     """
     # Set up log file
     log_dir = os.path.join(huc_dir, "logs", "src_calibrations")
-    if not os.path.isdir(log_dir):
-        os.makedirs(log_dir)
-    log_file_path = os.path.join(log_dir, 'longitudinal_filter.log')
+    log_file_path = setup_file_logger(log_dir, "longitudinal_filter")
     print(f'Writing progress to log file here: {log_file_path}')
-    ## Create a time var to log run time
     begin_time = dt.datetime.now(dt.timezone.utc)
 
-    ## Initiate log file
-    with open(log_file_path, "w") as log_file:
-        log_file.write('START TIME: ' + str(begin_time) + '\n')
-        log_file.write('#########################################################\n\n')
-
-    # Let log_text build up starting here until the bottom.
-    log_text = ""
+    logging.debug('START TIME: ' + str(begin_time))
+    logging.debug('#########################################################')
+    logging.debug("")
 
     # Find applicable HUCs to apply longitudinal filter
     # fim_hucs = [h for h in os.listdir(fim_dir) if re.match(r'\d{8}', h)]
 
-    msg = "Applying longitudinal discharge adjustment"  # on {len(fim_hucs)} HUCs: {fim_hucs}\n"
-    log_text += msg
-
     huc = os.path.basename(os.path.normpath(huc_dir))
-    apply_longitudinal_dischage_adjustment(huc_dir, huc, log_file_path)
+    apply_longitudinal_dischage_adjustment(huc_dir, huc)
 
-    ## Record run time and close log file
+    logging.debug(f"End of processing identify_src_bankful")
     end_time = dt.datetime.now(dt.timezone.utc)
-    log_text += 'END TIME: ' + str(end_time) + '\n'
+    logging.debug('END TIME: ' + str(end_time))
     tot_run_time = end_time - begin_time
-    log_text += 'TOTAL RUN TIME: ' + str(tot_run_time).split('.')[0]
-    log_file.close()
+    logging.debug('TOTAL RUN TIME: ' + str(tot_run_time).split('.')[0])
 
 
 if __name__ == '__main__':
@@ -728,13 +691,10 @@ if __name__ == '__main__':
     Sample Usage
     ----------
     python3 /foss_fim/src/filter_longitudinal_flow.py
-        -fim_dir /outputs/fim_run_dir
+        -fim-dir /outputs/fim_run_dir
     """
     parser = ArgumentParser(description="Longitudinal depth/flow filter")
-    parser.add_argument('-huc_dir', '--huc_dir', help='FIM output dir', required=True, type=str)
+    parser.add_argument('-huc-dir', '--huc-dir', help='FIM output dir', required=True, type=str)
 
     args = vars(parser.parse_args())
-
-    huc_dir = args['huc_dir']
-
-    process_longitudinal_flow_adjustment(huc_dir)
+    process_longitudinal_flow_adjustment(**args)

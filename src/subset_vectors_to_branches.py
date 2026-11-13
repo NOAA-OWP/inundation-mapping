@@ -66,7 +66,7 @@ def convert_layer(input_path, output_path, crs, where_clause):
         print(f"Skipping: Input file not found -> {input_path}")
         return
 
-    print(f"Processing: {os.path.basename(input_path)} -> {os.path.basename(output_path)}")
+    # print(f"Processing: {os.path.basename(input_path)} -> {os.path.basename(output_path)}")
     try:
         if os.path.splitext(input_path)[-1].lower() == '.parquet':
             # Pass input_path as the second argument
@@ -84,7 +84,7 @@ def convert_layer(input_path, output_path, crs, where_clause):
 
         # Write natively to Parquet via PyArrow
         write_geodataframe(df, output_path, index=False)
-        print("  Success!")
+        # print("  Success!")
 
     except Exception as e:
         print(f"  Error processing {os.path.basename(input_path)}: {e}", file=sys.stderr)

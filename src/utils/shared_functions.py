@@ -54,7 +54,8 @@ def use_pandas_3_behavior():
 
 # This one is a standard Python logger, NOT MEANT for multi-proc
 # def setup_file_logger(log_file_path):
-def setup_file_logger(log_file_dir, log_file_name_prefix):
+def setup_file_logger(log_file_dir, log_file_name_prefix, logger_name=""):
+
     """
 
     This creates a file name for you. I will take the log_file_name_prefix, then append a dt, then extension
@@ -83,7 +84,16 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
 
     In the end, the error log file is not removed if it is empty, just watch its file size.
 
+    LOGGING LEVELS:
+        debug = goes to file only
+        info = screen and basic log file
+        warning = screen and basic log file AND an addition "warnings" file to help it stand out.
+        error = screen and basic log file AND an addition "error" file to help it stand out.
+        critical = same as error. Note. generally used to mean abort, versus log error and continue
+    
     Returns the name/path of the new log file.
+    IMPORTANT: Extensive use of logging, can degrade performance a little.
+
     """
 
     if not log_file_dir:
@@ -106,15 +116,24 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
 
     # we will assume the parent folder already exists
     os.makedirs(log_file_dir, exist_ok=True, mode=permissions_code)
-    print(f"Logs saved to: {log_file_path}")
+    # print(f"Logs saved to: {log_file_path}")
 
     # even though we used os.makedirs, it does not mean it had permission to make the dir
     # the mode is for permissions of the folder once is created.
     if not os.path.isdir(log_file_dir):
         raise Exception("This script likely does have permission to add a log folder")
 
-    logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
+    if logger_name == "":
+        logger = logging.getLogger()
+    else:
+        # Note: if you are alling this function inside a function that is a child worker
+        # of a ProcessPool, you must give it a unique name or it will hold memory pointers
+        # via loggin
+        logger = logging.getLogger(logger_name)
+
+
+    # !!!!! DEBUG LEVEL goes to log files only and not screen
+    logger.setLevel(logging.DEBUG)
     # logger.propagate = False # Prevent propagation to the root logger
 
     # basic screen handler
@@ -159,7 +178,7 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
     # .log file will get: INFO, WARNING, ERROR, CRITICAL
     # -warnings.log file will get: WARNING (but not ERROR or CRITICAL)
     # -errors.log file will get: ERROR and CRITICAL
-    # DEBUG will not end up in any of them
+    # DEBUG will go to log file only
 
     return log_file_path
 
@@ -190,6 +209,14 @@ def setup_mp_file_logger(log_file_path: str, logger_name: str, level=logging.DEB
 
     For now.. it can leave empty error files when all is said and done and that is fine. Just watch
     It's file size.
+
+    LOGGING LEVELS:
+        debug = goes to file only
+        info = screen and basic log file
+        warning = screen and basic log file AND an addition "warnings" file to help it stand out.
+        error = screen and basic log file AND an addition "error" file to help it stand out.
+        critical = same as error. Note. generally used to mean abort, versus log error and continue
+
 
     """
 
@@ -247,7 +274,11 @@ def setup_mp_file_logger(log_file_path: str, logger_name: str, level=logging.DEB
         warning_file_handler = logging.FileHandler(warning_file_name)
         warning_file_handler.setLevel(logging.WARNING)
         warning_file_handler.setFormatter(formatter)
+        # Filter to exclude ERROR and CRITICAL from warnings file
+        warning_file_handler.addFilter(lambda record: record.levelno < logging.ERROR)
         logger.addHandler(warning_file_handler)
+        os.chmod(warning_file_name, mode=permissions_code)
+
         os.chmod(warning_file_name, mode=permissions_code)
 
         file_handler = logging.FileHandler(log_file_path)

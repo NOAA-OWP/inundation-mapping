@@ -8,9 +8,8 @@ import argparse
 import rasterio as rio
 from osgeo import osr
 
-
+# Force the entire suite to throw standard catchable Python errors
 osr.UseExceptions()
-
 
 """
 read fsize ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy

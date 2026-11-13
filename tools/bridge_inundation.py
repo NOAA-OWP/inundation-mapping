@@ -110,16 +110,16 @@ def bridge_risk_status(
     merged_bri['risk_status'] = merged_bri.apply(risk_class, axis=1)
 
     # change the name of the given flow
-    merged_bri.rename(columns={'discharge': 'evaluated_discharge'}, inplace=True)
+    merged_bri = merged_bri.rename(columns={'discharge': 'evaluated_discharge'})
 
     # Drop not_at_risk status from points with the same geometry
     mapping_dic = {'not_at_risk': 0, 'at_risk': 1, 'threatened': 2}
     merged_bri['risk'] = merged_bri['risk_status'].map(mapping_dic)
-    merged_bri.reset_index(drop=True, inplace=True)
+    merged_bri = merged_bri.reset_index(drop=True)
     merged_data_max = merged_bri.groupby('geometry')['risk'].idxmax()
     bridge_out = merged_bri.loc[merged_data_max]
-    bridge_out.reset_index(drop=True, inplace=True)
-    bridge_out.drop('risk', axis=1, inplace=True)
+    bridge_out = bridge_out.reset_index(drop=True)
+    bridge_out = bridge_out.drop('risk', axis=1)
     write_geodataframe(bridge_out, output_dir, index=False)
 
     return bridge_out

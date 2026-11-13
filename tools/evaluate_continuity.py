@@ -49,6 +49,8 @@ def evaluate_continuity(
 
     actual_discharges, expected_discharges = [], []
     expected_dischages_dict = dict()
+    # Oct 2026: Consider changing this to itertuples is it much faster than iterrows for geodataframes.
+    # but only for GeoDataframes. Then use row.index (geometry.index in this case)
     for idx, reach in stream_network.iterrows():
         hydroId = reach['HydroID']
 

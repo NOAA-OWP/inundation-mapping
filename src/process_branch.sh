@@ -54,6 +54,7 @@ date -u
 
 # See note in fim_process_huc.sh talking about PIPESTATUS info
 return_codes=( "${PIPESTATUS[@]}" )
+echo "..........................."
 
 # By simply using echo, it goes to screen which is then rolled up to run_huc.sh
 # and fim_process_huc.sh which catches it via its "tee" command
@@ -84,9 +85,9 @@ do
     fi
 done
 
-echo -e $startDiv"End Branch Processing $hucNumber $branchId ..."
+echo -e $startDiv"End Branch Processing for Branch $branchId ..."
 date -u
-Calc_Duration "Duration : " $branch_start_time ""
-echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
-
+Calc_Duration "Branch processing duration : " $branch_start_time ""
+echo "++++++++++++++++++++++++++++++++++++"
+echo ""
 exit 0

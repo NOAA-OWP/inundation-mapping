@@ -32,7 +32,7 @@ class Gage2Branch(object):
         # Read USGS gage file a
         usgs_gages = gpd.read_file(self.usgs_gage_filename, dtype={'location_id': object}, engine='fiona')
         usgs_gages['source'] = 'usgs_gage'
-        usgs_gages.to_crs(huc_CRS, inplace=True)
+        usgs_gages = usgs_gages.to_crs(huc_CRS)
 
         # Read RAS2FIM point locations file
         # !!! Geopandas is not honoring the dtype arg with this read_file below (huc8 being read as int64).
@@ -44,7 +44,7 @@ class Gage2Branch(object):
             ras_locs['location_id'] = ras_locs['fid_xs']
 
             # Convert ras locs crs to match usgs gage crs
-            ras_locs.to_crs(huc_CRS, inplace=True)
+            ras_locs = ras_locs.to_crs(huc_CRS)
             ras_locs = ras_locs.rename(columns={'huc8': 'HUC8'})
 
             # Convert Multipoint geometry to Point geometry
@@ -60,7 +60,7 @@ class Gage2Branch(object):
             ras_locs = pd.DataFrame(columns=['feature_id', 'stream_stn', 'fid_xs', 'source', 'geometry'])
         # Concat USGS points and RAS2FIM points
         gages_locs = pd.concat([usgs_gages, ras_locs], axis=0, ignore_index=True)
-        # gages_locs.to_crs(PREP_CRS, inplace=True)
+        # gages_locs = gages_locs.to_crs(PREP_CRS)
 
         # Filter USGS gages and RAS locations to huc
         self.gages = gages_locs[(gages_locs.HUC8 == self.huc8)]
@@ -72,7 +72,7 @@ class Gage2Branch(object):
             ahps_sites = ahps_sites.rename(
                 columns={'nwm_feature_id': 'feature_id', 'usgs_site_code': 'location_id'}
             )
-            ahps_sites.to_crs(huc_CRS, inplace=True)
+            ahps_sites = ahps_sites.to_crs(huc_CRS)
             ahps_sites = ahps_sites[
                 ahps_sites.location_id.isna()
             ]  # Filter sites that are already in the USGS dataset
@@ -87,7 +87,8 @@ class Gage2Branch(object):
             )
 
         # Create gages attribute
-        self.gages.location_id.fillna(self.gages.nws_lid, inplace=True)
+        self.gages['location_id'] = self.gages['location_id'].fillna(self.gages['nws_lid'])
+
 
     def sort_into_branch(self, nwm_subset_streams_levelPaths):
         nwm_reaches = gpd.read_parquet(nwm_subset_streams_levelPaths)
@@ -107,7 +108,7 @@ class Gage2Branch(object):
 
         # Left join gages with NWM streams to get the level path
         # If the feature_id is Null, change it to a large neg so it won't won't merge
-        self.gages.feature_id.replace(np.nan, "-999999999", inplace=True)
+        self.gages['feature_id'] = self.gages['feature_id'].replace(np.nan, "-999999999")
         self.gages.feature_id = self.gages.feature_id.astype(int)
         self.gages = self.gages.merge(
             nwm_reaches[['feature_id', 'levpa_id', 'order_']], on='feature_id', how='left'

@@ -1,4 +1,6 @@
-#!/bin/bash -e
+#!/bin/bash
+set -e
+
 ### Must have the -e flag as it auto aborts on page error. See more details
 ### below about error handling for it.
 
@@ -22,26 +24,6 @@ hucNumber=$3
 #   2)  As part of the recalibration process: rerun-calibration.py -> process_rerun_calibration_huc.sh
 
 # ++++++++++++++++++++++++++++++++++++
-# July 2026: 
-# With the new logging system and error trapping being added, there is no longer any value
-# in this file scanning for logs in the src directory. All src files were changed to ensure anything
-# critical will go to screen so it can be picked up by the fim_process_huc.sh (tee) system, or
-# the new process_rerun_calibtration_huc.sh which has the same trapping and logging patterns.
-
-# py files in the calibation family may use their own logs to also include errors and exceptions but
-# they will go to screen at a min. They also might choose to put more advanced info loggign in their own
-# log file for debugging purposes if they need to. We are doing to update all of those files to be more
-# compatiable with both processing flow system (fim_process_huc and rerun_calibration)
-
-# Key functionaly and log scanning were remove from here in favour of "parent" code files (fim_process_huc.sh,
-# process_rerun_calibration.py and /tools/rerun_calibration.py). 
-# Note: The new process_rerun_calibration.py is a new and likely temp script that 
-# to rerun_calibration might (or already does) cover emulateing the fim_process_huc.sh workflow.
-
-# While calibrate is welcome to use l_echo has has no value as would only duplicate exactly what is already covered
-# usign the "tee" command in its parent files.
-
-# ++++++++++++++++++++++++++++++++++++
 
 # In re-run mode, we are working against the actual outputs_temp directory, but 
 # when we are not, we are working against the outputs directory. As a result,
@@ -55,6 +37,8 @@ hucNumber=$3
 #    as part of the fim_pipeline chain.
 #    and any fixes required will come in near future PR (after FIM 6.2)
 
+# NOTE: Nov 9, 2026
+# For reasons yet unknown, despite having the bash declarations above, not all 
 
 echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
 if [ "$calibration_rerun" = "true" ]; then
@@ -68,26 +52,23 @@ echo
 # Check if it is a calibration rerun or not
 if [ "$calibration_rerun" = "true" ]; then
     echo -e $startDiv"Reseting hydroTable & scr_full_crosswalked for branches"
-    python3 $srcDir/reset_htable_src.py -huc_dir $tempHucDataDir
+    python3 $srcDir/reset_htable_src.py -huc-dir "${tempHucDataDir}"
 fi
 
-
 ## RUN AGGREGATE BRANCH ELEV TABLES ##
-echo -e $startDiv"Processing usgs & ras2fim elev table aggregation"
-python3 $srcDir/aggregate_branches_to_huc.py -huc_dir $tempHucDataDir -elev -ras
-
+echo -e $startDiv"Processing usgs & ras2fim elev table aggregation (aggregate_branches_to_huc)"
+python3 $srcDir/aggregate_branches_to_huc.py -huc-dir "${tempHucDataDir}" -elev -ras
 
 ## RUN THALWEG NOTCHES ADJUSTMENT ROUTINE ##
 if [ "$thalweg_notches_adjustment" = "True" ]; then
     echo -e $startDiv"Performing thalweg notches adjustment routine"
-    python3 $srcDir/thalweg_notches_adjustment.py -huc_dir $tempHucDataDir
+    python3 $srcDir/thalweg_notches_adjustment.py -huc-dir $tempHucDataDir
 fi
-
 
 ## RUN LONGITUDINAL FILTER ROUTINE ##
 if [ "$logitudinal_filter" = "True" ]; then
     echo -e $startDiv"Performing longitudinal discharge adjustment routine"
-    python3 $srcDir/longitudinal_flow_adjustment.py -huc_dir $tempHucDataDir
+    python3 $srcDir/longitudinal_flow_adjustment.py -huc-dir $tempHucDataDir
 fi
 
 ## RUN BATHYMETRY ADJUSTMENT ROUTINE ##
@@ -96,9 +77,9 @@ if [ "$bathymetry_adjust" = "True" ]; then
     # Run bathymetry adjustment routine
     aibathy_toggle=${ai_toggle} #:-0}
     python3 ${srcDir}/bathymetric_adjustment.py \
-        -huc_dir ${tempHucDataDir} \
-        -bathy_ehydro $bathy_file_ehydro \
-        -bathy_aibased $bathy_file_aibased \
+        -huc-dir ${tempHucDataDir} \
+        -bathy-ehydro $bathy_file_ehydro \
+        -bathy-aibased $bathy_file_aibased \
         -ait $aibathy_toggle
 fi
 
@@ -107,8 +88,8 @@ if [ "$src_bankfull_toggle" = "True" ]; then
     echo -e $startDiv"Estimating bankfull stage in SRCs"
     # Run SRC bankfull estimation routine routine
     python3 ${srcDir}/identify_src_bankfull.py \
-        -huc_dir ${tempHucDataDir} \
-        -flows $bankfull_flows_file \
+        -huc-dir ${tempHucDataDir} \
+        -flows ${bankfull_flows_file} \
         -jb $jobBranchLimit
 fi
 
@@ -117,7 +98,7 @@ if [ "$src_subdiv_toggle" = "True" ] && [ "$src_bankfull_toggle" = "True" ]; the
     echo -e $startDiv"Performing SRC channel/overbank subdivision routine"
     # Run SRC Subdivision & Variable Roughness routine
     python3 $srcDir/subdiv_chan_obank_src.py \
-        -huc_dir $tempHucDataDir \
+        -huc-dir $tempHucDataDir \
         -mann $vmann_input_file \
         -jb $jobBranchLimit
 fi
@@ -127,7 +108,7 @@ if [ "$nonmonotonic_src_adjustment" = "True" ]; then
     echo -e $startDiv"Performing Nonmonotonic SRC Adjustment routine"
     # Run Nonmonotonic SRCs Adjustment routine -flows $bankfull_flows_file \
     python3 $srcDir/nonmonotonic_src_adjustment.py \
-        -huc_dir $tempHucDataDir
+        -huc-dir $tempHucDataDir
 fi
 
 ## RUN SYNTHETIC RATING CURVE CALIBRATION W/ USGS GAGE RATING CURVES ##
@@ -135,10 +116,10 @@ if [ "$src_adjust_usgs" = "True" ] && [ "$src_subdiv_toggle" = "True" ]; then
     echo -e $startDiv"Performing SRC adjustments using USGS rating curve database"
     # Run SRC Optimization routine using USGS rating curve data (WSE and flow @ NWM recur flow values)
     python3 ${srcDir}/src_adjust_usgs_rating_trace.py \
-        -huc_dir ${tempHucDataDir} \
-        -usgs_rc $usgs_rating_curve_csv \
-        -usgs_sites $usgs_acceptable_gages_path \
-        -nwm_recur $nwm_recur_file \
+        -huc-dir ${tempHucDataDir} \
+        -usgs-rc $usgs_rating_curve_csv \
+        -usgs-sites $usgs_acceptable_gages_path \
+        -nwm-recur $nwm_recur_file \
         -jb $jobBranchLimit 
 fi
 
@@ -147,30 +128,30 @@ if [ "$src_adjust_ras2fim" = "True" ] && [ "$src_subdiv_toggle" = "True" ]; then
     echo -e $startDiv"Performing SRC adjustments using ras2fim rating curve database"
     # Run SRC Optimization routine using ras2fim rating curve data (WSE and flow @ NWM recur flow values)
     python3 ${srcDir}/src_adjust_ras2fim_rating.py \
-        -huc_dir ${tempHucDataDir} \
-        -ras_rc $ras_rating_curve_csv_filename \
-        -nwm_recur $nwm_recur_file \
+        -huc-dir ${tempHucDataDir} \
+        -ras-rc $ras_rating_curve_csv_filename \
+        -nwm-recur $nwm_recur_file \
         -jb $jobBranchLimit
 fi
 
 ## RUN SYNTHETIC RATING CURVE CALIBRATION W/ BENCHMARK POINTS (.parquet files) ##
 if [ "$src_adjust_spatial" = "True" ] && [ "$src_subdiv_toggle" = "True" ]; then
     echo -e $startDiv"Performing SRC adjustments using benchmark point .parquet files"
-    python3 $srcDir/src_adjust_spatial_obs.py -huc_dir $tempHucDataDir -jb $jobBranchLimit 
+    python3 $srcDir/src_adjust_spatial_obs.py -huc-dir $tempHucDataDir -jb $jobBranchLimit 
 fi
 
 ## PERFORM MANUAL CALIBRATION
 if [ "$manual_calb_toggle" = "True" ] && [ -f $man_calb_file ]; then
     echo -e $startDiv"Performing manual calibration"
     python3 $srcDir/src_manual_calibration.py \
-        -huc_dir $tempHucDataDir \
-        -calb_file $man_calb_file
+        -huc-dir $tempHucDataDir \
+        -calb-file $man_calb_file
 fi
 
 ## AGGREGATE BRANCH TABLES ##
 echo -e $startDiv"Aggregating branch hydrotables"
 python3 $srcDir/aggregate_branches_to_huc.py \
-    -huc_dir $tempHucDataDir \
+    -huc-dir $tempHucDataDir \
     -htable \
     -bridge \
     -road \

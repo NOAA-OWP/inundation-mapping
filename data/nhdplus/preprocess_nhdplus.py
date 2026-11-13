@@ -17,6 +17,9 @@ from data.nfhl.download_fema_nfhl import download_nfhl_wrapper
 from data.usgs.acquire_and_preprocess_3dep_dems import __polygonize
 from src.utils.io import write_geodataframe
 
+# Force the entire suite to throw standard catchable Python errors
+gdal.UseExceptions()
+
 
 def preprocess_nhdplus(region: str, inputs_dir: str):
     """

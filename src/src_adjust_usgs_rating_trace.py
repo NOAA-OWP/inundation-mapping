@@ -1,6 +1,6 @@
 import argparse
 import datetime as dt
-import multiprocessing
+import logging
 import os
 import sys
 from multiprocessing import Pool
@@ -9,18 +9,11 @@ import geopandas as gpd
 import pandas as pd
 
 from src_roughness_optimization import update_rating_curve
+from src.utils.shared_functions import setup_file_logger
 from tools.tools_shared_functions import filter_usgs_by_acceptance_criteria
 from utils.shared_functions import check_file_age
-from utils.shared_variables import USGS_CALB_TRACE_DIST
+from utils.shared_variables import USGS_CALB_TRACE_DIST, DOWNSTREAM_THRESHOLD
 
-
-#################################
-# TODO: July 4, 2026:  In the event of an exception, the log file will not exist
-# and its details as well.
-# This needs a try/except with printing to log and at least a one liner
-# saying including the word "exception or error", which can be picked up automatically
-# by the rollup to fim_process_huc.sh or process_rerun_calibration_huc.sh
-################################
 
 '''
 The script ingests a USGS rating curve csv and a NWM flow recurrence interval database.
@@ -52,22 +45,21 @@ Outputs
                             'nwm_recur_flow_cms', 'nwm_recur', 'layer'
 '''
 
+# Unpacks the dictionary in each list items. Only needed as we are using imap and dictionaries
+def _run_update_rating_curve(args):
+    return update_rating_curve(**args)
+
 
 def create_usgs_rating_database(
-    usgs_rc_filepath, usgs_sites_filepath, usgs_elev_df, nwm_recurr_filepath, log_dir
-):
+    usgs_rc_filepath, usgs_sites_filepath, usgs_elev_df, nwm_recurr_filepath, log_dir):
     start_time = dt.datetime.now()
-    print('Reading USGS rating curve from csv...')
-    log_text = 'Processing database for USGS flow/WSE at NWM flow recur intervals...\n'
+    logging.info('Reading USGS rating curve from csv...')
+    logging.debug('Processing database for USGS flow/WSE at NWM flow recur intervals...')
     col_usgs = ["location_id", "flow", "stage", "elevation_navd88"]
     usgs_rc_df = pd.read_csv(
         usgs_rc_filepath, dtype={'location_id': object}, usecols=col_usgs
     )  # , nrows=30000)
-    print('Duration (read usgs_rc_csv): {}'.format(dt.datetime.now() - start_time))
-
-    # Read in and filter acceptable sites file
-    # acceptable_sites_path = "/data/inputs/usgs_gages/acceptable_sites_for_rating_curves_20250603.csv"
-    # TODO: Make an input variable
+    logging.debug('Duration (read usgs_rc_csv): {}'.format(dt.datetime.now() - start_time))
 
     acceptable_sites = pd.read_csv(usgs_sites_filepath, dtype={'location_id': object})
     acceptable_sites_filt = filter_usgs_by_acceptance_criteria(acceptable_sites)
@@ -82,10 +74,10 @@ def create_usgs_rating_database(
     usgs_rc_df['elevation_navd88_m'] = usgs_rc_df['elevation_navd88'] / 3.28084
 
     # read in the aggregate USGS elev table csv
-    start_time = dt.datetime.now()
+    # start_time = dt.datetime.now()
     cross_df = usgs_elev_df[
         ["location_id", "HydroID", "feature_id", "levpa_id", "HUC8", "dem_adj_elevation"]
-    ].copy()
+    ]
     cross_df = cross_df.rename(
         columns={'dem_adj_elevation': 'hand_datum', 'HydroID': 'hydroid', 'HUC8': 'huc'}
     )
@@ -104,17 +96,10 @@ def create_usgs_rating_database(
 
     # If all records filtered out, write log and return empty dataframe
     if len(usgs_rc_df) == 0:
-        msg = "[WARNING] All gages were removed after filtering criteria."
-        log_text += f'\n {msg} \n'
-        log_usgs_db = open(os.path.join(log_dir, 'log_usgs_rc_database.log'), "w")
-        log_usgs_db.write(log_text)
-        log_usgs_db.close()
-
-        # this goes back to calibrate_rating_curve.sh which rolls up to its parent "tee"
-        # Then it can be scanned in the error system based on solely the "tee" file
-        print(msg)
-
+        # msg already handed in run_prep
+        # logging.warning("[WARNING] All gages were removed after filtering criteria.")
         return pd.DataFrame()
+    
     # calculate hand elevation
     usgs_rc_df['hand'] = usgs_rc_df['elevation_navd88_m'] - usgs_rc_df['hand_datum']
     usgs_rc_df = usgs_rc_df[
@@ -146,8 +131,7 @@ def create_usgs_rating_database(
     recurr_intervals = ("2", "5", "10", "25", "50")
     final_df = pd.DataFrame()  # create empty dataframe to append flow interval dataframes
     for interval in recurr_intervals:
-        log_text += '\n\nProcessing: ' + str(interval) + '-year NWM recurr intervals\n'
-        print('Processing: ' + str(interval) + '-year NWM recurr intervals')
+        logging.debug('Processing: ' + str(interval) + '-year NWM recurr intervals')
         # Calculate the closest SRC discharge value to the NWM flow value
         merge_df['Q_find'] = (merge_df['discharge_cms'] - merge_df[interval + "_0_year"]).abs()
 
@@ -155,17 +139,20 @@ def create_usgs_rating_database(
         # There may be null values for lake or coastal flow lines
         # (need to set a value to do groupby idxmin below)
         if merge_df['Q_find'].isnull().values.any():
-            log_text += (
+            logging.debug(
                 'HUC: '
                 + str(merge_df['huc'])
                 + ' : feature_id'
                 + str(merge_df['feature_id'])
-                + ' --> Null values found in "Q_find" calc. These will be filled with 999999 () \n'
+                + ' --> Null values found in "Q_find" calc. These will be filled with 999999 ()'
             )
             # Fill missing/nan nwm 'Discharge (m3s-1)' values with 999999 to handle later
             merge_df['Q_find'] = merge_df['Q_find'].fillna(999999)
         if merge_df['hydroid'].isnull().values.any():
-            log_text += 'HUC: ' + str(merge_df['huc']) + ' --> Null values found in "hydroid"... \n'
+
+            # TODO: Nov 2026: Should this raise an exception? or at least return? or at least a continue?
+
+            logging.debug('HUC: ' + str(merge_df['huc']) + ' --> Null values found in "hydroid"')
 
         # Create dataframe with crosswalked USGS flow and NWM recurr flow &
         # find the index of the closest matching flow btw USGS rating and NWM recur
@@ -199,13 +186,18 @@ def create_usgs_rating_database(
         ]
         final_df = pd.concat([final_df, calc_df], ignore_index=True)
         # Log any negative HAND elev values and remove from database
-        log_text += 'INFO: Negative HAND stage values -->\n'
-        log_text += calc_df[calc_df['hand'] < 0].to_string() + '\n'
+
+        logging.debug('Warning: Negative HAND stage values -->')
+        logging.debug(calc_df[calc_df['hand'] < 0].to_string())
+        logging.debug("")
+
         final_df = final_df[final_df['hand'] > 0]
         # Log any signifant differences btw the NWM flow value and closest USGS rating flow
         # This ensures that we consistently sample the USGS rating curves at known intervals - NWM recur flow
-        log_text += 'INFO: Large variance (>10%) between NWM flow and closest USGS flow -->\n'
-        log_text += calc_df[calc_df['check_variance'] > 0.1].to_string() + '\n'
+        logging.debug("Large variance (>10%) between NWM flow and closest USGS flow -->")
+        logging.debug(calc_df[calc_df['check_variance'] > 0.1].to_string())
+        logging.debug("")
+
         final_df = final_df[final_df['check_variance'] < 0.1]
         final_df['submitter'] = 'usgs_rating_wrds_api_' + final_df['location_id'].astype(str)
         # Get datestamp from usgs rating curve file to use as coll_time attribute in hydroTable.csv
@@ -214,18 +206,19 @@ def create_usgs_rating_database(
 
     # Rename attributes (for ingest to update_rating_curve) and output csv with the USGS RC database
     final_df = final_df.rename(columns={'discharge_cms': 'flow'})
+    # Saved for debugging only
     final_df.to_csv(os.path.join(log_dir, "usgs_rc_nwm_recurr.csv"), index=False)
+    logging.debug("Saving usgs_rc_nwm_recurr.csv")
 
-    # Output log text to log file
-    log_text += '#########\nTotal entries per USGS gage location -->\n'
-    loc_id_df = final_df.groupby(['location_id']).size().reset_index(name='count')
-    log_text += loc_id_df.to_string() + '\n'
-    log_text += '#########\nTotal entries per NWM recur value -->\n'
+    logging.debug("#########")
+    logging.debug('-- Total entries per USGS gage location -->')
+    loc_id_df = final_df.groupby(['location_id']).size().reset_index(name='count')    
+    logging.debug(loc_id_df.to_string())
+
+    logging.debug("#########")
+    logging.debug("Total entries per NWM recur value -->")
     recur_count_df = final_df.groupby(['nwm_recur']).size().reset_index(name='count')
-    log_text += recur_count_df.to_string() + '\n'
-    log_usgs_db = open(os.path.join(log_dir, 'log_usgs_rc_database.log'), "w")
-    log_usgs_db.write(log_text)
-    log_usgs_db.close()
+    logging.debug(recur_count_df.to_string())
     return final_df
 
 
@@ -300,8 +293,16 @@ def trace_network(df, start_id):
     return trace_up, trace_down
 
 
-def branch_proc_list(usgs_df, huc_dir, debug_outputs_option, log_file, branch_jobs):
-    procs_list = []  # Initialize list for mulitprocessing.
+def branch_proc_list(usgs_df, huc_dir, is_debug, branch_jobs):
+
+    '''
+    If one of the child workers in MP returns an "in_errors" as true, then shut
+    down the entire code processing. ie) sys.exit(1) will work here as it is outside
+    an MP.
+    '''
+
+    logging.debug("Starting processing of branch proc list")
+
     huc = os.path.basename(os.path.normpath(huc_dir))
     usgs_df['huc'] = usgs_df['huc'].astype(int).astype(str).str.zfill(8)
     usgs_df['levpa_id'] = usgs_df['levpa_id'].astype(int).astype(str)
@@ -311,34 +312,55 @@ def branch_proc_list(usgs_df, huc_dir, debug_outputs_option, log_file, branch_jo
 
     # Check if this HUC has any gages after all filterings
     if huc not in huc_branch_dict:
-        warn_msg = (
+        logging.warning(
             f"WARNING: All USGS gages for HUC {huc} was filtered out during processing."
-            f"Skipping USGS rating curve adjustments.\n"
+            f"Skipping USGS rating curve adjustments."
         )
-        print(warn_msg)
-        log_file.write(warn_msg)
         return
+    
+    # Additional arguments for src_roughness_optimization
+    source_tag = 'usgs_rating'  # tag to use in source attribute field
+    merge_prev_adj = False  # merge in previous SRC adjustment calculations
 
     branch_set = huc_branch_dict[huc]
-
+    procs_list = []  # Initialize list for mulitprocessing.
     for branch_id in branch_set:
         # Define paths to branch HAND data.
         # Define paths to HAND raster, catchments raster, and synthetic rating curve JSON.
         branch_dir = os.path.join(huc_dir, 'branches', branch_id)
-        hand_path = os.path.join(branch_dir, 'rem_zeroed_masked_' + branch_id + '.tif')
+
+        # ----------- validate paths ---------------
+        # If a branch failed previously, it will not have a hydrotable  and that is ok.
+        htable_path = os.path.join(branch_dir, 'hydroTable_' + branch_id + '.csv')
+        if not os.path.exists(htable_path):
+            logging.warning(f"WARNING: {htable_path} missing (skipping).. might be ok if branch previously failed")
+            continue
+
+        # If the hydrotable is there, then the rest of these should be
         catchments_path = os.path.join(
             branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_' + branch_id + '.tif'
         )
+        if not os.path.exists(catchments_path):
+            raise Exception(f"{catchments_path} is missing")
+
         catchments_poly_path = os.path.join(
             branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked_' + branch_id + '.parquet'
         )
-        htable_path = os.path.join(branch_dir, 'hydroTable_' + branch_id + '.csv')
+
         dem_reaches_path = os.path.join(
             branch_dir,
             'demDerived_reaches_split_filtered_addedAttributes_crosswalked_' + branch_id + '.parquet',
         )
+
+        # --------------------------
+        logging.debug(f"loading {dem_reaches_path}")
         df = gpd.read_parquet(dem_reaches_path)
         usgs_elev = usgs_df[((usgs_df['huc'] == huc) & (usgs_df['levpa_id'] == branch_id))]
+
+        # Yes, some hucs and branches may not have usgs data
+        if usgs_elev.empty:
+            logging.warning(f"WARNING: usgs_elev tables does not have HUC and/or Branch Data. Skipping...")
+            continue
 
         # Calculate updstream/downstream trace ()
         df = df[['HydroID', 'order_', 'LengthKm', 'NextDownID', 'LakeID']]
@@ -376,7 +398,7 @@ def branch_proc_list(usgs_df, huc_dir, debug_outputs_option, log_file, branch_jo
 
         # Drop up & down columns
         columns_to_drop = ['up', 'down']
-        usgs_elev.drop(columns=columns_to_drop, inplace=True)
+        usgs_elev = usgs_elev.drop(columns=columns_to_drop)
 
         # Explode the trace column
         usgs_elev_trace = usgs_elev.explode('trace_hydroid')
@@ -393,102 +415,70 @@ def branch_proc_list(usgs_df, huc_dir, debug_outputs_option, log_file, branch_jo
         # Check that there are still valid entries in the usgs_elev
         # May have filtered out all if all locs were lakes
         if usgs_elev_trace.empty:
-            print(
-                "ALERT: did not find any valid hydroids to process: "
+            logging.warning(
+                "WARNING: did not find any valid hydroids to process: "
                 + str(huc)
                 + ' - branch-id: '
                 + str(branch_id)
-            )
-            log_file.write(
-                "ALERT: did not find any valid hydroids to process: "
-                + str(huc)
-                + ' - branch-id: '
-                + str(branch_id)
-                + '\n'
             )
             continue
 
-        # Rename columns
-        usgs_elev_trace.rename(columns={'hydroid': 'hydroid_gauge'}, inplace=True)
-        usgs_elev_trace.rename(columns={'trace_hydroid': 'hydroid'}, inplace=True)
+        # Rename columns (yes.. do them one at a time)
+        usgs_elev_trace = usgs_elev_trace.rename(columns={'hydroid': 'hydroid_gauge'})
+        usgs_elev_trace = usgs_elev_trace.rename(columns={'trace_hydroid': 'hydroid'})
 
-        if debug_outputs_option:
+        if is_debug:
             usgs_elev_trace.to_csv(
                 os.path.join(branch_dir, 'water_edge_trace_' + str(branch_id) + '.csv'), index=False
             )
+            logging.debug(f"Saving water_edge_trace_{str(branch_id)}.csv'")
 
-        # Check to make sure the fim output files exist. Continue to next iteration if not and warn user.
-        if not os.path.exists(hand_path):
-            print(
-                "WARNING: HAND grid does not exist (skipping): "
-                + str(huc)
-                + ' - branch-id: '
-                + str(branch_id)
-            )
-            log_file.write(
-                "WARNING: HAND grid does not exist (skipping): "
-                + str(huc)
-                + ' - branch-id: '
-                + str(branch_id)
-                + '\n'
-            )
-        elif not os.path.exists(catchments_path):
-            print(
-                "WARNING: Catchments grid does not exist (skipping): "
-                + str(huc)
-                + ' - branch-id: '
-                + str(branch_id)
-            )
-            log_file.write(
-                "WARNING: Catchments grid does not exist (skipping): "
-                + str(huc)
-                + ' - branch-id: '
-                + str(branch_id)
-                + '\n'
-            )
-        elif not os.path.exists(htable_path):
-            print(
-                "WARNING: hydroTable does not exist (skipping): "
-                + str(huc)
-                + ' - branch-id: '
-                + str(branch_id)
-            )
-            log_file.write(
-                "WARNING: hydroTable does not exist (skipping): "
-                + str(huc)
-                + ' - branch-id: '
-                + str(branch_id)
-                + '\n'
-            )
-        else:
-            # Additional arguments for src_roughness_optimization
-            source_tag = 'usgs_rating'  # tag to use in source attribute field
-            merge_prev_adj = False  # merge in previous SRC adjustment calculations
-
-            print('Will perform SRC adjustments for huc: ' + str(huc) + ' - branch-id: ' + str(branch_id))
-            procs_list.append(
-                [
-                    branch_dir,
-                    usgs_elev_trace,
-                    htable_path,
-                    huc,
-                    branch_id,
-                    catchments_poly_path,
-                    debug_outputs_option,
-                    source_tag,
-                    merge_prev_adj,
-                ]
-            )
+        logging.debug('Will perform SRC adjustments for huc: ' + str(huc) + ' - branch-id: ' + str(branch_id))
+        args = {
+                "fim_directory": branch_dir,
+                "water_edge_median_df": usgs_elev_trace,
+                "htable_path": htable_path,
+                "huc": huc,
+                "branch_id": branch_id,
+                "catchments_poly_path": catchments_poly_path,
+                "debug_outputs_option": is_debug,
+                "source_tag": source_tag,
+                "merge_prev_adj": merge_prev_adj,
+                "down_dist_thresh": DOWNSTREAM_THRESHOLD
+                }
+        procs_list.append(args)
 
     # multiprocess all available branches
-    print(f"Calculating new SRCs for {len(procs_list)} branches using {branch_jobs} jobs...")
+    results = []
+    # TODO: Nov 2026: This should be ugpraded, mostly for tracing, debugging and logs
     with Pool(processes=branch_jobs) as pool:
-        log_output = pool.starmap(update_rating_curve, procs_list)
-        log_file.writelines(["%s\n" % item for item in log_output])
+        for map_output in pool.imap(_run_update_rating_curve, procs_list):
+            results.append(map_output)
+
+    in_error = False
+
+    # TODO: Nov 2026: This is temp as with this MP setup, child workers can not write to logs
+    # so we will send back log text and an error bool so we can shut down the downstream tools if it fails.
+    # Once we do, we can use logging.info, .debug, .warning, etc
+    for log_text_list, has_error in results:
+        if has_error:
+            for item in log_text_list:
+                logging.error(item)  # Note.. error type
+            # As we are outside an MP, we can use sys.exit(1) to stop downstream code processing
+            in_error = True
+        else:
+            for item in log_text_list:
+                logging.debug(item)  # Note.. debug type (logs only)
+
+    # logging.debug("Processing completed with log updates")
+
+    if in_error:
+        print("Stopping processing")
+        sys.exit(1)
 
 
 def run_prep(
-    huc_dir, usgs_rc_filepath, usgs_sites_filepath, nwm_recurr_filepath, debug_outputs_option, branch_jobs
+    huc_dir, usgs_rc_filepath, usgs_sites_filepath, nwm_recurr_filepath, is_debug, branch_jobs
 ):
     # Check input args are valid
     # assert os.path.isdir(run_dir), 'ERROR: could not find the input fim_dir location: ' + str(run_dir)
@@ -499,67 +489,55 @@ def run_prep(
     # )
     huc = os.path.basename(os.path.normpath(huc_dir))
 
-    # Create output dir for log and usgs rc database
     log_dir = os.path.join(huc_dir, "logs", "src_calibrations")
-    if not os.path.isdir(log_dir):
-        os.makedirs(log_dir)
-
-    # Create a time var to log run time
     begin_time = dt.datetime.now()
     # Create log file for processing records
-    log_file = open(os.path.join(log_dir, 'log_usgs_rc_src_adjust.log'), "w")
-    log_file.write('START TIME: ' + str(begin_time) + '\n')
-    log_file.write('#########################################################\n\n')
+    log_file_path = setup_file_logger(log_dir, "usgs_rc_src_adjust")
+    logging.debug("Start USGS rating curve adj")
+    print(f"Logs will be saved to {log_file_path}")    
+    logging.debug('START TIME: ' + str(begin_time))
+    logging.debug('#########################################################')
 
-    csv_name = 'usgs_elev_table.csv'  # TODO: Get this from a variable?
+    # It is fine that it is a hardcoded name.
+    # It will always be this name at the huc level and fine if it does not exist
+    csv_name = 'usgs_elev_table.csv'
     if not os.path.exists(os.path.join(huc_dir, csv_name)):
-        print(f'No USGS calibration points exist for huc {huc}')
+        logging.info(f'Skipping... No USGS calibration points exist (usgs_elev_table.csv) for huc {huc}')
         return
 
-    print('Reading USGS gage HAND elevation from usgs_elev_table.csv file...')
+    logging.debug('Reading USGS gage HAND elevation from usgs_elev_table.csv file...')
     usgs_elev_df = pd.read_csv(
         os.path.join(huc_dir, csv_name), dtype={'location_id': object, 'levpa_id': object}
     )
 
-    if usgs_elev_df is None:
-        warn_err = (
-            'WARNING: usgs_elev_df not created - check that usgs_elev_table.csv files exist in huc_dir!'
-        )
-        print(warn_err)
-        log_file.write(warn_err)
-
-    elif usgs_elev_df.empty:
-        warn_err = 'WARNING: usgs_elev_df is empty - check that usgs_elev_table.csv files exist in huc_dir!'
-        print(warn_err)
-        log_file.write(warn_err)
-
+    if usgs_elev_df.empty:
+        logging.warning(f"WARNING: usgs_elev_table.csv for {huc} is empty")
+        return
     else:
         print('This may take a few minutes...')
-        log_file.write("starting create usgs rating db\n")
         usgs_df = create_usgs_rating_database(
             usgs_rc_filepath, usgs_sites_filepath, usgs_elev_df, nwm_recurr_filepath, log_dir
         )
 
         # if usgs_df is empty--no acceptable gage, then end the process early.
-        if usgs_df.empty:
+        if usgs_df is None or usgs_df.empty:
             warn_msg = (
                 f"WARNING: All USGS gage data for HUC {huc} was filtered out during processing. "
-                f"Check log_usgs_rc_database.log for details. Skipping USGS rating curve adjustments.\n"
+                "Check log_usgs_rc_database.log for details. Skipping USGS rating curve adjustments."
             )
-            print(warn_msg)
-            log_file.write(warn_msg)
+            logging.warning(warn_msg)
+            return
+        
         else:
             # Create huc proc_list for multiprocessing and execute the update_rating_curve function
-            branch_proc_list(usgs_df, huc_dir, debug_outputs_option, log_file, branch_jobs)
+            branch_proc_list(usgs_df, huc_dir, is_debug, branch_jobs)
 
     # Record run time and close log file
-    log_file.write('########################################################\n\n')
+    logging.debug('########################################################')
     end_time = dt.datetime.now()
-    log_file.write('END TIME: ' + str(end_time) + '\n')
+    logging.debug('END TIME: ' + str(end_time))
     tot_run_time = end_time - begin_time
-    log_file.write('TOTAL RUN TIME: ' + str(tot_run_time))
-    sys.stdout = sys.__stdout__
-    log_file.close()
+    logging.debug('TOTAL RUN TIME: ' + str(tot_run_time))
 
 
 if __name__ == '__main__':
@@ -567,44 +545,36 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Adjusts rating curve with database of USGS rating curve (calculated WSE/flow).'
     )
-    parser.add_argument('-huc_dir', '--huc_dir', help='directory of a HUC run', required=True)
+    parser.add_argument('-huc-dir', '--huc-dir', help='directory of a HUC run', required=True)
     parser.add_argument(
-        '-usgs_rc', '--usgs-ratings', help='Path to USGS rating curve csv file', required=True
+        '-usgs-rc', '--usgs-rc-filepath', help='Path to USGS rating curve csv file', required=True
     )
     parser.add_argument(
-        '-usgs_sites',
-        '--usgs-sites',
+        '-usgs-sites',
+        '--usgs-sites-filepath',
         help='Path to USGS acceptable sites for rating curves file',
         required=True,
     )
     parser.add_argument(
-        '-nwm_recur',
-        '--nwm_recur',
+        '-nwm-recur',
+        '--nwm-recurr-filepath',
         help='Path to NWM recur file (multiple NWM flow intervals). NOTE: assumes flow units are cfs!!',
         required=True,
     )
     parser.add_argument(
         '-debug',
-        '--extra-outputs',
+        '--is-debug',
         help='Optional flag: Use this to keep intermediate output files for debugging/testing',
         default=False,
         required=False,
         action='store_true',
     )
     parser.add_argument(
-        '-jb', '--branch_jobs', help='Number of branches jobs to use', required=False, default=1
+        '-jb', '--branch-jobs', help='Number of branches jobs to use', required=False, default=1, type=int
     )
 
     # Assign variables from arguments.
     args = vars(parser.parse_args())
-    huc_dir = args['huc_dir']
-    usgs_rc_filepath = args['usgs_ratings']
-    usgs_sites_filepath = args['usgs_sites']
-    nwm_recurr_filepath = args['nwm_recur']
-    debug_outputs_option = args['extra_outputs']
-    branch_jobs = int(args['branch_jobs'])
 
     # Prepare/check inputs, create log file, and spin up the proc list
-    run_prep(
-        huc_dir, usgs_rc_filepath, usgs_sites_filepath, nwm_recurr_filepath, debug_outputs_option, branch_jobs
-    )
+    run_prep(**args)

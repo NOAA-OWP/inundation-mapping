@@ -20,6 +20,7 @@ fi
 ## MASK LEVEE-PROTECTED AREAS FROM DEM ##
 if [[ "$mask_leveed_area_toggle" == "True"  &&  -f "${tempHucDataDir}/LeveeProtectedAreas_subset.gpkg" ]]; then
     echo -e "${startDiv}Mask levee-protected areas from DEM (*Overwrite dem_meters.tif output) ${hucNumber} ${current_branch_id}"
+    date -u
     args=(
         -dem "${tempCurrentBranchDataDir}/dem_meters_${current_branch_id}.tif"
         -nld "${tempHucDataDir}/LeveeProtectedAreas_subset.gpkg"
@@ -36,6 +37,7 @@ fi
 
 ## D8 FLOW ACCUMULATIONS ##
 echo -e "${startDiv}D8 Flow Accumulations ${hucNumber} ${current_branch_id}"
+date -u
 args=(
     -fd "${tempCurrentBranchDataDir}/flowdir_d8_burned_filled_${current_branch_id}.tif"
     -fa "${tempCurrentBranchDataDir}/flowaccum_d8_burned_filled_${current_branch_id}.tif"
@@ -47,6 +49,7 @@ python3 "${srcDir}/accumulate_headwaters.py" "${args[@]}"
 
 ## PREPROCESSING FOR LATERAL THALWEG ADJUSTMENT ###
 echo -e "${startDiv}Preprocessing for lateral thalweg adjustment ${hucNumber} ${current_branch_id}"
+date -u
 args=(
     -s "${tempCurrentBranchDataDir}/demDerived_streamPixels_${current_branch_id}.tif"
     -o "${tempCurrentBranchDataDir}/demDerived_streamPixels_ids_${current_branch_id}.tif"
@@ -55,6 +58,7 @@ python3 "${srcDir}/unique_pixel_and_allocation.py" "${args[@]}"
 
 ## ADJUST THALWEG MINIMUM USING LATERAL ZONAL MINIMUM ##
 echo -e "${startDiv}Performing lateral thalweg adjustment ${hucNumber} ${current_branch_id}"
+date -u
 args=(
     -e "${tempCurrentBranchDataDir}/dem_meters_${current_branch_id}.tif"
     -s "${tempCurrentBranchDataDir}/demDerived_streamPixels_${current_branch_id}.tif"
@@ -68,6 +72,7 @@ python3 "${srcDir}/adjust_thalweg_lateral.py" "${args[@]}"
 
 ## MASK BURNED DEM FOR STREAMS ONLY ###
 echo -e "${startDiv}Mask Burned DEM for Thalweg Only ${hucNumber} ${current_branch_id}"
+date -u
 args=(
     --quiet --type=Int32 --overwrite
     --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES"
@@ -81,6 +86,7 @@ gdal_calc.py "${args[@]}"
 
 ## FLOW CONDITION STREAMS ##
 echo -e $startDiv"Flow Condition Thalweg ${hucNumber} ${current_branch_id}"
+date -u
 args=(
     -t "${taudemDir}"
     -p "${tempCurrentBranchDataDir}/flowdir_d8_burned_filled_flows_${current_branch_id}.tif"
@@ -90,17 +96,22 @@ args=(
 python3 "${srcDir}/run_taudem_subprocess.py" flowdircond "${args[@]}"
 
 ## D8 SLOPES ##
+# Note: Oct 2026: Now with TauDEM 5.5, you have to give it a sd8 and a p file even if you
+# do not want it a this point.
+# We will just remove the p temp file later.
 echo -e $startDiv"D8 Slopes from DEM ${hucNumber} ${current_branch_id}"
+date -u
 args=(
-    -n "${ncores_fd}"
-    -t "${taudemDir2}"
+    -t "${taudemDir}"
     -fel "${tempCurrentBranchDataDir}/dem_lateral_thalweg_adj_${current_branch_id}.tif"
     -sd8 "${tempCurrentBranchDataDir}/slopes_d8_dem_meters_${current_branch_id}.tif"
+    -p "${tempCurrentBranchDataDir}/slopes_d8_dem_meters_temp_flowdir_${current_branch_id}.tif"    
 )
 python3 "${srcDir}/run_taudem_subprocess.py" d8flowdir "${args[@]}"
 
 ## STREAMNET FOR REACHES ##
 echo -e $startDiv"Stream Net for Reaches ${hucNumber} ${current_branch_id}"
+date -u
 args=(
     -t "${taudemDir}"
     -p "${tempCurrentBranchDataDir}/flowdir_d8_burned_filled_${current_branch_id}.tif"
@@ -117,6 +128,7 @@ python3 "${srcDir}/run_taudem_subprocess.py" streamnet "${args[@]}"
 
 ## SPLIT DERIVED REACHES ##
 echo -e "${startDiv}Split Derived Reaches ${hucNumber} ${current_branch_id}"
+date -u
 args=(
     -f "${tempCurrentBranchDataDir}/demDerived_reaches_${current_branch_id}.shp"
     -d "${tempCurrentBranchDataDir}/dem_thalwegCond_${current_branch_id}.tif"
@@ -129,12 +141,13 @@ args=(
     -t "${slope_min}"
     -b "${lakes_buffer_dist_meters}"
 )
+# printf '%s\n' "${args[@]}"
 python3 "${srcDir}/split_flows.py" "${args[@]}"
 
 ## GAGE WATERSHED FOR REACHES ##
-echo -e $startDiv"Gage Watershed for Reaches ${hucNumber} ${current_branch_id}"
+echo -e "${startDiv}Gage Watershed for Reaches ${hucNumber} ${current_branch_id}"
+date -u
 args=(
-    -n "${ncores_gw}"
     -t "${taudemDir}"
     -p "${tempCurrentBranchDataDir}/flowdir_d8_burned_filled_${current_branch_id}.tif"
     -gw "${tempCurrentBranchDataDir}/gw_catchments_reaches_${current_branch_id}.tif"
@@ -145,6 +158,7 @@ python3 "${srcDir}/run_taudem_subprocess.py" gagewatershed "${args[@]}"
 
 ## VECTORIZE FEATURE ID CENTROIDS ##
 echo -e "${startDiv}Vectorize Pixel Centroids ${hucNumber} ${current_branch_id}"
+date -u
 args=(
     -r "${tempCurrentBranchDataDir}/demDerived_streamPixels_${current_branch_id}.tif"
     -i "featureID"
@@ -153,9 +167,9 @@ args=(
 python3 "${srcDir}/reachID_grid_to_vector_points.py" "${args[@]}"
 
 ## GAGE WATERSHED FOR PIXELS ##
-echo -e $startDiv"Gage Watershed for Pixels ${hucNumber} ${current_branch_id}"
+echo -e "${startDiv}Gage Watershed for Pixels ${hucNumber} ${current_branch_id}"
+date -u
 args=(
-    -n "${ncores_gw}"
     -t "${taudemDir}"
     -p "${tempCurrentBranchDataDir}/flowdir_d8_burned_filled_${current_branch_id}.tif"
     -gw "${tempCurrentBranchDataDir}/gw_catchments_pixels_${current_branch_id}.tif"
@@ -164,9 +178,9 @@ args=(
 )
 python3 "${srcDir}/run_taudem_subprocess.py" gagewatershed "${args[@]}"
 
-
 ## CATCH AND MITIGATE BRANCH OUTLET BACKPOOL ERROR ##
 echo -e "${startDiv}Catching and mitigating branch outlet backpool issue ${hucNumber} ${current_branch_id}"
+date -u
 args=(
     -b "${tempCurrentBranchDataDir}"
     -cp "${tempCurrentBranchDataDir}/gw_catchments_pixels_${current_branch_id}.tif"
@@ -183,6 +197,7 @@ python3 "${srcDir}/mitigate_branch_outlet_backpool.py" "${args[@]}"
 
 ## D8 REM ##
 echo -e "${startDiv}D8 REM ${hucNumber} ${current_branch_id}"
+date -u
 args=(
     -d "${tempCurrentBranchDataDir}/dem_thalwegCond_${current_branch_id}.tif"
     -w "${tempCurrentBranchDataDir}/gw_catchments_pixels_${current_branch_id}.tif"
@@ -193,6 +208,7 @@ python3 "${srcDir}/make_rem.py" "${args[@]}"
 
 ## BRING DISTANCE DOWN TO ZERO & MASK TO CATCHMENTS ##
 echo -e "${startDiv}Bring negative values in REM to zero and mask to catchments ${hucNumber} ${current_branch_id}"
+date -u
 args=(
     --quiet --type=Float32 --overwrite 
     --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES"
@@ -206,6 +222,7 @@ gdal_calc.py "${args[@]}"
 ## RASTERIZE LANDSEA (OCEAN AREA) POLYGON (IF APPLICABLE) ##
 if [[ -f "${tempHucDataDir}/LandSea_subset.gpkg" ]]; then
     echo -e "${startDiv}Rasterize filtered/dissolved ocean/Glake polygon ${hucNumber} ${current_branch_id}"
+    date -u
     args=(
         -q -ot "Int32" -burn "${ndv}" -init "1" -a_nodata "${ndv}"
         -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES"
@@ -218,6 +235,7 @@ fi
 
 ## POLYGONIZE REACH WATERSHEDS ##
 echo -e "${startDiv}Polygonize Reach Watersheds ${hucNumber} ${current_branch_id}"
+date -u
 args=(
     "${tempCurrentBranchDataDir}/gw_catchments_reaches_${current_branch_id}.tif"
     "${tempCurrentBranchDataDir}/gw_catchments_reaches_${current_branch_id}.parquet"
@@ -228,6 +246,7 @@ python3 "${srcDir}/utils/polygonize_raster.py" "${args[@]}"
 
 ## PROCESS CATCHMENTS AND MODEL STREAMS STEP 1 ##
 echo -e "${startDiv}Process catchments and model streams ${hucNumber} ${current_branch_id}"
+date -u
 args=(
     -i "${tempCurrentBranchDataDir}/gw_catchments_reaches_${current_branch_id}.parquet"
     -f "${tempCurrentBranchDataDir}/demDerived_reaches_split_${current_branch_id}.parquet"
@@ -240,6 +259,7 @@ python3 "${srcDir}/filter_catchments_and_add_attributes.py" "${args[@]}"
 
 ## RASTERIZE NEW CATCHMENTS AGAIN ##
 echo -e "${startDiv}Rasterize filtered catchments ${hucNumber} ${current_branch_id}"
+date -u
 args=(
     -q -ot Int32 -a HydroID -a_nodata "0" -init "0"
     -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES"
@@ -251,6 +271,7 @@ python3 "${srcDir}/utils/rasterize_parquet.py" "${args[@]}"
 
 ## MASK SLOPE TO CATCHMENTS ##
 echo -e "${startDiv}Mask to slopes to catchments ${hucNumber} ${current_branch_id}"
+date -u
 args=(
     --quiet --type=Float32 --overwrite 
     --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES"
@@ -263,6 +284,7 @@ gdal_calc.py "${args[@]}"
 
 ## MAKE CATCHMENT AND STAGE FILES ##
 echo -e "${startDiv}Generate Catchment List and Stage List Files ${hucNumber} ${current_branch_id}"
+date -u
 args=(
     -f "${tempCurrentBranchDataDir}/demDerived_reaches_split_filtered_${current_branch_id}.parquet"
     -c "${tempCurrentBranchDataDir}/gw_catchments_reaches_filtered_addedAttributes_${current_branch_id}.parquet"
@@ -277,6 +299,7 @@ python3 "${srcDir}/make_stages_and_catchlist.py" "${args[@]}"
 ## MASK REM RASTER TO REMOVE OCEAN AREAS ##
 if  [[ -f "${tempCurrentBranchDataDir}/LandSea_subset_${current_branch_id}.tif" ]]; then
     echo -e "${startDiv}Additional masking to REM raster to remove ocean/Glake areas ${hucNumber} ${current_branch_id}"
+    date -u
     args=(
         --quiet --type=Float32 --overwrite
         --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES"
@@ -291,6 +314,7 @@ fi
 ## HEAL HAND -- REMOVES HYDROCONDITIONING ARTIFACTS ##
 if [[ "${healed_hand_hydrocondition}" == "true"  &&  "${current_branch_id}" != "${branch_zero_id}" ]]; then
     echo -e "${startDiv}Healed HAND to Remove Hydro-conditioning Artifacts ${hucNumber} ${current_branch_id}"
+    date -u
     args=(
         --quiet --type=Float32 --overwrite 
         --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES"
@@ -305,6 +329,7 @@ fi
 
 ## HYDRAULIC PROPERTIES ##
 echo -e $startDiv"Sample reach averaged parameters ${hucNumber} ${current_branch_id}"
+date -u
 args=(
     -t "${taudemDir}"
     -hand "${tempCurrentBranchDataDir}/rem_zeroed_masked_${current_branch_id}.tif"
@@ -314,10 +339,12 @@ args=(
     -H "${tempCurrentBranchDataDir}/stage_${current_branch_id}.txt"
     -table "${tempCurrentBranchDataDir}/src_base_${current_branch_id}.csv"
 )
+# printf '%s\n' "${args[@]}"
 python3 "${srcDir}/run_taudem_subprocess.py" catchhydrogeo "${args[@]}"
 
 ## FINALIZE CATCHMENTS AND MODEL STREAMS ##
 echo -e $startDiv"Finalize catchments and model streams ${hucNumber} ${current_branch_id}"
+date -u
 args=(
     -d "${tempCurrentBranchDataDir}/gw_catchments_reaches_filtered_addedAttributes_${current_branch_id}.parquet"
     -a "${tempCurrentBranchDataDir}/demDerived_reaches_split_filtered_${current_branch_id}.parquet"
@@ -338,11 +365,13 @@ args=(
     -i "${iris_sword_slope}"
     -p "${hfab_ransac_slope}"
 )
+# printf '%s\n' "${args[@]}"
 python3 "${srcDir}/add_crosswalk.py" "${args[@]}"
 
 ## HEAL HAND -- REMOVES HYDROCONDITIONING ARTIFACTS ##
 if [[ "${healed_hand_hydrocondition}" == "true" && "${current_branch_id}" == "${branch_zero_id}" ]]; then
     echo -e "${startDiv}Healed HAND to Remove Hydro-conditioning Artifacts ${hucNumber} ${current_branch_id}"
+    date -u
     args=(
         --quiet --type=Float32 --overwrite
         --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES"
@@ -414,6 +443,7 @@ fi
 ## EVALUATE CROSSWALK ##
 if [[ "${current_branch_id}" == "${branch_zero_id}" && "${evaluateCrosswalk}" == "1" ]]; then
     echo -e "${startDiv}Evaluate crosswalk ${hucNumber} ${current_branch_id}"
+    date -u
     args=(
         -a "${tempCurrentBranchDataDir}/demDerived_reaches_split_filtered_addedAttributes_crosswalked_${current_branch_id}.parquet"
         -b "${b_arg}"

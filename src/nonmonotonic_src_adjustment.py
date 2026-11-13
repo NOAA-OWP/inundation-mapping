@@ -5,27 +5,18 @@
 # in SRCs and HTs. It just updates "Discharge (m3s-1)_subdiv"
 
 import datetime as dt
+import logging
 import os
-import re
 import traceback
-from argparse import ArgumentParser
+import sys
 
-# from concurrent.futures import ProcessPoolExecutor, as_completed
+from argparse import ArgumentParser
 from os.path import join
 
 import numpy as np
 import pandas as pd
 
-
-#################################
-# TODO: July 4, 2026:  In the event of an exception, the log file will not exist
-# and its details as well. Besides, we really do not want to leave a file writer
-# open. Can leave memory leaks.
-# This needs a try/except with printing to log and at least a one liner
-# saying including the word "exception or error", which can be picked up automatically
-# by the rollup to fim_process_huc.sh or process_rerun_calibration_huc.sh
-################################
-
+from src.utils.shared_functions import setup_file_logger
 
 # -------------------------------------------------------
 # Analysing each HydroID SRC for nonmonotonic SRC
@@ -108,13 +99,7 @@ def correct_nonmonotonic_src(huc_dir, huc, strm_order):  # , bankfull_flows_file
         huc : str
             HUC-8 string.
 
-        Returns
-        ----------
-        log_text : str
-
     """
-    log_text = f'Processing nonmonotonic SRCs for HUC {huc}\n'
-
     # Fix the bathymetry source first
     # Replacing "0" with "No Bathymetry Applied"
     src_full_0 = join(huc_dir, 'branches', str(0), 'src_full_crosswalked_0.csv')
@@ -139,12 +124,15 @@ def correct_nonmonotonic_src(huc_dir, huc, strm_order):  # , bankfull_flows_file
             subset=['HydroID', 'feature_id', 'Stage'], keep='first'
         ).reset_index(drop=True)
         src_0_df.to_csv(src_full_0, index=False)
+        logging.debug(f"Saving {src_full_0}")
+
         ht_0_df = ht_0_df.drop_duplicates(
             subset=['HydroID', 'feature_id', 'stage'], keep='first'
         ).reset_index(drop=True)
         ht_0_df.to_csv(ht_0_path, index=False)
+        logging.debug(f"Saving {ht_0_path}")
     else:
-        print("Files do not exist: src_full_crosswalked_0.csv and hydroTable_0.csv")
+        raise Exception(f"Files do not exist: src_full_crosswalked_0.csv and hydroTable_0.csv for {huc}")
 
     # Get src_full from each branch
     src_all_branch_paths = []
@@ -159,13 +147,12 @@ def correct_nonmonotonic_src(huc_dir, huc, strm_order):  # , bankfull_flows_file
     cols_int = ['Number of Cells', 'SurfaceArea (m2)', 'HydroID', 'NextDownID', 'order_', 'feature_id']
 
     # Update parameters for nonmonotonic SRC
-    for src in src_all_branch_paths:  # [4:5]
-        src_name = os.path.basename(src)
+    for src_crosswalk_path in src_all_branch_paths:  # [4:5]
+        src_name = os.path.basename(src_crosswalk_path)
         branch = src_name.split(".")[0].split("_")[-1]
-        log_text += f'Adjusting Nonmonotonic SRC for HUC {huc} Branch: {branch}\n'
-        print(f'Adjusting Nonmonotonic SRC for HUC {huc} Branch: {branch}')
+        logging.debug(f'Adjusting Nonmonotonic SRC for HUC {huc} Branch: {branch}')
 
-        src_df = pd.read_csv(src, low_memory=False)
+        src_df = pd.read_csv(src_crosswalk_path, low_memory=False)
 
         # Calculating bankfull stage
         # src_df2 = src_bankfull_lookup(src_df, bankfull_flows_file)
@@ -182,6 +169,7 @@ def correct_nonmonotonic_src(huc_dir, huc, strm_order):  # , bankfull_flows_file
         src_df3 = src_df2.copy()
         prenonmono_discharge = src_df3['Discharge (m3s-1)']
 
+        logging.debug(f"  Branch ID: {branch} - Starting analyze_nonmonotonic_src")
         # Adjusting src tables for nonmonotonic SRCs
         src_df4 = src_df2.groupby('HydroID', group_keys=False).apply(
             analyze_nonmonotonic_src, strm_order=strm_order, include_groups=False
@@ -227,11 +215,12 @@ def correct_nonmonotonic_src(huc_dir, huc, strm_order):  # , bankfull_flows_file
         src_df5.loc[cond_nonmono_rows, 'Nonmonotonic_adjustment_applied'] = True
 
         src_df = src_df5.copy()
-        src_df.to_csv(src, index=False)
+        src_df.to_csv(src_crosswalk_path, index=False)
+        logging.debug(f"{src_crosswalk_path} updated")
 
         # Adjusting hydro tables for nonmonotonic SRC
         # Reporting in the log file
-        log_text += f'Adjusting Nonmonotonic hydroTable for HUC {huc} Branch {branch}'
+        logging.debug(f'Adjusting Nonmonotonic hydroTable for HUC {huc} Branch {branch}')
 
         ht_branch_path = join(huc_dir, 'branches', str(branch), f'hydroTable_{branch}.csv')
         ht_df = pd.read_csv(ht_branch_path, low_memory=False)
@@ -258,53 +247,7 @@ def correct_nonmonotonic_src(huc_dir, huc, strm_order):  # , bankfull_flows_file
 
         # Write ht back to file
         ht_df.to_csv(ht_branch_path, index=False)
-
-    return log_text
-
-
-# --------------------------------------------------------
-# Apply nonmonotonic src adjustment
-def apply_nonmonotonic_src_adjustment(huc_dir, huc, strm_order, log_file_path):  # bankfull_flows_file,
-    """
-    Function for applying nonmonotonic SRC adjustment to synthetic rating curves.
-
-    Note: Any failure in here will be logged when it can be but will not abort the Multi-Proc
-
-        Parameters
-        ----------
-        Please refer to correct_src_thalweg_notches and
-        process_nonmonotonic_srcs functions parameters.
-
-        Returns
-        ----------
-        log_text : str
-    """
-    log_text = ""
-
-    try:
-        msg = f"Correcting rating curve for nonmonotonic SRC for HUC : {huc}\n"
-        log_text += msg
-        print(msg)
-        log_text += correct_nonmonotonic_src(huc_dir, huc, strm_order)  # bankfull_flows_file
-
-    except Exception:
-        msg = f"An error has occurred while processing nonmonotonic SRC for huc {huc}"
-        log_text += f"{msg} \n"
-        log_text += traceback.format_exc()
-
-        # this goes back to calibrate_rating_curve.sh which rolls up to its parent "tee"
-        # Then it can be scanned in the error system based on solely the "tee" file
-        print(msg)
-        print(traceback.format_exc())
-
-        # re raise ex ? # TODO: Do we want to stop processing the huc if we get an error here?
-        # If yes, we need to raise ex, make sure to write your log_text if you need to.
-
-    try:
-        with open(log_file_path, "a") as log_file:
-            log_file.write(log_text + '\n')
-    except Exception:
-        print(f"Error trying to write to the log file of {log_file_path}\n")
+        logging.debug(f"{ht_branch_path} updated")
 
 
 # -------------------------------------------------------
@@ -322,32 +265,37 @@ def process_nonmonotonic_src_adjustment(huc_dir, strm_order):  # bankfull_flows_
             stream order on or higher for which you want to apply nonmonotonic SRC adjustment.
             default = 4
     """
+
+    # Create a time var to log run time
+    begin_time = dt.datetime.now()
+
     # Set up log file
     log_dir = os.path.join(huc_dir, "logs", "src_calibrations")
-    if not os.path.isdir(log_dir):
-        os.makedirs(log_dir)
-    log_file_path = os.path.join(log_dir, 'nonmonotonic_src_adjustment.log')
-    print(f'Writing progress to log file here: {log_file_path}')
-    ## Create a time var to log run time
-    begin_time = dt.datetime.now(dt.timezone.utc)
+    log_file_path = setup_file_logger(log_dir, f"subdiv_src_nonmonotonic_src_adjustment")
 
-    ## Initiate log file
-    with open(log_file_path, "w") as log_file:
-        log_file.write('START TIME: ' + str(begin_time) + '\n')
-        log_file.write('#########################################################\n\n')
+    print(f"Logs will be saved to {log_file_path}")
+    logging.debug("Start of processing nonmonotonic adjs")    
+    logging.debug('START TIME: ' + str(begin_time))
+    logging.debug('#########################################################')
 
-    # Let log_text build up starting here until the bottom.
-    log_text = ""
+    try:
+        huc = os.path.basename(os.path.normpath(huc_dir))
+        correct_nonmonotonic_src(huc_dir, huc, strm_order)  # bankfull_flows_file
 
-    huc = os.path.basename(os.path.normpath(huc_dir))
-    apply_nonmonotonic_src_adjustment(huc_dir, huc, strm_order, log_file_path)
+    except Exception:
+        logging.critical(f"Critical Error while processing nonmonotonic for {huc}")
+        logging.critical(traceback.format_exc())
+        print("Aborting....")
+        logging.info("")
+        sys.exit(1)
+    finally:
+        logging.info("End of processing nonmonotonic adjs")
+        ## Record run time and close log file
+        end_time = dt.datetime.now()
+        logging.debug('END TIME: ' + str(end_time) + '\n')
+        tot_run_time = end_time - begin_time
+        logging.debug('TOTAL RUN TIME: ' + str(tot_run_time))        
 
-    ## Record run time and close log file
-    end_time = dt.datetime.now(dt.timezone.utc)
-    log_text += 'END TIME: ' + str(end_time) + '\n'
-    tot_run_time = end_time - begin_time
-    log_text += 'TOTAL RUN TIME: ' + str(tot_run_time).split('.')[0]
-    log_file.close()
 
 
 if __name__ == '__main__':
@@ -364,14 +312,14 @@ if __name__ == '__main__':
 
     Sample Usage
     ----------
-    python3 /foss_fim/src/nonmonotonic_src_adjustment.py -fim_dir /outputs/fim_run_dir
+    python3 /foss_fim/src/nonmonotonic_src_adjustment.py -fim-dir /outputs/fim_run_dir
          -sor 4
     """
     parser = ArgumentParser(description="nonmonotonic SRC Adjustment")
-    parser.add_argument('-huc_dir', '--huc_dir', help='Path to FIM output dir', required=True, type=str)
+    parser.add_argument('-huc-dir', '--huc-dir', help='Path to FIM output dir', required=True, type=str)
     parser.add_argument(
         '-sor',
-        '--strm_order',
+        '--strm-order',
         help="stream order on or higher for which nonmonotonic SRC adjustment is applied",
         default=4,
         required=False,
@@ -379,15 +327,11 @@ if __name__ == '__main__':
     )
     # parser.add_argument(
     #     '-flows',
-    #     '--bankfull_flows_file',
+    #     '--bankfull-flows-file',
     #     help="Path to bankfull flow values per feature-id",
     #     required=True,
     #     type=str,
     # )
     args = vars(parser.parse_args())
 
-    huc_dir = args['huc_dir']
-    strm_order = args['strm_order']
-    #  bankfull_flows_file = args['bankfull_flows_file']
-
-    process_nonmonotonic_src_adjustment(huc_dir, strm_order)  # bankfull_flows_file,
+    process_nonmonotonic_src_adjustment(**args)  # bankfull_flows_file,

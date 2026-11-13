@@ -144,7 +144,7 @@ def Derive_level_paths(
     )
 
     # filter out streams without catchments
-    if (catchments is not None) & (catchments_outfile is not None):
+    if (catchments is not None) and (catchments_outfile is not None):
         catchments = gpd.read_file(catchments)
 
         stream_network = stream_network.remove_branches_without_catchments(

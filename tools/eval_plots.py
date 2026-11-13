@@ -884,7 +884,7 @@ def eval_plots(
                     'benchmark_source',
                 ]
             )
-            all_ahps_datasets.rename(columns={'benchmark_source': 'source'}, inplace=True)
+            all_ahps_datasets = all_ahps_datasets.rename(columns={'benchmark_source': 'source'})
 
             # Get spatial data from WRDS
             # Get metadata from WRDS API
@@ -909,7 +909,7 @@ def eval_plots(
                     'geometry',
                 ]
             )
-            gdf.rename(
+            gdf = gdf.rename(
                 columns={
                     'identifiers_nws_lid': 'nws_lid',
                     'nws_data_name': 'lid_name',
@@ -918,8 +918,7 @@ def eval_plots(
                     'nws_data_state': 'state',
                     'nws_data_county': 'county',
                     'HUC8': 'huc8',
-                },
-                inplace=True,
+                }
             )
 
             # Join spatial data to metric data
@@ -985,7 +984,7 @@ def eval_plots(
                     'geometry',
                 ]
             )
-            wbd_with_metrics.rename(columns={'benchmark_source': 'source'}, inplace=True)
+            wbd_with_metrics = wbd_with_metrics.rename(columns={'benchmark_source': 'source'})
             # Project to VIZ projection
             wbd_with_metrics = wbd_with_metrics.to_crs(VIZ_PROJECTION)
             # Write out to file (the csv is for HV, the gpkg is for debugging)

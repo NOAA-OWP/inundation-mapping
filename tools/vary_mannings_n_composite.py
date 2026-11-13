@@ -139,13 +139,13 @@ def variable_mannings_calc(args):
             )
 
             ## Set Q values to 0 and -999 for specified criteria (thalweg notch check happens in BARC)
-            # df_src['Discharge (m3s-1)_varMann'].mask(df_src['Stage'] == 0, 0, inplace=True)
+            # df_src['Discharge (m3s-1)_varMann'] = df_src['Discharge (m3s-1)_varMann'].mask(df_src['Stage'] == 0, 0)
             # if 'Thalweg_burn_elev' in df_src:
-            #     df_src['Discharge (m3s-1)_varMann'].mask(
-            #         df_src['Stage'] == df_src['Thalweg_burn_elev'], 0, inplace=True
+            #     df_src['Discharge (m3s-1)_varMann'] = df_src['Discharge (m3s-1)_varMann'].mask(
+            #         df_src['Stage'] == df_src['Thalweg_burn_elev'], 0
             #     )
-            #     df_src['Discharge (m3s-1)_varMann'].mask(
-            #         df_src['Stage'] < df_src['Thalweg_burn_elev'], -999, inplace=True
+            #     df_src['Discharge (m3s-1)_varMann'] = df_src['Discharge (m3s-1)_varMann'].mask(
+            #         df_src['Stage'] < df_src['Thalweg_burn_elev'], -999
             #     )
 
             ## Use the default discharge column when vmann is not being applied
