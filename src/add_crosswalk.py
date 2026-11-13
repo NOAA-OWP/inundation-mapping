@@ -58,9 +58,8 @@ def add_crosswalk(
     )
     # Read HFAB ransac slope parquet
     hfab_slopes_df = pd.read_parquet(hfab_slope_fileName)
-    hfab_slopes_df = hfab_slopes_df[['id', 'slope_m_per_m']].rename(
-        columns={'id': 'feature_id', 'slope_m_per_m': 'SLOPE_HFAB'}
-    )
+    hfab_slopes_df = hfab_slopes_df[['feature_id', 'slope_m_m']].rename(columns={'slope_m_m': 'SLOPE_HFAB'})
+    hfab_slopes_df = hfab_slopes_df[hfab_slopes_df['SLOPE_HFAB'].between(SLOPE_MIN, SLOPE_MAX)]
 
     min_catchment_area = float(min_catchment_area)  # 0.25#
     min_stream_length = float(min_stream_length)  # 0.5#
