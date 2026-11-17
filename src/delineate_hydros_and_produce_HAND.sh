@@ -18,13 +18,13 @@ elif [[ "$level" == "unit" ]]; then
 fi
 
 ## MASK LEVEE-PROTECTED AREAS FROM DEM ##
-if [[ "$mask_leveed_area_toggle" == "True"  &&  -f "${tempHucDataDir}/LeveeProtectedAreas_subset.gpkg" ]]; then
-    echo -e "${startDiv}Mask levee-protected areas from DEM (*Overwrite dem_meters.tif output) ${hucNumber} ${current_branch_id}"
+if [[ "$mask_leveed_area_toggle" == "True" && -f "${tempHucDataDir}/LeveeProtectedAreas_subset.gpkg" ]]; then
+    echo -e "${startDiv}Create levee-masked DEM copy ${hucNumber} ${current_branch_id}"
     args=(
         -dem "${tempCurrentBranchDataDir}/dem_meters_${current_branch_id}.tif"
         -nld "${tempHucDataDir}/LeveeProtectedAreas_subset.gpkg"
         -catchments "${z_arg}"
-        -out "${tempCurrentBranchDataDir}/dem_meters_${current_branch_id}.tif"
+        -out "${tempCurrentBranchDataDir}/dem_meters_levee_masked_${current_branch_id}.tif"
         -b "${branch_id_attribute}"
         -i "${current_branch_id}"
         -b0 "${branch_zero_id}"
@@ -350,6 +350,20 @@ if [[ "${healed_hand_hydrocondition}" == "true" && "${current_branch_id}" == "${
         -D "${tempCurrentBranchDataDir}/dem_meters_${current_branch_id}.tif"
         -T "${tempCurrentBranchDataDir}/dem_thalwegCond_${current_branch_id}.tif"
         --calc="R+(D-T)" --NoDataValue="${ndv}"
+        --outfile="${tempCurrentBranchDataDir}/rem_zeroed_masked_${current_branch_id}.tif"
+    )
+    gdal_calc.py "${args[@]}"
+fi
+
+## APPLY LEVEE MASK TO FINAL REM (POST-SRC GENERATION) ##
+if [[ "$mask_leveed_area_toggle" == "True" && -f "${tempCurrentBranchDataDir}/dem_meters_levee_masked_${current_branch_id}.tif" ]]; then
+    echo -e "${startDiv}Mask levee-protected areas from final REM ${hucNumber} ${current_branch_id}"
+    args=(
+        --quiet --type=Float32 --overwrite
+        --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES"
+        -A "${tempCurrentBranchDataDir}/rem_zeroed_masked_${current_branch_id}.tif"
+        -B "${tempCurrentBranchDataDir}/dem_meters_levee_masked_${current_branch_id}.tif"
+        --calc="A*(B!=${ndv})" --NoDataValue="${ndv}"
         --outfile="${tempCurrentBranchDataDir}/rem_zeroed_masked_${current_branch_id}.tif"
     )
     gdal_calc.py "${args[@]}"
