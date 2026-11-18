@@ -12,7 +12,7 @@ import geopandas as gpd
 from rasterio.crs import CRS
 
 
-def preprocess_wbd(region, target_crs_number, inputs_dir, hucs=None, source_wbd_file=None):
+def preprocess_wbd_ak(region, target_crs_number, inputs_dir, hucs=None, source_wbd_file=None):
     """
     Subsets WBD boundaries by region HUCs and reprojects to target CRS.
 
@@ -103,7 +103,7 @@ def main():
 
     args = parser.parse_args()
 
-    preprocess_wbd(
+    preprocess_wbd_ak(
         region=args.region,
         target_crs_number=args.target_crs_number,
         inputs_dir=args.inputs_dir,

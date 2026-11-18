@@ -45,9 +45,10 @@ def create_domain_vrt(
     vrt_file_name = f"{vrt_basename}_{suffix_str}.vrt"
     dem_domain_output_path = os.path.join(output_dir, domain_file_name)
 
-    # 3. Generate domain polygon from DEM file list
+    # 3. Generate DEM_Domain polygon from DEM file list
     if run_polygonize:
         file_logger = logging.getLogger("fim_logger")
+        print(f'Polygonizing extent for {dem_domain_output_path}')
         polygonize_extent(dem_files, dem_domain_output_path, number_of_jobs, file_logger, sf=sf, fh=fh)
 
     # 4. Generate VRT
@@ -60,11 +61,11 @@ def main():
 
     Example usage:
     python3 /foss_fim/data/elevation/create_domain_vrt.py \
-        -i '/data/inputs/dems/3dep_dems/10m_SouthAlaska/20260619' \
-           '/data/inputs/dems/ifsar_dtm/10m_NorthAlaska/20261027' \
-        -o '/data/inputs/dems/vrt' \
-        -b 'hand_seamless_dems_10m'
-        -s 'Alaska_3338_20261027' \
+        -i /data/inputs/dems/3dep_dems/10m_SouthAlaska/20260619 \
+           /data/inputs/dems/ifsar_dtm/10m_NorthAlaska/20261027 \
+        -o /data/inputs/dems/vrt \
+        -b hand_seamless_dems_10m \
+        -s Alaska_3338_20261027 \
         -j 14 \
         -p
     """

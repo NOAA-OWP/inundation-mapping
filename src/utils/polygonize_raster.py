@@ -73,18 +73,22 @@ def polygonize_raster(
 # In-memory, multi-core exact 10m HUC polygonization helpers
 # =====================================================================
 def _extract_exact_huc_geometry(dem_file: str):
+    """
+    Extracts the 1:1 pixel polygon domain for a single HUC8 DEM in-memory,
+    matching legacy gdal_calc + polygonize_raster behavior without disk I/O.
+    """
     try:
         with rasterio.open(dem_file) as src:
             arr = src.read(1)
             nodata_val = src.nodata if src.nodata is not None else -9999.0
 
-            # 1 for valid elevation, 0 for ocean/nodata
+            # Match dev's gdal_calc: where(A > -900, 1, 0)
             binary_arr = np.where((arr > -900) & (arr != nodata_val), 1, 0).astype(np.uint8)
 
             if not np.any(binary_arr == 1):
                 return None
 
-            # Do NOT pass a mask! Let shapes() segment the solid 0 and 1 regions (just like dev)
+            # Omit `mask=` so shapes() segments solid 0/1 regions cleanly (avoids bowtie hangs)
             geoms = [
                 shape(geom)
                 for geom, val in shapes(binary_arr, transform=src.transform, connectivity=8)
@@ -94,7 +98,7 @@ def _extract_exact_huc_geometry(dem_file: str):
             if not geoms:
                 return None
 
-            # With solid regions, len(geoms) is typically 1 to 5 instead of thousands
+            # unary_union safely handles any 8-connected diagonal corner touches
             return shapely.unary_union(geoms)
 
     except Exception as e:
@@ -103,17 +107,27 @@ def _extract_exact_huc_geometry(dem_file: str):
 
 
 def _hierarchical_union(geometries, batch_size: int = 32):
+    """
+    Hierarchically merges polygons in batches using unary_union
+    to safely resolve overlaps while maintaining low memory.
+    """
     current_geoms = [g for g in geometries if g is not None and not g.is_empty]
 
     while len(current_geoms) > 1:
         batches = [current_geoms[i : i + batch_size] for i in range(0, len(current_geoms), batch_size)]
         next_level = []
         for batch in batches:
-            next_level.append(shapely.unary_union(batch))
+            merged = shapely.unary_union(batch)
+            next_level.append(merged)
         current_geoms = next_level
 
     result = current_geoms[0] if current_geoms else shapely.GeometryCollection()
-    return shapely.make_valid(result)
+
+    # Ensure OGC validity without altering pixel coordinates or exploding vertices
+    if not result.is_valid:
+        result = shapely.make_valid(result)
+
+    return result
 
 
 def polygonize_extent(dem_files, dem_domain_file, number_of_jobs=1, file_logger=None, sf=None, fh=None):
@@ -141,7 +155,7 @@ def polygonize_extent(dem_files, dem_domain_file, number_of_jobs=1, file_logger=
     with rasterio.open(dem_files[0]) as ref:
         target_crs = ref.crs
 
-    max_workers = min(os.cpu_count() - 2, number_of_jobs)
+    max_workers = max(1, min((os.cpu_count() or 1) - 2, number_of_jobs))
     if sf and file_logger:
         sf.l_print(f"Extracting 10m pixel boundaries using {max_workers} processes...", file_logger, "info")
     else:
@@ -191,23 +205,26 @@ if __name__ == "__main__":
         description="Extract polygon boundaries from single rasters or multiple HUC DEM extents."
     )
 
-    # Flag to select the multi-HUC domain mode
-    parser.add_argument(
-        "--domain",
-        action="store_true",
-        help="Run polygonize_extent across multiple DEM files rather than polygonize_raster on a single file",
-    )
-
     # Positional arguments matching original interface
     parser.add_argument(
-        "inputs",
-        nargs="+",
-        help="Input raster(s). If running standard polygonize, pass 1 raster. If --domain is set, pass multiple rasters or a glob path.",
+        "-i",
+        "--input_file",
+        type=str,
+        required=True,
+        help="Input raster. If running standard polygonize, pass 1 raster. If --domain is set, pass multiple rasters or a glob path.",
     )
-    parser.add_argument("output_file", help="Path to output vector file (.parquet, .gpkg, .shp, etc.)")
     parser.add_argument(
-        "field_name",
-        nargs="?",
+        "-o",
+        "--output_file",
+        type=str,
+        required=True,
+        help="Path to output vector file (.parquet, .gpkg, .shp, etc.)",
+    )
+    parser.add_argument(
+        "-f",
+        "--field_name",
+        type=str,
+        required=False,
         default="HydroID",
         help="Name of the attribute column to create from raster values (default: HydroID)",
     )
@@ -223,25 +240,11 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    if args.domain:
-        # Resolve any glob patterns in input paths
-        expanded_files = []
-        for item in args.inputs:
-            matches = glob.glob(item)
-            if matches:
-                expanded_files.extend(matches)
-            elif os.path.exists(item):
-                expanded_files.append(item)
-
-        polygonize_extent(
-            dem_files=expanded_files, dem_domain_file=args.output_file, file_logger=None, sf=None, fh=None
-        )
-    else:
-        # Standard single-raster polygonize mode
-        polygonize_raster(
-            input_raster=args.inputs[0],
-            output_file=args.output_file,
-            field_name=args.field_name,
-            connectivity=args.connectivity,
-            quiet=args.quiet,
-        )
+    # Standard single-raster polygonize mode
+    polygonize_raster(
+        input_raster=args.input_file,
+        output_file=args.output_file,
+        field_name=args.field_name,
+        connectivity=args.connectivity,
+        quiet=args.quiet,
+    )

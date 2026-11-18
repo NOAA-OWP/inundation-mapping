@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.9.x.x - 2026-07-27 - [PR#1899](https://github.com/NOAA-OWP/inundation-mapping/pull/1899)
+## v4.10.x.x - 2026-07-27 - [PR#1899](https://github.com/NOAA-OWP/inundation-mapping/pull/1899)
 
 Adds three new HUC8s in Alaska for Fairbanks (19080306 and 19080307) and Juneau (19010301). These data are derived from IFSAR 5-meter DTMs acquired from State of Alaska Division of Geological and Geophysical Surveys (DGGS) and vector features (flowlines, catchments, and lakes) from GEOGLOWS. These data are combined into a subregion called "North Alaska" to differentiate them from the "South Alaska" subregion around Anchorage based on DEMs from 3DEP and NHDPlusHR vector data. The two subregion data are combined into one "Alaska" region where possible. This naming convention has been propagated through the codebase as well as the EFS inputs. To generate the new inputs, preclipped vectors, bridge DEM diffs and pit filled DEM folders from 20260820 were duplicated and renamed 20260925. New versions of those data were created for the three new HUCs and copied into their respective 20260925 folders.
 
@@ -31,6 +31,9 @@ Additionally, some reorganization of input data occurred. The primary change was
         - `generate_categorical_fim_flows.py`: Added new HUCs
         - `viz_categorical_fim.py`: Out of date -- note added. 
     - `run_test_case.py`: Added lakes mask for new subregion
+
+<br/>
+
 ## v4.10.3.2 - 2026-11-06 - [PR##1946](https://github.com/NOAA-OWP/inundation-mapping/pull/1946)
 
 Bug fix for a missing `nhdplus_path` variable when running Guam in `data/nhdplus/preprocess_nhdplus.py`.

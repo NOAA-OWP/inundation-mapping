@@ -30,7 +30,7 @@ if PROJECT_ROOT not in sys.path:
 from data.elevation.preprocess_dggs_ifsar import preprocess_dggs_ifsar
 from data.hazards.get_fema_nfhl import fetch_nfhl_by_hucs
 from data.hydrography.preprocess_nhdplus_NorthAlaska import preprocess_nhdplus
-from data.watersheds.preprocess_wbd import preprocess_wbd_ak
+from data.watersheds.preprocess_wbd_ak import preprocess_wbd_ak
 
 
 NORTH_ALASKA_REGIONS = {"Fairbanks": ["19080306", "19080307"], "Juneau": ["19010301"]}
@@ -110,6 +110,7 @@ def main():
         region_dem_zip = os.path.join(
             args.inputs_dir, "dems", "ifsar_dtm", region, args.date, "custom_download.zip"
         )
+        print(f"region_dem_zip: {region_dem_zip}")
         region_staging_dir = os.path.join(args.output_dem_dir, region)
 
         print(f"\n{'='*70}")

@@ -219,9 +219,9 @@ fi
 ## POLYGONIZE REACH WATERSHEDS ##
 echo -e "${startDiv}Polygonize Reach Watersheds ${hucNumber} ${current_branch_id}"
 args=(
-    "${tempCurrentBranchDataDir}/gw_catchments_reaches_${current_branch_id}.tif"
-    "${tempCurrentBranchDataDir}/gw_catchments_reaches_${current_branch_id}.parquet"
-    "HydroID"
+    -i "${tempCurrentBranchDataDir}/gw_catchments_reaches_${current_branch_id}.tif"
+    -o "${tempCurrentBranchDataDir}/gw_catchments_reaches_${current_branch_id}.parquet"
+    -f "HydroID"
     -q -8
 )
 python3 "${srcDir}/utils/polygonize_raster.py" "${args[@]}"
