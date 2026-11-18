@@ -32,6 +32,7 @@ class FIM_exit_codes(Enum):
     NO_BRANCH_LEVELPATHS_EXIST = 63
     NO_VALID_CROSSWALKS = 64
     CANNOT_CONVERT_HYDROIDS_TO_INT16 = 65
+    BRANCH_IS_COMPLETELY_OUTSIDE_US = 66
 
     # @TODO Make system codes that shut down the entire HUC process
     # Codes beginning with 5 are not acceptable errors and shutdown HUC processing
