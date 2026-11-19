@@ -8,14 +8,42 @@ Processes Fairbanks and Juneau regions across four discrete stages:
   3. NHDPlus hydrography vector ingestion, filtering, and headwater derivation
   4. FEMA NFHL hazard layer acquisition
 
-  Example usage:
+------------------------
 
-  python3 /foss_fim/workflows/data/preprocess_NorthAlaska.py \
-      -i /data/inputs \
-      -c 3338 \
-      -s /data/inputs/GEOGLOWS/ak_tests_BETA_AK_reference_fabric_fairbanks_juneau.gpkg \
-      -e /data/inputs/dems/ifsar_dtm/10m_NorthAlaska \
-      -d 20261027
+This script produces data for North Alaska and is part of the workflow for Alaska.
+South Alaska includes the area surrounding Anchorage, and North Alaska adds Juneau
+and Fairbanks.
+
+Some of the data for this workflow must be obtained prior to running this script.
+    1. The elevation data (IFSAR DTM) was manually downloaded for the Fairbanks
+    and Juneau HUCs from https://elevation.alaska.gov/. The default download file
+    (named `custom_download.zip` was saved to respective folders, (for example,
+    /data/inputs/dems/ifsar_dtm/Fairbanks/20261118/ and
+    /data/inputs/dems/ifsar_dtm/Juneau/20261118/).
+
+    2. Hydrography data was derived from GEOGLOWS, obtained from OWP Hydrofabric.
+
+This script can be run as follows:
+
+    python3 /foss_fim/workflows/data/preprocess_NorthAlaska.py \
+        -i /data/inputs \
+        -c 3338 \
+        -s /data/inputs/GEOGLOWS/ak_tests_BETA_AK_reference_fabric_fairbanks_juneau.gpkg \
+        -e /data/inputs/dems/ifsar_dtm/10m_NorthAlaska \
+        -d 20261118
+
+Once this script has completed, create a VRT and DEM_Domain.parquet for all of
+Alaska (combining the existing South Alaska with North Alaska):
+
+    python3 /foss_fim/data/elevation/create_domain_vrt.py \
+        -i /data/inputs/dems/3dep_dems/10m_SouthAlaska/20260619 \
+           /data/inputs/dems/ifsar_dtm/10m_NorthAlaska/20261118 \
+        -o /data/inputs/dems/vrt \
+        -b hand_seamless_dems_10m \
+        -s Alaska_3338_20261118 \
+        -j 14 \
+        -p
+
 """
 
 import argparse
