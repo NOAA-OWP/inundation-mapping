@@ -8,10 +8,10 @@ Sample usage:
 
     python3 /foss_fim/workflows/data/preprocess_PacificIslands.py \
         -i /data/inputs \
-        -d 20261110 \
+        -d 20261118 \
         -b hand_seamless_dems_10m \
         -o /data/inputs/dems/vrt \
-        -j 14
+        -j 14 \
         -r Guam
 """
 

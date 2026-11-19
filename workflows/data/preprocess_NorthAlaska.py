@@ -17,9 +17,9 @@ and Fairbanks.
 Some of the data for this workflow must be obtained prior to running this script.
     1. The elevation data (IFSAR DTM) was manually downloaded for the Fairbanks
     and Juneau HUCs from https://elevation.alaska.gov/. The default download file
-    (named `custom_download.zip` was saved to respective folders, (for example,
-    /data/inputs/dems/ifsar_dtm/Fairbanks/20261118/ and
-    /data/inputs/dems/ifsar_dtm/Juneau/20261118/).
+    (named `custom_download.zip`) was saved to respective folders, (for example,
+    /data/inputs/dems/ifsar_dtm/Fairbanks/20261118/custom_download.zip and
+    /data/inputs/dems/ifsar_dtm/Juneau/20261118/custom_download.zip).
 
     2. Hydrography data was derived from GEOGLOWS, obtained from OWP Hydrofabric.
 
@@ -32,8 +32,8 @@ This script can be run as follows:
         -e /data/inputs/dems/ifsar_dtm/10m_NorthAlaska \
         -d 20261118
 
-Once this script has completed, create a VRT and DEM_Domain.parquet for all of
-Alaska (combining the existing South Alaska with North Alaska):
+Once this script has completed, create a DEM_Domain.parquet and VRTs for the raw
+and pit-filled DEMs for all of Alaska (combining North Alaska with the existing South Alaska):
 
     python3 /foss_fim/data/elevation/create_domain_vrt.py \
         -i /data/inputs/dems/3dep_dems/10m_SouthAlaska/20260619 \
@@ -43,6 +43,13 @@ Alaska (combining the existing South Alaska with North Alaska):
         -s Alaska_3338_20261118 \
         -j 14 \
         -p
+
+    python3 /foss_fim/data/elevation/create_vrt_file.py \
+        -s /data/inputs/dems/3dep_dems/10m_SouthAlaska/20260619/pit_fill \
+           /data/inputs/dems/ifsar_dtm/10m_NorthAlaska/20261118/pit_fill \
+        -o /data/inputs/dems/vrt \
+        -n hand_seamless_pit_fills_10m.vrt \
+        -x Alaska_3338_20261118
 
 """
 
