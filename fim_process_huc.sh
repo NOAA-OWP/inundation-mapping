@@ -105,15 +105,20 @@ exit_and_copy() {
     wait
     compile_error_report
     echo ""
+    # Yes.. we let this log to the hucLogFile so error seach tools can look only in this huc file.
+    date -u
+    l_echo "---- HUC processing for $hucNumber is complete" "${hucLogFile}"
+    Calc_Duration "Duration for huc processing : " $huc_start_time "${hucLogFile}"
+    echo
 
     # Ensure all child folders and files are set to the perms we want
     chmod -R 777 $tempHucDataDir
     
     echo "============================================================================================="
     echo ""
-    echo "***** Starting copying folder temp directory: $tempHucDataDir to output directory: $outputHucDataDir"
+    echo "***** Starting copying folder temp directory: $tempHucDataDir to output directory: ${outputHucDataDir}"
     msg_complete="HUC processing complete (UTC): $(date -u '+%Y-%m-%d %H:%M:%S')"
-    l_echo $msg_complete $hucLogFile
+    l_echo $msg_complete "${hucLogFile}"
     # cp -r --no-preserve=ownership "${tempHucDataDir}/" "${outputHucDataDir}/"
     # sync
     # cp -r "${tempHucDataDir}/" "${outputHucDataDir}/"
@@ -187,9 +192,17 @@ chmod 777 $tempHucDataDir
 chmod 777 $tempBranchDataDir
 chmod 777 $tempHucDataDir/logs
 
+## INITIALIZE TOTAL TIME TIMER ##
+export huc_start_time="$(date +%s)"
+
+echo
 echo "=========================================================================="
-l_echo "---- Start of huc processing for $hucNumber" $hucLogFile
-l_echo "---- Started: `date -u`" $hucLogFile
+l_echo "---- Start of huc processing for $hucNumber" "${hucLogFile}"
+l_echo "---- Started: `date -u`" "${hucLogFile}"
+
+# Random 0.1 to 6.1 second sleep timer to help with contention of all hucs hitting the same code at the same time.
+# ie: heavy Taudem or GDAL calls.
+sleep 0.$((100 + RANDOM % 6000))
 
 # Process the actual huc
 # 'tee' catches all screen outputs from all pages and scripts all the way back, including

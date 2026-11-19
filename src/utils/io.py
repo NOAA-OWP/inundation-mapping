@@ -45,3 +45,31 @@ def write_geodataframe(gdf: gpd.GeoDataFrame, filename: str | Path, *args, **kwa
             out_kwargs.setdefault("engine", "fiona")
 
         gdf.to_file(filename, *args, **out_kwargs)
+
+
+# We can use the file size to adjust GDAL Cache size on a file by file basis which can
+# help performance quite a bit
+def calculate_gdal_cache_mb(
+    file_path: Path,
+    min_mb: int = 128,
+    max_mb: int = 512,
+    expansion_factor: float = 1.0,
+) -> int:
+    """Estimate uncompressed raster footprint and clamp GDAL_CACHEMAX safely."""
+
+    '''
+    (2 meaning "n" value, number of mpiexec / taudem n jobs)
+    • For a 5–15 MiB compressed HUC-8: 10 MiB × 2 = 20 MB → clamps up to 128 MB 
+       (plenty to hold the entire raster + outputs in RAM).
+    • For a 100 MiB compressed HUC-8: 100 MiB × 2 = 200 MB → allocates 200 MB.
+    • For a 400+ MiB compressed HUC-8: 400 MiB × 2 = 800 MB → allocates 512 (max) MB
+       (and caps at 512 MB for anything over 206 GiB compressed with 2 jobs).
+
+    (n value of 1)
+    • Anything below 256 MiB in size x 1 = min 128 MB 
+    • For a 700 MiB (Alaska) in size x 1 = max 512
+    '''
+
+    compressed_mb = file_path.stat().st_size / (1024 * 1024)
+    estimated_uncompressed_mb = int(compressed_mb * expansion_factor)
+    return max(min_mb, min(max_mb, estimated_uncompressed_mb))

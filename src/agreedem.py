@@ -82,6 +82,7 @@ def agreedem(
 
         # Windowed reading/calculating/writing
         smogrid_valid = False  # Flag to check if smogrid has any data.
+        print("Computing smooth drop/raise grid")
         with rasterio.Env():
             with rasterio.open(smo_output, 'w', **smo_profile) as raster:
                 for ji, window in elev.block_windows(1):
@@ -142,6 +143,7 @@ def agreedem(
         # buffer grid inside the buffer distance have no data.
 
         # Open distance, allocation, elevation grids.
+        print("Computing buffer grid")
         with rasterio.open(vectdist_grid) as vectdist:
             # Define bufgrid profile and output file.
             buf_output = os.path.join(workspace, 'agree_bufgrid.tif')
@@ -176,6 +178,7 @@ def agreedem(
 
             # # Transform the buffer grid (bufgrid2) to binary raster
             bin_buf_output = os.path.join(workspace, 'agree_binary_bufgrid.tif')
+            print("Computing buffer distance grid")
             with rasterio.open(buf_output) as agree_bufgrid:
                 agree_bufgrid_profile = agree_bufgrid.profile
                 bin_buf_output_profile = agree_bufgrid_profile.copy()
@@ -210,6 +213,7 @@ def agreedem(
             assert os.path.exists(bufallo_grid), f'Buffer allocation grid not created: {bufallo_grid}'
 
             # Open distance, allocation, elevation grids.
+            print("Computing AGREEDEM")
             with (
                 rasterio.open(bufdist_grid) as bufdist,
                 rasterio.open(bufallo_grid) as bufallo,

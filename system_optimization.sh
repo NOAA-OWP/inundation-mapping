@@ -61,32 +61,19 @@
 #    This is the active RAM buffer where GDAL holds raw raster pixels, decompressed image tiles,
 #    and array blocks currently being read or modified by your Python code.
 #    Defaults to only 5% of RAM (per process)
-export GDAL_CACHEMAX=2048
+# 
+#  128 MiB per rank (gdal / mpiexec num of workers (not fim -jh or -jb))
+# Might seem low, but it is only for min cache reserved. If it needs more, it will use it
+# and it will not degrade performance. But the smaller values means when mulitple -jh and -jb are running
+# it is not holding as much default min cache.
+# Note: in run_taudem_subprocess which is volite especially in the d8flowdir, that code
+# dynamically adjusts for that processing only and adjusts based on dem file size.
+export GDAL_CACHEMAX=128  # Optimized for files < 100 MiB
 
-# Also prevents small network/disk calls from overwhelming the filesystem
-# Per process !!! (4 GiB)
-# export GDAL_CACHEMAX=5124
-# ROB TEST:  Try 2048
-
-
-# TEST
-# try 4 GiB, might be too high
- # 2147483648  = 2 GB dataset pool limit per worker
-# (note;;; usage versus pool size above)
-export GDAL_MAX_DATASET_POOL_RAM_USAGE=4294967296
-# (In bytes)
-
-# GDAL_MAX_DATASET_POOL_SIZE (The File Handle Limit):
-#    This sets a cap on the maximum number of structural file handles (the underlying files inside a VRT,
-#    composite raster, or database connection) that GDAL can keep "open and indexed" simultaneously to 
-#    avoid the time penalty of closing and re-opening them.
-# Defaults to 100
-# export GDAL_MAX_DATASET_POOL_SIZE=2048   # Nov 2026: Intentionally commented out for now. Testing required
-
-export VSI_CACHE=TRUE
-# sets a 1 GB virtual file system read buffer per worker
-export VSI_CACHE_SIZE=1073741824
-
+# Note:
+# Since you are mostly processing single standalone GeoTIFFs, you do not need GDAL_MAX_DATASET_POOL_SIZE
+# or GDAL_MAX_DATASET_POOL_RAM_USAGE at all. Both settings only manage Virtual Raster (.vrt) proxy pools
+# when GDAL opens dozens or hundreds of source tiles at once.
 
 # ==============================================================================
 # --- FILE I/O OPTIMIZATION FOR NETWORK MOUNTS (EFS/NFS) (and Parallel Worker Mounts) ---
@@ -115,7 +102,8 @@ export OMPI_MCA_hwloc_base_binding_policy=none
 # Fixes a common OpenMPI warning/crash regarding shared memory access in Docker
 export OMPI_MCA_btl_vader_single_copy_mechanism=none
 # Restricts OpenMPI to localhost loopback inside the container (prevents looking for external cluster fabrics)
-export OMPI_MCA_btl=self,vader
+export OMPI_MCA_btl=self,vader,tcp
+export OMPI_MCA_btl_tcp_if_include=lo
 
 
 # ==============================================================================
@@ -156,33 +144,18 @@ export ARROW_DEFAULT_MEMORY_POOL=jemalloc
 #  than you want, you can also set export MALLOC_CONF="dirty_decay_ms:1000,muzzy_decay_ms:1000" 
 # to make jemalloc return unused RAM to the OS every second
 
-export MALLOC_CONF="narenas:2,dirty_decay_ms:5000,muzzy_decay_ms:5000"
+# export MALLOC_CONF="narenas:2,dirty_decay_ms:1000,muzzy_decay_ms:5000"
+export MALLOC_CONF="narenas:2,dirty_decay_ms:1000,muzzy_decay_ms:1000,background_thread:true"
 # jemalloc (MALLOC_CONF): jemalloc to keep freed memory warm for instant reuse rather than constantly handing
 # it back to Linux, while also limiting unnecessary internal arenas since your workers are single-threaded:
 
 # =====================================================================
 # --- LOW-LEVEL LINUX & GLIBC MEMORY ALLOCATION TUNING ---
 
-# 1. Prevent Virtual Memory Arena Proliferation (Crucial for Multi-Processing)
+# Prevent Virtual Memory Arena Proliferation (Crucial for Multi-Processing)
 # By default, glibc creates up to 8 memory arenas per core (64 cores = 512 arenas!).
 # This forces glibc to limit memory pools to 2 per process, stopping memory leaks.
 export MALLOC_ARENA_MAX=2
-
-# 2. Force Aggressive Memory Return to OS
-# -1 disables automatic heap trimming so your workers reuse their allocated RAM at full speed without kernel pauses
-export MALLOC_TRIM_THRESHOLD_=-1
-
-# 3. Disable Memory Allocation Padding
-# Prevents glibc from leaving unused padding space around newly allocated 
-# NumPy arrays or Arrow memory blocks.
-export MALLOC_PERTURB_=0
-
-# 4. Turn Off Speculative Memory Pre-allocation
-# Stops the glibc allocator from aggressively hoarding contiguous blocks 
-# of RAM when a worker process requests variable-sized raster windows.
-# Forces allocations smaller than 128 KB to stay in the fast heap rather than 
-# triggering slow mmap kernel calls for every tiny <10 MiB file read
-export MMAP_THRESHOLD=131072
 
 # Impacts screen output for terminals
 export DISPLAY=":0"

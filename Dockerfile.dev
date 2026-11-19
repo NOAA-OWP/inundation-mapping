@@ -246,6 +246,8 @@ ENV WBT_EXE_PATH=/usr/local/lib/python3.12/dist-packages/whitebox/WBT/whitebox_t
 # You should never need any other whitebox adjustments other than adding:
 # wbt.verbose = False to each time you use it. ie) See agreedem.py for an example.
 RUN python -c "import whitebox; whitebox.download_wbt(reset=True)"
+# Defaults wbt.set_max_procs(1) but can be overridden 
+ENV RAYON_NUM_THREADS=1
 
 
 RUN echo "++++++++++++++++++++++++++++++++++++++++++++++" \
@@ -256,8 +258,10 @@ EXPOSE 8899
 # system_optimization is a file that manages all system variables and it primarily
 # used to manage cpu, memory and network i/o.
 COPY ./system_optimization.sh /
+RUN chmod +x /system_optimization.sh
 COPY ./entrypoint.sh /
-RUN chmod +x /entrypoint.sh && chmod +x /system_optimization.sh
+RUN chmod +x /entrypoint.sh
+
 ENTRYPOINT ["/bin/bash", "/entrypoint.sh"]
 
 # CMD ["/bin/bash"]

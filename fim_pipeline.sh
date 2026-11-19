@@ -83,7 +83,6 @@ echo "---- Started: `date -u`"
 source ${srcDir}/bash_functions.env
 . $projectDir/fim_pre_processing.sh "$@"
 
-
 process_wb_file=$projectDir/fim_process_huc.sh
 
 pipeline_start_time=`date +%s`

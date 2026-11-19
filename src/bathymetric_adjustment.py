@@ -105,9 +105,9 @@ def correct_rating_for_ehydro_bathymetry(huc_dir, huc, bathy_file_ehydro):
                 .apply(ohrfc_bathy_precedence, include_groups=False)
                 .reset_index(drop=True)
             )
-            # TODO: Nov 2026: Added a card for this fix  (1972)
-            logging.warning(f"  Branch: {branch} - pd.errors.MergeError exception found."
-                            " PS.. do we need to check something to avoid an exception?")
+            # TODO: Nov 2026: Added a card for this fix  (1972). Appears every one might fail. not sure
+            # logging.warning(f"  Branch: {branch} - pd.errors.MergeError exception found."
+            #                " PS.. do we need to check something to avoid an exception?")
 
             # reconciled_bathy_data = bathy_data.groupby('feature_id')[
             #     ['missing_xs_area_m2', 'missing_wet_perimeter_m']

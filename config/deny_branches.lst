@@ -69,6 +69,7 @@ src_{}.json
 # src_base_{}.csv
 # src_full_crosswalked_{}.csv
 stage_{}.txt
+stage_{}.tif
 streamOrder_{}.tif
 treeFile_{}.txt
 # usgs_elev_table.csv

@@ -51,29 +51,29 @@ echo
 
 # Check if it is a calibration rerun or not
 if [ "$calibration_rerun" = "true" ]; then
-    echo -e $startDiv"Reseting hydroTable & scr_full_crosswalked for branches"
+    echo -e "${startDiv}[$(ts)] - Reseting hydroTable & scr_full_crosswalked for branches"
     python3 $srcDir/reset_htable_src.py -huc-dir "${tempHucDataDir}"
 fi
 
 ## RUN AGGREGATE BRANCH ELEV TABLES ##
-echo -e $startDiv"Processing usgs & ras2fim elev table aggregation (aggregate_branches_to_huc)"
+echo -e "${startDiv}[$(ts)] - Processing usgs & ras2fim elev table aggregation (aggregate_branches_to_huc)"
 python3 $srcDir/aggregate_branches_to_huc.py -huc-dir "${tempHucDataDir}" -elev -ras
 
 ## RUN THALWEG NOTCHES ADJUSTMENT ROUTINE ##
 if [ "$thalweg_notches_adjustment" = "True" ]; then
-    echo -e $startDiv"Performing thalweg notches adjustment routine"
+    echo -e "${startDiv}[$(ts)] - Performing thalweg notches adjustment routine"
     python3 $srcDir/thalweg_notches_adjustment.py -huc-dir $tempHucDataDir
 fi
 
 ## RUN LONGITUDINAL FILTER ROUTINE ##
 if [ "$logitudinal_filter" = "True" ]; then
-    echo -e $startDiv"Performing longitudinal discharge adjustment routine"
+    echo -e "${startDiv}[$(ts)] - Performing longitudinal discharge adjustment routine"
     python3 $srcDir/longitudinal_flow_adjustment.py -huc-dir $tempHucDataDir
 fi
 
 ## RUN BATHYMETRY ADJUSTMENT ROUTINE ##
 if [ "$bathymetry_adjust" = "True" ]; then
-    echo -e $startDiv"Performing Bathymetry Adjustment routine"
+    echo -e "${startDiv}[$(ts)] - Performing Bathymetry Adjustment routine"
     # Run bathymetry adjustment routine
     aibathy_toggle=${ai_toggle} #:-0}
     python3 ${srcDir}/bathymetric_adjustment.py \
@@ -85,7 +85,7 @@ fi
 
 ## RUN SYNTHETIC RATING CURVE BANKFULL ESTIMATION ROUTINE ##
 if [ "$src_bankfull_toggle" = "True" ]; then
-    echo -e $startDiv"Estimating bankfull stage in SRCs"
+    echo -e "${startDiv}[$(ts)] - Estimating bankfull stage in SRCs"
     # Run SRC bankfull estimation routine routine
     python3 ${srcDir}/identify_src_bankfull.py \
         -huc-dir ${tempHucDataDir} \
@@ -95,7 +95,7 @@ fi
 
 ## RUN SYNTHETIC RATING SUBDIVISION ROUTINE ##
 if [ "$src_subdiv_toggle" = "True" ] && [ "$src_bankfull_toggle" = "True" ]; then
-    echo -e $startDiv"Performing SRC channel/overbank subdivision routine"
+    echo -e "${startDiv}[$(ts)] - Performing SRC channel/overbank subdivision routine"
     # Run SRC Subdivision & Variable Roughness routine
     python3 $srcDir/subdiv_chan_obank_src.py \
         -huc-dir $tempHucDataDir \
@@ -105,7 +105,7 @@ fi
 
 ## RUN NONMONOTONIC SRC ADJUSTMENT ROUTINE ##
 if [ "$nonmonotonic_src_adjustment" = "True" ]; then
-    echo -e $startDiv"Performing Nonmonotonic SRC Adjustment routine"
+    echo -e "${startDiv}[$(ts)] - Performing Nonmonotonic SRC Adjustment routine"
     # Run Nonmonotonic SRCs Adjustment routine -flows $bankfull_flows_file \
     python3 $srcDir/nonmonotonic_src_adjustment.py \
         -huc-dir $tempHucDataDir
@@ -113,7 +113,7 @@ fi
 
 ## RUN SYNTHETIC RATING CURVE CALIBRATION W/ USGS GAGE RATING CURVES ##
 if [ "$src_adjust_usgs" = "True" ] && [ "$src_subdiv_toggle" = "True" ]; then
-    echo -e $startDiv"Performing SRC adjustments using USGS rating curve database"
+    echo -e"${startDiv}[$(ts)] - Performing SRC adjustments using USGS rating curve database"
     # Run SRC Optimization routine using USGS rating curve data (WSE and flow @ NWM recur flow values)
     python3 ${srcDir}/src_adjust_usgs_rating_trace.py \
         -huc-dir ${tempHucDataDir} \
@@ -125,7 +125,7 @@ fi
 
 ## RUN SYNTHETIC RATING CURVE CALIBRATION W/ RAS2FIM CROSS SECTION RATING CURVES ##
 if [ "$src_adjust_ras2fim" = "True" ] && [ "$src_subdiv_toggle" = "True" ]; then
-    echo -e $startDiv"Performing SRC adjustments using ras2fim rating curve database"
+    echo -e "${startDiv}[$(ts)] - Performing SRC adjustments using ras2fim rating curve database"
     # Run SRC Optimization routine using ras2fim rating curve data (WSE and flow @ NWM recur flow values)
     python3 ${srcDir}/src_adjust_ras2fim_rating.py \
         -huc-dir ${tempHucDataDir} \
@@ -136,20 +136,20 @@ fi
 
 ## RUN SYNTHETIC RATING CURVE CALIBRATION W/ BENCHMARK POINTS (.parquet files) ##
 if [ "$src_adjust_spatial" = "True" ] && [ "$src_subdiv_toggle" = "True" ]; then
-    echo -e $startDiv"Performing SRC adjustments using benchmark point .parquet files"
+    echo -e "${startDiv}[$(ts)] - Performing SRC adjustments using benchmark point .parquet files"
     python3 $srcDir/src_adjust_spatial_obs.py -huc-dir $tempHucDataDir -jb $jobBranchLimit 
 fi
 
 ## PERFORM MANUAL CALIBRATION
 if [ "$manual_calb_toggle" = "True" ] && [ -f $man_calb_file ]; then
-    echo -e $startDiv"Performing manual calibration"
+    echo -e "${startDiv}[$(ts)] - Performing manual calibration"
     python3 $srcDir/src_manual_calibration.py \
         -huc-dir $tempHucDataDir \
         -calb-file $man_calb_file
 fi
 
 ## AGGREGATE BRANCH TABLES ##
-echo -e $startDiv"Aggregating branch hydrotables"
+echo -e "${startDiv}[$(ts)] - Aggregating branch hydrotables"
 python3 $srcDir/aggregate_branches_to_huc.py \
     -huc-dir $tempHucDataDir \
     -htable \

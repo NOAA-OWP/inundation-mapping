@@ -7,8 +7,6 @@ set -e
 # this file.
 
 ## SOURCE FILE AND FUNCTIONS ##
-# load the various enviro files
-source $srcDir/bash_functions.env
 
 args_file=$outputDestDir/runtime_args.env
 source $args_file
@@ -63,11 +61,6 @@ huc_CRS=$(get_crs_for_huc "$hucNumber")
 
 echo -e ${startDiv}"Using CRS: ${huc_CRS}" ## debug
 
-## INITIALIZE TOTAL TIME TIMER ##
-T_total_start
-huc_start_time="$(date +%s)"
-date -u
-
 ## Copy HUC's pre-clipped .gpkg files from $pre_clip_huc_dir (use -a & /. -- only copies folder's contents)
 echo -e "${startDiv}Copying staged wbd and .gpkg files from ${pre_clip_huc_dir}/${hucNumber}"
 cp -R "${pre_clip_huc_dir}/${hucNumber}/." "${tempHucDataDir}"
@@ -101,8 +94,7 @@ if [[ -d "${ras2fim_input_dir}/${hucNumber}" ]]; then
 fi
 
 ## DERIVE LEVELPATH  ##
-echo -e "${startDiv}Generating Level Paths for ${hucNumber}"
-date -u
+echo -e "${startDiv}[$(ts)] - Generating Level Paths for ${hucNumber}"
 args=(
     -i "${tempHucDataDir}/nwm_subset_streams.gpkg"
     -s "${tempHucDataDir}/wbd_buffered_streams.gpkg"
@@ -126,9 +118,8 @@ levelpaths_exist=1
 if [[ ! -f "${tempHucDataDir}/nwm_subset_streams_levelPaths_dissolved.parquet" ]]; then levelpaths_exist=0; fi
 
 ## ASSOCIATE LEVEL PATHS WITH LEVEES
-echo -e "${startDiv}Associate level paths with levees"
+echo -e "${startDiv}[$(ts)] - Associate level paths with levees"
 if [[ -f "${tempHucDataDir}/nld_subset_levees.gpkg" ]]; then
-    date -u
     args=(
         -nld "${tempHucDataDir}/nld_subset_levees.gpkg"
         -s "${tempHucDataDir}/nwm_subset_streams_levelPaths_dissolved.parquet"
@@ -142,8 +133,7 @@ if [[ -f "${tempHucDataDir}/nld_subset_levees.gpkg" ]]; then
 fi
 
 ## STREAM BRANCH POLYGONS
-echo -e "${startDiv}Generating Stream Branch Polygons for ${hucNumber}"
-date -u
+echo -e "${startDiv}[$(ts)] - Generating Stream Branch Polygons for ${hucNumber}"
 args=(
     -s "${tempHucDataDir}/nwm_subset_streams_levelPaths_dissolved.parquet"
     -i "${branch_id_attribute}"
@@ -154,8 +144,7 @@ args=(
 python3 "${srcDir}/buffer_stream_branches.py" "${args[@]}"
 
 ## CREATE BRANCHID LIST FILE
-echo -e "${startDiv}Create list file of branch ids for ${hucNumber}"
-date -u
+echo -e "${startDiv}[$(ts)] - Create list file of branch ids for ${hucNumber}"
 args=(
     -d "${tempHucDataDir}/nwm_subset_streams_levelPaths_dissolved.parquet"
     -b "${branch_id_attribute}"
@@ -166,15 +155,14 @@ python3 "${srcDir}/generate_branch_list.py" "${args[@]}"
 ## CREATE BRANCH ZERO ##
 branch0_start_time="$(date +%s)"
 
-echo -e "${startDiv}Creating branch zero for ${hucNumber}"
+echo -e "${startDiv}[$(ts)] - Creating branch zero for ${hucNumber}"
 tempCurrentBranchDataDir="${tempBranchDataDir}/${branch_zero_id}"
 
 ## MAKE OUTPUT BRANCH DIRECTORY
 mkdir -p ${tempCurrentBranchDataDir}
 
 ## CLIP RASTERS
-echo -e "${startDiv}Clipping rasters to branches ${hucNumber} ${branch_zero_id}"
-date -u
+echo -e "${startDiv}[$(ts)] - Clipping rasters to branches ${hucNumber} ${branch_zero_id}"
 gdal_opts=(
     -cutline "${tempHucDataDir}/wbd_buffered.gpkg"
     -crop_to_cutline
@@ -197,8 +185,7 @@ gdalwarp "${gdal_opts[@]}" "${input_bridge_elev_diff}" "${tempHucDataDir}/bridge
 
 
 ## CLIP RASTERS
-echo -e "${startDiv} Combine Raw DEM with Pit Fill DEM ${hucNumber} ${branch_zero_id}"
-date -u
+echo -e "${startDiv}[$(ts)] - Combine Raw DEM with Pit Fill DEM ${hucNumber} ${branch_zero_id}"
 ## Combine Raw DEM with Pit Fill DEM (use pit fill elev)
 gdal_opts=(
     -ot "Float32"
@@ -220,17 +207,17 @@ output_tif="${tempHucDataDir}/dem_meters.tif"
 gdalwarp "${gdal_opts[@]}" "${input_tifs[@]}" "${output_tif}"
 
 ## GET RASTER METADATA
-echo -e "${startDiv}Get DEM Metadata ${hucNumber} ${branch_zero_id}"
-date -u
+echo -e "${startDiv}[$(ts)] - Get DEM Metadata ${hucNumber} ${branch_zero_id}"
 read -r ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy \
     <<<"$("${srcDir}/getRasterInfoNative.py" -r "${tempHucDataDir}/dem_meters.tif")"
 
 ## RASTERIZE NLD MULTILINES ##
-echo -e "${startDiv}Rasterize all NLD multilines using zelev vertices ${hucNumber} ${branch_zero_id}"
+echo -e "${startDiv}[$(ts)] - Rasterize all NLD multilines using zelev vertices ${hucNumber} ${branch_zero_id}"
 # REMAINS UNTESTED FOR AREAS WITH LEVEES
+
 if [[ -f "${tempHucDataDir}/3d_nld_subset_levees_burned.gpkg" ]]; then
-    date -u
-    args=(-q -l "3d_nld_subset_levees_burned" -3d -at -a_nodata "${ndv}"
+    args=(
+        -q -l "3d_nld_subset_levees_burned" -3d -at -a_nodata "${ndv}"
         -te "${xmin}" "${ymin}" "${xmax}" "${ymax}" -ts "${ncols}" "${nrows}"
         -ot "Float32" -of "GTiff"
         -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "COMPRESS=LZW" -co "BIGTIFF=YES"
@@ -239,25 +226,27 @@ if [[ -f "${tempHucDataDir}/3d_nld_subset_levees_burned.gpkg" ]]; then
         "${tempCurrentBranchDataDir}/nld_rasterized_elev_${branch_zero_id}.tif"
     )
     gdal_rasterize "${args[@]}"
+else
+    echo "Skipping: 3d_nld_subset_levees_burned.gpkg does not exist"
 fi
 
 ## BURN LEVEES INTO DEM ##
-echo -e "${startDiv}Burn nld levees into dem & convert nld elev to meters"
+echo -e "${startDiv}[$(ts)] - Burn nld levees into dem & convert nld elev to meters"
 echo -e "(*Overwrite dem_meters.tif output) ${hucNumber} ${branch_zero_id}"
 # REMAINS UNTESTED FOR AREAS WITH LEVEES
 if [[ -f "${tempCurrentBranchDataDir}/nld_rasterized_elev_${branch_zero_id}.tif" ]]; then
-    date -u
     args=(
         -dem "${tempHucDataDir}/dem_meters.tif"
         -nld "${tempCurrentBranchDataDir}/nld_rasterized_elev_${branch_zero_id}.tif"
         -out "${tempHucDataDir}/dem_meters.tif"
     )
     python3 "${srcDir}/burn_in_levees.py" "${args[@]}"
+else
+    echo "Skipping: nld_rasterized_elev_${branch_zero_id}.tif does not exist"
 fi
 
 ## RASTERIZE REACH BOOLEAN (1 & 0) - BRANCH 0 (include all NWM streams) ##
-echo -e "${startDiv}Rasterize Reach Boolean ${hucNumber} ${branch_zero_id}"
-date -u
+echo -e "${startDiv}[$(ts)] - Rasterize Reach Boolean ${hucNumber} ${branch_zero_id}"
 args=(
     -q -ot "Int32" -burn "1" -init "0" -a_nodata "-9999"
     -co "BIGTIFF=YES"
@@ -269,8 +258,7 @@ gdal_rasterize "${args[@]}"
 
 ## RASTERIZE REACH BOOLEAN (1 & 0) - BRANCHES (Not 0) (NWM levelpath streams) ##
 if [[ "${levelpaths_exist}" == "1" ]]; then
-    echo -e "${startDiv}Rasterize Reach Boolean ${hucNumber} (Branches)"
-    date -u
+    echo -e "${startDiv}[$(ts)] - Rasterize Reach Boolean ${hucNumber} (Branches)"
     args=(
         -q -ot "Int32" -burn "1" -init "0" -a_nodata "-9999"
         -co "BIGTIFF=YES"
@@ -282,8 +270,7 @@ if [[ "${levelpaths_exist}" == "1" ]]; then
 fi
 
 ## RASTERIZE NWM Levelpath HEADWATERS (1 & 0) ##
-echo -e "${startDiv}Rasterize NWM Headwaters ${hucNumber} ${branch_zero_id}"
-date -u
+echo -e "${startDiv}[$(ts)] - Rasterize NWM Headwaters ${hucNumber} ${branch_zero_id}"
 args=(
     -q -at -ot "Int32" -burn "1" -init "0" -a_nodata "-9999"
     -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES"
@@ -296,8 +283,7 @@ gdal_rasterize "${args[@]}"
 ## DEM Reconditioning - BRANCH 0 (include all NWM streams) ##
 # Using AGREE methodology, hydroenforce the DEM so that it is consistent with the supplied stream network.
 # This allows for more realistic catchment delineation which is ultimately reflected in the output FIM mapping.
-echo -e "${startDiv}Creating AGREE DEM using $agree_DEM_buffer meter buffer ${hucNumber} ${branch_zero_id}"
-date -u
+echo -e "${startDiv}[$(ts)] - Creating AGREE DEM using $agree_DEM_buffer meter buffer ${hucNumber} ${branch_zero_id}"
 args=(
     -r "${tempCurrentBranchDataDir}/flows_grid_boolean_${branch_zero_id}.tif"
     -d "${tempHucDataDir}/dem_meters.tif"
@@ -310,8 +296,7 @@ args=(
 python3 "${srcDir}/agreedem.py" "${args[@]}"
 
 ## PIT REMOVE BURNED DEM - BRANCH 0 (include all NWM streams) ##
-echo -e "${startDiv}Pit remove Burned DEM ${hucNumber} ${branch_zero_id}"
-date -u
+echo -e "${startDiv}[$(ts)] - Pit remove Burned DEM ${hucNumber} ${branch_zero_id}"
 args=(
     "${tempCurrentBranchDataDir}/dem_burned_${branch_zero_id}.tif"
     "${tempCurrentBranchDataDir}/dem_burned_filled_${branch_zero_id}.tif"
@@ -322,18 +307,29 @@ rd_depression_filling "${args[@]}"
 # Note: Oct 2026: Now with TauDEM 5.5, you have to give it a sd8 and a p file even if you
 # do not want it a this point.
 # We will just remove the sf8 temp file later.
-echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber ${branch_zero_id}"
-date -u
+echo -e "${startDiv}[$(ts)] - D8 Flow Directions on Burned DEM $hucNumber ${branch_zero_id}"
+
+# args=(
+#     -n "$ncores_fd"
+#     -t "${taudemDir}"
+#     -fel "${tempCurrentBranchDataDir}/dem_burned_filled_${branch_zero_id}.tif"
+#     -p "${tempCurrentBranchDataDir}/flowdir_d8_burned_filled_${branch_zero_id}.tif"
+#     -sd8 "${tempCurrentBranchDataDir}/flowdir_d8_burned_filled_temp_slope_${branch_zero_id}.tif"    
+# )
+# python3 "${srcDir}/run_taudem_subprocess.py" d8flowdir "${args[@]}"
+# date -u
+
 args=(
-    -t "${taudemDir}"
     -fel "${tempCurrentBranchDataDir}/dem_burned_filled_${branch_zero_id}.tif"
     -p "${tempCurrentBranchDataDir}/flowdir_d8_burned_filled_${branch_zero_id}.tif"
-    -sd8 "${tempCurrentBranchDataDir}/flowdir_d8_burned_filled_temp_slope_${branch_zero_id}.tif"    
 )
-python3 "${srcDir}/run_taudem_subprocess.py" d8flowdir "${args[@]}"
+python3 "${srcDir}/d8flowdir.py" "${args[@]}"
+# date -u
+# echo "test abort"
+# return 1
 
 ## MAKE A COPY OF THE DEM and DEM DIFF FOR BRANCH 0
-echo -e "${startDiv}Copying DEM to Branch 0"
+echo -e "${startDiv}[$(ts)] - Copying DEM to Branch 0"
 cp "${tempHucDataDir}/dem_meters.tif" "${tempCurrentBranchDataDir}/dem_meters_${branch_zero_id}.tif"
 cp "${tempHucDataDir}/bridge_elev_diff_meters.tif" "${tempCurrentBranchDataDir}/bridge_elev_diff_meters_${branch_zero_id}.tif"
 
@@ -341,17 +337,15 @@ cp "${tempHucDataDir}/bridge_elev_diff_meters.tif" "${tempCurrentBranchDataDir}/
 export hucNumber current_branch_id tempCurrentBranchDataDir tempHucDataDir ndv xmin ymin xmax ymax ncols nrows
 
 ## PRODUCE BRANCH ZERO HAND
-echo -e "${startDiv}Starting into delineate code for Branch 0"
-date -u
+echo -e "${startDiv}[$(ts)] - Starting into delineate code for Branch ${current_branch_id}"
+del_start_time=`date +%s`
 "${srcDir}/delineate_hydros_and_produce_HAND.sh" "unit"
-date -u
-echo "-------------------"
+Calc_Duration "[$(ts)] - Duration to process the delineate section for branch ${branch}: " $del_start_time
 
 ## CREATE USGS GAGES FILE
 ## Note: the usgs_gages.gpkg was renamed during copying into the unit folder
 if [[ -f "${tempHucDataDir}/nwm_subset_streams_levelPaths.parquet" ]]; then
-    echo -e "${startDiv}Assigning USGS gages to branches for ${hucNumber}"
-    date -u
+    echo -e "${startDiv}[$(ts)] - Assigning USGS gages to branches for ${hucNumber}"
     args=(
         -gages "${tempHucDataDir}/usgs_gages.gpkg"
         -nwm "${tempHucDataDir}/nwm_subset_streams_levelPaths.parquet"
@@ -367,8 +361,7 @@ fi
 
 ## USGS CROSSWALK ##
 if [[ -f "${tempHucDataDir}/usgs_subset_gages_${branch_zero_id}.gpkg" ]]; then
-    echo -e "${startDiv}USGS Crosswalk ${hucNumber} ${branch_zero_id}"
-    date -u
+    echo -e "${startDiv}[$(ts)] - USGS Crosswalk ${hucNumber} ${branch_zero_id}"
     args=(
         -gages "${tempHucDataDir}/usgs_subset_gages_${branch_zero_id}.gpkg"
         -flows "${tempCurrentBranchDataDir}/demDerived_reaches_split_filtered_${branch_zero_id}.parquet"
@@ -383,8 +376,7 @@ if [[ -f "${tempHucDataDir}/usgs_subset_gages_${branch_zero_id}.gpkg" ]]; then
 fi
 
 ## CLEANUP BRANCH ZERO OUTPUTS ##
-echo -e "${startDiv}Cleaning up outputs in branch zero ${hucNumber}"
-date -u
+echo -e "${startDiv}[$(ts)] - Cleaning up outputs in branch zero ${hucNumber}"
 python3 "${srcDir}/outputs_cleanup.py" -d "${tempCurrentBranchDataDir}" -l "${deny_branch_zero_list}" -b "${branch_zero_id}"
 
 branch0=$(Calc_Time $branch0_start_time)
@@ -392,8 +384,10 @@ branch0_percent=$(Calc_Time_Minutes_in_Percent $branch0_start_time)
 
 # -------------------
 ## Processing Branches ##
-echo "+++++++++++++++++++++++++++++++++++++++++++++++++"
+echo
+echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
 echo "---- Start of branch processing for $hucNumber using $jobBranchLimit workers for branch processing"
+date -u
 branch_processing_start_time=`date +%s`
 
 # We do not want a branch to shut down the huc, so process_branch.sh always sends
@@ -401,7 +395,6 @@ branch_processing_start_time=`date +%s`
 # We don't have an answer for what if all branches failed at this time.
 # Each will return an independant exit code.
 if [ -f $branch_list_lst_file ]; then
-    date -u
     # There may not be a branch_ids.lst if there were no level paths (no stream orders 3+)
     # but there will still be a branch zero
     # Define parallel options in an array
@@ -450,23 +443,20 @@ branches_percent="$(Calc_Time_Minutes_in_Percent ${branch_processing_start_time}
 
 ## REMOVE FILES FROM DENY LIST ##
 if [[ -f "${deny_unit_list}" ]]; then
-    echo -e "${startDiv}Remove files ${hucNumber}"
-    date -u
+    echo -e "${startDiv}[$(ts)] - Remove files ${hucNumber}"
     python3 $srcDir/outputs_cleanup.py -d $tempHucDataDir -l $deny_unit_list -b $hucNumber
 fi
 
 # -------------------
 ## ADJUST CALIBRATION
 ## call src adjustments..Pass False as an argument to flag it is not a rerun of calibration. 
-echo -e "${startDiv}Starting Calibration Processing ${hucNumber}"
-date -u
+echo -e "${startDiv}[$(ts)] - Starting Calibration Processing ${hucNumber}"
 $srcDir/calibrate_rating_curves.sh "False" $jobBranchLimit $hucNumber
 echo "...................................."
 
 # -------------------
 ## Start the local csv branch list
-echo -e $startDiv"Generating Branch List that have successfully completed"
-date -u
+echo -e $startDiv"[$(ts)] - Generating Branch List that have successfully completed"
 python3 $srcDir/generate_branch_list_csv.py -o $branch_list_csv_file -u $hucNumber
 
 # -------------------
@@ -477,15 +467,8 @@ total_branches=$(wc -l < $branch_list_csv_file)
 
 # -------------------
 # WRITE TO LOG FILE CONTAINING ALL HUC PROCESSING TIMES
-echo -e $startDiv"Calculating branch durations"
-date -u
+echo -e $startDiv"[$(ts)] - Calculating branch durations"
 total_duration_display="${hucNumber},$(Calc_Time "${huc_start_time}"),$(Calc_Time_Minutes_in_Percent "${huc_start_time}"),${total_branches},${branch0},${branch0_percent},${branches},${branches_percent}"
 echo -e "${total_duration_display}" >> "${tempHucDataDir}/processing_time_${hucNumber}.txt"
-
-# Yes.. we let this log to the hucLogFile so error seach tools can look only in this huc file.
-date -u
-echo "---- HUC processing for $hucNumber is complete"
-Calc_Duration "Duration for huc processing : " $huc_start_time
-echo
 
 # let the script return whatever code it wants unless controlled exit like calibrate_rating_curves.sh
