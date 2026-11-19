@@ -485,7 +485,7 @@ def save_compiled_outputs(gdfs, gpkg_path_list, output_dir, label, file_type):
     # Concatenate sites GeoDataFrames into one GDF and update LID column name
     logging.info('Begin concatenating gdf list into single gdf...')
     compiled_gdf = gpd.pd.concat(gdfs, ignore_index=True)
-    compiled_gdf.rename(columns={'nws_lid': 'ahps_lid'}, inplace=True)  # TODO: Is this still necessary?
+    compiled_gdf = compiled_gdf.rename(columns={'nws_lid': 'ahps_lid'})  # TODO: Is this still necessary?
     logging.info('Finished creating single gdf')
 
     # Save the compiled GeoDataFrames to GeoPackage files

@@ -58,12 +58,14 @@ class GageCrosswalk(object):
         '''
         if self.gages.empty:
             print(f'There are no gages for branch {self.branch_id}')
-            os._exit(0)
+            # os._exit(0)
+            return
         # Spatial join to fim catchments
         self.catchment_sjoin(input_catchment_filename, huc_CRS)
         if self.gages.empty:
             print(f'There are no gages for branch {self.branch_id}')
-            os._exit(0)
+            # os._exit(0)
+            return            
 
         # Snap to dem derived flow lines
         self.snap_to_dem_derived_flows(input_flows_filename)
@@ -83,7 +85,7 @@ class GageCrosswalk(object):
         usgs_gages = gpd.read_file(gages_filename, engine='fiona')
 
         # TODO: Do we need project this usgs gages to huc_CRS as well?
-        # usgs_gages.to_crs(huc_CRS, inplace=True)
+        # usgs_gages = usgs_gages.to_crs(huc_CRS)
         return usgs_gages[(usgs_gages.levpa_id == self.branch_id)]
 
     def catchment_sjoin(self, input_catchment_filename, huc_CRS):
@@ -91,7 +93,7 @@ class GageCrosswalk(object):
 
         input_catchments = gpd.read_parquet(input_catchment_filename)
         input_catchments['HydroID'] = input_catchments['HydroID'].astype(int)
-        input_catchments.to_crs(huc_CRS, inplace=True)
+        input_catchments = input_catchments.to_crs(huc_CRS)
         self.gages = gpd.sjoin(self.gages, input_catchments[['HydroID', 'LakeID', 'geometry']], how='inner')
 
     def snap_to_dem_derived_flows(self, input_flows_filename):

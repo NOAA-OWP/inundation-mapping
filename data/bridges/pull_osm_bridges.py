@@ -44,6 +44,8 @@ def find_touching_groups(gdf, file_logger, screen_queue, task_id):
     spatial_index = gdf.sindex
 
     # For each geometry, find touching geometries and add edges to the graph
+    # Oct 2026: Consider changing this to itertuples is it much faster than iterrows for geodataframes.
+    # but only for GeoDataframes. Then use row.index (geometry.index in this case)
     for idx, geometry in gdf.iterrows():
         possible_matches_index = list(spatial_index.intersection(geometry['geometry'].bounds))
         possible_matches = gdf.iloc[possible_matches_index]

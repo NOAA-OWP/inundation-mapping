@@ -48,16 +48,16 @@ def eval_plot_stack_data_prep(metric_csv, versions=[]):
     # Change the magnitudes to make them more sort-friendly for the plot below
     metrics.magnitude = metrics.magnitude.apply(lambda m: mag_dict[m])
     # Fill the non-AHPS sites with values for nws_lid
-    metrics.nws_lid.fillna(metrics.huc + "_" + metrics.benchmark_source, inplace=True)
+    metrics['nws_lid'] = metrics['nws_lid'].fillna(metrics.huc + "_" + metrics.benchmark_source)
     # Create multi-index for easy merging and plotting
-    metrics.set_index(["benchmark_source", "nws_lid", "magnitude"], inplace=True, drop=False)
+    metrics = metrics.set_index(["benchmark_source", "nws_lid", "magnitude"], drop=False)
 
     # Normalize data to the total of TP + FN
     metrics["TP_FN_sum"] = metrics["false_negatives_count"] + metrics["true_positives_count"]
     metrics["TP_norm"] = metrics["true_positives_count"] / metrics["TP_FN_sum"]
     metrics["FN_norm"] = metrics["false_negatives_count"] / metrics["TP_FN_sum"]
     metrics["FP_norm"] = metrics["false_positives_count"] / metrics["TP_FN_sum"]
-    metrics["FP_norm"].replace([np.inf, -np.inf], np.nan, inplace=True)  # some bad sites will divide by 0
+    metrics["FP_norm"] = metrics["FP_norm"].replace([np.inf, -np.inf], np.nan)  # some bad sites will divide by 0
 
     return metrics
 
@@ -370,9 +370,9 @@ def diff_bar_plots(versions, metric_csv, category, outfig, stat="CSI"):
     # Change the magnitudes to make them more sort-friendly for the plot below
     metrics.magnitude = metrics.magnitude.apply(lambda m: mag_dict[m])
     # Fill the non-AHPS sites with values for nws_lid
-    metrics.nws_lid.fillna(metrics.huc + "_" + metrics.benchmark_source, inplace=True)
+    metrics['nws_lid'] = metrics['nws_lid'].fillna(metrics.huc + "_" + metrics.benchmark_source)
     # Create multi-index for easy merging and plotting
-    metrics.set_index(["benchmark_source", "nws_lid", "magnitude"], inplace=True, drop=False)
+    metrics = metrics.set_index(["benchmark_source", "nws_lid", "magnitude"], drop=False)
 
     # Separate versions into 2 dataframes
     metrics_base = metrics.loc[metrics.version == versions[0]].copy()
@@ -380,7 +380,7 @@ def diff_bar_plots(versions, metric_csv, category, outfig, stat="CSI"):
 
     # Create a new column in the base dataframe and merge it into the comparison dataframe
     metrics_base[f"BASE_{stat}"] = metrics_base[stat]
-    metrics_base.drop(columns=stat, inplace=True)
+    metrics_base = metrics_base.drop(columns=stat)
     fim_compare = metrics_base.merge(
         metrics_new[stat], left_index=True, right_index=True, how="inner"
     ).sort_index(level=0, sort_remaining=True)

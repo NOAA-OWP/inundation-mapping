@@ -1,0 +1,4 @@
+# Enforces all packages honor these versions of gdal and numpy
+gdal==3.12.3
+#numpy==2.1.2
+numpy>=2.0.0

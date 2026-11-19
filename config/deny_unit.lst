@@ -43,6 +43,8 @@ nws_lid.gpkg
 # osm_roads_subset.gpkg
 # ras_elev_table.csv
 reformat_ras_rating_curve_points_rel_101.gpkg
+stage_{}.txt
+stage_{}.tif
 # usgs_elev_table.csv
 usgs_gages.gpkg
 # usgs_subset_gages.gpkg

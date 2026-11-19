@@ -148,8 +148,7 @@ def manual_calibration(huc_dir: str, calibration_file: str):
 
                         # make a backup of the discharge_cms column
                         df_htable['pre_manual_calb_discharge_cms'] = df_htable['discharge_cms']
-                        df_htable = df_htable.merge(manual_calib_df, how='left', on='feature_id')
-                        df_htable.drop(columns=['HUC8'], inplace=True)
+                        df_htable = df_htable.merge(manual_calib_df, how='left', on='feature_id').drop(columns=['HUC8'])
 
                         # Calculate new discharge_cms with manual calibration coefficient
                         df_htable['discharge_cms'] = np.where(
@@ -177,18 +176,14 @@ if __name__ == '__main__':
     ## Parse arguments.
     parser = argparse.ArgumentParser(description='Manually calibrate rating curve')
     parser.add_argument(
-        '-huc_dir', '--huc_dir', help='Parent directory of FIM-required datasets.', required=True
+        '-huc-dir', '--huc-dir', help='Parent directory of FIM-required datasets.', required=True
     )
     parser.add_argument(
-        '-calb_file', '--calibration-file', help='Path to manual calibration file', required=True
+        '-calb-file', '--calibration-file', help='Path to manual calibration file', required=True
     )
 
-    # args = parser.parse_args()
     args = vars(parser.parse_args())
-    huc_dir = args['huc_dir']
-    calibration_file = args['calibration_file']
-
-    manual_calibration(huc_dir, calibration_file)
+    manual_calibration(**args)
 
     # Usage example:
     # python /foss_fim/src/src_manual_calibration.py -huc_dir /outputs/dev-manual-calibration \

@@ -17,6 +17,8 @@ runName=$1
 hucNumber=$2
 branchId=$3
 
+source $srcDir/bash_functions.env
+
 cleanup() {
     # 1. Clear out any remaining background jobs safely
     trap - EXIT
@@ -28,11 +30,6 @@ cleanup() {
 # Attach the cleanup function to both standard EXIT and termination signals
 trap cleanup EXIT SIGTERM SIGINT
 
-# Put in a random time 0 to 10 second sleep to help space out branches a little
-sleep $((RANDOM % 11))
-
-source $srcDir/bash_functions.env
-
 #########################
 # We really do not use the branch log file as it is all auto rolled up in the huc level log.
 # We leave it there to make it easier to quicky jump to get details, even though it is fully
@@ -43,17 +40,24 @@ branch_log_file_name=$tempHucDataDir/logs/branch/"$hucNumber"_branch_"$branchId"
 # And we do not want any error scaning, just echos so it can be picked up by fim_process_hucs.sh "tee" command
 #########################
 
-echo "++++++++++++++++++++++++++++++++++++"
-echo -e $startDiv"Processing HUC: $hucNumber - branch_id: $branchId"
-
+## INITIALIZE TOTAL TIME TIMER ##
 branch_start_time=`date +%s`
-date -u
+
+echo
+echo "++++++++++++++++++++++++++++++++++++"
+l_echo $startDiv"Processing HUC: $hucNumber - branch_id: $branchId [$(date "+%I:%M%p")]" "${branch_log_file_name}"
+
+# l_echo "---- Started: " "${branch_log_file_name}"
+
+# Put in a random time 0 to 10 second sleep to help space out branches a little
+sleep $((RANDOM % 11))
 
 /usr/bin/time -v $srcDir/run_by_branch.sh $hucNumber $branchId 2>&1 | tee -a $branch_log_file_name
 # /usr/bin/time -f "$time_cmd_format" $srcDir/run_by_branch.sh $hucNumber $branchId 2>&1 | tee $branch_log_file_name
 
 # See note in fim_process_huc.sh talking about PIPESTATUS info
 return_codes=( "${PIPESTATUS[@]}" )
+l_echo "..........................." "${branch_log_file_name}"
 
 # By simply using echo, it goes to screen which is then rolled up to run_huc.sh
 # and fim_process_huc.sh which catches it via its "tee" command
@@ -63,30 +67,30 @@ do
     # Note: It was tricky to load in the fim_enum into bash, so we will just
     # go with the exit code for now
     if [ $code -eq 0 ]; then
-        echo
+        echo > /dev/null # do nothing clean
         # do nothing
     elif [ $code -eq 61 ]; then
-        echo
-        echo "Acceptable Exit Status: $code -- Branch has no valid flowlines. [[BranchID: $branchId]]"
+        l_echo $branch_log_file_name
+        l_echo "Acceptable Exit Status: $code -- Branch has no valid flowlines. [[BranchID: $branchId]]" "${branch_log_file_name}"
         # rm -rf $tempHucDataDir/branches/$branchId/  # keep for debugging
     elif [ $code -eq 64 ]; then
-        echo
-        echo "Acceptable Exit Status: $code -- Branch has no crosswalks.  [[BranchID: $branchId]]"
+        l_echo $branch_log_file_name
+        l_echo "Acceptable Exit Status: $code -- Branch has no crosswalks.  [[BranchID: $branchId]]" "${branch_log_file_name}"
         # rm -rf $tempHucDataDir/branches/$branchId/  # keep for debugging
     elif [ $code -eq 65 ]; then
-        echo
-        echo "Acceptable Exit Status: $code -- Too many HydroIDs or a HydroID with more" \
-        " than 8 digits in gw catchments to convert to Int16   [[BranchID: $branchId]]"
+        l_echo $branch_log_file_name
+        l_echo "Acceptable Exit Status: $code -- Too many HydroIDs or a HydroID with more" \
+        " than 8 digits in gw catchments to convert to Int16   [[BranchID: $branchId]]" "${branch_log_file_name}"
         # rm -rf $tempHucDataDir/branches/$branchId/   # keep for debugging
     elif [ $code -ne 0 ]; then
-        echo
-        echo "***** ERROR - Unknown Exit status: $code detected for [[BranchID: $branchId]] *****"
+        l_echo $branch_log_file_name
+        l_echo "***** ERROR - Unknown Exit status: $code detected for [[BranchID: $branchId]] *****" "${branch_log_file_name}"
     fi
 done
 
-echo -e $startDiv"End Branch Processing $hucNumber $branchId ..."
+l_echo $startDiv"End Branch Processing for Branch $branchId ..." "${branch_log_file_name}"
 date -u
-Calc_Duration "Duration : " $branch_start_time ""
-echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
-
+Calc_Duration "Branch processing duration : " $branch_start_time "${branch_log_file_name}"
+l_echo "++++++++++++++++++++++++++++++++++++" "${branch_log_file_name}"
+l_echo "" "${branch_log_file_name}"
 exit 0

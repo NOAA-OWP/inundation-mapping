@@ -1,19 +1,25 @@
 import argparse
-import glob
+# import glob
 import os
 import re
+import shutil
+import sys
 
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio
-import xarray as xr
+# import xarray as xr
 from rasterio import features
 from rasterio.warp import Resampling, reproject
 from rasterstats import zonal_stats
 
 from utils.io import write_geodataframe
 
+# Debugging
+pd.set_option("display.max_rows", None) 
+pd.set_option("display.max_columns", None)
+pd.set_option("display.width", 200)
 
 threatened_percent = 0.75
 
@@ -27,7 +33,6 @@ def process_non_lidar_osm(osm_gdf, hand_grid_array, hand_grid_profile, non_lidar
     non_lidar_osm_gdf['geometry'] = non_lidar_osm_gdf.geometry.buffer(
         non_lidar_buffer, resolution=non_lidar_buffer
     )
-
     # Get max hand values for each bridge
     stats = zonal_stats(
         non_lidar_osm_gdf['geometry'],
@@ -36,7 +41,15 @@ def process_non_lidar_osm(osm_gdf, hand_grid_array, hand_grid_profile, non_lidar
         stats="max",
         nodata=hand_grid_profile["nodata"],
         all_touched=True,
+        engine="fiona"
     )
+
+    # print("--------------")
+    # print(f"type of stats is {type(stats)}")
+    # print(f"first 5 recs of stats is {stats[:5]}")
+    # print("All done")
+    # sys.exit(1)
+
     # pull the values out of the geopandas columns so we can use them as floats
     non_lidar_osm_gdf.loc[:, 'threshold_hand'] = pd.to_numeric([x.get('max') for x in stats], errors='coerce')
     # sort in case of overlaps; display theshold hand value at any given location
@@ -54,10 +67,7 @@ def process_non_lidar_osm(osm_gdf, hand_grid_array, hand_grid_profile, non_lidar
 
 
 def process_lidar_osm(osm_gdf, hand_grid_array, hand_grid_profile, lidar_buffer, bridge_elev_diff_raster):
-    lidar_osm_gdf = osm_gdf[osm_gdf['has_lidar_tif'] == 'Y'].copy()
-
-    if lidar_osm_gdf.empty:
-        return None, hand_grid_array
+    # lidar_osm_gdf = osm_gdf[osm_gdf['has_lidar_tif'] == 'Y'].copy()
 
     # if there are some lidar tif files, then we need to read diff file and apply healing
     with rasterio.open(bridge_elev_diff_raster) as diff_grid:
@@ -122,6 +132,13 @@ def process_bridges_in_huc(
         print(f"-- no hand grid, {source_hand_raster}")
         return
 
+    # Temp debug
+    # Save off copy of the rem_masked before updating it.
+    # Copying a file to a new name/path
+    # Save off copy of the rem_masked before updating it.
+    # Copying a file to a new name/path
+    shutil.copy2(source_hand_raster, source_hand_raster.replace(".tif", "_pre_heal.tif"))
+
     if os.path.exists(bridge_vector_file):
         # Read the bridge lines file and buffer it by half of the input width
         osm_gdf = gpd.read_file(bridge_vector_file)
@@ -135,6 +152,13 @@ def process_bridges_in_huc(
         hand_grid_profile = hand_grid.profile
         hand_grid_array = hand_grid.read(1)
 
+    # print(hand_grid_profile)
+
+    # print("All done")
+    # sys.exit(1)
+    
+
+
     # first process the osm bridges without reliable lidar data using previous method
     non_lidar_osm_gdf, hand_grid_array = process_non_lidar_osm(
         osm_gdf, hand_grid_array, hand_grid_profile, non_lidar_buffer
@@ -142,6 +166,17 @@ def process_bridges_in_huc(
     lidar_osm_gdf, updated_hand_grid_array = process_lidar_osm(
         osm_gdf, hand_grid_array, hand_grid_profile, lidar_buffer, bridge_elev_diff_raster
     )
+
+    # print("+++++++++++++++++")
+    # print(f"len of non_lidar_osm_gdf is {len(non_lidar_osm_gdf)}")
+    # print(non_lidar_osm_gdf.head())
+
+    # print("-----------------")
+    # print(f"len of lidar_osm_gdf is {len(lidar_osm_gdf)}")
+    # print(lidar_osm_gdf.head())
+
+    # print("All done")
+    # sys.exit(1)
 
     # either of non_lidar_osm_gdf or lidar_osm_gdf can be None (if there are no lidar or non-lidar bridges)-- so handle it
     valid_osm_gdfs = [gdf for gdf in [non_lidar_osm_gdf, lidar_osm_gdf] if gdf is not None]
@@ -163,10 +198,16 @@ def process_bridges_in_huc(
     osm_gdf = osm_gdf.drop(columns='centroid_geometry')
 
     # Join the bridge points to the HAND catchments to get the HydroID and feature_id
-    osm_gdf = osm_gdf.loc[osm_gdf.threshold_hand > 0]
-    catchments_df = gpd.read_parquet(catchments)
+    # osm_gdf = osm_gdf.loc[osm_gdf.threshold_hand > 0]
+    # catchments_df = gpd.read_parquet(catchments)
+    # osm_gdf = gpd.sjoin(osm_gdf, catchments_df[['HydroID', 'feature_id', 'order_', 'geometry']], how='inner')
 
-    osm_gdf = gpd.sjoin(osm_gdf, catchments_df[['HydroID', 'feature_id', 'order_', 'geometry']], how='inner')
+    catchments_df = gpd.read_parquet(
+        catchments,
+        columns=["HydroID", "feature_id", "order_", "geometry"],
+        bbox=tuple(osm_gdf.total_bounds),
+    )
+    osm_gdf = gpd.sjoin(osm_gdf, catchments_df, how="inner")
 
     del catchments_df
 
@@ -190,9 +231,18 @@ def process_bridges_in_huc(
 
     return
 
-
 def flow_lookup(stages, hydroid, hydroTable):
-    single_hydroTable = hydroTable.loc[hydroTable.HydroID == hydroid]
+    single_hydroTable = hydroTable.loc[hydroTable.HydroID == hydroid].sort_values(by=["feature_id", "stage"])
+
+    # print("--------------")
+    # print(single_hydroTable.head(2)[['feature_id', 'stage', 'discharge_cms']])
+
+    # print(f"In Flow Lookup for hydroid {hydroid} and len of single_hydroTable is {len(single_hydroTable)}")
+    # print(single_hydroTable.loc[:, 'stage'], single_hydroTable.loc[:, 'discharge_cms'])
+
+    # print("All done for now")
+    # sys.exit()
+
     return_flows = np.interp(
         stages, single_hydroTable.loc[:, 'stage'], single_hydroTable.loc[:, 'discharge_cms']
     )
@@ -200,11 +250,24 @@ def flow_lookup(stages, hydroid, hydroTable):
 
 
 def flows_from_hydrotable(bridge_pnts, hydroTable):
+
+    # hydro_ids = hydroTable['HydroID'].unique().tolist()
+    # for hydro_id in hydro_ids:
+    #     single_hydroTable = hydroTable.loc[hydroTable.HydroID == hydro_id].sort_values(by="stage")
+
+    #     print("++++++++++++++++++")
+    #     print(single_hydroTable.info())
+    #     print(single_hydroTable.head(2))
+
+        # print("------- All Done")
+        # sys.exit(1)
+
     bridge_pnts[['threshold_discharge', 'threshold_discharge75']] = bridge_pnts.apply(
         lambda row: flow_lookup((row.threshold_hand, row.threshold_hand_75), row.HydroID, hydroTable),
         axis=1,
         result_type='expand',
     )
+
     # Convert stages and dischrages to ft and cfs respectively
     bridge_pnts['threshold_hand_ft'] = bridge_pnts['threshold_hand'] * 3.28084
     bridge_pnts['threshold_hand_75_ft'] = bridge_pnts['threshold_hand_75'] * 3.28084
@@ -212,6 +275,119 @@ def flows_from_hydrotable(bridge_pnts, hydroTable):
     bridge_pnts['threshold_discharge_75_cfs'] = bridge_pnts['threshold_discharge75'] * 35.3147
 
     return bridge_pnts
+
+# 2. Optimized lookup function using raw numpy arrays from the dictionary
+# def fast_flow_lookup(stages, hydroid, lookup_dict):
+#     if hydroid in lookup_dict:
+#         h_stages, h_flows = lookup_dict[hydroid]
+#         return np.interp(stages, h_stages, h_flows)
+#     return [np.nan, np.nan]
+
+
+# def flows_from_hydrotable(bridge_pnts, hydroTable):
+#     bridge_pnts[['threshold_discharge', 'threshold_discharge75']] = bridge_pnts.apply(
+#         lambda row: flow_lookup((row.threshold_hand, row.threshold_hand_75), row.HydroID, hydroTable),
+#         axis=1,
+#         result_type='expand',
+#     )
+
+    # 1. Pre-sort and pre-build a dictionary mapping HydroID -> (stages, discharges)
+    # hydroTable_sorted = hydroTable.sort_values('HydroID', 'stage')
+    # hydro_dict = {
+    #     hydroid: (sub_df['stage'].to_numpy(), sub_df['discharge_cms'].to_numpy())
+    #     for hydroid, sub_df in hydroTable_sorted.groupby('HydroID')
+    # }
+
+    # # 3. Execute using list comprehension over itertuples
+    # bridge_pnts[['threshold_discharge', 'threshold_discharge75']] = [
+    #     fast_flow_lookup(
+    #         (row.threshold_hand, row.threshold_hand_75), row.HydroID, hydro_dict
+    #     )
+    #     for row in bridge_pnts.itertuples(index=False)
+    # ]
+
+    # Convert stages and dischrages to ft and cfs respectively
+    # bridge_pnts['threshold_hand_ft'] = bridge_pnts['threshold_hand'] * 3.28084
+    # bridge_pnts['threshold_hand_75_ft'] = bridge_pnts['threshold_hand_75'] * 3.28084
+    # bridge_pnts['threshold_discharge_cfs'] = bridge_pnts['threshold_discharge'] * 35.3147
+    # bridge_pnts['threshold_discharge_75_cfs'] = bridge_pnts['threshold_discharge75'] * 35.3147
+
+    # return bridge_pnts
+
+
+# def flow_lookup(stages, hydroid, hydroTable):
+#     # 1. Filter and sort by stage in one step to ensure correct interpolation
+#     subset = hydroTable[hydroTable.HydroID == hydroid].sort_values('stage')
+    
+#     # 2. Extract underlying NumPy arrays directly for a massive speed boost
+#     x = subset['stage'].to_numpy()
+#     y = subset['discharge_cms'].to_numpy()
+    
+#     # 3. Perform interpolation
+#     return np.interp(stages, x, y)
+
+# def flows_from_hydrotable(bridge_pnts, hydroTable):
+
+#     print("Here 1 in flows_from_hydrotable")
+#     if bridge_pnts.empty:
+#         raise ValueError("bridge_pnts is empty")
+
+#     # Oct 2026: Breaking this up allows for some opportunities to make it much faster.
+#     # Breaking it up also helps debug if something goes wrong without compromising performance.
+#     '''
+#     # Chat AI's response:
+#     Why this is expensive:
+
+#     - bridge_pnts.apply(..., axis=1) calls Python for every row
+#     - flow_lookup redoes hydroTable.loc[hydroTable.HydroID == hydroid] each time
+#     - That creates a lot of repeated indexing and is the main scalability issue for large bridge lists
+
+#     A better first pass is to build a lookup once, then interpolate in a loop over rows without re-filtering
+#     the whole hydrotable each time.
+#     '''
+
+#     # bridge_pnts[['threshold_discharge', 'threshold_discharge75']] = bridge_pnts.apply(
+#     #     lambda row: flow_lookup((row.threshold_hand, row.threshold_hand_75), row.HydroID, hydroTable),
+#     #     axis=1,
+#     #     result_type='expand',
+#     # )
+
+#     # Build a lookup once per HydroID; sort by stage to keep interpolation monotonic
+#     hydro_table_lookup = {}
+#     for hydroid, group in hydroTable.sort_values("stage").groupby("HydroID", sort=False):
+#         hydro_table_lookup[hydroid] = (
+#             group["stage"].to_numpy(dtype=float),
+#             group["discharge_cms"].to_numpy(dtype=float),
+#         )
+
+#     results = []
+#     for row in bridge_pnts.itertuples():
+#         hydro_id = row.HydroID
+#         if hydro_id not in hydro_table_lookup:
+#             results.append((np.nan, np.nan))
+#             continue
+
+#         stages = (float(row.threshold_hand), float(row.threshold_hand_75))
+#         discharge_vals = flow_lookup(stages, hydro_id, hydro_table_lookup)
+#         results.append(tuple(discharge_vals))
+
+#     bridge_pnts[["threshold_discharge", "threshold_discharge75"]] = pd.DataFrame(
+#         results,
+#         index=bridge_pnts.index,
+#         columns=["threshold_discharge", "threshold_discharge75"],
+#     )
+
+#     # Convert stages and dischrages to ft and cfs respectively
+#     print("Here 2 in flows_from_hydrotable")
+    
+#     bridge_pnts['threshold_hand_ft'] = bridge_pnts['threshold_hand'] * 3.28084
+#     bridge_pnts['threshold_hand_75_ft'] = bridge_pnts['threshold_hand_75'] * 3.28084
+#     bridge_pnts['threshold_discharge_cfs'] = bridge_pnts['threshold_discharge'] * 35.3147
+#     bridge_pnts['threshold_discharge_75_cfs'] = bridge_pnts['threshold_discharge75'] * 35.3147
+
+#     print("Here 3 in flows_from_hydrotable")    
+
+#     return bridge_pnts
 
 
 if __name__ == "__main__":

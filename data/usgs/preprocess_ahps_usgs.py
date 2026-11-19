@@ -377,7 +377,7 @@ def preprocess_usgs(source_dir, destination, reference_raster):
             # Add field with NAVD88 elevation
             rating_curve['elevation_navd88'] = rating_curve['stage'] + datum88
             # sort inundation grids in ascending order based on stage
-            df.sort_values(by='elevation', ascending=True, inplace=True)
+            df = df.sort_values(by='elevation', ascending=True)
             # interpolate based on stage (don't need elevation because we have stage of floodgrid)
             df['flow'] = np.interp(
                 df['elevation'],
@@ -488,14 +488,13 @@ def preprocess_usgs(source_dir, destination, reference_raster):
             attributes['state'] = metadata['nws_data']['state']
             attributes['huc'] = huc
             # Rename and Reorder columns
-            attributes.rename(
+            attributes = attributes.rename(
                 columns={
                     'path': 'grid_name',
                     'flow_source': 'grid_flow_source',
                     'stage': 'grid_stage',
                     'elevation': 'grid_elev_navd88',
-                },
-                inplace=True,
+                }
             )
             attributes = attributes[
                 [

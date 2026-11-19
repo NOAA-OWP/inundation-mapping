@@ -83,7 +83,6 @@ echo "---- Started: `date -u`"
 source ${srcDir}/bash_functions.env
 . $projectDir/fim_pre_processing.sh "$@"
 
-
 process_wb_file=$projectDir/fim_process_huc.sh
 
 pipeline_start_time=`date +%s`
@@ -107,16 +106,14 @@ else
     fi
 fi
 
+wait
+sync
 echo "---- Unit (HUC) processing is complete"
 date -u
 Calc_Duration "Duration : " $pipeline_start_time ""
 echo "---------------------------------------------------"
 
 ## POST PROCESSING
-
-# Remove run from the fim_temp directory
-rm -df $workDir/$runName
-
 # Pipe into post processing
 ${projectDir}/fim_post_processing.sh -n $runName
 

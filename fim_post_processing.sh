@@ -148,6 +148,7 @@ wait
 
 ## ===============================
 ## if fails, it might be due to all hucs failing, check post_processing.log
+## Let is actually fail if there are no hucs
 l_echo $startDiv"Start branch aggregation" $pp_log_file_name
 python3 $srcDir/aggregate_branch_lists.py -d $outputDestDir \
     -f 'branch_ids.csv' -o $fim_inputs > >(tee -a $pp_log_file_name) 2> >(tee -a $pp_error_log_file_name >&2)

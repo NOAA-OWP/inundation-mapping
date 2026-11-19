@@ -281,8 +281,8 @@ def __inundate_gms_generator(
                     raise ValueError("Missing expected column 'precalb_discharge_cms' in hydrotable.")
                 missing_count = hydro_table_all["precalb_discharge_cms"].isna().sum()
                 if missing_count > 0:
-                    hydro_table_all["precalb_discharge_cms"].fillna(
-                        hydro_table_all["discharge_cms"], inplace=True
+                    hydro_table_all["precalb_discharge_cms"] = hydro_table_all["precalb_discharge_cms"].fillna(
+                        hydro_table_all["discharge_cms"]
                     )
 
             if hydro_table_huc is not None and s3_or_local_isfile(hydro_table_huc):

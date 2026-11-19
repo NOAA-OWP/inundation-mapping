@@ -255,7 +255,7 @@ def split_roads(gdf_roads, catchment_path, file_logger, screen_queue, task_id):
         gdf_roads_splitted = gpd.overlay(gdf_roads, catchments_df[["ID", "geometry"]], how="intersection")
 
         if not gdf_roads_splitted.empty:
-            gdf_roads_splitted.rename(columns={"ID": "catchment_id"}, inplace=True)
+            gdf_roads_splitted = gdf_roads_splitted.rename(columns={"ID": "catchment_id"})
             gdf_roads_splitted["osmid_catchid"] = (
                 gdf_roads_splitted["osmid"].astype(str) + "_" + gdf_roads_splitted["catchment_id"].astype(str)
             )

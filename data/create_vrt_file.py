@@ -7,6 +7,9 @@ from datetime import datetime, timezone
 
 from osgeo import gdal
 
+# Force the entire suite to throw standard catchable Python errors
+gdal.UseExceptions()
+
 from src.utils.shared_functions import FIM_Helpers as fh
 
 

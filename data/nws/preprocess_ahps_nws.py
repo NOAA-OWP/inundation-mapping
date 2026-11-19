@@ -240,7 +240,7 @@ def preprocess_nws(source_dir, destination, reference_raster):
             # Add a stage column using the datum (in NAVD88). Stage is rounded to the nearest 0.1 ft.
             df['stage'] = round(df['elevation'] - df['datum88'], 1)
             # Sort stage in ascending order
-            df.sort_values(by='elevation', ascending=True, inplace=True)
+            df = df.sort_values(by='elevation', ascending=True)
             # Interpolate flow from the rating curve using the elevation_navd88 values, if value is above or below the rating curve assign nan.
             df['flow'] = np.interp(
                 df['elevation'],
@@ -380,14 +380,13 @@ def preprocess_nws(source_dir, destination, reference_raster):
             attributes['state'] = metadata['nws_data']['state']
             attributes['huc'] = huc
             # Rename and Reorder columns
-            attributes.rename(
+            attributes = attributes.rename(
                 columns={
                     'path': 'grid_name',
                     'flow_source': 'grid_flow_source',
                     'stage': 'grid_stage',
                     'elevation': 'grid_elev_navd88',
-                },
-                inplace=True,
+                }
             )
             attributes = attributes[
                 [

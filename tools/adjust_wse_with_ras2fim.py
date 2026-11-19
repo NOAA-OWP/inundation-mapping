@@ -11,6 +11,15 @@ from numpy import interp
 
 from src.utils.io import write_geodataframe
 
+# TODO: Oct 2026: This tool appears to be still WIP, but if it becomes used, it will need some redesign
+# It has embedded Pools with hardcoded workers and some inefficencies.
+# such as:
+#   - When using GeoDataframes (not Dataframes), it is much faster to use itertuples, then row.Index
+#     instead of iterrows().
+#   - Consider changing this so it is not a class but standard python functions. Creating classes has overhead
+#     and only has value if you plan to extend or inherit the class. Sometimes if you have a very large number
+#     of properties in the args, it may make sense, but most of the time, there are faster ways than classes
+#   - There are some opportunites for lambda or comprehension.
 
 def get_ras2fim_discharge(args):
     ras_rating_with_stage, this_WSE_base_error, this_point_fid_xs = args
@@ -109,7 +118,7 @@ class adjust_wse_with_ras2fim:
         HAND_SRC_temp = HAND_SRC[HAND_SRC['stage'] != 0]
 
         HAND_first_q = HAND_SRC_temp.groupby("HydroID")[self.hand_discharge_type].min().reset_index()
-        HAND_first_q.rename(columns={self.hand_discharge_type: "HAND_first_q"}, inplace=True)
+        HAND_first_q = HAND_first_q.rename(columns={self.hand_discharge_type: "HAND_first_q"})
 
         ras_points_with_rc = ras_points_with_rc.merge(HAND_first_q, on='HydroID')
 
@@ -204,9 +213,8 @@ class adjust_wse_with_ras2fim:
             - ras_points_with_rc["Adjusted_HAND_%s_wse" % flow_intensity]
         )
 
-        ras_points_with_rc.drop(
-            columns=["Adjusted_HAND_%s_stage" % flow_intensity, "Original_HAND_%s_stage" % flow_intensity],
-            inplace=True,
+        ras_points_with_rc = ras_points_with_rc.drop(
+            columns=["Adjusted_HAND_%s_stage" % flow_intensity, "Original_HAND_%s_stage" % flow_intensity]
         )
 
         return ras_points_with_rc
@@ -305,12 +313,12 @@ if __name__ == '__main__':
     HydroIDs_Adjusted_Q = HydroIDs_Adjusted_Q[HydroIDs_Adjusted_Q['Q_HydroId_Median'] > 0]
 
     Orig_HAND_SRC = HAND_SRC.copy()
-    Orig_HAND_SRC.rename(columns={hand_discharge_type: 'original_%s' % hand_discharge_type}, inplace=True)
+    Orig_HAND_SRC = Orig_HAND_SRC.rename(columns={hand_discharge_type: 'original_%s' % hand_discharge_type})
 
     updated_HAND_SRC = Orig_HAND_SRC.merge(HydroIDs_Adjusted_Q, on='HydroID', how='left')
 
     # assign zero for the hydroids that do not have any ras points
-    updated_HAND_SRC['Q_HydroId_Median'].fillna(0, inplace=True)
+    updated_HAND_SRC['Q_HydroId_Median'] = updated_HAND_SRC['Q_HydroId_Median'].fillna(0)
 
     updated_HAND_SRC[hand_discharge_type] = (
         updated_HAND_SRC['original_%s' % hand_discharge_type] + updated_HAND_SRC['Q_HydroId_Median']

@@ -209,8 +209,7 @@ def generate_rating_curve_metrics(args):
             # Add stream order
             stream_orders = hydrotable.filter(items=['location_id', 'order_']).drop_duplicates()
             rating_curves = rating_curves.merge(stream_orders, on='location_id')
-            rating_curves['order_'].fillna(0, inplace=True)
-            rating_curves['order_'] = rating_curves['order_'].astype('int')
+            rating_curves['order_'] = rating_curves['order_'].fillna(0).astype('int')
 
             # NWM recurr intervals
             recurr_intervals = ("2", "5", "10", "25", "50")
@@ -1117,7 +1116,7 @@ def create_static_gpkg(output_dir, output_gpkg, agg_recurr_stats_table, gages_gp
     write_geodataframe(usgs_gages, output_file, index=False)
 
     # Create figure
-    usgs_gages.replace(np.inf, np.nan, inplace=True)  # replace inf with nan for plotting
+    usgs_gages = usgs_gages.replace(np.inf, np.nan)  # replace inf with nan for plotting
     fig, ax = plt.subplots(2, 2, figsize=(18, 10))
 
     # Bin data

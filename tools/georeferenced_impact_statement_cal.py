@@ -215,7 +215,7 @@ def process_impact_statement(huc_path, impact_statement_dir, NWSLID, huc):
             slope = np.array(target_hid['SLOPE'])
             new_Q = (1 / new_roughness) * area * (h_radius ** (2 / 3)) * slope ** (1 / 2)
             stage_column = target_hid['stage']
-            stage_column.reset_index(inplace=True, drop=True)
+            stage_column = stage_column.reset_index(drop=True)
             stage_column = stage_column.to_numpy()
             catchment_array = np.full(len(new_Q), catchment)
             branch_array = np.full(len(new_Q), branch)

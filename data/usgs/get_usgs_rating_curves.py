@@ -814,10 +814,9 @@ def __attrib_mainstems_filter_sites(sites_gdf, all_rating_curves, site_status_df
     '''
 
     # Rename columns and add attribute indicating if rating curve exists
-    sites_gdf.rename(columns={'nwm_feature_id': 'feature_id', 'usgs_site_code': 'location_id'}, inplace=True)
+    sites_gdf = sites_gdf.rename(columns={'nwm_feature_id': 'feature_id', 'usgs_site_code': 'location_id'})
     sites_with_data = pd.DataFrame({'location_id': all_rating_curves['location_id'].unique(), 'curve': 'yes'})
-    sites_gdf = sites_gdf.merge(sites_with_data, on='location_id', how='left')
-    sites_gdf.fillna({'curve': 'no'}, inplace=True)
+    sites_gdf = sites_gdf.merge(sites_with_data, on='location_id', how='left').fillna({'curve': 'no'})
 
     # Import mainstems segments to be used in run_by_unit.sh
     ms_df = gpd.read_file(NWM_FLOWS_MS)

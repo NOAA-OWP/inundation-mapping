@@ -59,11 +59,10 @@ def bathy_rc_lookup(
             modified_src_base['SurfaceArea (m2)'].shift(1)
         )
         ## Mask SA_div when Stage = 0 or when the SA_div value (n / n-1) is > threshold value (i.e. 10x)
-        modified_src_base['SA_div'].mask(
+        modified_src_base['SA_div'] = modified_src_base['SA_div'].mask(
             (modified_src_base['Stage'] == 0)
             | (modified_src_base['SA_div'] < sa_ratio_flag)
-            | (modified_src_base['SurfaceArea (m2)'] == 0),
-            inplace=True,
+            | (modified_src_base['SurfaceArea (m2)'] == 0)
         )
         ## Create new df to filter and groupby HydroID
         find_thalweg_notch = modified_src_base[['HydroID', 'Stage', 'SurfaceArea (m2)', 'SA_div']]
@@ -109,9 +108,8 @@ def bathy_rc_lookup(
         ## filter out stage = 0 rows in SRC (assuming geom at stage 0 is not a valid channel geom)
         output_bathy = output_bathy[output_bathy['Stage'] > 0]
         ## filter SRC rows identified as Thalweg burned
-        output_bathy['Top Width Diff (m)'].mask(
-            output_bathy['Stage'] <= output_bathy['Thalweg_burn_elev'], inplace=True
-        )
+        output_bathy['Top Width Diff (m)'] = output_bathy['Top Width Diff (m)'].mask(
+            output_bathy['Stage'] <= output_bathy['Thalweg_burn_elev'])
         ## ignore hydroid/featureid that did not have a valid Bankfull lookup (areas outside CONUS - i.e. Canada)
         output_bathy = output_bathy[output_bathy['BANKFULL_XSEC_AREA (m2)'].notnull()]
         ## ignore SRC entries with 0 surface area --> handles input SRC artifacts/errors in Great Lakes region
@@ -147,20 +145,20 @@ def bathy_rc_lookup(
             output_bathy['BANKFULL_XSEC_AREA (m2)'] / output_bathy['XS Area (m2)']
         ).round(2)
         ## masking negative XS Area Diff and XS Area = 0
-        output_bathy['XS Bankfull Area Ratio'].mask(
-            (output_bathy['XS Area Diff (m2)'] < 0) | (output_bathy['XS Area (m2)'] == 0), inplace=True
+        output_bathy['XS Bankfull Area Ratio'] = output_bathy['XS Bankfull Area Ratio'].mask(
+            (output_bathy['XS Area Diff (m2)'] < 0) | (output_bathy['XS Area (m2)'] == 0)
         )
         ## masking negative XS Area Diff and XS Area = 0
-        output_bathy['XS Area Diff (m2)'].mask(
-            (output_bathy['XS Area Diff (m2)'] < 0) | (output_bathy['XS Area (m2)'] == 0), inplace=True
+        output_bathy['XS Area Diff (m2)'] = output_bathy['XS Area Diff (m2)'].mask(
+            (output_bathy['XS Area Diff (m2)'] < 0) | (output_bathy['XS Area (m2)'] == 0)
         )
         ## remove bogus values where bankfull area ratio > threshold --> 10x (topwidth crosswalk issues or bad bankfull regression data points??)
-        output_bathy['XS Area Diff (m2)'].mask(
-            output_bathy['XS Bankfull Area Ratio'] > bankful_xs_ratio_flag, inplace=True
+        output_bathy['XS Area Diff (m2)'] = output_bathy['XS Area Diff (m2)'].mask(
+            output_bathy['XS Bankfull Area Ratio'] > bankful_xs_ratio_flag
         )
         ## remove bogus values where bankfull area ratio > threshold --> 10x (topwidth crosswalk issues or bad bankfull regression data points??)
-        output_bathy['XS Bankfull Area Ratio'].mask(
-            output_bathy['XS Bankfull Area Ratio'] > bankful_xs_ratio_flag, inplace=True
+        output_bathy['XS Bankfull Area Ratio'] = output_bathy['XS Bankfull Area Ratio'].mask(
+            output_bathy['XS Bankfull Area Ratio'] > bankful_xs_ratio_flag
         )
         ## Print XS Area Diff statistics
         print(
@@ -182,8 +180,8 @@ def bathy_rc_lookup(
         ## Bin XS Bankfull Area Ratio by stream order
         stream_order_bathy_ratio = output_bathy[['order_', 'Stage', 'XS Bankfull Area Ratio']].copy()
         ## mask stage values when XS Bankfull Area Ratio is null (need to filter to calculate the median for valid values below)
-        stream_order_bathy_ratio['Stage'].mask(
-            stream_order_bathy_ratio['XS Bankfull Area Ratio'].isnull(), inplace=True
+        stream_order_bathy_ratio['Stage'] = stream_order_bathy_ratio['Stage'].mask(
+            stream_order_bathy_ratio['XS Bankfull Area Ratio'].isnull()
         )
         stream_order_bathy_ratio = stream_order_bathy_ratio.groupby('order_').agg(
             count=('XS Bankfull Area Ratio', 'count'),
@@ -200,11 +198,11 @@ def bathy_rc_lookup(
             stream_order_bathy_ratio_count, how='left', on='order_'
         )
         ## Fill any remaining null values: mean_xs_area_ratio --> 1 median_stage_bankfull --> 0
-        stream_order_bathy_ratio['mean_xs_area_ratio'].mask(
-            stream_order_bathy_ratio['mean_xs_area_ratio'].isnull(), 1, inplace=True
+        stream_order_bathy_ratio['mean_xs_area_ratio'] = stream_order_bathy_ratio['mean_xs_area_ratio'].mask(
+            stream_order_bathy_ratio['mean_xs_area_ratio'].isnull(), 1
         )
-        stream_order_bathy_ratio['median_stage_bankfull'].mask(
-            stream_order_bathy_ratio['median_stage_bankfull'].isnull(), 0, inplace=True
+        stream_order_bathy_ratio['median_stage_bankfull'] = stream_order_bathy_ratio['median_stage_bankfull'].mask(
+            stream_order_bathy_ratio['median_stage_bankfull'].isnull(), 0
         )
 
         ## Combine SRC df and df of XS Area for each hydroid and matching stage and order from bins above
@@ -218,10 +216,9 @@ def bathy_rc_lookup(
         ).abs()
 
         ## If median_stage_bankfull is null then set lookup_stage_diff to 999 at stage 0 (handles errors for channels outside CONUS)
-        modified_src_base['lookup_stage_diff'].mask(
+        modified_src_base['lookup_stage_diff'] = modified_src_base['lookup_stage_diff'].mask(
             (modified_src_base['Stage'] == 0) & (modified_src_base['median_stage_bankfull'].isnull()),
-            999,
-            inplace=True,
+            999
         )
 
         ## Groupby HydroID again and find min of lookup_stage_diff
@@ -251,13 +248,12 @@ def bathy_rc_lookup(
             xs_area_hydroid_lookup['bathy_calc_xs_area'] / xs_area_hydroid_lookup['BANKFULL_XSEC_AREA (m2)']
         )
         ## Set bath_cal_xs_area to 0 if the bankfull_XS_ratio_flag is > threshold --> 5x (assuming too large of difference to be a reliable bankfull calculation)
-        xs_area_hydroid_lookup['bathy_calc_xs_area'].mask(
+        xs_area_hydroid_lookup['bathy_calc_xs_area'] = xs_area_hydroid_lookup['bathy_calc_xs_area'].mask(
             xs_area_hydroid_lookup['bankfull_XS_ratio_flag'] > bathy_xsarea_flag,
             xs_area_hydroid_lookup['BANKFULL_XSEC_AREA (m2)'],
-            inplace=True,
         )
-        xs_area_hydroid_lookup['bathy_calc_xs_area'].mask(
-            xs_area_hydroid_lookup['bankfull_XS_ratio_flag'].isnull(), 0, inplace=True
+        xs_area_hydroid_lookup['bathy_calc_xs_area'] = xs_area_hydroid_lookup['bathy_calc_xs_area'].mask(
+            xs_area_hydroid_lookup['bankfull_XS_ratio_flag'].isnull(), 0
         )
 
         ## Merge bathy_calc_xs_area to the modified_src_base
@@ -281,13 +277,12 @@ def bathy_rc_lookup(
         modified_src_base['HydraulicRadius (m)_bathy_adj'] = (
             modified_src_base['WetArea (m2)_bathy_adj'] / modified_src_base['WettedPerimeter (m)']
         )
-        modified_src_base['HydraulicRadius (m)_bathy_adj'].fillna(0, inplace=True)
+        modified_src_base['HydraulicRadius (m)_bathy_adj'] = modified_src_base['HydraulicRadius (m)_bathy_adj'].fillna(0)
         ## mask out negative top width differences (avoid thalweg burn notch)
-        modified_src_base['HydraulicRadius (m)_bathy_adj'].mask(
+        modified_src_base['HydraulicRadius (m)_bathy_adj'] = modified_src_base['HydraulicRadius (m)_bathy_adj'].mask(
             (modified_src_base['HydraulicRadius (m)_bathy_adj'] > thal_hyd_radius_flag)
             & (modified_src_base['Stage'] < thal_stg_limit),
             0,
-            inplace=True,
         )
 
         ## Calculate Q using Manning's equation
@@ -298,12 +293,12 @@ def bathy_rc_lookup(
             / modified_src_base['ManningN']
         )
         ## mask discharge values for stage = 0 rows in SRC (replace with 0) --> do we need SRC to start at 0??
-        modified_src_base['Discharge (m3s-1)'].mask(modified_src_base['Stage'] == 0, 0, inplace=True)
-        modified_src_base['Discharge (m3s-1)'].mask(
-            modified_src_base['Stage'] == modified_src_base['Thalweg_burn_elev'], 0, inplace=True
+        modified_src_base['Discharge (m3s-1)'] = modified_src_base['Discharge (m3s-1)'].mask(modified_src_base['Stage'] == 0, 0)
+        modified_src_base['Discharge (m3s-1)'] = modified_src_base['Discharge (m3s-1)'].mask(
+            modified_src_base['Stage'] == modified_src_base['Thalweg_burn_elev'], 0
         )
-        modified_src_base['Discharge (m3s-1)'].mask(
-            modified_src_base['Stage'] < modified_src_base['Thalweg_burn_elev'], -999, inplace=True
+        modified_src_base['Discharge (m3s-1)'] = modified_src_base['Discharge (m3s-1)'].mask(
+            modified_src_base['Stage'] < modified_src_base['Thalweg_burn_elev'], -999
         )
 
         ## Organize bathy calc output variables for csv

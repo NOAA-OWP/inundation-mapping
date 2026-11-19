@@ -317,8 +317,8 @@ def find_flood_magnitude_shapes(attributes_path, interpolated_flows_path, df_pol
         df_flows['stage'] = df_flows['stage'].astype(str)
 
         # Check for any NaN or empty values before merging and replace them with empty strings
-        df_valid['grid_stage'].fillna('', inplace=True)
-        df_flows['stage'].fillna('', inplace=True)
+        df_valid['grid_stage'] = df_valid['grid_stage'].fillna('')
+        df_flows['stage'] = df_flows['stage'].fillna('')
 
         if df_valid.empty:
             logging.warning(f"No valid entries found in the 'magnitude' column of {attributes_path}.")

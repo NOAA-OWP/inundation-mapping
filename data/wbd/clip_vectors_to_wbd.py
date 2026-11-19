@@ -78,6 +78,8 @@ def extend_outlet_streams(streams, wbd_buffered, wbd, landsea=None):
 
     levelpath_outlets = levelpath_outlets.explode(index_parts=False)
 
+    # Oct 2026: Consider changing this to itertuples is it much faster than iterrows for geodataframes.
+    # but only for GeoDataframes. Then use row.index (geometry.index in this case)
     for index, row in levelpath_outlets.iterrows():
         coords = [(coords) for coords in list(row['geometry'].coords)]
         levelpath_outlets.at[index, 'last'] = Point(coords[-1])
@@ -87,6 +89,8 @@ def extend_outlet_streams(streams, wbd_buffered, wbd, landsea=None):
         wbd_buffered = gpd.GeoDataFrame(data=wbd_buffered, geometry='geometry')
 
     errors = 0
+    # Oct 2026: Consider changing this to itertuples is it much faster than iterrows for geodataframes.
+    # but only for GeoDataframes. Then use row.index (geometry.index in this case)
     for index, row in levelpath_outlets.iterrows():
         levelpath_geom = row['last']
         nearest_point = nearest_points(levelpath_geom, wbd_buffered)
@@ -116,6 +120,9 @@ def extend_outlet_streams(streams, wbd_buffered, wbd, landsea=None):
         if landsea is not None and 'mainstem' in levelpath_outlets.columns:
             landsea_union = landsea.geometry.unary_union
             levelpath_outlets = levelpath_outlets[levelpath_outlets['mainstem'] == 1]
+
+            # Oct 2026: Consider changing this to itertuples is it much faster than iterrows for geodataframes.
+            # but only for GeoDataframes. Then use row.index (geometry.index in this case)
             for index, row in levelpath_outlets.iterrows():
                 endpoint = Point(row['geometry'].coords[-1])
                 nearest_point_landsea = nearest_points(endpoint, landsea_union)[1]
@@ -402,7 +409,7 @@ def subset_vector_layers(
             nwm_streams = nwm_streams.drop(columns=['index_right'])
 
         # NWM can have duplicate records, but appear to always be identical duplicates
-        nwm_streams.drop_duplicates(subset="ID", keep="first", inplace=True)
+        nwm_streams = nwm_streams.drop_duplicates(subset="ID", keep="first")
 
         streams_in_wbd = gpd.sjoin(nwm_streams, wbd)
         ids_in_wbd = set(streams_in_wbd['ID'])

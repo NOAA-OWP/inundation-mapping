@@ -22,65 +22,73 @@ def convert_to_int16(branch_dir: str):
         Directory containing hydrofabric data
 
     """
+    try:
+        hydroid_prefix = None
 
-    hydroid_prefix = None
+        # Get gage watershed catchments and rems for the appropriate branch (or * for all branches)
+        catchments = glob(f"{branch_dir}/gw_catchments_reaches_filtered_addedAttributes_*.tif")
+        rems = glob(f"{branch_dir}/rem_zeroed_masked_*.tif")
 
-    # Get gage watershed catchments and rems for the appropriate branch (or * for all branches)
-    catchments = glob(f"{branch_dir}/gw_catchments_reaches_filtered_addedAttributes_*.tif")
-    rems = glob(f"{branch_dir}/rem_zeroed_masked_*.tif")
+        hydroid_prefix_path = os.path.join(branch_dir, 'hydroid_prefix.txt')
 
-    hydroid_prefix_path = os.path.join(branch_dir, 'hydroid_prefix.txt')
+        # Iterate through each pair of gw catchments and rems
 
-    # Iterate through each pair of gw catchments and rems
-    for c, r in zip(catchments, rems):
+        # Break it up as this assumes the same number of catchments as rems
+        # for c, r in zip(catchments, rems):
 
-        catchment = rxr.open_rasterio(c)
+        for c in catchments:
+            with rxr.open_rasterio(c) as catchment:
 
-        # Check if converting data is possible
-        if (np.unique(catchment).shape[0] > 32766) | (len(str(int(np.max(catchment)))) > 8):
+                # Check if converting data is possible
+                if (np.unique(catchment).shape[0] > 32766) or (len(str(int(np.max(catchment)))) > 8):
 
-            print(
-                "Catchment raster has either more than 32766 unique HydroIDs or has HydroIDs with more",
-                "than 8 digits.  Please adjust data accordingly before running Int16 data conversion.",
-            )
-            sys.exit(FIM_exit_codes.CANNOT_CONVERT_HYDROIDS_TO_INT16.value)
+                    print(
+                        "Catchment raster has either more than 32766 unique HydroIDs or has HydroIDs with more",
+                        "than 8 digits.  Please adjust data accordingly before running Int16 data conversion.",
+                    )
+                    sys.exit(FIM_exit_codes.CANNOT_CONVERT_HYDROIDS_TO_INT16.value)
 
-        if hydroid_prefix is None:
-            hydroid_prefix = str(int(np.floor(catchment.max() / 10000)))
+                if hydroid_prefix is None:
+                    hydroid_prefix = str(int(np.floor(catchment.max() / 10000)))
 
-        # Save original as another file to be deleted by deny list or saved
-        catchment.rio.to_raster(c.replace('.tif', '_int32.tif'), compress="LZW", tiled=True)
+                # Save original as another file to be deleted by deny list or saved
+                catchment.rio.to_raster(c.replace('.tif', '_int32.tif'), compress="LZW", tiled=True)
 
-        # Preserve the last four digits only since the first four of HydroIDs are ubiquitous amongst all HUC08
-        nodata, crs = catchment.rio.nodata, catchment.rio.crs
-        catchment.data = xr.where(catchment != nodata, catchment - int(hydroid_prefix) * 10000, catchment)
+                # Preserve the last four digits only since the first four of HydroIDs are ubiquitous amongst all HUC08
+                nodata, crs = catchment.rio.nodata, catchment.rio.crs
+                catchment.data = xr.where(catchment != nodata, catchment - int(hydroid_prefix) * 10000, catchment)
 
-        catchment = catchment.astype(np.int16)
-        catchment.rio.write_nodata(nodata, inplace=True)
-        catchment.rio.write_crs(crs, inplace=True)
+                catchment = catchment.astype(np.int16)
+                catchment.rio.write_nodata(nodata, inplace=True)
+                catchment.rio.write_crs(crs, inplace=True)
 
-        catchment.rio.to_raster(c, dtype=np.int16, compress="LZW", tiled=True)
+                catchment.rio.to_raster(c, dtype=np.int16, compress="LZW", tiled=True)
 
-        if not os.path.exists(hydroid_prefix_path):
-            with open(hydroid_prefix_path, 'w') as file:
-                file.write(hydroid_prefix)
+                if not os.path.exists(hydroid_prefix_path):
+                    with open(hydroid_prefix_path, 'w') as file:
+                        file.write(hydroid_prefix)
 
-        rem = rxr.open_rasterio(r)
+        for r in rems:
+            with rxr.open_rasterio(r) as rem:
 
-        # Save original as another file to be deleted by deny list or saved
-        rem.rio.to_raster(r.replace('.tif', '_float32.tif'), compress="LZW", tiled=True)
-        nodata, crs = rem.rio.nodata, rem.rio.crs
+                # Save original as another file to be deleted by deny list or saved
+                rem.rio.to_raster(r.replace('.tif', '_float32.tif'), compress="LZW", tiled=True)
+                nodata, crs = rem.rio.nodata, rem.rio.crs
 
-        # Preserve the second highest possible number for int16, use the highest number for nodata
-        rem.data = xr.where(rem > 32.766, 32.766, rem)
-        rem.data = xr.where(rem >= 0, np.round(rem * 1000), 32767)
+                # Preserve the second highest possible number for int16, use the highest number for nodata
+                rem.data = xr.where(rem > 32.766, 32.766, rem)
+                rem.data = xr.where(rem >= 0, np.round(rem * 1000), 32767)
 
-        rem = rem.astype(np.int16)
-        rem.rio.write_nodata(32767, inplace=True)
-        rem.rio.write_crs(crs, inplace=True)
+                rem = rem.astype(np.int16)
+                rem.rio.write_nodata(32767, inplace=True)
+                rem.rio.write_crs(crs, inplace=True)
 
-        rem.rio.to_raster(r, dtype=np.int16, compress="LZW", tiled=True)
+                rem.rio.to_raster(r, dtype=np.int16, compress="LZW", tiled=True)
 
+
+    except Exception:
+        print(traceback.format_exc())
+        sys.exit(1)
 
 if __name__ == "__main__":
 
@@ -107,3 +115,4 @@ if __name__ == "__main__":
 
     except Exception:
         print("The following error has occurred:\n", traceback.format_exc())
+        sys.exit(1)  # Stop processing.
