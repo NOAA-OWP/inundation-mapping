@@ -11,7 +11,6 @@ from osgeo import gdal
 
 from src.utils.shared_functions import FIM_Helpers as fh
 
-
 gdal.UseExceptions()
 
 
@@ -53,10 +52,10 @@ def _validate_shared_ancestor(vrt_output_dir: str, src_directories: list[str]) -
 def create_vrt_file(
     src_directories,
     vrt_basename,
-    srcNodata=-999999.0,
-    VRTNodata=-999999.0,
     vrt_output_dir=None,
     vrt_suffix=None,
+    srcNodata=-999999.0,
+    VRTNodata=-999999.0,
 ):
     """
     Takes all .tif files in one or more given directories, generates a single

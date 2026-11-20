@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 
 import src.utils.shared_functions as sf
-from data.elevation.create_vrt_file import create_vrt_file
+from src.utils.create_vrt_file import create_vrt_file
 from src.utils.polygonize_raster import polygonize_extent
 from src.utils.shared_functions import FIM_Helpers as fh
 
@@ -23,7 +23,13 @@ def valid_dir(path_str):
 
 
 def create_domain_vrt(
-    input_dirs, vrt_basename, suffix_str, output_dir=None, number_of_jobs=1, run_polygonize=False
+    input_dirs,
+    vrt_basename,
+    suffix_str,
+    output_dir=None,
+    number_of_jobs=1,
+    run_polygonize=False,
+    domain_basename="DEM_Domain",
 ):
     # Fallback to the first input directory if unspecified
     if not output_dir:
@@ -41,7 +47,7 @@ def create_domain_vrt(
         raise FileNotFoundError(f"No .tif files found in specified directories: {input_dirs}")
 
     # 2. Build domain parquet output file path
-    domain_file_name = f"DEM_Domain_{suffix_str}.parquet"
+    domain_file_name = f"{domain_basename}_{suffix_str}.parquet"
     vrt_file_name = f"{vrt_basename}_{suffix_str}.vrt"
     dem_domain_output_path = os.path.join(output_dir, domain_file_name)
 
@@ -57,10 +63,10 @@ def create_domain_vrt(
 
 def main():
     """
-    Creates a VRT of the DEM(s) in the input folder(s) and DEM_domain.parquet polygon of the spatial extent.
+    Creates a VRT of the raster(s) in the input folder(s) and GeoParquet polygon of the spatial extent.
 
     Example usage:
-    python3 /foss_fim/data/elevation/create_domain_vrt.py \
+    python3 /foss_fim/src/utils/create_domain_vrt.py \
         -i /data/inputs/dems/3dep_dems/10m_SouthAlaska/20260619 \
            /data/inputs/dems/ifsar_dtm/10m_NorthAlaska/20261027 \
         -o /data/inputs/dems/vrt \
@@ -99,6 +105,14 @@ def main():
         help='If True, also generate the DEM_Domain GeoParquet file.',
         required=False,
     )
+    parser.add_argument(
+        '-d',
+        '--domain_basename',
+        type=str,
+        required=False,
+        help='Optional domain basename for the GeoParquet file (default: DEM_Domain)',
+        default='DEM_Domain',
+    )
 
     args = parser.parse_args()
 
@@ -109,6 +123,7 @@ def main():
         number_of_jobs=args.number_of_jobs,
         run_polygonize=args.run_polygonize,
         vrt_basename=args.vrt_basename,
+        domain_basename=args.domain_basename,
     )
 
 
