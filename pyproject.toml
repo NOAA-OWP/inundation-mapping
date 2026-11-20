@@ -95,4 +95,5 @@ per-file-ignores = """
     tools/run_test_case.py: E711
     tools/tools_shared_functions.py: F821, F841, E711
     data/usgs/get_usgs_rating_curves.py: F841
+    workflows/*: E402
     """

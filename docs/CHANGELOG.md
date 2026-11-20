@@ -1,6 +1,62 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.10.x.x - 2026-07-27 - [PR#1899](https://github.com/NOAA-OWP/inundation-mapping/pull/1899)
+
+Adds three new HUC8s in Alaska for Fairbanks (`19080306` and `19080307`) and Juneau (`19010301`). These data are derived from IFSAR 5-meter DTMs acquired from the State of Alaska Division of Geological and Geophysical Surveys (DGGS) and vector features (flowpaths, catchments, and lakes) from GEOGLOWS. These data are combined into a subregion called "North Alaska" to differentiate them from the "South Alaska" subregion around Anchorage based on DEMs from 3DEP and NHDPlusHR vector data. The two subregion datasets are combined into one "Alaska" region where possible. This naming convention has been propagated through the codebase as well as the EFS inputs. To generate the new inputs, preclipped vectors from `20260820` were duplicated and renamed `20260925`. New versions of data were created for the three new HUCs and copied into their respective folders. Note that because these new HUCs are outside of the NWM domain, NWM recurrence flows are not available and FIMpacts cannot be generated yet.
+
+Additionally, extensive modularization and reorganization of preprocessing scripts and input data occurred:
+
+- Orchestration & Workflow Separation: Relocated top-level controller scripts from `data/` to `workflows/data/` (`preprocess_NorthAlaska.py` and `preprocess_PacificIslands.py`). Decoupled embedded logic into distinct, modular 4-stage pipelines (DEM, WBD, Hydrography, NFHL) with execution flags (`--skip-dem`, `--skip-wbd`, `--skip-hydro`, `--skip-nfhl`) to enable independent step execution and targeted dry-runs.
+
+- Elevation Preprocessing Modularization: Extracted raster extraction, reprojection, and unit conversion (cm to m) for Pacific Island NED snapshots into a standalone module (`data/elevation/preprocess_nhdplus_ned.py`), aligning with the existing DGGS IFSAR module (`data/elevation/preprocess_dggs_ifsar.py`).
+
+- Hydrography Vector Decoupling: Separated hydrography processing from regional boundaries and orchestrators. Created dedicated modules for Alaska reference fabric hydrography (`data/hydrography/preprocess_nhdplus_ak.py`) and Pacific Island snapshots (`data/hydrography/preprocess_nhdplus_pi.py`), standardizing layer naming (`ID`, `to`, `order_`, `Lake`), coastline sink routing, and headwater derivation.
+
+- FEMA NFHL Consolidation: Merged duplicate download routines and entry points into a consolidated module at `data/hazards/get_fema_nfhl.py`, providing both the high-level programmatic interface (`fetch_nfhl_by_hucs`) and the multiprocessing worker engine (`download_nfhl_wrapper`) with unified output routing.
+
+- VRT & DEM Domain Tooling: Standardized `/data/inputs/dems/vrt` as the single centralized directory for all regional DEM VRTs, pit-fill VRTs, and `DEM_Domain_*.parquet` polygon extent files. Created `src/utils/create_domain_vrt.py` as a multi-directory aggregator capable of stitching disparate source rasters across regions (such as North and South Alaska) into unified domain layers.
+
+- Code Standards & Linting Configuration: Updated repository linting rules in `pyproject.toml` (`[tool.flake8] per-file-ignores = "workflows/*: E402"`).
+
+
+### Additions
+
+- `workflows/data/preprocess_NorthAlaska.py`: unzips, mosaics, and preprocesses IFSAR 5-meter DTM data to 10-meters
+
+### Changes
+
+- `.github/PULL_REQUEST_TEMPLATE.md`: fix spelling error
+- `config/huc_lists/full_huc_list.lst`: added new HUCs to full HUC list
+- `data/`
+    - `elevation/`
+        - `preprocess_dggs_ifsar.py`: preprocesses DEM data for North Alaska region
+        - `preprocess_nhdplus_ned.py preprocesses DEM data for Pacific Island region (extracted from `preprocess_Guam_and_AmericanSamoa.py`)
+    - `bridges/make_dem_dif_for_bridges.py`: updated to reflect new location of `create_vrt_file`
+    - `hazards/get_fema_nfhl.py`: update URL
+    - `watersheds/`
+        - `preprocess_wbd_ak.py` and `preprocess_wbd_pi.py`: moved from `data/wbd/preprocess_wbd.py` and updated for Alaska and Pacific Island regions, respectively
+    - `wbd/`
+        - `clip_vectors_to_wbd.py`: Updated to work with GEOGLOWS data
+        - `generate_pre_clip_fim_huc8.py`: Updated comments
+    `get_sample_data.py`: update subregion name(s)
+- `src/`
+    - `bash_variables.env`: Updated preclip date to `20261118` and updated new files/locations
+    - `run_huc.sh`: Handle missing pit_fill file and clean up
+    - `utils/`
+        - `create_domain_vrt.py`: Control script to run VRT (`create_vrt_file()`) and DEM domain creation (`polygonize_extent()`) for Alaska (combining NorthAlaska and SouthAlaska regions). Moved from `data/`.
+        - `create_vrt_file.py`: updated to produce VRTs from multiple folders and save output VRT to a specified location. Moved from `data/`.
+        - `polygonize_rasters.py`: Added `polygonize_extent()` to create DEM domain.
+- `tools/`
+    - `catfim/`
+        - `generate_categorical_fim_flows.py`: Added new HUCs
+        - `viz_categorical_fim.py`: Out of date -- note added. 
+    - `run_test_case.py`: Added lakes mask for new subregion
+- `workflows/data/preprocess_PacificIslands.py`: Stripped out component functions to separate scripts to create top-level orchestration script and removed creation of DEM domain polygon `__polygonize`. Moved from `data/nhdplus/preprocess_nhdplus.py`
+- `pyproject.toml`: Modified to allow `E402 module level import not at top of file` in workflow files
+
+<br/>
+
 ## v4.10.3.2 - 2026-11-06 - [PR##1946](https://github.com/NOAA-OWP/inundation-mapping/pull/1946)
 
 Bug fix for a missing `nhdplus_path` variable when running Guam in `data/nhdplus/preprocess_nhdplus.py`.

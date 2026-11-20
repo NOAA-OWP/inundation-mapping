@@ -28,11 +28,11 @@ load_dotenv(f'{srcDir}/bash_variables.env')
 load_dotenv(f'{projectDir}/config/params_template.env')
 
 output_filenames = {
-    "nwm_lakes": "nwm_lakes_proj_subset.gpkg",
+    'lakes': "nwm_lakes_proj_subset.gpkg",
     "nwm_streams": "nwm_subset_streams.gpkg",
     "nwm_headwaters": "nwm_headwater_points_subset.gpkg",
     "wbd_streams_buffer": "wbd_buffered_streams.gpkg",
-    "nwm_catchments": "nwm_catchments_proj_subset.gpkg",
+    'catchments': "nwm_catchments_proj_subset.gpkg",
     "levee_lines": "nld_subset_levees.gpkg",
     "levee_lines_burned": "3d_nld_subset_levees_burned.gpkg",
     "levee_protected_areas": "LeveeProtectedAreas_subset.gpkg",
@@ -46,9 +46,11 @@ def extend_outlet_streams(streams, wbd_buffered, wbd, landsea=None):
     """
     Extend outlet streams to nearest buffered WBD boundary
     """
+    errors = 0
 
     # Select only the streams that are outlets
     levelpath_outlets = streams[streams['to'] == 0]
+
     if 'index_right' in levelpath_outlets.columns:
         levelpath_outlets = levelpath_outlets.drop(columns=['index_right'])
     # levelpath_outlets_columns = [x for x in levelpath_outlets.columns]
@@ -56,6 +58,10 @@ def extend_outlet_streams(streams, wbd_buffered, wbd, landsea=None):
     # Select streams that intersect the WBD but not the WBD buffer
     # levelpath_outlets = levelpath_outlets.sjoin(wbd)[levelpath_outlets_columns]
     levelpath_outlets = levelpath_outlets.sjoin(wbd)
+
+    if levelpath_outlets.empty:
+        return streams, errors
+
     if 'index_right' in levelpath_outlets.columns:
         levelpath_outlets = levelpath_outlets.drop(columns=['index_right'])
     # levelpath_outlets = levelpath_outlets[levelpath_outlets_columns]
@@ -86,7 +92,6 @@ def extend_outlet_streams(streams, wbd_buffered, wbd, landsea=None):
         wbd_buffered['geometry'] = wbd_buffered.geometry.boundary
         wbd_buffered = gpd.GeoDataFrame(data=wbd_buffered, geometry='geometry')
 
-    errors = 0
     for index, row in levelpath_outlets.iterrows():
         levelpath_geom = row['last']
         nearest_point = nearest_points(levelpath_geom, wbd_buffered)
@@ -129,6 +134,9 @@ def extend_outlet_streams(streams, wbd_buffered, wbd, landsea=None):
     levelpath_outlets = levelpath_outlets.drop(columns=['last', 'nearest_point', 'nearest_point_wbd'])
 
     # Replace the streams in the original file with the extended streams
+    if levelpath_outlets.empty:
+        return streams, errors
+
     streams = streams[~streams['ID'].isin(levelpath_outlets['ID'])]
     streams = pd.concat([streams, levelpath_outlets], ignore_index=True)
 
@@ -162,8 +170,8 @@ def subset_vector_layers(
     huc_vars = get_huc_vars(huc)
     huc_CRS = huc_vars['crs']
     nwm_lakes = huc_vars['lakes']
-    nwm_catchments = huc_vars['nwm_catchments']
-    nld_lines = huc_vars['NLD']
+    nwm_catchments = huc_vars['catchments']
+    nld_lines = huc_vars['levees']
     nld_lines_preprocessed = huc_vars['levees_preprocessed']
     nwm_streams = huc_vars['streams']
     nwm_headwaters = huc_vars['headwaters']
@@ -182,9 +190,9 @@ def subset_vector_layers(
     #     wbd = wbd.drop(columns=['shape_Length', 'areasqkm'])
 
     # for copying, use shutil.copy2 to preserve the orignal files timestamps
-    if not preclipping_flags['nwm_lakes']:
-        src = os.path.join(copy_from_dir, huc, output_filenames['nwm_lakes'])
-        dst = os.path.join(huc_directory, output_filenames['nwm_lakes'])
+    if not preclipping_flags['lakes']:
+        src = os.path.join(copy_from_dir, huc, output_filenames['lakes'])
+        dst = os.path.join(huc_directory, output_filenames['lakes'])
         if os.path.exists(src):
             logging.info(f"Copying nwm_lakes for {huc} (from previous output).")
             shutil.copy2(src, dst)
@@ -207,10 +215,7 @@ def subset_vector_layers(
             for i in range(len(nwm_lakes_fill_holes.geoms)):
                 nwm_lakes.loc[i, 'geometry'] = nwm_lakes_fill_holes.geoms[i]
             write_geodataframe(
-                nwm_lakes,
-                os.path.join(huc_directory, output_filenames['nwm_lakes']),
-                index=False,
-                crs=huc_CRS,
+                nwm_lakes, os.path.join(huc_directory, output_filenames['lakes']), index=False, crs=huc_CRS
             )
         del nwm_lakes
 
@@ -264,9 +269,9 @@ def subset_vector_layers(
                 )
             del levee_protected_areas
 
-    if not preclipping_flags['nwm_catchments']:
-        src = os.path.join(copy_from_dir, huc, output_filenames['nwm_catchments'])
-        dst = os.path.join(huc_directory, output_filenames['nwm_catchments'])
+    if not preclipping_flags['catchments']:
+        src = os.path.join(copy_from_dir, huc, output_filenames['catchments'])
+        dst = os.path.join(huc_directory, output_filenames['catchments'])
         if os.path.exists(src):
             logging.info(f"Copying nwm_catchments for {huc} (from previous output).")
             shutil.copy2(src, dst)
@@ -277,12 +282,14 @@ def subset_vector_layers(
         logging.info(f"Clipping nwm_catchments for {huc}.")
         if os.path.exists(nwm_catchments):
             logging.info(f"Using nwm_catchments source for {huc}: {nwm_catchments}")
-            nwm_catchments = gpd.read_file(nwm_catchments, mask=wbd_buffer, engine="fiona")
+            nwm_catchments = gpd.read_file(nwm_catchments, engine="fiona")
+
+            nwm_catchments = nwm_catchments.clip(wbd_buffer)
 
             if len(nwm_catchments) > 0:
                 write_geodataframe(
                     nwm_catchments,
-                    os.path.join(huc_directory, output_filenames['nwm_catchments']),
+                    os.path.join(huc_directory, output_filenames['catchments']),
                     index=False,
                     crs=huc_CRS,
                 )
@@ -368,7 +375,7 @@ def subset_vector_layers(
         else:
             logging.info(f"-- No building parquet files for huc {huc}")
 
-    if not preclipping_flags['nwm_streams_headwater']:
+    if not preclipping_flags['streams_headwater']:
         for vector_item in ['nwm_streams', 'nwm_headwaters']:
             src = os.path.join(copy_from_dir, huc, output_filenames[vector_item])
             dst = os.path.join(huc_directory, output_filenames[vector_item])
@@ -389,8 +396,7 @@ def subset_vector_layers(
         logging.info(f"Using nwm_streams source for {huc}: {nwm_streams}")
         nwm_streams = gpd.read_file(nwm_streams, mask=wbd_buffer, engine="fiona")
 
-        if nwm_streams[nwm_streams['to'] == 0].empty:
-            nwm_streams.loc[~nwm_streams['to'].isin(nwm_streams['ID']), 'to'] = 0
+        nwm_streams.loc[~nwm_streams['to'].isin(nwm_streams['ID']), 'to'] = 0
 
         # NWM can have duplicate records, but appear to always be identical duplicates
         nwm_streams = nwm_streams.drop_duplicates(subset="ID", keep="first")
@@ -416,6 +422,8 @@ def subset_vector_layers(
                 logging.info(f"Landsea file provided but no landsea area found within wbd_buffer for {huc}")
                 landsea = None
             else:
+                # Dissolve landsea
+                landsea = landsea.dissolve()
                 logging.info(f"Clipping NWM Streams for {huc} to land areas")
         else:
             logging.info(f"No landsea file provided, using all NWM streams for {huc}")
@@ -544,9 +552,9 @@ if __name__ == '__main__':
     --wbd_buffer_filename wbd_buffered.gpkg \
     --huc_directory outputs/preclips/test3/21020001/ \
     --copy_from_dir data/inputs/pre_clip_huc8/20250218/ \
-    --preclipping_flags '{"nwm_lakes": true,
-        "nwm_streams_headwater": true,
-        "nwm_catchments": false,
+    --preclipping_flags '{'lakes': true,
+        'streams_headwater': true,
+        'catchments': false,
             "levees": false,
             "osm_bridges": false,
             "osm_roads": false,
@@ -573,7 +581,7 @@ if __name__ == '__main__':
         '--preclipping_flags',
         type=json.loads,
         required=True,
-        help='A dictionary with 8 items indicating which layers to preclip vs. copy (e.g., \'{"nwm_lakes": true, ...}\')',
+        help='A dictionary with 8 items indicating which layers to preclip vs. copy (e.g., \'{"lakes": true, ...}\')',
     )
 
     args = vars(parser.parse_args())
