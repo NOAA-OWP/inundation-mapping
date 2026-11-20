@@ -45,7 +45,14 @@ def unzip(zip_path, extract_to="."):
 
 
 def preprocess_dggs_ifsar(
-    input_dem_zip_file, output_dem_dir, region, hucs, inputs_dir, target_crs_number="3338", target_res=10
+    input_dem_zip_file,
+    output_dem_dir,
+    region,
+    hucs,
+    inputs_dir,
+    staging_dir,
+    target_crs_number="3338",
+    target_res=10,
 ):
     """
     Ingests and processes Alaska DGGS IFSAR custom download packages.
@@ -55,13 +62,15 @@ def preprocess_dggs_ifsar(
     input_dem_zip_file : str
         Path to raw downloaded DTM zip archive from AK DGGS.
     output_dem_dir : str
-        Output directory for staging, extraction, logs, and temporary mosaic.
+        Location to save final outputs.
     region : str
         Region identifier (e.g., 'Fairbanks', 'Juneau').
     hucs : list of str
         List of HUC8 IDs to clip and generate.
     inputs_dir : str
         Base inputs directory containing boundary files (e.g., WBD cutlines).
+    staging_dir : str
+        Output directory for staging, extraction, logs, and temporary mosaic.
     target_crs_number : str or int
         Target EPSG code (default: '3338').
     target_res : int
@@ -70,13 +79,13 @@ def preprocess_dggs_ifsar(
     overall_start_time = datetime.now(timezone.utc)
     file_dt_string = overall_start_time.strftime("%Y_%m_%d-%H_%M_%S")
     log_file_name = f"ifsar_downloaded_{region}-{file_dt_string}.log"
-    log_file_path = os.path.join(output_dem_dir, log_file_name)
+    log_file_path = os.path.join(staging_dir, log_file_name)
     logger_name = f"ifsar_downloaded_{region}"
     file_logger = sf.setup_mp_file_logger(log_file_path, logger_name)
 
-    sf.l_print(f"Processing DGGS IFSAR data in {output_dem_dir}", file_logger, "info")
+    sf.l_print(f"Processing DGGS IFSAR data in {staging_dir}", file_logger, "info")
 
-    os.makedirs(output_dem_dir, exist_ok=True)
+    os.makedirs(staging_dir, exist_ok=True)
 
     if not os.path.exists(input_dem_zip_file):
         print(
@@ -85,12 +94,13 @@ def preprocess_dggs_ifsar(
         )
         sys.exit(1)
 
-    unzip(input_dem_zip_file, output_dem_dir)
+    unzip(input_dem_zip_file, staging_dir)
 
     output_mosaic = os.path.join(output_dem_dir, f"{region}_ifsar_DTM_{target_crs_number}.tif")
 
-    absolute_out_folder = os.path.abspath(output_dem_dir)
-    extracted_zip_dir = os.path.join(absolute_out_folder, "dds4", "ifsar", "dtm")
+    absolute_out_folder = os.path.abspath(staging_dir)
+    dds4_dir = os.path.join(absolute_out_folder, "dds4")
+    extracted_zip_dir = os.path.join(dds4_dir, "ifsar", "dtm")
     zip_pattern = os.path.join(extracted_zip_dir, "*.zip")
     zip_files = glob.glob(zip_pattern)
 
@@ -164,7 +174,12 @@ def preprocess_dggs_ifsar(
             gdal.Warp(dest_ds, output_mosaic, options=huc_warp_options, overwrite=True)
 
         if os.path.exists(output_mosaic):
+            print(f"Removing {output_mosaic}")
             os.remove(output_mosaic)
+
+        if os.path.exists(dds4_dir):
+            print(f"Removing {dds4_dir}")
+            shutil.rmtree(dds4_dir)
 
     except Exception as e:
         raise RuntimeError(f"GDAL Warp processing failed: {e}")

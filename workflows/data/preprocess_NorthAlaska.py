@@ -35,7 +35,7 @@ This script can be run as follows:
 Once this script has completed, create a DEM_Domain.parquet and VRTs for the raw
 and pit-filled DEMs for all of Alaska (combining North Alaska with the existing South Alaska):
 
-    python3 /foss_fim/data/elevation/create_domain_vrt.py \
+    python3 /foss_fim/src/utils/create_domain_vrt.py \
         -i /data/inputs/dems/3dep_dems/10m_SouthAlaska/20260619 \
            /data/inputs/dems/ifsar_dtm/10m_NorthAlaska/20261118 \
         -o /data/inputs/dems/vrt \
@@ -44,7 +44,7 @@ and pit-filled DEMs for all of Alaska (combining North Alaska with the existing 
         -j 14 \
         -p
 
-    python3 /foss_fim/data/elevation/create_vrt_file.py \
+    python3 /foss_fim/src/utils/create_vrt_file.py \
         -s /data/inputs/dems/3dep_dems/10m_SouthAlaska/20260619/pit_fill \
            /data/inputs/dems/ifsar_dtm/10m_NorthAlaska/20261118/pit_fill \
         -o /data/inputs/dems/vrt \
@@ -146,7 +146,7 @@ def main():
             args.inputs_dir, "dems", "ifsar_dtm", region, args.date, "custom_download.zip"
         )
         print(f"region_dem_zip: {region_dem_zip}")
-        region_staging_dir = os.path.join(args.output_dem_dir, region)
+        region_staging_dir = os.path.join(output_dem_dir, region)
 
         print(f"\n{'='*70}")
         print(f"--> Processing Region: {region}")
@@ -171,6 +171,7 @@ def main():
                 region=region,
                 hucs=hucs,
                 inputs_dir=args.inputs_dir,
+                staging_dir=region_staging_dir,
                 target_crs_number=args.target_crs_number,
             )
         else:

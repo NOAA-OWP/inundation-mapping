@@ -197,22 +197,11 @@ def polygonize_extent(dem_files, dem_domain_file, number_of_jobs=1, file_logger=
         print(f"Saved domain boundary to {dem_domain_file}")
 
 
-# =====================================================================
-# CLI: Preserves original positional usage while adding domain batch mode
-# =====================================================================
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Extract polygon boundaries from single rasters or multiple HUC DEM extents."
-    )
+    parser = argparse.ArgumentParser(description="Extract polygon boundaries from a raster.")
 
     # Positional arguments matching original interface
-    parser.add_argument(
-        "-i",
-        "--input_file",
-        type=str,
-        required=True,
-        help="Input raster. If running standard polygonize, pass 1 raster. If --domain is set, pass multiple rasters or a glob path.",
-    )
+    parser.add_argument("-i", "--input_file", type=str, required=True, help="Input raster to polygonize.")
     parser.add_argument(
         "-o",
         "--output_file",

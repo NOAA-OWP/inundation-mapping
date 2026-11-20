@@ -50,7 +50,14 @@ def _validate_shared_ancestor(vrt_output_dir: str, src_directories: list[str]) -
     return common_root
 
 
-def create_vrt_file(src_directories, vrt_basename, vrt_output_dir=None, vrt_suffix=None):
+def create_vrt_file(
+    src_directories,
+    vrt_basename,
+    srcNodata=-999999.0,
+    VRTNodata=-999999.0,
+    vrt_output_dir=None,
+    vrt_suffix=None,
+):
     """
     Takes all .tif files in one or more given directories, generates a single
     relative VRT, and validates portability across container/host boundaries.
@@ -102,7 +109,7 @@ def create_vrt_file(src_directories, vrt_basename, vrt_output_dir=None, vrt_suff
         raise FileNotFoundError("No .tif files were found in any of the specified directories.")
 
     # 1. Build the VRT with GDAL and flush
-    __create_vrt(all_tif_files, target_vrt_file_path)
+    __create_vrt(all_tif_files, target_vrt_file_path, srcNodata, VRTNodata)
 
     # 2. Patch XML paths strictly relative to the VRT directory
     __force_relative_paths(target_vrt_file_path)
@@ -112,12 +119,12 @@ def create_vrt_file(src_directories, vrt_basename, vrt_output_dir=None, vrt_suff
     logging.info(fh.print_date_time_duration(start_time, end_time))
 
 
-def __create_vrt(tif_file_names, target_vrt_file_path):
+def __create_vrt(tif_file_names, target_vrt_file_path, srcNodata, VRTNodata):
     logging.info("Building VRT with source files:")
     for file_name in tif_file_names:
         logging.info(f" - {file_name}")
 
-    vrt_options = gdal.BuildVRTOptions(srcNodata=-999999.0, VRTNodata=-999999.0)
+    vrt_options = gdal.BuildVRTOptions(srcNodata=srcNodata, VRTNodata=VRTNodata)
     ds = gdal.BuildVRT(target_vrt_file_path, tif_file_names, options=vrt_options)
 
     # Flush SWIG memory handle to disk before XML modifications
@@ -208,6 +215,8 @@ if __name__ == "__main__":
         required=False,
         default=None,
     )
+    parser.add_argument("--srcNodata", required=False, default=-999999.0)
+    parser.add_argument("--VRTNodata", required=False, default=-999999.0)
 
     args = vars(parser.parse_args())
     create_vrt_file(**args)

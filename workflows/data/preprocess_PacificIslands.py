@@ -91,7 +91,6 @@ def main():
     parser.add_argument("-d", "--date", type=str, required=True, help="Run date (e.g., 20260619)")
     parser.add_argument("-b", "--vrt_basename", type=str, required=True, help="Basename of VRT")
     parser.add_argument("-o", "--vrt_output_dir", type=str, default=None, help="VRT output directory")
-    parser.add_argument("-s", "--vrt_suffix", type=str, default="", help="Suffix for VRT file")
     parser.add_argument(
         "-j", "--number_of_jobs", type=int, required=False, default=1, help="Number of processes"
     )

@@ -12,7 +12,7 @@ import sys
 import rasterio as rio
 from osgeo import gdal
 
-from data.elevation.create_domain_vrt import create_domain_vrt
+from src.utils.create_domain_vrt import create_domain_vrt
 
 
 gdal.UseExceptions()
