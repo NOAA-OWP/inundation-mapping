@@ -666,10 +666,7 @@ def run_sb_mapping(
 
             # Append any non-record stages to the thresholds list for later interval calculations
             if magnitude != 'record':
-                new_row = {
-                    "magnitude_type": magnitude,
-                    "magnitude_value": stage_val,
-                }
+                new_row = {"magnitude_type": magnitude, "magnitude_value": stage_val}
                 logging.info('Adding info to intervals df: ')  # TEMP DEBUG
                 logging.info(new_row)  # TEMP DEBUG
                 non_rec_thresholds_list_site.append(new_row)
@@ -686,46 +683,40 @@ def run_sb_mapping(
         if negative_stage_detected:
             msg = "Negative HAND stage detected during processing, likely due to elevation data issues"
             logging.warning(f"{huc} : {ahps_site} - {msg}")
-            logging.warning("Skipping mapping higher stages and intervals for this site to avoid misleading under-inundation.")
+            logging.warning(
+                "Skipping mapping higher stages and intervals for this site to avoid misleading under-inundation."
+            )
             sites_gdf = csf.update_line_status_or_warning(ahps_site, sites_gdf, msg, set_mapped_to_no=True)
             continue
 
         # -----------------------
         # Inundate site using additional stage intervals
 
-        # TODO: This is pulling the stage values from the thresholds df, but that gives
+
+        # # Get non-record stages for the site and sort them by stage value # TODO: Clean up after testing
+        # NOTE: This was pulling the stage values from the thresholds df, but that gives
         # us the incorrect value for sites where the stage has been corrected due to being
         # WSE. So we need to make sure we're pulling the stage values from the corrected data.
-
-        # Get non-record stages for the site and sort them by stage value # TODO: Clean up after testing
-        PREVIOUS_VERSION_non_rec_thresholds_df_unsorted_site = huc_thresholds_long_df_site[
-            huc_thresholds_long_df_site["magnitude_type"] != 'record'
-        ]
-        PREVIOUS_VERSION_non_rec_thresholds_df_site = PREVIOUS_VERSION_non_rec_thresholds_df_unsorted_site.sort_values(
-            by='magnitude_value'
-        ).reset_index()
-
-        logging.info('PREVIOUS_VERSION_non_rec_thresholds_df_site') # TEMP DEBUG
-        logging.info(PREVIOUS_VERSION_non_rec_thresholds_df_site) # TEMP DEBUG
-
-        #
-        # TODO: Make non_rec_thresholds_df_site above in the reg. processing?
-        # non_rec_thresholds_df_site - pd.DataFrame
-        #     DataFrame containing stage names and their corresponding stage values.
-        #     Must have columns "magnitude_type" and "magnitude_value".
+        # PREVIOUS_VERSION_non_rec_thresholds_df_unsorted_site = huc_thresholds_long_df_site[
+        #     huc_thresholds_long_df_site["magnitude_type"] != 'record'
+        # ]
+        # PREVIOUS_VERSION_non_rec_thresholds_df_site = (
+        #     PREVIOUS_VERSION_non_rec_thresholds_df_unsorted_site.sort_values(
+        #         by='magnitude_value'
+        #     ).reset_index()
+        # )
 
         # Get non-record stages for the site and sort them by stage value
-        non_rec_thresholds_df_site_unsorted = pd.DataFrame(non_rec_thresholds_list_site, columns=["magnitude_type", "magnitude_value"])
-
-        logging.info('non_rec_thresholds_df_site_unsorted:') # TEMP DEBUG
-        logging.info(non_rec_thresholds_df_site_unsorted) # TEMP DEBUG
+        non_rec_thresholds_df_site_unsorted = pd.DataFrame(
+            non_rec_thresholds_list_site, columns=["magnitude_type", "magnitude_value"]
+        )
 
         non_rec_thresholds_df_site = non_rec_thresholds_df_site_unsorted.sort_values(
             by='magnitude_value'
         ).reset_index()
 
-        logging.info('non_rec_thresholds_df_site') # TEMP DEBUG
-        logging.info(non_rec_thresholds_df_site) # TEMP DEBUG
+        # logging.info('non_rec_thresholds_df_site')  # TEMP DEBUG
+        # logging.info(non_rec_thresholds_df_site)  # TEMP DEBUG
 
         # Make a list of interval recs to be created
         interval_list = []  # might stay empty

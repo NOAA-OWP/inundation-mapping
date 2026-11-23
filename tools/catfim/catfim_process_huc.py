@@ -621,7 +621,6 @@ def __process_elevations(
 
         lid_altitude_ft = float(lid_altitude_ft)  # Ensure it's a float for processing later
 
-
         # Get additional site altitude info -> nwm_feature_data_altitude # TODO: Clean up
         # TODO: Confirm that this is a good choice for elev inputs
         # nwm_feature_data_altitude_ft = lid_sites_gdf['nwm_feature_data_altitude'].item()
@@ -731,12 +730,12 @@ def __process_elevations(
         if abs(elevation_diff_m) > csf.MAX_ELEV_DIFFERENCE_THRESHOLD:
 
             if lid_altitude_m > lid_usgs_elev:
-                msg = f"Large discrepancy in elevation estimates: AHPS gage zero datum > HAND DEM elevation by more than 10 meters"
+                msg = "Large discrepancy in elevation estimates: AHPS gage zero datum > HAND DEM elevation by more than 10 meters"
                 logging.warning(f"{huc} : {lid} - {msg}. Value difference: {abs(diff_rounded_m)} m")
                 sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no=True)
 
             elif lid_usgs_elev > lid_altitude_m:
-                msg = f"Large discrepancy in elevation estimates: HAND DEM elevation > AHPS gage zero datum by more than 10 meters"
+                msg = "Large discrepancy in elevation estimates: HAND DEM elevation > AHPS gage zero datum by more than 10 meters"
                 logging.warning(f"{huc} : {lid} - {msg}. Value difference: {abs(diff_rounded_m)} m")
                 sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no=True)
 
@@ -747,11 +746,11 @@ def __process_elevations(
         elif abs(elevation_diff_m) > 5:
 
             if lid_altitude_m > lid_usgs_elev:
-                msg = f"Moderate discrepancy in elevation estimates: AHPS gage zero datum > HAND DEM elevation by 5-10 meters"
+                msg = "Moderate discrepancy in elevation estimates: AHPS gage zero datum > HAND DEM elevation by 5-10 meters"
                 logging.warning(f"{huc} : {lid} - {msg}. Value difference: {abs(diff_rounded_m)} m")
 
             elif lid_usgs_elev > lid_altitude_m:
-                msg = f"Moderate discrepancy in elevation estimates: HAND DEM elevation > AHPS gage zero datum by 5-10 meters"
+                msg = "Moderate discrepancy in elevation estimates: HAND DEM elevation > AHPS gage zero datum by 5-10 meters"
                 logging.warning(f"{huc} : {lid} - {msg}. Value difference: {abs(diff_rounded_m)} m")
 
         # =====================
@@ -782,7 +781,9 @@ def __process_elevations(
         # so now it just produces a warning.
         if lid_altitude_ft == 0:
             msg = f'AHPS site altitude value is {lid_altitude_ft}'
-            logging.warning(f"{huc} - {lid}: {msg}, which could result in under-inundation if 0.0 is meant as a nodata val")
+            logging.warning(
+                f"{huc} - {lid}: {msg}, which could result in under-inundation if 0.0 is meant as a nodata val"
+            )
             sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no=False)
 
         # Check if the lowest stage value is greater than the site altitude and also greater than the max stage threshold,
@@ -796,9 +797,11 @@ def __process_elevations(
 
             logging.warning(
                 f"{huc} - {lid}: Lowest stage val ({lowest_stage_val}) > elev ({lid_altitude_ft}) and > max stage threshold ({csf.MAX_STAGE_THRESHOLD}),"
-                f" indicates that the stage is being stored as WSE."
+                " indicates that the stage is being stored as WSE."
             )
-            logging.warning(f"Subtracted elev from stage vals to fix. Lowest stage is now {new_stage_example}")
+            logging.warning(
+                f"Subtracted elev from stage vals to fix. Lowest stage is now {new_stage_example}"
+            )
 
             # Update the sites gdf with a warning of this adjustment, but we won't set mapped to no
             msg = 'Stage value stored as WSE detected, adjusted val by subtracting site elevation.'
@@ -812,7 +815,9 @@ def __process_elevations(
             min_stage_wse = lowest_stage_val + lid_altitude_ft
             min_stage_wse_elev_ratio = min_stage_wse / lid_altitude_ft
             logging.info(f"{huc} - {lid}: Min stage WSE elev ratio = Min stage WSE / Gage zero datum")
-            logging.info(f"{huc} - {lid}: {round(min_stage_wse_elev_ratio, 2)} = {min_stage_wse} / {lid_altitude_ft}")
+            logging.info(
+                f"{huc} - {lid}: {round(min_stage_wse_elev_ratio, 2)} = {min_stage_wse} / {lid_altitude_ft}"
+            )
 
             if min_stage_wse_elev_ratio > 1.75:
                 msg = "Min. stage WSE is close to 2x the DEM-derived elev., indicates that stage could be WSE and site could be over-inundated"
