@@ -714,8 +714,8 @@ def run_sb_mapping(
         #     DataFrame containing stage names and their corresponding stage values.
         #     Must have columns "magnitude_type" and "magnitude_value".
 
-        # # Get non-record stages for the site and sort them by stage value
-        non_rec_thresholds_df_site_unsorted = pd.DataFrame(non_rec_thresholds_list_site)
+        # Get non-record stages for the site and sort them by stage value
+        non_rec_thresholds_df_site_unsorted = pd.DataFrame(non_rec_thresholds_list_site, columns=["magnitude_type", "magnitude_value"])
 
         logging.info('non_rec_thresholds_df_site_unsorted:') # TEMP DEBUG
         logging.info(non_rec_thresholds_df_site_unsorted) # TEMP DEBUG
