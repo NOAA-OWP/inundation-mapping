@@ -47,7 +47,7 @@ COLUMN_RENAME_DICT = {
     'HUC8': 'huc8',
     's_src': 'stage_src',
     'lid_alt_ft': 'gage_zero_elev_ft',
-    'lid_usgs_elev': 'hand_dem_elev_ft',
+    'lid_usgs_elev': 'hand_dem_elev_m',  # Nov '26 - was hand_dem_elev_ft but that is the incorrect unit
     'nws_data_wfo': 'wfo',
     'nws_data_rfc': 'rfc',
     'nws_data_state': 'state',

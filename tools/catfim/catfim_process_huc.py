@@ -621,21 +621,25 @@ def __process_elevations(
 
         lid_altitude_ft = float(lid_altitude_ft)  # Ensure it's a float for processing later
 
-        # Get additional site altitude info -> nwm_feature_data_altitude
-        # TODO: Confirm that this is a good choice for elev inputs
-        nwm_feature_data_altitude_ft = lid_sites_gdf['nwm_feature_data_altitude'].item()
-        low_altitude_threshold = 40  # ft
 
-        # Error out if the gage zero datum is zero AND the site is not a low elevation site (above 40 ft)
-        if lid_altitude_ft == 0 and nwm_feature_data_altitude_ft > low_altitude_threshold:
-            logging.warning(f'{huc} - {lid}: NWM feature altitude is {nwm_feature_data_altitude_ft} but lid altitude (gage zero datum) is {lid_altitude_ft}, so the lid altitude likely incorrect')
-            msg = f'AHPS site altitude value is invalid (value is {lid_altitude_ft})'
-            logging.warning(f"{huc} - {lid}: {msg}")
-            sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no=True)
-            continue
+        # Get additional site altitude info -> nwm_feature_data_altitude # TODO: Clean up
+        # TODO: Confirm that this is a good choice for elev inputs
+        # nwm_feature_data_altitude_ft = lid_sites_gdf['nwm_feature_data_altitude'].item()
+        # low_altitude_threshold = 40  # ft
+
+        # # Error out if the gage zero datum is zero AND the site is not a low elevation site (above 40 ft)
+        # if lid_altitude_ft == 0 and nwm_feature_data_altitude_ft > low_altitude_threshold:
+        #     logging.warning(f'{huc} - {lid}: NWM feature altitude is {nwm_feature_data_altitude_ft} but lid altitude (gage zero datum) is {lid_altitude_ft}, so the lid altitude likely incorrect')
+        #     msg = f'AHPS site altitude value is invalid (value is {lid_altitude_ft})'
+        #     logging.warning(f"{huc} - {lid}: {msg}")
+        #     sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no=True)
+        #     continue
 
         # Error out if the gage zero datum is None
         if lid_altitude_ft is None:
+            # Nov 2026: Previously we also errored out if it was 0, but that was getting a lot of false
+            # positives so we've refined this filter. The rest of this filtering takes place in the WSE
+            # filter section below.
             # Jan 2026: In previous versions not all recs stopped here when this failed
             # some continued on and ultimatly failed down the road.
             msg = f'AHPS site altitude value is invalid (value is {lid_altitude_ft})'
@@ -727,13 +731,13 @@ def __process_elevations(
         if abs(elevation_diff_m) > csf.MAX_ELEV_DIFFERENCE_THRESHOLD:
 
             if lid_altitude_m > lid_usgs_elev:
-                msg = f"Large discrepancy in elevation estimates: AHPS gage zero datum > HAND DEM elevation by {abs(diff_rounded_m)} m"
-                logging.warning(f"{huc} : {lid} - {msg}")
+                msg = f"Large discrepancy in elevation estimates: AHPS gage zero datum > HAND DEM elevation by more than 10 meters"
+                logging.warning(f"{huc} : {lid} - {msg}. Value difference: {abs(diff_rounded_m)} m")
                 sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no=True)
 
             elif lid_usgs_elev > lid_altitude_m:
-                msg = f"Large discrepancy in elevation estimates: HAND DEM elevation > AHPS gage zero datum by {abs(diff_rounded_m)} m"
-                logging.warning(f"{huc} : {lid} - {msg}")
+                msg = f"Large discrepancy in elevation estimates: HAND DEM elevation > AHPS gage zero datum by more than 10 meters"
+                logging.warning(f"{huc} : {lid} - {msg}. Value difference: {abs(diff_rounded_m)} m")
                 sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no=True)
 
             # We will clean up the huc_library folder shortly
@@ -743,12 +747,12 @@ def __process_elevations(
         elif abs(elevation_diff_m) > 5:
 
             if lid_altitude_m > lid_usgs_elev:
-                msg = f"Moderate discrepancy in elevation estimates: AHPS gage zero datum > HAND DEM elevation by {abs(diff_rounded_m)} m"
-                logging.warning(f"{huc} : {lid} - {msg}")
+                msg = f"Moderate discrepancy in elevation estimates: AHPS gage zero datum > HAND DEM elevation by 5-10 meters"
+                logging.warning(f"{huc} : {lid} - {msg}. Value difference: {abs(diff_rounded_m)} m")
 
             elif lid_usgs_elev > lid_altitude_m:
-                msg = f"Moderate discrepancy in elevation estimates: HAND DEM elevation > AHPS gage zero datum by {abs(diff_rounded_m)} m"
-                logging.warning(f"{huc} : {lid} - {msg}")
+                msg = f"Moderate discrepancy in elevation estimates: HAND DEM elevation > AHPS gage zero datum by 5-10 meters"
+                logging.warning(f"{huc} : {lid} - {msg}. Value difference: {abs(diff_rounded_m)} m")
 
         # =====================
         # Check whether stage value is actually a WSE value, and fix if needed
@@ -759,20 +763,61 @@ def __process_elevations(
         # Get lowest stage value
         lowest_stage_val = lid_library_df['stage'].min()
 
+        # # Elevation ratio check (just a warning for now)
+        # # Get the WSE of the lowest stage value (by adding stage to the gage zero datum)
+        # if lid_altitude_ft > 0:
+        #     # This check is only useful if the gage zero datum is above zero, otherwise we get misleading vals
+        #     min_stage_wse = lowest_stage_val + lid_altitude_ft
+        #     min_stage_wse_elev_ratio = min_stage_wse / lid_altitude_ft
+        #     logging.info(f"{huc} - {lid}: Min stage WSE elev ratio = Min stage WSE / Gage zero datum")
+        #     logging.info(f"{huc} - {lid}: {round(min_stage_wse_elev_ratio, 2)} = {min_stage_wse} / {lid_altitude_ft}")
+
+        #     if min_stage_wse_elev_ratio > 1.75:
+        #         msg = "Min. stage WSE is close to 2x the DEM-derived elev. (indicates that stage could be WSE), site may be over-inundated"
+        #         logging.warning(f"{huc} - {lid}: {msg}")
+        #         sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no=False)
+
+        # If the gage zero datum is exactly 0.0, provide a warning because it could be the cause of underinundation
+        # Note: (Nov '26) Previously this would be filtered out, but that was causing us to remove actual valid points
+        # so now it just produces a warning.
+        if lid_altitude_ft == 0:
+            msg = f'AHPS site altitude value is {lid_altitude_ft}'
+            logging.warning(f"{huc} - {lid}: {msg}, which could result in under-inundation if 0.0 is meant as a nodata val")
+            sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no=False)
+
         # Check if the lowest stage value is greater than the site altitude and also greater than the max stage threshold,
         # which would indicate that the stage value is actually being stored as a WSE value.
         # If this is the case, we will subtract the site elevation from all of the stage values to convert them back to stage values.
+        wse_corrected = False  # initialize val
         if (lowest_stage_val > lid_altitude_ft) and (lowest_stage_val > csf.MAX_STAGE_THRESHOLD):
             new_stage_example = lowest_stage_val - lid_altitude_ft
             lid_library_df['stage'] = lid_library_df['stage'] - lid_altitude_ft
+            wse_corrected = True
+
             logging.warning(
                 f"{huc} - {lid}: Lowest stage val ({lowest_stage_val}) > elev ({lid_altitude_ft}) and > max stage threshold ({csf.MAX_STAGE_THRESHOLD}),"
-                f" which indicates that the stage is being stored as WSE. Subtracted elev from stage vals to fix. Lowest stage is now {new_stage_example}"
+                f" indicates that the stage is being stored as WSE."
             )
+            logging.warning(f"Subtracted elev from stage vals to fix. Lowest stage is now {new_stage_example}")
 
             # Update the sites gdf with a warning of this adjustment, but we won't set mapped to no
             msg = 'Stage value stored as WSE detected, adjusted val by subtracting site elevation.'
             sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no=False)
+
+        # Elevation ratio check (just a warning for now)
+        # Get the WSE of the lowest stage value (by adding stage to the gage zero datum)
+        if lid_altitude_ft > 0 and wse_corrected is False:
+            # This check is only useful if the gage zero datum is above zero, otherwise we get misleading vals
+            # Also we won't run this check if the WSE has already been corrected
+            min_stage_wse = lowest_stage_val + lid_altitude_ft
+            min_stage_wse_elev_ratio = min_stage_wse / lid_altitude_ft
+            logging.info(f"{huc} - {lid}: Min stage WSE elev ratio = Min stage WSE / Gage zero datum")
+            logging.info(f"{huc} - {lid}: {round(min_stage_wse_elev_ratio, 2)} = {min_stage_wse} / {lid_altitude_ft}")
+
+            if min_stage_wse_elev_ratio > 1.75:
+                msg = "Min. stage WSE is close to 2x the DEM-derived elev., indicates that stage could be WSE and site could be over-inundated"
+                logging.warning(f"{huc} - {lid}: {msg}")
+                sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no=False)
 
         updated_huc_library_df = pd.concat([updated_huc_library_df, lid_library_df], ignore_index=True)
 
@@ -1075,8 +1120,8 @@ def __adjust_datum_ft(lid_sites_gdf, lid_library_df, lid, datum_adj_nodata_value
                 logging.error(err_msg)
 
             if datum_adj_ft is None:
-                err_msg = f"{lid}: NOAA VDatum failed but no error message returned from VDatum API"
-                logging.error(err_msg)
+                err_msg = "NOAA VDatum failed but no error message returned from VDatum API"
+                logging.error(f"{lid}: {err_msg}")
                 logging.error(f"{lid}: CRS: {crs}, VCS: {vcs}, Datum: {datum}")
                 # datum_adj_ft = datum_adj_nodata_value # or 0? # Ensure we return the nodata value if we got None from the function
                 # TODO: Do we want to return nodata and not map the site?
