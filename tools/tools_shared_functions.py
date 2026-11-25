@@ -919,6 +919,8 @@ def get_metadata(
 
     # Suppress Insecure Request Warning
     requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+    print(f'Requesting metadata from {url}')
+    print(f'Parameters: {params}')
 
     try:
         # Request data from API URL
@@ -931,6 +933,7 @@ def get_metadata(
 
     # If the API request was successful, process the data
     if response.ok:
+        print('Metadata API request successful')
         # Convert data response to a json
         metadata_json = response.json()
 
@@ -952,6 +955,8 @@ def get_metadata(
         # Get crosswalk info (always last dictionary in list)
         crosswalk_info = metadata_json['data_sources']
 
+        print('Updating metadata with timestamps and crosswalk info...')
+
         # Update each dictionary with timestamp and crosswalk info
         for metadata in metadata_list:
             metadata.update({"wrds_timestamp": timestamp})
@@ -959,13 +964,18 @@ def get_metadata(
             metadata.update({"nwis_timestamp": nwis_timestamp})
             metadata.update(crosswalk_info)
 
+        print('Converting metadata to dataframe...')
+
         # Convert metadata list of dictionaries to a dataframe
         metadata_dataframe = pd.json_normalize(metadata_list)
 
         # Replace all periods with underscores in column names
         metadata_dataframe.columns = metadata_dataframe.columns.astype(str).str.replace('.', '_')
 
+        print('Metadata retrieval and processing complete.')
+
     else:
+        print(f'Metadata API request failed with status code {response.status_code}: {response.reason}')
         # If the request was completed but produced no data, output an error message and return empty outputs
         err_msg = f'Code: {response.status_code}\nMessage: {response.reason}\nURL: {response.url}'
         metadata_list = []

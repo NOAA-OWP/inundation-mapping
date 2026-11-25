@@ -137,13 +137,13 @@ def compile_catfim_sites(sorted_path_list):
         # Pre-2026 results -- Check in mapping dir and get the CSV
         if os.path.exists(mapping_path):
             for filename in os.listdir(mapping_path):
-                if filename.endswith('sites.csv'):
+                if filename.endswith('catfim_sites.csv'):
                     sites_filepath = os.path.join(mapping_path, filename)
 
         # Post reorg results -- Check in main dir and get the GPKG
         if sites_filepath is None:
             for filename in os.listdir(path):
-                if filename.endswith('sites.gpkg'):
+                if filename.endswith('catfim_sites.gpkg'):
                     sites_filepath = os.path.join(path, filename)
 
         if sites_filepath is None:
@@ -164,6 +164,9 @@ def compile_catfim_sites(sorted_path_list):
             sites_df['site_id'] = sites_df['ahps_lid']
         elif 'nws_lid' in sites_df.columns:
             sites_df['site_id'] = sites_df['nws_lid']
+        # elif 'identifiers_nws_lid' in sites_df.columns:
+        #     sites_df['site_id'] = sites_df['identifiers_nws_lid'] # TODO: Why are we getting this colname? isn't it supposed to be renamed...??
+        #     print('Found identifiers_nws_lid col but not nws_lid or ahps_lid col... why??')
         else:
             print(f'WARNING: Did not find ahps_lid or nws_lid column in {sites_filepath}')
             continue

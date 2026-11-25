@@ -532,6 +532,7 @@ def run_sb_mapping(
     logging.info(f"{huc} - Mapping - ahps_sites_list is {ahps_sites_list}")
 
     # Read thresholds CSV files to get list of magnitudes per site
+    # TODO: We could actually just get these vals from huc_library_df I think?
     huc_thresholds_csv_path = os.path.join(huc_path, f'{huc}_thresholds.csv')
     huc_thresholds_df = pd.read_csv(huc_thresholds_csv_path)
 
@@ -561,7 +562,7 @@ def run_sb_mapping(
         # -----------------------
         # Inundate site using available stage magnitudes
 
-        # Get a list of available magnitudes
+        # Get a list of available magnitudes # TODO: We could actually just get these vals from huc_library_df I think?
         huc_thresholds_long_df_site = huc_thresholds_long_df[huc_thresholds_long_df['nws_lid'] == ahps_site]
         magnitude_list = huc_thresholds_long_df_site['magnitude_type'].to_list()
 
@@ -594,6 +595,8 @@ def run_sb_mapping(
 
         # Create a placeholder for if we detect a negative stage
         negative_stage_detected = False
+
+        non_rec_thresholds_list_site = []  # initialize mag list (for later intervals cals)
 
         # Iterate magnitudes to run inundation
         for magnitude in magnitude_list:
@@ -661,6 +664,13 @@ def run_sb_mapping(
             ] = hand_stage
             # We aren't updating sites df with this info because I don't think it is needed? Add here if needed.
 
+            # Append any non-record stages to the thresholds list for later interval calculations
+            if magnitude != 'record':
+                new_row = {"magnitude_type": magnitude, "magnitude_value": stage_val}
+                logging.info('Adding info to intervals df: ')  # TEMP DEBUG
+                logging.info(new_row)  # TEMP DEBUG
+                non_rec_thresholds_list_site.append(new_row)
+
             # Check if the HAND stage is negative, and if so, log a warning and skip the rest of the magnitudes for this site
             if hand_stage < 0:
                 negative_stage_detected = True
@@ -672,8 +682,9 @@ def run_sb_mapping(
         # misleadingly under-inundating for the higher stage magnitudes.
         if negative_stage_detected:
             msg = "Negative HAND stage detected during processing, likely due to elevation data issues"
+            logging.warning(f"{huc} : {ahps_site} - {msg}")
             logging.warning(
-                f"{huc} : {ahps_site} - {msg}; Skipping mapping higher stages and intervals for this site to avoid misleading under-inundation."
+                "Skipping mapping higher stages and intervals for this site to avoid misleading under-inundation."
             )
             sites_gdf = csf.update_line_status_or_warning(ahps_site, sites_gdf, msg, set_mapped_to_no=True)
             continue
@@ -681,13 +692,30 @@ def run_sb_mapping(
         # -----------------------
         # Inundate site using additional stage intervals
 
+        # # Get non-record stages for the site and sort them by stage value # TODO: Clean up after testing
+        # NOTE: This was pulling the stage values from the thresholds df, but that gives
+        # us the incorrect value for sites where the stage has been corrected due to being
+        # WSE. So we need to make sure we're pulling the stage values from the corrected data.
+        # PREVIOUS_VERSION_non_rec_thresholds_df_unsorted_site = huc_thresholds_long_df_site[
+        #     huc_thresholds_long_df_site["magnitude_type"] != 'record'
+        # ]
+        # PREVIOUS_VERSION_non_rec_thresholds_df_site = (
+        #     PREVIOUS_VERSION_non_rec_thresholds_df_unsorted_site.sort_values(
+        #         by='magnitude_value'
+        #     ).reset_index()
+        # )
+
         # Get non-record stages for the site and sort them by stage value
-        non_rec_thresholds_df_unsorted_site = huc_thresholds_long_df_site[
-            huc_thresholds_long_df_site["magnitude_type"] != 'record'
-        ]
-        non_rec_thresholds_df_site = non_rec_thresholds_df_unsorted_site.sort_values(
+        non_rec_thresholds_df_site_unsorted = pd.DataFrame(
+            non_rec_thresholds_list_site, columns=["magnitude_type", "magnitude_value"]
+        )
+
+        non_rec_thresholds_df_site = non_rec_thresholds_df_site_unsorted.sort_values(
             by='magnitude_value'
         ).reset_index()
+
+        # logging.info('non_rec_thresholds_df_site')  # TEMP DEBUG
+        # logging.info(non_rec_thresholds_df_site)  # TEMP DEBUG
 
         # Make a list of interval recs to be created
         interval_list = []  # might stay empty
@@ -984,7 +1012,8 @@ def run_sb_inundation(
                 hydroid_list += nolake_hydroid_list
 
             except IndexError:
-                logging.error(  # TODO: Was a warning, changed to error. If it's super commonplace, can change back to warning
+                # TODO: Was a warning, changed to error. If it's super commonplace, can change back to warning
+                logging.error(
                     f"Index Error for {msg_id_w_branch}. FeatureId is {feature_id} : Continuing on."
                 )
                 pass
@@ -1019,17 +1048,14 @@ def run_sb_inundation(
     # end of branch loop
 
     # Return a warning if we were missing data for all branches
+    # TODO: Should any of these be a reason to exit and update the site status?
+    # Note: No occurrence of these warnings in SB 4.9.20.1
     if not branch_rem_available:
         logging.warning(f'{huc_lid_cat_id} - REM not found for any branches')
-        # TODO: Should this be a reason to exit and update the site status?
-
     if not branch_catchments_file_available:
         logging.warning(f'{huc_lid_cat_id} - Catchments file not found for any branches')
-        # TODO: Should this be a reason to exit and update the site status?
-
     if not branch_hydrotable_available:
         logging.warning(f'{huc_lid_cat_id} - Hydrotable not found for any branches')
-        # TODO: Should this be a reason to exit and update the site status?
 
     # ---------------------
     # Mosaic inundation tifs for ahps_site/magnitude
