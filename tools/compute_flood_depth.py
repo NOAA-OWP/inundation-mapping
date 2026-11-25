@@ -45,20 +45,22 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio
+from dotenv import load_dotenv
 from rasterstats import zonal_stats
 
 from src.heal_bridges_osm import flow_lookup
-from src.process_roads_fimpact import min_hand_excluding_zero
 from src.utils.io import write_geodataframe
 from src.utils.shared_functions import run_with_mp, setup_mp_file_logger
-from tools.road_inundation import stage_lookup
+from tools.fimpacts_inundation import stage_lookup
+from tools.tools_shared_variables import CMS_TO_CFS, METERS_TO_FEET, MM_TO_METERS
 
+
+projectDir = os.getenv('projectDir')
+
+load_dotenv(f'{projectDir}/config/params_template.env')
 
 # Constants
-MAX_HAND_THRESHOLD_M = 25  # Maximum HAND value in HydroTable (meters)
-METERS_TO_FEET = 3.28084
-CMS_TO_CFS = 35.3147
-MM_TO_METERS = 1000
+MAX_HAND_THRESHOLD_M = float(os.getenv('stage_max_meters'))  # Maximum HAND value in HydroTable (meters)
 
 
 def add_imperial_units(final_result_gdf):
@@ -71,27 +73,18 @@ def add_imperial_units(final_result_gdf):
     return final_result_gdf
 
 
-def get_evaluated_stage(fim_path, huc, branch, fimpact_df):
+def get_evaluated_stage(fimpact_df, hydrotable_df):
     """
     Calculate evaluated stage for geometries corresponding to evaluated discharge.
 
     Args:
-        fim_path: Path to FIM outputs directory
-        huc:
-        branch: Branch identifier within the HUC
         fimpact_df: DataFrame with evaluated discharge values
+        hydrotable_df: HydroTable DataFrame for this branch (HydroID, discharge_cms, stage)
 
     Returns:
         DataFrame with evaluated_stage column added
     """
     fimpact_df['evaluated_stage'] = np.nan
-
-    hydrotable_path = os.path.join(fim_path, huc, 'branches', branch, f'hydroTable_{branch}.csv')
-    hydrotable_df = pd.read_csv(
-        hydrotable_path,
-        dtype={'HydroID': str, 'stage': float, 'discharge_cms': float},
-        usecols=['HydroID', 'discharge_cms', 'stage'],
-    )
 
     for _, row in fimpact_df.iterrows():
         hydro_data = hydrotable_df[hydrotable_df.HydroID == row.HydroID]
@@ -103,7 +96,7 @@ def get_evaluated_stage(fim_path, huc, branch, fimpact_df):
     return fimpact_df
 
 
-def compute_depth(fim_path, huc, branch, fimpact_df, flow_file_df):
+def compute_depth(fimpact_df, flow_file_df, hydrotable_df):
     """
     - Identify flooded objects by comparing evaluated flow vs threshold flow
     - Compute flood depth by comparing evaluated stage against threshold hand.
@@ -111,11 +104,9 @@ def compute_depth(fim_path, huc, branch, fimpact_df, flow_file_df):
 
 
     Args:
-        fim_path: Path to FIM outputs directory
-        huc:
-        branch: Branch identifier within the HUC
         fimpact_df : DataFrame with threshold hand and discharge values
         flow_file_df: DataFrame with feature_id and discharge columns
+        hydrotable_df: HydroTable DataFrame for this branch (HydroID, discharge_cms, stage)
 
     Returns:
         DataFrame containing only flooded geometries with flood_depth column
@@ -124,7 +115,7 @@ def compute_depth(fim_path, huc, branch, fimpact_df, flow_file_df):
     fimpact_df.rename(columns={'discharge': 'evaluated_discharge'}, inplace=True)
 
     # Calculate evaluated stage for geometries
-    fimpact_df = get_evaluated_stage(fim_path, huc, branch, fimpact_df)
+    fimpact_df = get_evaluated_stage(fimpact_df, hydrotable_df)
 
     flooded_status_bool = fimpact_df['evaluated_discharge'] > fimpact_df['threshold_discharge']
     fimpact_df['flooded'] = np.where(flooded_status_bool, 'Y', 'N')
@@ -139,26 +130,17 @@ def compute_depth(fim_path, huc, branch, fimpact_df, flow_file_df):
     return fimpact_df
 
 
-def get_threshold_discharge(fim_path, huc, branch, fimpact_df):
+def get_threshold_discharge(hydrotable_df, fimpact_df):
     """
     Calculate threshold discharge from threshold HAND values using HydroTable interpolation.
 
     Args:
-        fim_path: Path to FIM outputs directory
-        huc:
-        branch: Branch identifier within the HUC
+        hydrotable_df: HydroTable DataFrame for this branch (HydroID, stage, discharge_cms)
         fimpact_df : DataFrame with threshold_hand values
 
     Returns:
         DataFrame with threshold_discharge column added, or None if no valid records
     """
-    hydrotable_path = os.path.join(fim_path, huc, 'branches', branch, f'hydroTable_{branch}.csv')
-    hydrotable_df = pd.read_csv(
-        hydrotable_path,
-        dtype={'HydroID': str, 'stage': float, 'discharge_cms': float},
-        usecols=['HydroID', 'stage', 'discharge_cms'],
-    )
-
     # Filter out geometries with threshold_hand exceeding HydroTable limits
     fimpact_df = fimpact_df[fimpact_df['threshold_hand'] <= MAX_HAND_THRESHOLD_M].copy()
 
@@ -199,7 +181,7 @@ def get_threshold_hand(fim_path, huc, branch, huc_geometries_gdf, file_logger, s
         hand_grid_array = hand_grid.read(1)
 
     # Read catchments to split geometries by HydroID
-    catchments_df = gpd.read_file(catchments_path, columns=['HydroID', 'feature_id', 'order_', 'geometry'])
+    catchments_df = gpd.read_parquet(catchments_path, columns=['HydroID', 'feature_id', 'order_', 'geometry'])
 
     # Ensure IDs are strings for consistency
     catchments_df['feature_id'] = catchments_df['feature_id'].astype(int).astype(str)
@@ -217,18 +199,24 @@ def get_threshold_hand(fim_path, huc, branch, huc_geometries_gdf, file_logger, s
 
     huc_geometries_split['branch'] = branch
 
-    # Calculate minimum HAND value for each geometry segment
-    stats = zonal_stats(
-        huc_geometries_split['geometry'],
-        hand_grid_array,
-        affine=hand_grid_profile['transform'],
-        nodata=hand_grid_profile["nodata"],
-        all_touched=True,
-        stats=[],
-        add_stats={"min_ex0": min_hand_excluding_zero},
-    )
+    # HAND uses 0 to mark channel cells, which we need to exclude from the min threshold.
+    # remap 0 -> nodata once here (single vectorized pass over the raster) so the built-in
+    # `min` stat below can exclude it natively, instead of a per-feature python callback.
+    nodata = hand_grid_profile['nodata']
+    hand_grid_array = np.where(hand_grid_array == 0, nodata, hand_grid_array)
 
-    huc_geometries_split.loc[:, 'threshold_hand'] = [x.get('min_ex0') for x in stats]
+    # Calculate minimum HAND value for each geometry segment
+    with rasterio.Env():
+        stats = zonal_stats(
+            huc_geometries_split['geometry'],
+            hand_grid_array,
+            affine=hand_grid_profile['transform'],
+            nodata=nodata,
+            all_touched=True,
+            stats=['min'],
+        )
+
+    huc_geometries_split.loc[:, 'threshold_hand'] = [x.get('min') for x in stats]
 
     # Convert from mm to meters (REM units changed in FIM pipeline)
     huc_geometries_split['threshold_hand'] = huc_geometries_split['threshold_hand'] / MM_TO_METERS
@@ -321,11 +309,19 @@ def process_one_huc_branch(
         if fimpact_df is None:
             return 1, [None]
 
-        fimpact_df = get_threshold_discharge(fim_path, huc, branch, fimpact_df)
+        # Load hydrotable once for this branch; reused for both threshold discharge and evaluated stage.
+        hydrotable_path = os.path.join(fim_path, huc, 'branches', branch, f'hydroTable_{branch}.csv')
+        hydrotable_df = pd.read_csv(
+            hydrotable_path,
+            dtype={'HydroID': str, 'stage': float, 'discharge_cms': float},
+            usecols=['HydroID', 'discharge_cms', 'stage'],
+        )
+
+        fimpact_df = get_threshold_discharge(hydrotable_df, fimpact_df)
         if fimpact_df is None:
             return 1, [None]
 
-        fimpact_df = compute_depth(fim_path, huc, branch, fimpact_df, flow_file_df)
+        fimpact_df = compute_depth(fimpact_df, flow_file_df, hydrotable_df)
 
         return 1, [fimpact_df]
 
@@ -345,7 +341,7 @@ def flood_depth_main(
     Args:
         fim_run_dir: Path to FIM outputs directory
         flow_file: Path to CSV flow file with 'feature_id' and 'discharge' columns
-        geometry_file: Path to input geometry file (e.g., roads geopackage)
+        geometry_file: Path to input geometry file, GPKG or Parquet (e.g., roads geopackage)
         output_file_path: Path to output GeoPackage or GeoParquet file
         max_workers: Number of parallel workers for multiprocessing (default: 8)
     """
@@ -365,7 +361,10 @@ def flood_depth_main(
     file_logger.info('Started flood depth analysis')
 
     # Read geometry data, make unique id, and manage crs
-    geometries_gdf = gpd.read_file(geometry_file)[['geometry']]
+    if geometry_file.lower().endswith('.parquet'):
+        geometries_gdf = gpd.read_parquet(geometry_file)[['geometry']]
+    else:
+        geometries_gdf = gpd.read_file(geometry_file)[['geometry']]
     geometries_gdf["geometry_unique_id"] = range(1, len(geometries_gdf) + 1)
 
     # Reproject to WGS84 for spatial join
@@ -483,7 +482,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-geom",
         "--geometry_file",
-        help="Path to input geometry file (e.g., roads geopackage).",
+        help="Path to input geometry file, GPKG or Parquet (e.g., roads geopackage).",
         required=True,
         type=str,
     )

@@ -20,7 +20,6 @@ import rioxarray as rxr
 import urllib3
 import xarray as xr
 from dotenv import load_dotenv
-from gval import CatStats
 from rasterio import features
 from rasterio.features import geometry_mask
 from rasterio.warp import Resampling, calculate_default_transform, reproject
@@ -492,6 +491,7 @@ def compute_stats_from_contingency_table(
         Refer to dictionary definition in bottom of function for statistic names.
 
     """
+    from gval import CatStats
 
     vals, keys = CatStats.process_statistics(
         func_names="all", tp=true_positives, tn=true_negatives, fp=false_positives, fn=false_negatives
@@ -656,6 +656,7 @@ def get_stats_table_from_binary_rasters(
         {true_negatives: int, false_negatives: int, false_positives: int, true_positives: int}
 
     """
+    import gval
 
     # Load benchmark and candidate data
     benchmark_raster = rxr.open_rasterio(benchmark_raster_path)

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+from contextlib import ExitStack
 from os.path import splitext
 from typing import Optional, Union
 from warnings import warn
@@ -11,6 +12,7 @@ import numpy as np
 import pandas as pd
 import rasterio
 import xarray as xr
+from rasterio.io import DatasetReader
 from rasterio.mask import mask
 from shapely.geometry import shape
 
@@ -136,27 +138,25 @@ def inundate(
     if hucs is None:
         assert not aggregate, "Pass HUCs file if aggregation is desired"
 
-    # bool quiet
-    quiet = bool(quiet)
-
+    stack = ExitStack()
     # input rem
     if isinstance(rem, str):
-        rem = rasterio.open(rem)
-    elif isinstance(rasterio.io.DatasetReader):
+        rem = stack.enter_context(rasterio.open(rem))
+    elif isinstance(rem, DatasetReader):
         pass
     else:
         raise TypeError("Pass rasterio DatasetReader or filepath for rem")
 
     # input catchments grid
     if isinstance(catchments, str):
-        catchments = rasterio.open(catchments)
-    elif isinstance(rasterio.io.DatasetReader):
+        catchments = stack.enter_context(rasterio.open(catchments))
+    elif isinstance(catchments, DatasetReader):
         pass
     else:
         raise TypeError("Pass rasterio DatasetReader or filepath for catchments")
 
     # check for matching number of bands and single band only
-    assert ((rem.transform * (0, 0)) == (catchments.transform * (0, 0))) & (
+    assert ((rem.transform * (0, 0)) == (catchments.transform * (0, 0))) and (
         (rem.transform * (rem.width, rem.height))
         == (catchments.transform * (catchments.width, catchments.height))
     ), "REM and catchments rasters require same upper left and lower right extents"
@@ -165,15 +165,11 @@ def inundate(
     if hucs is None:
         pass
     elif isinstance(hucs, str):
-        hucs = fiona.open(hucs, 'r', layer=hucs_layerName)
+        hucs = stack.enter_context(fiona.open(hucs, 'r', layer=hucs_layerName))
     elif isinstance(hucs, fiona.Collection):
         pass
     else:
         raise TypeError("Pass fiona collection or filepath for hucs")
-
-    # catchment stages dictionary
-    if hydro_table is None:
-        raise TypeError("Pass hydro table csv")
 
     depths_profile = rem.profile
     inundation_profile = catchments.profile
@@ -196,14 +192,18 @@ def inundate(
 
         inundation_profile.update(driver='GTiff', blockxsize=256, blockysize=256, tiled=True, nodata=0)
 
-        depth_rst = rasterio.open(depths, "w+", **depths_profile) if depths is not None else None
-        inundation_rst = (
-            rasterio.open(inundation_raster, "w+", **inundation_profile)
-            if (inundation_raster is not None and inundation_profile is not None)
-            else None
-        )
+        depth_rst = None
+        if depths is not None:
+            depth_rst = stack.enter_context(rasterio.open(depths, "w+", **depths_profile))
 
-        nodata = np.int16(inundation_profile['nodata']) if int_16 else np.int32(inundation_profile['nodata'])
+        inundation_rst = None
+        if inundation_raster is not None and inundation_profile is not None:
+            inundation_rst = stack.enter_context(rasterio.open(inundation_raster, "w+", **inundation_profile))
+
+        if int_16:
+            nodata = np.int16(inundation_profile['nodata'])
+        else:
+            nodata = np.int32(inundation_profile['nodata'])
 
         # make windows generator
         window_gen = __make_windows_generator(
@@ -235,10 +235,7 @@ def inundate(
             depth_rasters += [future[1]]
             inundation_polys += [future[2]]
 
-        if depth_rst is not None:
-            depth_rst.close()
-        if inundation_rst is not None:
-            inundation_rst.close()
+    stack.close()
 
     return inundation_rasters, depth_rasters, inundation_polys
 
@@ -464,9 +461,14 @@ def __make_windows_generator(
                 if hs.startswith(hucCode):
                     return hucCode
 
-            return None
-        
+        if isinstance(catchment_poly, str):
+            if os.path.splitext(catchment_poly)[-1].lower() == '.parquet':
+                catchment_poly = gpd.read_parquet(catchment_poly)
+            else:
+                catchment_poly = gpd.read_file(catchment_poly)
+
         for huc in hucs:
+            # returns hucCode if current huc is in hucSet (at least starts with)
 
             if __return_huc_in_hucSet(huc['properties'][hucColName], hucSet) is None:
                 continue
@@ -488,13 +490,11 @@ def __make_windows_generator(
                         raise TypeError("Pass geopandas dataset or filepath for catchment polygons")
 
                     fossid = huc['properties']['fossid']
-                    if catchment_poly.HydroID.dtype != 'str':
-                        catchment_poly.HydroID = catchment_poly.HydroID.astype(str)
-                    catchment_poly = catchment_poly[catchment_poly.HydroID.str.startswith(fossid)]
+                    hid = catchment_poly.HydroID.astype("string")
+                    catchments = catchment_poly.loc[hid.str.startswith(fossid)]
 
-                    rem_array, window_transform = mask(rem, catchment_poly['geometry'], crop=True, indexes=1)
-                    catchments_array, _ = mask(catchments, catchment_poly['geometry'], crop=True, indexes=1)
-                    del catchment_poly
+                    rem_array, window_transform = mask(rem, catchments['geometry'], crop=True, indexes=1)
+                    catchments_array, _ = mask(catchments, catchments['geometry'], crop=True, indexes=1)
                 elif mask_type is None:
                     pass
                 else:
@@ -678,24 +678,19 @@ def __subset_hydroTable_to_forecast(
             if isinstance(subset_hucs, list):
                 if len(subset_hucs) == 1:
                     try:
-                        subset_hucs = open(subset_hucs[0]).read().split('\n')
+                        with open(subset_hucs[0]) as fh:
+                            subset_hucs = fh.read().splitlines()
                     except FileNotFoundError:
                         pass
             elif isinstance(subset_hucs, str):
                 try:
-                    subset_hucs = open(subset_hucs).read().split('\n')
+                    with open(subset_hucs) as fh:
+                        subset_hucs = fh.read().splitlines()
                 except FileNotFoundError:
                     subset_hucs = [subset_hucs]
 
-            # subsets HUCS
-            subset_hucs_orig = subset_hucs.copy()
-            subset_hucs = []
-            for huc in np.unique(hydroTable.index.get_level_values('HUC')):
-                for sh in subset_hucs_orig:
-                    if huc.startswith(sh):
-                        subset_hucs += [huc]
-
-            hydroTable = hydroTable[np.in1d(hydroTable.index.get_level_values('HUC'), subset_hucs)]
+            mask = hydroTable.index.get_level_values("HUC").str.startswith(tuple(subset_hucs))
+            hydroTable = hydroTable.loc[mask]
 
     # join tables
     try:
@@ -743,7 +738,7 @@ def __subset_hydroTable_to_forecast(
                 catchmentStages_vals[i] = np.float32(h)
 
         # huc set
-        hucSet = [str(i) for i in hydroTable.index.get_level_values('HUC').unique().to_list()]
+        hucSet = hydroTable.index.get_level_values('HUC').unique().astype('string').to_list()
 
         # sort catchmentStages for efficient lookup
         sort_idx = np.argsort(catchmentStages_keys)
@@ -789,12 +784,6 @@ def read_nwm_forecast_file(forecast_file, rename_headers: Optional[bool] = True)
     flows_df = flows_df.dropna()
 
     return flows_df
-
-
-def __vprint(message, verbose):
-
-    if verbose:
-        print(message)
 
 
 def create_src_subset_csv(hydro_table: str, catchmentStagesDict: dict, src_table: str):

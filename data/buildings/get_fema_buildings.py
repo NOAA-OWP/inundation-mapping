@@ -130,7 +130,7 @@ def convert_gdb_to_parquet(gdb_dir, parquet_dir, selected_states):
 
         out_path = parquet_dir / f"{state}_structures.parquet"
         logging.info(f"[{state}] Writing -> {out_path}  (CRS={tgt_crs})")
-        write_geodataframe(gdf, out_path, index=False, compression="zstd", row_group_size=250_000)
+        write_geodataframe(gdf, out_path, index=False, row_group_size=250_000)
 
     logging.info(f"Done. Outputs in: {parquet_dir.resolve()}")
 
@@ -170,7 +170,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-o",
         "--output_dir",
-        help="REQUIRED: root output folder. Uses states_gdb/ and states_parquet/ subfolders.",
+        help="REQUIRED: root output folder. Creates states_gdb/ and states_parquet/ subfolders.",
         required=True,
     )
     parser.add_argument(

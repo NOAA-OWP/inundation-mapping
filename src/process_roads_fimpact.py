@@ -1,25 +1,10 @@
 import argparse
-import glob
-import os
-import re
 from pathlib import Path
 
 import geopandas as gpd
 import numpy as np
-import pandas as pd
 import rasterio
-import xarray as xr
-from rasterio import features
-from rasterio.warp import Resampling, reproject
 from rasterstats import zonal_stats
-
-
-def min_hand_excluding_zero(values):
-    # Convert to unmasked array and drop 0 and masked/nodata
-    # return np.nan if on NoData Hand to be able to filter them later
-    data = np.ma.filled(values.astype(float), np.nan)  # Convert masked to nan
-    valid = data[(data != 0) & (~np.isnan(data))]
-    return float(np.min(valid)) if valid.size > 0 else np.nan
 
 
 def process_roads_fimpact(
@@ -31,7 +16,7 @@ def process_roads_fimpact(
     Parameters:
     - source_hand_raster (str): REQUIRED. Path to the source HAND raster file
     - osm_road_vector (str): REQUIRED. Path to a GeoPackage (GPKG) file containing the road segments.
-    - catchments (srr): REQUIRED. Path to HAND catchment
+    - catchments (str): REQUIRED. Path to HAND catchment Geoparquet file
     - output_path (str): REQUIRED. Path where the output CSV file will be saved.
 
     """
@@ -70,19 +55,25 @@ def process_roads_fimpact(
     if not roads_gdf_splitted.empty:
         roads_gdf_splitted['branch'] = branch_id
 
-        # Call zonal_stats with the custom stat
-        stats = zonal_stats(
-            roads_gdf_splitted['geometry'],
-            hand_grid_array,
-            affine=hand_grid_profile['transform'],
-            nodata=hand_grid_profile["nodata"],
-            all_touched=True,
-            stats=[],  # No built-in stats needed
-            add_stats={"min_ex0": min_hand_excluding_zero},
-        )
+        # HAND uses 0 to mark channel cells, which we need to exclude from the min threshold.
+        # remap 0 -> nodata once here (single vectorized pass over the raster) so the built-in
+        # `min` stat below can exclude it natively, instead of a per-feature python callback.
+        nodata = hand_grid_profile['nodata']
+        hand_grid_array = np.where(hand_grid_array == 0, nodata, hand_grid_array)
+
+        # Call zonal_stats with the built-in min stat
+        with rasterio.Env():
+            stats = zonal_stats(
+                roads_gdf_splitted['geometry'],
+                hand_grid_array,
+                affine=hand_grid_profile['transform'],
+                nodata=nodata,
+                all_touched=True,
+                stats=['min'],
+            )
 
         # we do not care about the length of inundated roads... just the min hand anywhere along the length
-        roads_gdf_splitted.loc[:, 'threshold_hand'] = [x.get('min_ex0') for x in stats]
+        roads_gdf_splitted.loc[:, 'threshold_hand'] = [x.get('min') for x in stats]
 
         # it is possible that roads cross areas of a HAND with nan data (levee), so make sure to remove those Nan threshold hands
         roads_gdf_splitted = roads_gdf_splitted.dropna(subset=['threshold_hand'])
@@ -110,7 +101,7 @@ if __name__ == "__main__":
     Sample usage :
         python foss_fim/src/process_roads_fimpact.py
         -g outputs/roads/02050206/branches/0/rem_zeroed_masked_0.tif
-        -c outputs/roads/02050206/branches/0/gw_catchments_reaches_filtered_addedAttributes_crosswalked_0.gpkg
+        -c outputs/roads/02050206/branches/0/gw_catchments_reaches_filtered_addedAttributes_crosswalked_0.parquet
         -r outputs/roads/02050206/osm_roads_subset.gpkg
         -o outputs/roads/02050206/branches/0/osm_roads_fimpact_0.csv
 
@@ -130,10 +121,7 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        '-c',
-        '--catchments_path',
-        help='REQUIRED: Path and file name of the HAND catchments geopackage',
-        required=True,
+        '-c', '--catchments_path', help='REQUIRED: Path to the HAND catchments GeoParquet file', required=True
     )
 
     parser.add_argument(

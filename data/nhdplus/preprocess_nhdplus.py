@@ -3,12 +3,14 @@
 import argparse
 import os
 import sys
+from datetime import datetime, timezone
 
 import geopandas as gpd
 import py7zr
 import rasterio as rio
 from osgeo import gdal
 
+import src.utils.shared_functions as sf
 from data.create_vrt_file import create_vrt_file
 from data.derive_headwaters import findHeadWaterPoints
 from data.nfhl.download_fema_nfhl import download_nfhl_wrapper
@@ -29,26 +31,26 @@ def preprocess_nhdplus(region: str, inputs_dir: str):
     # Datasets downloaded from https://www.epa.gov/waterdata/
     """
 
+    nhdplus_root_raw = f'{inputs_dir}/nhdplus'
+    os.makedirs(nhdplus_root_raw, exist_ok=True)
+
     if region == 'Guam':
         region_code = '22GU'
         region_number = '22a'
         huc = '22010000'
         target_crs_number = '6637'
-        nhdplus_root_raw = f'{inputs_dir}/nhdplus/'
-        dem_file = f'{nhdplus_root_raw}/NHDPlusPI/NHDPlus{region_code}/NEDSnapshot/Ned{region_number}/elev_cm'
-        nhd_path = f'{nhdplus_root_raw}/NHDPlusPI/NHDPlus{region_code}/NHDSnapshot/Hydrography'
+        nhdplus_path = f'{nhdplus_root_raw}/NHDPlusPI/NHDPlus{region_code}'
+        dem_file = f'{nhdplus_path}/NEDSnapshot/Ned{region_number}/elev_cm'
+        nhd_path = f'{nhdplus_path}/NHDSnapshot/Hydrography'
 
     elif region == 'AmericanSamoa':
         region_code = '22AS'
         region_number = '22c'
         huc = '22030001'
         target_crs_number = '32702'
-        nhdplus_root_raw = f'{inputs_dir}/nhdplus/'
         nhdplus_path = f'{nhdplus_root_raw}/NHDPlusPI/NHDPlus{region_code}'
         dem_file = f'{nhdplus_path}/NEDSnapshot/ned{region_number}/elev_cm'
         nhd_path = f'{nhdplus_path}/NHDSnapshot/hydrography'
-
-    os.makedirs(nhdplus_root_raw, exist_ok=True)
 
     preprocess_region(
         region,
@@ -192,7 +194,11 @@ def preprocess_region(
     create_vrt_file(target_dem_folder, 'hand_seamless_3dep_dems.vrt')
 
     # Create DEM_Domain.parquet
-    __polygonize(target_dem_folder)
+    file_dt_string = datetime.now(timezone.utc).strftime("%Y_%m_%d-%H_%M_%S")
+    log_file_path = os.path.join(target_dem_folder, f"preprocess_nhdplus_{region}-{file_dt_string}.log")
+    file_logger = sf.setup_mp_file_logger(log_file_path, f"preprocess_nhdplus_{region}")
+
+    __polygonize(target_dem_folder, file_logger)
 
     # Extract and reproject NHDPlus streams
     nhd_flowline = os.path.join(nhd_path, 'NHDFlowline.shp')
@@ -272,6 +278,16 @@ def preprocess_region(
 
 
 if __name__ == "__main__":
+    """
+    Example usage:
+
+        Guam
+            python3 /foss_fim/data/nhdplus/preprocess_nhdplus.py -r Guam -i /outputs/temp/Guam
+
+        American Samoa
+            python3 /foss_fim/data/nhdplus/preprocess_nhdplus.py -r AmericanSamoa -i /outputs/temp/AmericanSamoa
+    """
+
     parser = argparse.ArgumentParser(description="Preprocess NHDPlus data for a specified region.")
     parser.add_argument(
         "-r",
