@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-import os
 import argparse
+import os
 from contextlib import ExitStack
 from os.path import splitext
 from typing import List, Optional, Tuple, Union
@@ -293,11 +293,7 @@ def __inundate_in_huc(
     #     __vprint("Inundating {} ...".format(hucCode), not quiet)
 
     rem, catchments = _fast_inundate(
-        rem_array,
-        catchments_array,
-        catchmentStagesDict,
-        inundation_nodata,
-        min_value,
+        rem_array, catchments_array, catchmentStagesDict, inundation_nodata, min_value
     )
 
     if depths is not None:
@@ -333,7 +329,7 @@ def _fast_inundate(rem, catchment, stage_dict, nodata_c, min_value):
 
     keys, values = stage_dict
     idx = np.searchsorted(keys, vc)
-    np.minimum(idx, len(keys)-1, out=idx)
+    np.minimum(idx, len(keys) - 1, out=idx)
     mask = keys[idx] == vc
 
     if np.any(mask):
@@ -345,9 +341,9 @@ def _fast_inundate(rem, catchment, stage_dict, nodata_c, min_value):
         np.greater_equal(depths, min_value, out=tmp)
         np.logical_and(mask, tmp, out=mask)
         del tmp
-        #mask = mask & (vr >= 0) & (depths >= min_value)
+        # mask = mask & (vr >= 0) & (depths >= min_value)
         np.copyto(vr, depths, where=mask)
-    
+
         mask = np.logical_not(mask, out=mask)
         vr[mask] = 0
         vc[mask] *= -1
@@ -709,8 +705,6 @@ def __subset_hydroTable_to_forecast(
         else:
             catchmentStages_keys = np.empty(hid_groups.ngroups, dtype='int32')
             catchmentStages_vals = np.empty(hid_groups.ngroups, dtype='float32')
-
-
 
         # interpolate stages
         for i, (hid, sub_table) in enumerate(hydroTable.groupby(level='HydroID')):
