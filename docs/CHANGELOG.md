@@ -8,6 +8,9 @@ Remove numba runtime dependency for LoFi.
 ### Changes
 - `tools/lofi/probabilistic_distribution_parameters.py`: Replace numba code with vectorized numpy.
 - `tools/inundation.py`: Replace numba code with vectorized numpy.
+
+<br/>
+
 ## v4.10.3.2 - 2026-11-06 - [PR##1946](https://github.com/NOAA-OWP/inundation-mapping/pull/1946)
 
 Bug fix for a missing `nhdplus_path` variable when running Guam in `data/nhdplus/preprocess_nhdplus.py`.

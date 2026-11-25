@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-
+import os
 import argparse
 from contextlib import ExitStack
 from os.path import splitext
-from typing import Optional, Union
+from typing import List, Optional, Tuple, Union
 from warnings import warn
 
 import fiona
@@ -289,8 +289,8 @@ def __inundate_in_huc(
 
     """
     # verbose print
-    if hucCode is not None:
-        __vprint("Inundating {} ...".format(hucCode), not quiet)
+    # if hucCode is not None:
+    #     __vprint("Inundating {} ...".format(hucCode), not quiet)
 
     rem, catchments = _fast_inundate(
         rem_array,
